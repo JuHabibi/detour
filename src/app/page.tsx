@@ -8,12 +8,12 @@ import {
   createNextAiAssessmentReadThrough,
   invalidateNextAiAssessmentCache,
 } from "@/infrastructure/ai/next-ai-assessment-cache";
-import { OrleansEventAdapter } from "@/infrastructure/sources/orleans/orleans-event.adapter";
+import { createDetourEventSource } from "@/infrastructure/create-detour-event-source";
 
 const UPCOMING_WINDOW_DAYS = 180;
 
 const eventService = new EventService(
-  new OrleansEventAdapter(),
+  createDetourEventSource(),
   createHighlightAssessmentProvider(),
   {
     aiConfig: getAiConfig(),

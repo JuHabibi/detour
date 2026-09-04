@@ -1,0 +1,367 @@
+{
+  "windowDays": 180,
+  "from": "2026-09-04T14:35:25.392Z",
+  "to": "2027-03-03T15:35:25.392Z",
+  "totalEventsInCorpus": 696,
+  "totalEventsOnV1": 689,
+  "distinctSourcesOnV1": 15,
+  "communesNone": [
+    "Saint-Pryvé-Saint-Mesmin",
+    "Boigny-sur-Bionne"
+  ],
+  "communesWeak": [
+    "Saran",
+    "Ingré",
+    "Ormes",
+    "Mardié"
+  ],
+  "communesGood": [
+    "Orléans",
+    "Fleury-les-Aubrais",
+    "Olivet",
+    "Saint-Jean-de-Braye",
+    "Saint-Jean-de-la-Ruelle",
+    "Saint-Jean-le-Blanc",
+    "Chécy",
+    "La Chapelle-Saint-Mesmin",
+    "Semoy"
+  ],
+  "rows": [
+    {
+      "commune": "Orléans",
+      "events": 449,
+      "sources": 6,
+      "topSources": [
+        "Agenda Médiathèques Orléans (213)",
+        "Agenda de sorties dans la métropole orléanaise (172)",
+        "Agenda des musées d’Orléans (37)"
+      ],
+      "withImage": 449,
+      "withBooking": 236,
+      "withCoords": 449,
+      "topCategories": [
+        "Stage - atelier -  jeu (161)",
+        "Conférence - rencontre - débat (45)",
+        "Balade - découverte - visite (40)"
+      ],
+      "firstStartAt": "2026-09-04T17:00:00+02:00",
+      "lastStartAt": "2027-03-03T14:00:00+01:00",
+      "coverage": "good",
+      "rawCityVariants": [
+        "Orleans",
+        "Orléans"
+      ]
+    },
+    {
+      "commune": "Fleury-les-Aubrais",
+      "events": 24,
+      "sources": 5,
+      "topSources": [
+        "Agenda de sorties dans la métropole orléanaise (10)",
+        "Bibliothèques de Fleury-les-Aubrais (7)",
+        "Ville de Fleury-les-Aubrais (4)"
+      ],
+      "withImage": 24,
+      "withBooking": 15,
+      "withCoords": 24,
+      "topCategories": [
+        "Spectacle (8)",
+        "Conférence - rencontre - débat (3)",
+        "Jeune public (2)"
+      ],
+      "firstStartAt": "2026-09-05T10:00:00+02:00",
+      "lastStartAt": "2026-12-16T10:30:00+01:00",
+      "coverage": "good",
+      "rawCityVariants": [
+        "Fleury-les-Aubrais"
+      ]
+    },
+    {
+      "commune": "Olivet",
+      "events": 42,
+      "sources": 4,
+      "topSources": [
+        "Maison des Jeunes et de la Culture (MJC) d'Olivet (25)",
+        "Ville d'Olivet (15)",
+        "Agenda de sorties dans la métropole orléanaise (1)"
+      ],
+      "withImage": 38,
+      "withBooking": 12,
+      "withCoords": 42,
+      "topCategories": [
+        "Stage - atelier -  jeu (19)",
+        "Sport (4)",
+        "Conférence - rencontre - débat (3)"
+      ],
+      "firstStartAt": "2026-09-04T17:15:00+02:00",
+      "lastStartAt": "2027-02-17T16:45:00+01:00",
+      "coverage": "good",
+      "rawCityVariants": [
+        "Olivet"
+      ]
+    },
+    {
+      "commune": "Saint-Jean-de-Braye",
+      "events": 17,
+      "sources": 2,
+      "topSources": [
+        "Agenda de sorties dans la métropole orléanaise (10)",
+        "Ville de Saint-Jean de Braye (7)"
+      ],
+      "withImage": 17,
+      "withBooking": 16,
+      "withCoords": 17,
+      "topCategories": [
+        "Musique (6)",
+        "Spectacle (4)",
+        "Spectacle;Jeune public (4)"
+      ],
+      "firstStartAt": "2026-09-19T14:00:00+02:00",
+      "lastStartAt": "2027-02-14T16:30:00+01:00",
+      "coverage": "good",
+      "rawCityVariants": [
+        "Saint-Jean-de-Braye"
+      ]
+    },
+    {
+      "commune": "Saint-Jean-de-la-Ruelle",
+      "events": 108,
+      "sources": 1,
+      "topSources": [
+        "Agenda de sorties dans la métropole orléanaise (108)"
+      ],
+      "withImage": 108,
+      "withBooking": 0,
+      "withCoords": 108,
+      "topCategories": [
+        "Stage - atelier -  jeu (64)",
+        "Stage - atelier -  jeu;Jeune public (11)",
+        "Spectacle (6)"
+      ],
+      "firstStartAt": "2026-09-05T14:00:00+02:00",
+      "lastStartAt": "2027-02-13T18:00:00+01:00",
+      "coverage": "good",
+      "rawCityVariants": [
+        "Saint-Jean-de-la-Ruelle"
+      ]
+    },
+    {
+      "commune": "Saint-Jean-le-Blanc",
+      "events": 6,
+      "sources": 2,
+      "topSources": [
+        "Agenda de sorties dans la métropole orléanaise (3)",
+        "Cie des Elles et des Ils (3)"
+      ],
+      "withImage": 6,
+      "withBooking": 4,
+      "withCoords": 6,
+      "topCategories": [
+        "Spectacle (3)",
+        "Sport (1)",
+        "Sport;Jeune public;Balade - découverte - visite (1)"
+      ],
+      "firstStartAt": "2026-09-11T13:30:00+02:00",
+      "lastStartAt": "2026-11-30T14:30:00+01:00",
+      "coverage": "good",
+      "rawCityVariants": [
+        "Saint-Jean-le-Blanc"
+      ]
+    },
+    {
+      "commune": "Saran",
+      "events": 1,
+      "sources": 1,
+      "topSources": [
+        "Agenda de sorties dans la métropole orléanaise (1)"
+      ],
+      "withImage": 1,
+      "withBooking": 1,
+      "withCoords": 1,
+      "topCategories": [
+        "Spectacle (1)"
+      ],
+      "firstStartAt": "2027-01-07T19:30:00+01:00",
+      "lastStartAt": "2027-01-07T19:30:00+01:00",
+      "coverage": "weak",
+      "rawCityVariants": [
+        "Saran"
+      ]
+    },
+    {
+      "commune": "Chécy",
+      "events": 20,
+      "sources": 1,
+      "topSources": [
+        "Agenda de  Chécy (20)"
+      ],
+      "withImage": 20,
+      "withBooking": 19,
+      "withCoords": 20,
+      "topCategories": [
+        "Spectacle (6)",
+        "Stage - atelier -  jeu (6)",
+        "Musique (2)"
+      ],
+      "firstStartAt": "2026-09-06T09:30:00+02:00",
+      "lastStartAt": "2027-02-03T15:00:00+01:00",
+      "coverage": "good",
+      "rawCityVariants": [
+        "Chécy"
+      ]
+    },
+    {
+      "commune": "La Chapelle-Saint-Mesmin",
+      "events": 13,
+      "sources": 3,
+      "topSources": [
+        "Cie des Elles et des Ils (10)",
+        "Journées européennes du patrimoine 2026 - Centre-Val de Loire (2)",
+        "Agenda de sorties dans la métropole orléanaise (1)"
+      ],
+      "withImage": 13,
+      "withBooking": 12,
+      "withCoords": 13,
+      "topCategories": [
+        "Spectacle (11)",
+        "Balade - découverte - visite (2)"
+      ],
+      "firstStartAt": "2026-09-18T20:30:00+02:00",
+      "lastStartAt": "2026-11-29T15:00:00+01:00",
+      "coverage": "good",
+      "rawCityVariants": [
+        "La Chapelle-Saint-Mesmin"
+      ]
+    },
+    {
+      "commune": "Semoy",
+      "events": 6,
+      "sources": 3,
+      "topSources": [
+        "Ville de Semoy (3)",
+        "Agenda de sorties dans la métropole orléanaise (2)",
+        "Cie des Elles et des Ils (1)"
+      ],
+      "withImage": 6,
+      "withBooking": 3,
+      "withCoords": 6,
+      "topCategories": [
+        "Fête - salon - marché (2)",
+        "Spectacle (2)",
+        "Exposition (1)"
+      ],
+      "firstStartAt": "2026-09-05T10:00:00+02:00",
+      "lastStartAt": "2026-11-29T09:30:00+01:00",
+      "coverage": "good",
+      "rawCityVariants": [
+        "Semoy"
+      ]
+    },
+    {
+      "commune": "Ingré",
+      "events": 1,
+      "sources": 1,
+      "topSources": [
+        "Agenda de sorties dans la métropole orléanaise (1)"
+      ],
+      "withImage": 1,
+      "withBooking": 0,
+      "withCoords": 1,
+      "topCategories": [
+        "Stage - atelier -  jeu (1)"
+      ],
+      "firstStartAt": "2026-09-14T17:30:00+02:00",
+      "lastStartAt": "2026-09-14T17:30:00+02:00",
+      "coverage": "weak",
+      "rawCityVariants": [
+        "Ingré"
+      ]
+    },
+    {
+      "commune": "Saint-Pryvé-Saint-Mesmin",
+      "events": 0,
+      "sources": 0,
+      "topSources": [],
+      "withImage": 0,
+      "withBooking": 0,
+      "withCoords": 0,
+      "topCategories": [],
+      "firstStartAt": null,
+      "lastStartAt": null,
+      "coverage": "none",
+      "rawCityVariants": []
+    },
+    {
+      "commune": "Ormes",
+      "events": 1,
+      "sources": 1,
+      "topSources": [
+        "Agenda de sorties dans la métropole orléanaise (1)"
+      ],
+      "withImage": 1,
+      "withBooking": 1,
+      "withCoords": 1,
+      "topCategories": [
+        "Musique;Spectacle (1)"
+      ],
+      "firstStartAt": "2026-09-05T19:00:00+02:00",
+      "lastStartAt": "2026-09-05T19:00:00+02:00",
+      "coverage": "weak",
+      "rawCityVariants": [
+        "Ormes"
+      ]
+    },
+    {
+      "commune": "Boigny-sur-Bionne",
+      "events": 0,
+      "sources": 0,
+      "topSources": [],
+      "withImage": 0,
+      "withBooking": 0,
+      "withCoords": 0,
+      "topCategories": [],
+      "firstStartAt": null,
+      "lastStartAt": null,
+      "coverage": "none",
+      "rawCityVariants": []
+    },
+    {
+      "commune": "Mardié",
+      "events": 1,
+      "sources": 1,
+      "topSources": [
+        "Agenda de sorties dans la métropole orléanaise (1)"
+      ],
+      "withImage": 1,
+      "withBooking": 0,
+      "withCoords": 1,
+      "topCategories": [
+        "Fête - salon - marché;Musique (1)"
+      ],
+      "firstStartAt": "2026-09-05T16:00:00+02:00",
+      "lastStartAt": "2026-09-05T16:00:00+02:00",
+      "coverage": "weak",
+      "rawCityVariants": [
+        "Mardié"
+      ]
+    }
+  ],
+  "outsideV1Top": [
+    {
+      "city": "Saint-Hilaire-Saint-Mesmin",
+      "events": 3
+    },
+    {
+      "city": "Saint-Denis-en-Val",
+      "events": 2
+    },
+    {
+      "city": "Bou",
+      "events": 1
+    },
+    {
+      "city": "Loury",
+      "events": 1
+    }
+  ]
+}

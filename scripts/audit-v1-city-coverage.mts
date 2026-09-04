@@ -3,8 +3,8 @@
  * Usage : npx tsx scripts/audit-v1-city-coverage.mts
  */
 import { writeFileSync } from "node:fs";
-import { OrleansEventAdapter } from "../src/infrastructure/sources/orleans/orleans-event.adapter.ts";
-import { buildV1CityCoverageReport } from "../src/domain/v1-city-coverage.ts";
+import { OrleansEventAdapter } from "../src/infrastructure/sources/orleans/orleans-event.adapter";
+import { buildV1CityCoverageReport } from "../src/domain/v1-city-coverage";
 
 const WINDOW_DAYS = 180;
 

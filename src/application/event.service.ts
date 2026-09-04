@@ -43,6 +43,13 @@ export type UpcomingEventsAiMeta = {
   assessedAt: string | null;
 };
 
+export type SourceCoverageStat = {
+  source: string;
+  rawCount: number;
+  classifiedCount: number;
+  dedupedCount: number;
+};
+
 export type UpcomingEventsResult = {
   events: DetourEvent[];
   highlights: EventHighlight[];
@@ -60,6 +67,8 @@ export type UpcomingEventsResult = {
   duplicates: EventDuplicate[];
   rawCount: number;
   classifiedEvents: DetourEvent[];
+  /** Couverture par libellé `event.source` — debug multi-source. */
+  sourceCoverage: SourceCoverageStat[];
 };
 
 export type EventServiceOptions = {
@@ -199,6 +208,11 @@ export class EventService {
       duplicates: pipeline.duplicates,
       rawCount: pipeline.rawEvents.length,
       classifiedEvents: pipeline.classifiedEvents,
+      sourceCoverage: buildSourceCoverage(
+        pipeline.rawEvents,
+        pipeline.classifiedEvents,
+        pipeline.events,
+      ),
     };
   }
 
@@ -224,4 +238,30 @@ export class EventService {
       },
     });
   }
+}
+
+function buildSourceCoverage(
+  rawEvents: DetourEvent[],
+  classifiedEvents: DetourEvent[],
+  dedupedEvents: DetourEvent[],
+): SourceCoverageStat[] {
+  const keys = new Set<string>();
+  for (const event of [...rawEvents, ...classifiedEvents, ...dedupedEvents]) {
+    keys.add(event.source?.trim() || "(sans source)");
+  }
+
+  return [...keys]
+    .sort((a, b) => a.localeCompare(b, "fr"))
+    .map((source) => ({
+      source,
+      rawCount: countBySource(rawEvents, source),
+      classifiedCount: countBySource(classifiedEvents, source),
+      dedupedCount: countBySource(dedupedEvents, source),
+    }));
+}
+
+function countBySource(events: DetourEvent[], source: string): number {
+  return events.filter(
+    (event) => (event.source?.trim() || "(sans source)") === source,
+  ).length;
 }

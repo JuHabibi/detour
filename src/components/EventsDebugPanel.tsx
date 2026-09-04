@@ -79,6 +79,12 @@ export type EventsDebugMeta = {
   highlightCandidates?: HighlightDebug[];
   aiAssessments?: AiHighlightDebug[];
   planningEvents?: PlanningEventDebug[];
+  sourceCoverage?: Array<{
+    source: string;
+    rawCount: number;
+    classifiedCount: number;
+    dedupedCount: number;
+  }>;
   aiRuntime?: {
     mode: "manual" | "auto" | "disabled";
     source: "fresh" | "cache" | "fallback";
@@ -238,6 +244,49 @@ export function EventsDebugPanel({
                   value={meta.scoredCandidatesCount ?? "—"}
                 />
               </dl>
+            ) : null}
+
+            {meta?.sourceCoverage && meta.sourceCoverage.length > 0 ? (
+              <div className="space-y-3">
+                <h3 className="font-display text-lg tracking-tight">
+                  Source coverage
+                </h3>
+                <div className="overflow-x-auto rounded-xl border border-line bg-paper">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="border-b border-line bg-foam/60 text-[10px] uppercase tracking-[0.14em] text-sand">
+                      <tr>
+                        <th className="px-3 py-2.5 font-medium">Source</th>
+                        <th className="px-3 py-2.5 font-medium">Raw</th>
+                        <th className="px-3 py-2.5 font-medium">
+                          Classified
+                        </th>
+                        <th className="px-3 py-2.5 font-medium">Deduped</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {meta.sourceCoverage.map((row) => (
+                        <tr
+                          key={row.source}
+                          className="border-b border-line/70 last:border-b-0"
+                        >
+                          <td className="max-w-[20rem] px-3 py-2.5 font-medium text-ink">
+                            {row.source}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {row.rawCount}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {row.classifiedCount}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {row.dedupedCount}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             ) : null}
 
             {meta?.aiRuntime ? (

@@ -79,6 +79,7 @@ export function buildEventsDebugMeta(
     duplicates,
     rawCount,
     classifiedEvents,
+    sourceCoverage,
   } = result;
 
   const byId = new Map(
@@ -158,6 +159,8 @@ export function buildEventsDebugMeta(
       planningEvents.length > 0
         ? planningEvents.map(toPlanningDebug)
         : undefined,
+    sourceCoverage:
+      sourceCoverage.length > 0 ? sourceCoverage : undefined,
     aiRuntime: {
       mode: aiMeta.displayMode,
       source: aiMeta.source,
