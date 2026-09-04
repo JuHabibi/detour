@@ -32,10 +32,12 @@ const GRID_TITLES: Record<WhenFilter, string> = {
 
 type HomePageProps = {
   events: EventItem[];
+  /** Sélection éditoriale « Faites un détour » — indépendante des filtres. */
+  highlights: EventItem[];
   debugMeta?: EventsDebugMeta;
 };
 
-export function HomePage({ events, debugMeta }: HomePageProps) {
+export function HomePage({ events, highlights, debugMeta }: HomePageProps) {
   const [when, setWhen] = useState<WhenFilter>("weekend");
   const [radius, setRadius] = useState<RadiusFilter>(15);
   const [category, setCategory] = useState<CategoryId>("tout");
@@ -50,13 +52,6 @@ export function HomePage({ events, debugMeta }: HomePageProps) {
           event.distanceKm == null || event.distanceKm <= radius,
       ),
     [events, radius],
-  );
-
-  // Sections temporaires basées sur la chronologie / le calendrier,
-  // pas sur un ranking éditorial (à venir dans EventService).
-  const detourEvents = useMemo(
-    () => withinRadius.slice(0, 4),
-    [withinRadius],
   );
 
   const filteredEvents = useMemo(() => {
@@ -106,7 +101,7 @@ export function HomePage({ events, debugMeta }: HomePageProps) {
       <main>
         <HeroFilters />
         <DetourSection
-          events={detourEvents}
+          events={highlights}
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
         />
