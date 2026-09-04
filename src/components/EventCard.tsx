@@ -10,6 +10,10 @@ type CardProps = {
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
   priority?: boolean;
+  /** row = image + texte côte à côte (section éditoriale). */
+  layout?: "stack" | "row";
+  /** Hiérarchie légère (titre) — pas une carte hero. */
+  emphasis?: boolean;
 };
 
 type EventCardProps = CardProps & {
@@ -74,13 +78,13 @@ export function FeaturedEventCard({
       )}
     >
       <EventActionLink event={event} />
-      <div className="relative aspect-[4/5] overflow-hidden rounded-[1.35rem] sm:aspect-[16/11] md:aspect-auto md:min-h-[21rem] md:flex-1">
+      <div className="relative aspect-[4/5] overflow-hidden rounded-[1.35rem] sm:aspect-[16/10] lg:aspect-auto lg:min-h-0 lg:flex-1">
         <Image
           src={event.image}
           alt={event.imageAlt ?? event.title}
           fill
           priority={priority}
-          sizes="(max-width: 768px) 100vw, 58vw"
+          sizes="(max-width: 1024px) 100vw, 58vw"
           className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -104,14 +108,14 @@ export function FeaturedEventCard({
           />
         ) : null}
 
-        <div className="absolute inset-x-0 bottom-0 p-5 text-white md:p-6">
-          <h3 className="max-w-xl font-display text-[1.9rem] leading-[0.95] sm:text-4xl md:text-[2.45rem]">
+        <div className="absolute inset-x-0 bottom-0 p-5 text-white md:p-5 lg:p-6">
+          <h3 className="max-w-xl font-display text-[1.75rem] leading-[0.98] sm:text-[2.1rem] lg:text-[2.2rem]">
             {event.title}
           </h3>
           {event.venue ? (
-            <p className="mt-2.5 text-sm text-white/80">{event.venue}</p>
+            <p className="mt-2 text-sm text-white/80">{event.venue}</p>
           ) : null}
-          <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+          <div className="mt-2.5 flex flex-wrap items-end justify-between gap-3">
             <div className="space-y-1 text-sm">
               <LocationLine
                 city={event.city}
@@ -133,13 +137,95 @@ export function FeaturedEventCard({
 }
 
 export function StandardEventCard(props: CardProps) {
-  const { event, isFavorite = false, onToggleFavorite, priority = false } = props;
-  if (!event.image) return <TextEventCard {...props} />;
+  const {
+    event,
+    isFavorite = false,
+    onToggleFavorite,
+    priority = false,
+    layout = "stack",
+    emphasis = false,
+  } = props;
+  if (!event.image) {
+    return (
+      <TextEventCard
+        {...props}
+        featured={emphasis || layout === "row"}
+      />
+    );
+  }
 
   const imageSrc: string = event.image;
   const priceLabel = formatPrice(event.price);
   const whenLabel = formatWhen(event);
   const signal = resolveSignal(event);
+
+  if (layout === "row") {
+    return (
+      <article
+        className={cn(
+          "group relative flex h-full min-h-[7.5rem] gap-3.5 sm:min-h-[8.25rem] sm:gap-4",
+          resolveEventAction(event).href && "cursor-pointer",
+        )}
+      >
+        <EventActionLink event={event} />
+        <div className="relative w-[38%] max-w-[11.5rem] shrink-0 overflow-hidden rounded-[1.05rem] sm:w-[40%]">
+          <Image
+            src={imageSrc}
+            alt={event.imageAlt ?? event.title}
+            fill
+            priority={priority}
+            sizes="(max-width: 1024px) 40vw, 18vw"
+            className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+          />
+          {signal ? (
+            <span className="absolute left-2.5 top-2.5 z-[2] rounded-full bg-paper/92 px-2 py-0.5 text-[10px] text-ink">
+              {signal}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="relative flex min-w-0 flex-1 flex-col py-0.5 pr-1">
+          <div className="flex items-start justify-between gap-2">
+            {event.genre ? (
+              <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
+                {event.genre}
+              </p>
+            ) : (
+              <span />
+            )}
+            {onToggleFavorite ? (
+              <FavoriteButton
+                isFavorite={isFavorite}
+                onClick={() => onToggleFavorite(event.id)}
+                className="relative z-[2] size-8 shrink-0"
+              />
+            ) : null}
+          </div>
+          <h3 className="mt-1 font-display text-[1.35rem] leading-tight sm:text-[1.45rem]">
+            {event.title}
+          </h3>
+          {event.venue ? (
+            <p className="mt-1.5 line-clamp-1 text-sm text-cream-dim">
+              {event.venue}
+            </p>
+          ) : null}
+          <div className="mt-1 text-sm">
+            <LocationLine
+              city={event.city}
+              distanceKm={event.distanceKm}
+              cityClassName="text-cream-dim"
+              sepClassName="text-sand"
+              distanceClassName="font-medium text-ink"
+            />
+          </div>
+          <div className="mt-auto flex items-end justify-between gap-3 pt-2 text-sm">
+            <p className="text-cream-dim">{whenLabel}</p>
+            {priceLabel ? <p className="text-ink">{priceLabel}</p> : null}
+          </div>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article
@@ -155,8 +241,8 @@ export function StandardEventCard(props: CardProps) {
           alt={event.imageAlt ?? event.title}
           fill
           priority={priority}
-          sizes="(max-width: 768px) 100vw, 33vw"
-          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"
+          className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03]"
         />
         {signal ? (
           <span className="absolute left-3 top-3 z-[2] rounded-full bg-paper/92 px-2.5 py-1 text-[10px] text-ink">
@@ -178,11 +264,11 @@ export function StandardEventCard(props: CardProps) {
             {event.genre}
           </p>
         ) : null}
-        <h3 className="mt-1.5 font-display text-[1.4rem] leading-tight">
+        <h3 className="mt-1.5 line-clamp-2 font-display text-[1.4rem] leading-tight tracking-tight">
           {event.title}
         </h3>
         {event.venue ? (
-          <p className="mt-2 text-sm text-cream-dim">{event.venue}</p>
+          <p className="mt-2 line-clamp-1 text-sm text-cream-dim">{event.venue}</p>
         ) : null}
         <div className="mt-1 text-sm">
           <LocationLine
@@ -223,7 +309,9 @@ export function TextEventCard({
       className={cn(
         "group relative flex h-full flex-col overflow-hidden rounded-[1.25rem]",
         pastel,
-        featured ? "min-h-[16rem] md:min-h-[21rem]" : "min-h-[15.5rem]",
+        featured
+          ? "min-h-[14.5rem] md:min-h-[16.5rem] lg:min-h-0"
+          : "min-h-[15.5rem]",
         resolveEventAction(event).href && "cursor-pointer",
       )}
     >

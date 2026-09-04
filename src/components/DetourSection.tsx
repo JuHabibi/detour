@@ -1,4 +1,4 @@
-import { FeaturedEventCard, StandardEventCard } from "@/components/EventCard";
+import { StandardEventCard } from "@/components/EventCard";
 import type { EventItem } from "@/data/types";
 
 type DetourSectionProps = {
@@ -12,14 +12,12 @@ export function DetourSection({
   favorites,
   onToggleFavorite,
 }: DetourSectionProps) {
-  const [featured, ...rest] = events;
-  if (!featured) return null;
-
-  const secondary = rest.slice(0, 3);
+  const picks = events.slice(0, 4);
+  if (picks.length === 0) return null;
 
   return (
     <section id="detour" className="scroll-mt-24 bg-mint/20">
-      <div className="mx-auto max-w-[1440px] px-5 py-8 md:px-8 md:py-11 lg:px-12">
+      <div className="mx-auto max-w-[1440px] px-5 py-7 md:px-8 md:py-9 lg:px-12">
         <div className="mb-5 md:mb-6">
           <p className="text-[11px] uppercase tracking-[0.28em] text-sand">
             Découverte
@@ -32,26 +30,16 @@ export function DetourSection({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:gap-4">
-          <div className="lg:col-span-7">
-            <FeaturedEventCard
-              event={featured}
-              priority
-              isFavorite={favorites.has(featured.id)}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-7">
+          {picks.map((event, index) => (
+            <StandardEventCard
+              key={event.id}
+              event={event}
+              priority={index < 2}
+              isFavorite={favorites.has(event.id)}
               onToggleFavorite={onToggleFavorite}
             />
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1 lg:gap-4">
-            {secondary.map((event, index) => (
-              <StandardEventCard
-                key={event.id}
-                event={event}
-                priority={index === 0}
-                isFavorite={favorites.has(event.id)}
-                onToggleFavorite={onToggleFavorite}
-              />
-            ))}
-          </div>
+          ))}
         </div>
       </div>
     </section>
