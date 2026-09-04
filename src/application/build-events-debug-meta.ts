@@ -32,7 +32,6 @@ function resolveHighlightEditorialBadge(
   return resolveEditorialBadge({
     planningNeed: ai.planningNeed,
     localRarity: ai.localRarity,
-    likelyDemand: ai.likelyDemand,
     missRisk: ai.missRisk,
     confidence: ai.confidence,
     reasons: ai.aiReasons,

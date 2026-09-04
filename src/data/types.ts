@@ -75,5 +75,4 @@ export type EditorialBadge =
   | "À réserver"
   | "À anticiper"
   | "Passage rare"
-  | "Fort potentiel"
   | "Pépite locale";

@@ -2,6 +2,7 @@
  * Pastille éditoriale « Faites un détour » — une seule, priorité fixe.
  * Seuils dimensions 0–5 : « élevé » = ≥ 3.
  * Confidence 0–1 : « élevé » = ≥ 0.7.
+ * likelyDemand reste interne au ranking IA — ne produit plus de badge UI.
  */
 
 export const EDITORIAL_BADGE_THRESHOLD = 3;
@@ -11,13 +12,11 @@ export type EditorialBadge =
   | "À réserver"
   | "À anticiper"
   | "Passage rare"
-  | "Fort potentiel"
   | "Pépite locale";
 
 export type EditorialBadgeInput = {
   planningNeed?: number | null;
   localRarity?: number | null;
-  likelyDemand?: number | null;
   missRisk?: number | null;
   confidence?: number | null;
   /** Reasons IA de l’assessment (texte libre). */
@@ -31,8 +30,7 @@ export type EditorialBadgeInput = {
  * 1. planningNeed élevé + réservation → À réserver
  * 2. Passage rare (localRarity + confidence + reason explicite)
  * 3. planningNeed élevé → À anticiper
- * 4. likelyDemand élevée → Fort potentiel
- * 5. missRisk élevé → Pépite locale
+ * 4. missRisk élevé → Pépite locale
  * sinon aucune pastille.
  */
 export function resolveEditorialBadge(
@@ -41,7 +39,6 @@ export function resolveEditorialBadge(
   const threshold = EDITORIAL_BADGE_THRESHOLD;
   const planningNeed = toScore(input.planningNeed);
   const localRarity = toScore(input.localRarity);
-  const likelyDemand = toScore(input.likelyDemand);
   const missRisk = toScore(input.missRisk);
   const confidence = toScore(input.confidence);
 
@@ -53,9 +50,6 @@ export function resolveEditorialBadge(
   }
   if (planningNeed >= threshold) {
     return "À anticiper";
-  }
-  if (likelyDemand >= threshold) {
-    return "Fort potentiel";
   }
   if (missRisk >= threshold) {
     return "Pépite locale";
