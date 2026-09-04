@@ -20,6 +20,7 @@ export type DetourEvent = {
   longitude: number | null;
 
   category: string | null;
+  genre: string | null;
   conditions: string | null;
 
   source: string | null;

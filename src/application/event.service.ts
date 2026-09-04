@@ -10,7 +10,6 @@ export type UpcomingEventsResult = {
   events: DetourEvent[];
   duplicates: EventDuplicate[];
   rawCount: number;
-  /** Snapshot avant dédup — utile au debug pour retrouver les titres retirés. */
   classifiedEvents: DetourEvent[];
 };
 

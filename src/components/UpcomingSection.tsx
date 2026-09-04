@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDistanceKm } from "@/application/format-distance";
 import type { EventItem } from "@/data/types";
 import { cn } from "@/lib/cn";
 
@@ -131,7 +132,9 @@ function UpcomingRow({
             <span className="text-sand"> · </span>
           ) : null}
           {event.distanceKm != null ? (
-            <span className="font-medium text-ink">{event.distanceKm} km</span>
+            <span className="font-medium text-ink">
+              {formatDistanceKm(event.distanceKm)}
+            </span>
           ) : null}
           {event.time ? (
             <>

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { formatDistanceKm } from "@/application/format-distance";
 import type { CategoryId, EventItem, EventSignal } from "@/data/types";
 import { cn } from "@/lib/cn";
 
@@ -386,7 +387,9 @@ function LocationLine({
         <span className={sepClassName}> · </span>
       ) : null}
       {hasDistance ? (
-        <span className={distanceClassName}>{distanceKm} km</span>
+        <span className={distanceClassName}>
+          {formatDistanceKm(distanceKm)}
+        </span>
       ) : null}
     </p>
   );

@@ -75,6 +75,11 @@ export function HomePage({ events, debugMeta }: HomePageProps) {
     setVisibleCount(PAGE_SIZE);
   }
 
+  function handleRadiusChange(value: RadiusFilter) {
+    setRadius(value);
+    setVisibleCount(PAGE_SIZE);
+  }
+
   function toggleFavorite(id: string) {
     setFavorites((current) => {
       const next = new Set(current);
@@ -92,7 +97,7 @@ export function HomePage({ events, debugMeta }: HomePageProps) {
           when={when}
           radius={radius}
           onWhenChange={handleWhenChange}
-          onRadiusChange={setRadius}
+          onRadiusChange={handleRadiusChange}
         />
         <DetourSection
           events={detourEvents}

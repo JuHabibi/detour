@@ -1,10 +1,7 @@
 import type { DetourEvent } from "@/domain/event";
+import { ORLEANS_CENTER, distanceKmBetween } from "@/domain/geo";
 import type { CategoryId, EventItem } from "@/data/types";
 
-/**
- * Pont DetourEvent → EventItem pour la maquette.
- * Ne fabrique aucune donnée métier (distance, prix, ranking éditorial).
- */
 export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
   const start = new Date(event.startAt);
 
@@ -12,12 +9,13 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
     id: event.id,
     title: event.title,
     category: mapCategory(event.category),
-    genre: event.category ?? "",
+    genre: formatGenre(event.category),
     venue: event.venue,
     city: event.city,
     date: toDateKey(start),
     dateLabel: formatDateLabel(start),
     time: formatTime(start),
+    distanceKm: computeDistanceKm(event),
     image: event.imageUrl ?? undefined,
     description: event.description ?? undefined,
     sourceUrl: event.sourceUrl ?? undefined,
@@ -26,9 +24,19 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
     conditions: event.conditions ?? undefined,
     relevance: event.relevance,
     relevanceReason: event.relevanceReason,
-    // Fait calendaire uniquement (samedi / dimanche).
     weekend: isWeekendDay(start),
   };
+}
+
+function computeDistanceKm(event: DetourEvent): number | undefined {
+  if (event.latitude == null || event.longitude == null) {
+    return undefined;
+  }
+
+  return distanceKmBetween(ORLEANS_CENTER, {
+    latitude: event.latitude,
+    longitude: event.longitude,
+  });
 }
 
 function mapCategory(raw: string | null): CategoryId {
@@ -99,6 +107,15 @@ function formatDateLabel(date: Date): string {
   }).format(date);
 
   return capitalizeFr(label);
+}
+function formatGenre(raw: string | null): string {
+  if (!raw) return "";
+
+  return raw
+    .split(";")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function formatTime(date: Date): string {
