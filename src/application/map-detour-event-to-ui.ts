@@ -1,6 +1,7 @@
+import { classifyEventCategory } from "@/domain/classify-event-category";
 import type { DetourEvent } from "@/domain/event";
 import { ORLEANS_CENTER, distanceKmBetween } from "@/domain/geo";
-import type { CategoryId, EventItem } from "@/data/types";
+import type { EventItem } from "@/data/types";
 
 export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
   const start = new Date(event.startAt);
@@ -8,8 +9,8 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
   return {
     id: event.id,
     title: event.title,
-    category: mapCategory(event.category),
-    genre: formatGenre(event.category),
+    category: classifyEventCategory(event),
+    genre: formatGenre(event.category) || event.genre?.trim() || "",
     venue: event.venue,
     city: event.city,
     date: toDateKey(start),
@@ -24,6 +25,7 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
     registrationUrl: event.registrationUrl ?? undefined,
     source: event.source ?? undefined,
     conditions: event.conditions ?? undefined,
+    sourceCategory: event.category,
     relevance: event.relevance,
     relevanceReason: event.relevanceReason,
     weekend: isWeekendDay(start),
@@ -39,41 +41,6 @@ function computeDistanceKm(event: DetourEvent): number | undefined {
     latitude: event.latitude,
     longitude: event.longitude,
   });
-}
-
-function mapCategory(raw: string | null): CategoryId {
-  if (!raw) return "other";
-
-  const value = raw.toLowerCase();
-  if (value.includes("musique") || value.includes("concert")) return "musique";
-  if (
-    value.includes("cinéma") ||
-    value.includes("cinema") ||
-    value.includes("projection")
-  ) {
-    return "cinema";
-  }
-  if (value.includes("expo") || value.includes("patrimoine")) return "expos";
-  if (value.includes("famille") || value.includes("enfant")) return "famille";
-  if (
-    value.includes("atelier") ||
-    value.includes("stage") ||
-    value.includes("conférence") ||
-    value.includes("rencontre")
-  ) {
-    return "ateliers";
-  }
-  if (
-    value.includes("spectacle") ||
-    value.includes("théâtre") ||
-    value.includes("theatre") ||
-    value.includes("danse") ||
-    value.includes("humour")
-  ) {
-    return "spectacles";
-  }
-
-  return "other";
 }
 
 /** Samedi (6) et dimanche (0) uniquement. */
@@ -110,6 +77,7 @@ function formatDateLabel(date: Date): string {
 
   return capitalizeFr(label);
 }
+
 function formatGenre(raw: string | null): string {
   if (!raw) return "";
 

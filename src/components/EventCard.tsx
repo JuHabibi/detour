@@ -28,23 +28,27 @@ const signalLabels: Partial<Record<EventSignal, string>> = {
 };
 
 const pastelByCategory: Record<Exclude<CategoryId, "tout">, string> = {
-  musique: "bg-coral/12",
-  spectacles: "bg-lilac/20",
-  expos: "bg-sky/20",
-  cinema: "bg-mint/25",
-  famille: "bg-sun/20",
-  ateliers: "bg-blush/18",
-  other: "bg-sand/15",
+  Musique: "bg-coral/12",
+  Spectacle: "bg-lilac/20",
+  Exposition: "bg-sky/20",
+  Atelier: "bg-blush/18",
+  "Jeune public": "bg-sun/20",
+  Rencontre: "bg-mint/25",
+  Visite: "bg-sand/15",
+  "Loisirs culturels": "bg-mint/20",
+  Autre: "bg-sand/15",
 };
 
 const accentByCategory: Record<Exclude<CategoryId, "tout">, string> = {
-  musique: "bg-coral/35",
-  spectacles: "bg-lilac/40",
-  expos: "bg-sky/40",
-  cinema: "bg-mint/45",
-  famille: "bg-sun/40",
-  ateliers: "bg-blush/40",
-  other: "bg-sand/30",
+  Musique: "bg-coral/35",
+  Spectacle: "bg-lilac/40",
+  Exposition: "bg-sky/40",
+  Atelier: "bg-blush/40",
+  "Jeune public": "bg-sun/40",
+  Rencontre: "bg-mint/45",
+  Visite: "bg-sand/30",
+  "Loisirs culturels": "bg-mint/40",
+  Autre: "bg-sand/30",
 };
 
 export function EventCard({
@@ -298,9 +302,7 @@ export function TextEventCard({
   const whenLabel = formatWhen(event);
   const signal = resolveSignal(event);
   const categoryKey =
-    event.category === "tout" || event.category === "other"
-      ? "other"
-      : event.category;
+    event.category === "tout" ? "Autre" : event.category;
   const pastel = pastelByCategory[categoryKey];
   const accent = accentByCategory[categoryKey];
 

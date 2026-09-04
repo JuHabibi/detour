@@ -4,19 +4,22 @@ export const CITY = "Orléans";
 
 export const categories: { id: CategoryId; label: string }[] = [
   { id: "tout", label: "Tout" },
-  { id: "musique", label: "Musique" },
-  { id: "spectacles", label: "Spectacles" },
-  { id: "expos", label: "Expos" },
-  { id: "cinema", label: "Cinéma" },
-  { id: "famille", label: "En famille" },
-  { id: "ateliers", label: "Ateliers & rencontres" },
+  { id: "Musique", label: "Musique" },
+  { id: "Spectacle", label: "Spectacle" },
+  { id: "Exposition", label: "Exposition" },
+  { id: "Atelier", label: "Atelier" },
+  { id: "Jeune public", label: "Jeune public" },
+  { id: "Rencontre", label: "Rencontre" },
+  { id: "Visite", label: "Visite" },
+  { id: "Loisirs culturels", label: "Loisirs culturels" },
+  { id: "Autre", label: "Autre" },
 ];
 
 export const events: EventItem[] = [
   {
     id: "duo-zephyr",
     title: "Duo Zéphyr",
-    category: "musique",
+    category: "Musique",
     genre: "Jazz",
     venue: "Résidence sociale Les Floréales",
     city: "Olivet",
@@ -36,7 +39,7 @@ export const events: EventItem[] = [
   {
     id: "cerrone",
     title: "Cerrone — Disco Symphonic",
-    category: "cinema",
+    category: "Spectacle",
     genre: "Projection musicale",
     venue: "Médiathèque Maurice Genevoix",
     city: "Orléans",
@@ -53,7 +56,7 @@ export const events: EventItem[] = [
   {
     id: "fete-binette",
     title: "Fête à la Binette",
-    category: "famille",
+    category: "Jeune public",
     genre: "Fête · Théâtre de rue",
     venue: "Stade de la Binette",
     city: "Bou",
@@ -73,7 +76,7 @@ export const events: EventItem[] = [
   {
     id: "canaille",
     title: "Canaille",
-    category: "spectacles",
+    category: "Spectacle",
     genre: "Lecture théâtralisée",
     venue: "MJC d’Olivet",
     city: "Olivet",
@@ -90,7 +93,7 @@ export const events: EventItem[] = [
   {
     id: "hop-pop-hop",
     title: "Hop Pop Hop 2026",
-    category: "musique",
+    category: "Musique",
     genre: "Festival",
     venue: "Campo Santo",
     city: "Orléans",
@@ -109,7 +112,7 @@ export const events: EventItem[] = [
   {
     id: "moloko",
     title: "Moloko",
-    category: "musique",
+    category: "Musique",
     genre: "Disco · Funk · Electro",
     venue: "Guinguette Le Ponton",
     city: "Orléans",
@@ -127,7 +130,7 @@ export const events: EventItem[] = [
   {
     id: "design-coule",
     title: "Le Design coule de source",
-    category: "expos",
+    category: "Exposition",
     genre: "Exposition",
     venue: "Collégiale Saint-Pierre-le-Puellier",
     city: "Orléans",
@@ -142,7 +145,7 @@ export const events: EventItem[] = [
   {
     id: "bohemian-rhapsody",
     title: "CinéEtc. : Bohemian Rhapsody",
-    category: "cinema",
+    category: "Spectacle",
     genre: "Cinéma",
     venue: "L’Alliage",
     city: "Olivet",
@@ -157,7 +160,7 @@ export const events: EventItem[] = [
   {
     id: "premiere-vibe",
     title: "Première Vibe",
-    category: "musique",
+    category: "Musique",
     genre: "Culture urbaine",
     venue: "Espace Pierre Lanson",
     city: "Saint-Denis-en-Val",
@@ -175,7 +178,7 @@ export const events: EventItem[] = [
   {
     id: "hop-before",
     title: "Hop Pop Hop, le Before",
-    category: "musique",
+    category: "Musique",
     genre: "Blind test · DJ sets",
     venue: "Canon(s)",
     city: "Orléans",
@@ -190,7 +193,7 @@ export const events: EventItem[] = [
   {
     id: "regards-croises",
     title: "Regards croisés",
-    category: "expos",
+    category: "Exposition",
     genre: "Photographie",
     venue: "Musée des Beaux-Arts",
     city: "Orléans",
@@ -205,7 +208,7 @@ export const events: EventItem[] = [
   {
     id: "bourgeois-gentilhomme",
     title: "Le Bourgeois Gentilhomme",
-    category: "spectacles",
+    category: "Spectacle",
     genre: "Théâtre · Jean-Paul Rouve",
     venue: "Val des Pâtures",
     city: "Chécy",
@@ -221,7 +224,7 @@ export const events: EventItem[] = [
   {
     id: "nuances-roses",
     title: "Nuances de roses",
-    category: "expos",
+    category: "Exposition",
     genre: "Exposition",
     venue: "Jardin des plantes Jean-Paul Imbault",
     city: "Orléans",
@@ -235,7 +238,7 @@ export const events: EventItem[] = [
   {
     id: "histoire-batterie",
     title: "Histoire de la batterie dans le jazz",
-    category: "ateliers",
+    category: "Atelier",
     genre: "Conférence · Concert",
     venue: "La Ruche en Scène",
     city: "Orléans",
@@ -251,7 +254,7 @@ export const events: EventItem[] = [
   {
     id: "soirees-montaigu",
     title: "Les soirées de Montaigu",
-    category: "musique",
+    category: "Musique",
     genre: "Concerts · Années 80",
     venue: "Domaine de Montaigu",
     city: "Ormes",

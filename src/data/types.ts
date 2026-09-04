@@ -1,14 +1,10 @@
 import type { EventRelevance } from "@/domain/event";
+import type { DetourCategory } from "@/domain/classify-event-category";
 
-export type CategoryId =
-  | "tout"
-  | "musique"
-  | "spectacles"
-  | "expos"
-  | "cinema"
-  | "famille"
-  | "ateliers"
-  | "other";
+export type { DetourCategory };
+
+/** Filtre UI exploration — taxonomy Détour (+ Tout). */
+export type CategoryId = "tout" | DetourCategory;
 
 export type WhenFilter =
   | "today"
@@ -28,6 +24,7 @@ export type { EventRelevance };
 export type EventItem = {
   id: string;
   title: string;
+  /** Catégorie produit normalisée Détour (filtres). */
   category: CategoryId;
   genre: string;
   venue: string | null;
@@ -54,6 +51,8 @@ export type EventItem = {
   source?: string;
   /** Conditions / tarifs bruts, si fournis par la source. */
   conditions?: string;
+  /** Catégorie brute source (debug). */
+  sourceCategory?: string | null;
   /** Pertinence culturelle Détour (métier). */
   relevance?: EventRelevance;
   /** Raison machine-lisible de la classification. */
