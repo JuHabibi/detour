@@ -19,6 +19,7 @@ export type RunAiAssessmentResult =
   | {
       ok: true;
       highlights: EventItem[];
+      planningEvents: EventItem[];
       debugMeta: EventsDebugMeta;
     }
   | {
@@ -71,6 +72,9 @@ export async function runAiHighlightAssessment(options?: {
       ok: true,
       highlights: result.highlights.map((highlight) =>
         mapDetourEventToEventItem(highlight.event),
+      ),
+      planningEvents: result.planningEvents.map((item) =>
+        mapDetourEventToEventItem(item.event),
       ),
       debugMeta: buildEventsDebugMeta(result),
     };

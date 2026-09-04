@@ -29,6 +29,11 @@ import {
   type AiAssessmentCacheStore,
   type AssessHighlightsCachedResult,
 } from "@/infrastructure/ai/ai-assessment-cache";
+import {
+  selectPlanningEvents,
+  type PlanningEvent,
+} from "@/domain/select-planning-events";
+
 export type UpcomingEventsAiMeta = {
   displayMode: AiDisplayMode;
   mode: AiConfig["mode"];
@@ -41,6 +46,8 @@ export type UpcomingEventsAiMeta = {
 export type UpcomingEventsResult = {
   events: DetourEvent[];
   highlights: EventHighlight[];
+  /** Section « À prévoir » — anticipation, hors Faites un détour. */
+  planningEvents: PlanningEvent[];
   /** Top candidats scorés (avant diversité) — debug. */
   highlightCandidates: EventHighlight[];
   /** Shortlist envoyée à l’IA (top N déterministe). */
@@ -166,9 +173,17 @@ export class EventService {
             }),
           );
 
+    const planningEvents = selectPlanningEvents({
+      events: pipeline.events,
+      aiAssessments,
+      excludedEventIds: highlights.map((item) => item.event.id),
+      deterministicCandidates: pipeline.rankedCandidates,
+    });
+
     return {
       events: pipeline.events,
       highlights,
+      planningEvents,
       highlightCandidates: pipeline.highlightCandidates,
       aiShortlist: pipeline.aiShortlist,
       scoredCandidatesCount: pipeline.rankedCandidates.length,

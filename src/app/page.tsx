@@ -35,6 +35,9 @@ export default async function Page() {
       highlights={result.highlights.map((highlight) =>
         mapDetourEventToEventItem(highlight.event),
       )}
+      planningEvents={result.planningEvents.map((item) =>
+        mapDetourEventToEventItem(item.event),
+      )}
       debugMeta={buildEventsDebugMeta(result)}
     />
   );

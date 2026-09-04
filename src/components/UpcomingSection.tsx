@@ -43,7 +43,7 @@ export function UpcomingSection({
             À prévoir
           </h2>
           <p className="mt-3 max-w-lg text-sm leading-6 text-cream-dim">
-            Pour s’organiser à temps, avant que ça se remplisse.
+          Des événements à repérer dès maintenant pour pouvoir s’organiser.
           </p>
         </div>
 

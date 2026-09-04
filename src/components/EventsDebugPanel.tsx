@@ -57,6 +57,18 @@ export type AiHighlightDebug = {
   aiRankDetour?: number;
 };
 
+export type PlanningEventDebug = {
+  title: string;
+  pool: "ai" | "deterministic-fallback";
+  selectionSource: "ai" | "deterministic";
+  planningValue: number | null;
+  planningScore: number;
+  selectionScore: number;
+  rankInPool: number;
+  date: string;
+  city: string | null;
+};
+
 export type EventsDebugMeta = {
   rawCount: number;
   dedupedCount: number;
@@ -66,6 +78,7 @@ export type EventsDebugMeta = {
   highlights?: HighlightDebug[];
   highlightCandidates?: HighlightDebug[];
   aiAssessments?: AiHighlightDebug[];
+  planningEvents?: PlanningEventDebug[];
   aiRuntime?: {
     mode: "manual" | "auto" | "disabled";
     source: "fresh" | "cache" | "fallback";
@@ -78,9 +91,10 @@ export type EventsDebugMeta = {
 type EventsDebugPanelProps = {
   events: EventItem[];
   meta?: EventsDebugMeta;
-  /** Après Run AI manual : met à jour highlights + meta debug (HomePage). */
+  /** Après Run AI manual : met à jour highlights + planning + meta debug. */
   onManualAiResult?: (result: {
     highlights: EventItem[];
+    planningEvents: EventItem[];
     debugMeta: EventsDebugMeta;
   }) => void;
 };
@@ -122,6 +136,7 @@ export function EventsDebugPanel({
       setHasRunAi(true);
       onManualAiResult?.({
         highlights: result.highlights,
+        planningEvents: result.planningEvents,
         debugMeta: result.debugMeta,
       });
     } catch (error) {
@@ -433,6 +448,73 @@ export function EventsDebugPanel({
                           </td>
                           <td className="max-w-[12rem] px-3 py-2.5 text-cream-dim">
                             {candidate.source || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {meta && meta.planningEvents && meta.planningEvents.length > 0 ? (
+              <div className="space-y-3">
+                <h3 className="font-display text-lg tracking-tight">
+                  Planning events
+                </h3>
+                <p className="text-sm text-cream-dim">
+                  Section « À prévoir » — pool IA d’abord, fallback déterministe
+                  ensuite. &gt;30 jours, hors Faites un détour.
+                </p>
+                <div className="overflow-x-auto rounded-xl border border-line bg-paper">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="border-b border-line bg-foam/60 text-[10px] uppercase tracking-[0.14em] text-sand">
+                      <tr>
+                        <th className="px-3 py-2.5 font-medium">Titre</th>
+                        <th className="px-3 py-2.5 font-medium">Pool</th>
+                        <th className="px-3 py-2.5 font-medium">
+                          Rank in pool
+                        </th>
+                        <th className="px-3 py-2.5 font-medium">
+                          planningValue
+                        </th>
+                        <th className="px-3 py-2.5 font-medium">
+                          planningScore
+                        </th>
+                        <th className="px-3 py-2.5 font-medium">Final score</th>
+                        <th className="px-3 py-2.5 font-medium">Date</th>
+                        <th className="px-3 py-2.5 font-medium">Ville</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {meta.planningEvents.map((item, index) => (
+                        <tr
+                          key={`${item.title}-${index}`}
+                          className="border-b border-line/70 align-top last:border-b-0"
+                        >
+                          <td className="max-w-[16rem] px-3 py-2.5 font-medium text-ink">
+                            {item.title}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-[10px] text-sand">
+                            {item.pool}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-sand">
+                            {item.rankInPool}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {item.planningValue ?? "—"}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {item.planningScore}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {item.selectionScore}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 text-cream-dim">
+                            {formatDebugDate(item.date)}
+                          </td>
+                          <td className="px-3 py-2.5 text-cream-dim">
+                            {item.city || "—"}
                           </td>
                         </tr>
                       ))}

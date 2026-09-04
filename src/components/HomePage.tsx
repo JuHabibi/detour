@@ -34,10 +34,17 @@ type HomePageProps = {
   events: EventItem[];
   /** Sélection éditoriale « Faites un détour » — indépendante des filtres. */
   highlights: EventItem[];
+  /** Section « À prévoir » — anticipation (>30 jours). */
+  planningEvents: EventItem[];
   debugMeta?: EventsDebugMeta;
 };
 
-export function HomePage({ events, highlights, debugMeta }: HomePageProps) {
+export function HomePage({
+  events,
+  highlights,
+  planningEvents,
+  debugMeta,
+}: HomePageProps) {
   const [when, setWhen] = useState<WhenFilter>("weekend");
   const [radius, setRadius] = useState<RadiusFilter>(15);
   const [category, setCategory] = useState<CategoryId>("tout");
@@ -46,14 +53,19 @@ export function HomePage({ events, highlights, debugMeta }: HomePageProps) {
   const [overrideHighlights, setOverrideHighlights] = useState<EventItem[] | null>(
     null,
   );
+  const [overridePlanning, setOverridePlanning] = useState<EventItem[] | null>(
+    null,
+  );
   const [liveDebugMeta, setLiveDebugMeta] = useState(debugMeta);
 
   useEffect(() => {
     setLiveDebugMeta(debugMeta);
     setOverrideHighlights(null);
+    setOverridePlanning(null);
   }, [debugMeta]);
 
   const displayedHighlights = overrideHighlights ?? highlights;
+  const displayedPlanning = overridePlanning ?? planningEvents;
 
   // Distance absente = pas encore filtrable ; on n’exclut pas l’événement.
   const withinRadius = useMemo(
@@ -76,11 +88,6 @@ export function HomePage({ events, highlights, debugMeta }: HomePageProps) {
 
   const visibleEvents = filteredEvents.slice(0, visibleCount);
   const canShowMore = visibleCount < filteredEvents.length;
-
-  const upcomingEvents = useMemo(
-    () => withinRadius.filter((event) => !event.weekend).slice(0, 4),
-    [withinRadius],
-  );
 
   function handleWhenChange(value: WhenFilter) {
     setWhen(value);
@@ -143,15 +150,20 @@ export function HomePage({ events, highlights, debugMeta }: HomePageProps) {
           }
         />
         <UpcomingSection
-          events={upcomingEvents}
+          events={displayedPlanning}
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
         />
         <EventsDebugPanel
           events={events}
           meta={liveDebugMeta}
-          onManualAiResult={({ highlights: nextHighlights, debugMeta: nextMeta }) => {
+          onManualAiResult={({
+            highlights: nextHighlights,
+            planningEvents: nextPlanning,
+            debugMeta: nextMeta,
+          }) => {
             setOverrideHighlights(nextHighlights);
+            setOverridePlanning(nextPlanning);
             setLiveDebugMeta(nextMeta);
           }}
         />

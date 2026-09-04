@@ -3,6 +3,7 @@ import type {
   EventDuplicateDebug,
   EventsDebugMeta,
   HighlightDebug,
+  PlanningEventDebug,
 } from "@/components/EventsDebugPanel";
 import type { UpcomingEventsResult } from "@/application/event.service";
 import { combinedAiScore } from "@/domain/ai-highlight-assessment";
@@ -46,12 +47,30 @@ function toHighlightDebug(
   };
 }
 
+function toPlanningDebug(
+  item: UpcomingEventsResult["planningEvents"][number],
+): PlanningEventDebug {
+  return {
+    title: item.event.title,
+    pool: item.pool,
+    selectionSource: item.selectionSource,
+    planningValue: item.planningValue,
+    planningScore: item.planningScore,
+    selectionScore: item.selectionScore,
+    rankInPool: item.rankInPool,
+    date: item.event.startAt,
+    city: item.event.city,
+  };
+}
+
+/** Construit le meta debug à partir du résultat EventService (sans secrets). */
 export function buildEventsDebugMeta(
   result: UpcomingEventsResult,
 ): EventsDebugMeta {
   const {
     events,
     highlights,
+    planningEvents,
     highlightCandidates,
     aiShortlist,
     scoredCandidatesCount,
@@ -135,6 +154,10 @@ export function buildEventsDebugMeta(
       toHighlightDebug(highlight, { rank: index + 1 }),
     ),
     aiAssessments: aiDebug.length > 0 ? aiDebug : undefined,
+    planningEvents:
+      planningEvents.length > 0
+        ? planningEvents.map(toPlanningDebug)
+        : undefined,
     aiRuntime: {
       mode: aiMeta.displayMode,
       source: aiMeta.source,
