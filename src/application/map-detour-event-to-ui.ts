@@ -14,6 +14,8 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
     city: event.city,
     date: toDateKey(start),
     dateLabel: formatDateLabel(start),
+    startAt: event.startAt,
+    endAt: event.endAt,
     time: formatTime(start),
     distanceKm: computeDistanceKm(event),
     image: event.imageUrl ?? undefined,

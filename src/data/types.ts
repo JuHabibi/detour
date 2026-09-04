@@ -17,7 +17,7 @@ export type WhenFilter =
   | "next-week"
   | "this-month"
   | "next-month"
-  | "pick-date";
+  | "upcoming";
 
 export type RadiusFilter = 5 | 15 | 30 | 50;
 
@@ -34,6 +34,10 @@ export type EventItem = {
   city: string | null;
   date: string;
   dateLabel: string;
+  /** Instant de début ISO — source de vérité pour les filtres temporels. */
+  startAt?: string;
+  /** Instant de fin ISO — pour les événements multi-jours / encore en cours. */
+  endAt?: string | null;
   time?: string;
   /** Absent tant que la distance n’est pas calculée. */
   distanceKm?: number;

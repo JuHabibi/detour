@@ -17,6 +17,7 @@ function event(
     latitude: partial.latitude ?? null,
     longitude: partial.longitude ?? null,
     category: partial.category ?? null,
+    genre: partial.genre ?? null,
     conditions: partial.conditions ?? null,
     source: partial.source ?? null,
     sourceUrl: partial.sourceUrl ?? null,

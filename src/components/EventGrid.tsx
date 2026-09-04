@@ -1,8 +1,10 @@
+import type { ReactNode } from "react";
 import { EventCard } from "@/components/EventCard";
 import type { EventItem } from "@/data/types";
 
 type EventGridProps = {
   title?: string;
+  toolbar?: ReactNode;
   events: EventItem[];
   /** Total filtré (avant « Voir plus ») — pour le compteur discret. */
   totalCount?: number;
@@ -12,7 +14,8 @@ type EventGridProps = {
 };
 
 export function EventGrid({
-  title = "Ce week-end autour de vous",
+  title = "Ce week-end autour d’Orléans",
+  toolbar,
   events,
   totalCount,
   favorites,
@@ -26,12 +29,12 @@ export function EventGrid({
       : `${events.length} proposition${events.length > 1 ? "s" : ""}`;
 
   return (
-    <section id="week-end" className="scroll-mt-24 px-5 py-10 md:px-8 md:py-14 lg:px-12">
+    <section id="explorer" className="scroll-mt-24 px-5 py-10 md:px-8 md:py-14 lg:px-12">
       <div className="mx-auto max-w-[1440px]">
-        <div className="mb-7 flex items-end justify-between gap-4 md:mb-8">
+        <div className="mb-5 flex items-end justify-between gap-4 md:mb-6">
           <div>
             <p className="text-[11px] uppercase tracking-[0.28em] text-sand">
-              Autour de vous
+              Autour d’Orléans
             </p>
             <h2 className="mt-2 font-display text-3xl tracking-tight md:text-5xl">
               {title}
@@ -39,6 +42,8 @@ export function EventGrid({
           </div>
           <p className="hidden text-sm text-sand md:block">{countLabel}</p>
         </div>
+
+        {toolbar ? <div className="mb-7 flex flex-col gap-4">{toolbar}</div> : null}
 
         {events.length === 0 ? (
           <p className="max-w-lg font-display text-2xl leading-snug text-cream-dim">

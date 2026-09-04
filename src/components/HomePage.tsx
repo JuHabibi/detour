@@ -4,11 +4,13 @@ import { useMemo, useState } from "react";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { DetourSection } from "@/components/DetourSection";
 import { EventGrid } from "@/components/EventGrid";
+import { ExplorationFilters } from "@/components/ExplorationFilters";
 import { Header } from "@/components/Header";
 import { HeroFilters } from "@/components/HeroFilters";
 import { UpcomingSection } from "@/components/UpcomingSection";
 import { EventsDebugPanel } from "@/components/EventsDebugPanel";
 import type { EventsDebugMeta } from "@/components/EventsDebugPanel";
+import { isEventInWhenFilter } from "@/domain/when-filter";
 import type {
   CategoryId,
   EventItem,
@@ -17,6 +19,16 @@ import type {
 } from "@/data/types";
 
 const PAGE_SIZE = 12;
+
+const GRID_TITLES: Record<WhenFilter, string> = {
+  today: "Aujourd’hui autour d’Orléans",
+  tomorrow: "Demain autour d’Orléans",
+  weekend: "Ce week-end autour d’Orléans",
+  "next-week": "Semaine prochaine autour d’Orléans",
+  "this-month": "Ce mois-ci autour d’Orléans",
+  "next-month": "Mois prochain autour d’Orléans",
+  upcoming: "À venir autour d’Orléans",
+};
 
 type HomePageProps = {
   events: EventItem[];
@@ -47,18 +59,17 @@ export function HomePage({ events, debugMeta }: HomePageProps) {
     [withinRadius],
   );
 
-  const weekendEvents = useMemo(
-    () =>
-      withinRadius.filter((event) => {
-        if (category !== "tout" && event.category !== category) return false;
-        if (when === "weekend") return Boolean(event.weekend);
-        return true;
-      }),
-    [withinRadius, category, when],
-  );
+  const filteredEvents = useMemo(() => {
+    const now = new Date();
+    return withinRadius.filter((event) => {
+      if (category !== "tout" && event.category !== category) return false;
+      if (!event.startAt) return false;
+      return isEventInWhenFilter(event.startAt, event.endAt, when, now);
+    });
+  }, [withinRadius, category, when]);
 
-  const visibleWeekendEvents = weekendEvents.slice(0, visibleCount);
-  const canShowMore = visibleCount < weekendEvents.length;
+  const visibleEvents = filteredEvents.slice(0, visibleCount);
+  const canShowMore = visibleCount < filteredEvents.length;
 
   const upcomingEvents = useMemo(
     () => withinRadius.filter((event) => !event.weekend).slice(0, 4),
@@ -93,25 +104,30 @@ export function HomePage({ events, debugMeta }: HomePageProps) {
     <div id="top" className="min-h-screen bg-paper">
       <Header favoriteCount={favorites.size} />
       <main>
-        <HeroFilters
-          when={when}
-          radius={radius}
-          onWhenChange={handleWhenChange}
-          onRadiusChange={handleRadiusChange}
-        />
+        <HeroFilters />
         <DetourSection
           events={detourEvents}
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
         />
-        <CategoryFilter
-          category={category}
-          onCategoryChange={handleCategoryChange}
-        />
         <EventGrid
-          title="Ce week-end autour de vous"
-          events={visibleWeekendEvents}
-          totalCount={weekendEvents.length}
+          title={GRID_TITLES[when]}
+          toolbar={
+            <>
+              <ExplorationFilters
+                when={when}
+                radius={radius}
+                onWhenChange={handleWhenChange}
+                onRadiusChange={handleRadiusChange}
+              />
+              <CategoryFilter
+                category={category}
+                onCategoryChange={handleCategoryChange}
+              />
+            </>
+          }
+          events={visibleEvents}
+          totalCount={filteredEvents.length}
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
           onShowMore={

@@ -20,6 +20,7 @@ export function mapOrleansEventToDetourEvent(
     latitude: rawEvent.location_coordinates?.lat ?? null,
     longitude: rawEvent.location_coordinates?.lon ?? null,
     category: emptyToNull(rawEvent.categorie_principale),
+    genre: null,
     conditions: emptyToNull(rawEvent.conditions_fr),
     source: emptyToNull(rawEvent.originagenda_title),
     sourceUrl: emptyToNull(rawEvent.canonicalurl),
