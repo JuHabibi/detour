@@ -38,9 +38,10 @@ function assessment(
   return {
     eventId,
     appeal: scores.appeal ?? 0,
-    discoveryValue: scores.discoveryValue ?? 0,
-    planningValue: scores.planningValue ?? 0,
-    recognition: scores.recognition ?? 0,
+    missRisk: scores.missRisk ?? 0,
+    planningNeed: scores.planningNeed ?? 0,
+    localRarity: scores.localRarity ?? 0,
+    likelyDemand: scores.likelyDemand ?? 0,
     confidence: scores.confidence ?? 0.8,
     reasons: scores.reasons ?? ["ok"],
   };
@@ -66,7 +67,7 @@ describe("selectPlanningEvents", () => {
       now: NOW,
       limit: 1,
       aiAssessments: [
-        assessment("ai-low", { planningValue: 3, appeal: 0, recognition: 0 }),
+        assessment("ai-low", { planningNeed: 3, appeal: 0, likelyDemand: 0 }),
       ],
       deterministicCandidates: [
         candidate("ai-low", 0, 0),
@@ -87,8 +88,8 @@ describe("selectPlanningEvents", () => {
       now: NOW,
       limit: 4,
       aiAssessments: [
-        assessment("ai1", { planningValue: 4, appeal: 2, recognition: 1 }),
-        assessment("ai2", { planningValue: 3, appeal: 1, recognition: 1 }),
+        assessment("ai1", { planningNeed: 4, appeal: 2, likelyDemand: 1 }),
+        assessment("ai2", { planningNeed: 3, appeal: 1, likelyDemand: 1 }),
       ],
       deterministicCandidates: [
         candidate("ai1", 1),
@@ -151,21 +152,21 @@ describe("selectPlanningEvents", () => {
       excludedEventIds: ["a"],
       now: NOW,
       aiAssessments: [
-        assessment("a", { planningValue: 5, appeal: 5, recognition: 5 }),
-        assessment("b", { planningValue: 3, appeal: 1, recognition: 0 }),
+        assessment("a", { planningNeed: 5, appeal: 5, likelyDemand: 5 }),
+        assessment("b", { planningNeed: 3, appeal: 1, likelyDemand: 0 }),
       ],
     });
 
     expect(result.map((item) => item.event.id)).toEqual(["b"]);
   });
 
-  it("planningValue 2 → exclu du pool IA ; planningValue 3 → éligible", () => {
+  it("planningNeed 2 → exclu du pool IA ; planningNeed 3 → éligible", () => {
     const result = selectPlanningEvents({
       events: [event("pv2"), event("pv3")],
       now: NOW,
       aiAssessments: [
-        assessment("pv2", { planningValue: 2, appeal: 5, recognition: 5 }),
-        assessment("pv3", { planningValue: 3, appeal: 1, recognition: 0 }),
+        assessment("pv2", { planningNeed: 2, appeal: 5, likelyDemand: 5 }),
+        assessment("pv3", { planningNeed: 3, appeal: 1, likelyDemand: 0 }),
       ],
       deterministicCandidates: [candidate("pv2", 3), candidate("pv3", 0)],
     });
@@ -199,9 +200,9 @@ describe("selectPlanningEvents", () => {
       now: NOW,
       limit: 3,
       aiAssessments: [
-        assessment("a", { planningValue: 5, appeal: 3, recognition: 2 }),
-        assessment("b", { planningValue: 4, appeal: 3, recognition: 2 }),
-        assessment("c", { planningValue: 3, appeal: 3, recognition: 2 }),
+        assessment("a", { planningNeed: 5, appeal: 3, likelyDemand: 2 }),
+        assessment("b", { planningNeed: 4, appeal: 3, likelyDemand: 2 }),
+        assessment("c", { planningNeed: 3, appeal: 3, likelyDemand: 2 }),
       ],
     });
 
@@ -218,9 +219,9 @@ describe("selectPlanningEvents", () => {
       limit: 4,
       aiAssessments: events.map((item, index) =>
         assessment(item.id, {
-          planningValue: 5 - Math.min(index, 2),
+          planningNeed: 5 - Math.min(index, 2),
           appeal: 3,
-          recognition: 2,
+          likelyDemand: 2,
         }),
       ),
     });

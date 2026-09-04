@@ -96,9 +96,10 @@ describe("AI assessment cache", () => {
         {
           eventId: "1",
           appeal: 3,
-          discoveryValue: 3,
-          planningValue: 3,
-          recognition: 1,
+          missRisk: 3,
+          planningNeed: 3,
+          localRarity: 1,
+          likelyDemand: 1,
           confidence: 0.5,
           reasons: ["ok"],
         },

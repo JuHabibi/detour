@@ -4,11 +4,12 @@ import {
   type EventDuplicate,
 } from "@/domain/deduplicate-events";
 import type { DetourEvent } from "@/domain/event";
+import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
+import { buildAiHighlightShortlist } from "@/domain/build-ai-highlight-shortlist";
 import {
-  AI_HIGHLIGHT_SHORTLIST_SIZE,
-  type AiHighlightAssessment,
-} from "@/domain/ai-highlight-assessment";
-import { selectAiDetourHighlights } from "@/domain/select-ai-detour-highlights";
+  AI_DETOUR_DEFAULT_LIMIT,
+  selectAiDetourHighlights,
+} from "@/domain/select-ai-detour-highlights";
 import {
   rankDetourHighlightCandidates,
   selectDetourHighlights,
@@ -46,6 +47,10 @@ import {
   type SaranDuplicateDebug,
   type SourceIngestionStat,
 } from "@/application/source-ingestion-stats";
+import type {
+  AiShortlistBucketStats,
+  AiShortlistInclusionReason,
+} from "@/domain/build-ai-highlight-shortlist";
 
 export type UpcomingEventsAiMeta = {
   displayMode: AiDisplayMode;
@@ -62,6 +67,9 @@ export type UpcomingEventsResult = {
   planningEvents: PlanningEvent[];
   highlightCandidates: EventHighlight[];
   aiShortlist: EventHighlight[];
+  /** Raisons d’inclusion du pool IA (debug). */
+  aiShortlistInclusion: Record<string, AiShortlistInclusionReason[]>;
+  aiShortlistBucketSizes: AiShortlistBucketStats;
   scoredCandidatesCount: number;
   aiAssessments: AiHighlightAssessment[];
   aiMeta: UpcomingEventsAiMeta;
@@ -162,7 +170,12 @@ export class EventService {
     const { events, duplicates } = deduplicateEvents(classifiedEvents);
     const rankedCandidates = rankDetourHighlightCandidates(events);
     const highlightCandidates = rankedCandidates.slice(0, 20);
-    const aiShortlist = rankedCandidates.slice(0, AI_HIGHLIGHT_SHORTLIST_SIZE);
+    const builtShortlist = buildAiHighlightShortlist(rankedCandidates);
+    const aiShortlist = builtShortlist.shortlist;
+    const aiShortlistInclusion = Object.fromEntries(
+      builtShortlist.inclusionById.entries(),
+    );
+    const aiShortlistBucketSizes = builtShortlist.bucketSizes;
 
     return {
       ingestion,
@@ -173,6 +186,8 @@ export class EventService {
       rankedCandidates,
       highlightCandidates,
       aiShortlist,
+      aiShortlistInclusion,
+      aiShortlistBucketSizes,
     };
   }
 
@@ -184,13 +199,15 @@ export class EventService {
     const aiHighlights = selectAiDetourHighlights(
       pipeline.aiShortlist,
       aiAssessments,
-      { limit: 6 },
+      { limit: AI_DETOUR_DEFAULT_LIMIT },
     );
 
     const highlights =
       aiHighlights.length > 0
         ? aiHighlights
-        : selectDetourHighlights(pipeline.events, { limit: 6 }).map(
+        : selectDetourHighlights(pipeline.events, {
+            limit: AI_DETOUR_DEFAULT_LIMIT,
+          }).map(
             (highlight) => ({
               ...highlight,
               selectionSource: "deterministic" as const,
@@ -228,6 +245,8 @@ export class EventService {
       planningEvents,
       highlightCandidates: pipeline.highlightCandidates,
       aiShortlist: pipeline.aiShortlist,
+      aiShortlistInclusion: pipeline.aiShortlistInclusion,
+      aiShortlistBucketSizes: pipeline.aiShortlistBucketSizes,
       scoredCandidatesCount: pipeline.rankedCandidates.length,
       aiAssessments,
       aiMeta: {

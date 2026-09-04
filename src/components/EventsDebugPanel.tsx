@@ -38,6 +38,7 @@ export type HighlightDebug = {
   aiRank?: number;
   /** Scores IA / formule du slot (debug). */
   scoresUsed?: string;
+  editorialBadge?: string | null;
 };
 
 export type AiHighlightDebug = {
@@ -45,13 +46,14 @@ export type AiHighlightDebug = {
   title: string;
   deterministicRank?: number;
   appeal: number;
-  discoveryValue: number;
-  planningValue: number;
-  recognition: number;
+  missRisk: number;
+  planningNeed: number;
+  localRarity: number;
+  likelyDemand: number;
   confidence: number;
   reasons: string[];
   combined: number;
-  /** Rang debug : Σ (appeal + discovery + planning + recognition). */
+  /** Rang debug : Σ des dimensions éditoriales. */
   aiRankTotal?: number;
   /** Rang debug « Détour » — même Σ pour l’instant (poids futurs). */
   aiRankDetour?: number;
@@ -69,6 +71,16 @@ export type PlanningEventDebug = {
   city: string | null;
 };
 
+export type AiShortlistDebug = {
+  eventId: string;
+  title: string;
+  rank: number;
+  score: number;
+  planningScore: number;
+  city: string | null;
+  inclusionReasons: string[];
+};
+
 export type EventsDebugMeta = {
   rawCount: number;
   dedupedCount: number;
@@ -77,6 +89,14 @@ export type EventsDebugMeta = {
   duplicates: EventDuplicateDebug[];
   highlights?: HighlightDebug[];
   highlightCandidates?: HighlightDebug[];
+  aiShortlist?: AiShortlistDebug[];
+  aiShortlistBucketSizes?: {
+    "deterministic-top": number;
+    "planning-top": number;
+    "booking-top": number;
+    "peripheral-top": number;
+    "future-top": number;
+  };
   aiAssessments?: AiHighlightDebug[];
   planningEvents?: PlanningEventDebug[];
   sourceIngestion?: Array<{
@@ -577,6 +597,7 @@ export function EventsDebugPanel({
                       <tr>
                         <th className="px-3 py-2.5 font-medium">Slot</th>
                         <th className="px-3 py-2.5 font-medium">Sel.</th>
+                        <th className="px-3 py-2.5 font-medium">Badge</th>
                         <th className="px-3 py-2.5 font-medium">Titre</th>
                         <th className="px-3 py-2.5 font-medium">Score</th>
                         <th className="px-3 py-2.5 font-medium">Det. rank</th>
@@ -599,6 +620,9 @@ export function EventsDebugPanel({
                           </td>
                           <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[10px] text-sand">
                             {highlight.selectionSource ?? "—"}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 text-[11px] text-ink">
+                            {highlight.editorialBadge ?? "—"}
                           </td>
                           <td className="max-w-[16rem] px-3 py-2.5 font-medium text-ink">
                             {highlight.title}
@@ -757,15 +781,71 @@ export function EventsDebugPanel({
               </div>
             ) : null}
 
+            {meta && meta.aiShortlist && meta.aiShortlist.length > 0 ? (
+              <div className="space-y-3">
+                <h3 className="font-display text-lg tracking-tight">
+                  AI candidate pool
+                </h3>
+                <p className="text-sm text-cream-dim">
+                  Union de buckets (max 60) : deterministic-top, planning-top,
+                  booking-top, peripheral-top, future-top.
+                  {meta.aiShortlistBucketSizes
+                    ? ` Buckets bruts : det=${meta.aiShortlistBucketSizes["deterministic-top"]}, plan=${meta.aiShortlistBucketSizes["planning-top"]}, book=${meta.aiShortlistBucketSizes["booking-top"]}, peri=${meta.aiShortlistBucketSizes["peripheral-top"]}, fut=${meta.aiShortlistBucketSizes["future-top"]}.`
+                    : ""}{" "}
+                  Pool final : {meta.aiShortlist.length}.
+                </p>
+                <div className="overflow-x-auto rounded-xl border border-line bg-paper">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="border-b border-line bg-foam/60 text-[10px] uppercase tracking-[0.14em] text-sand">
+                      <tr>
+                        <th className="px-3 py-2.5 font-medium">#</th>
+                        <th className="px-3 py-2.5 font-medium">Titre</th>
+                        <th className="px-3 py-2.5 font-medium">Score</th>
+                        <th className="px-3 py-2.5 font-medium">Planning</th>
+                        <th className="px-3 py-2.5 font-medium">Ville</th>
+                        <th className="px-3 py-2.5 font-medium">Inclusion</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {meta.aiShortlist.map((item) => (
+                        <tr
+                          key={item.eventId}
+                          className="border-b border-line/70 align-top last:border-b-0"
+                        >
+                          <td className="px-3 py-2.5 font-mono text-sand">
+                            {item.rank}
+                          </td>
+                          <td className="max-w-[16rem] px-3 py-2.5 font-medium text-ink">
+                            {item.title}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {item.score}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {item.planningScore}
+                          </td>
+                          <td className="px-3 py-2.5 text-cream-dim">
+                            {item.city || "—"}
+                          </td>
+                          <td className="max-w-[18rem] px-3 py-2.5 font-mono text-[10px] text-cream-dim">
+                            {item.inclusionReasons.join(" · ") || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
             {meta && meta.aiAssessments && meta.aiAssessments.length > 0 ? (
               <div className="space-y-3">
                 <h3 className="font-display text-lg tracking-tight">
                   AI highlight assessment
                 </h3>
                 <p className="text-sm text-cream-dim">
-                  Shortlist déterministe évaluée par l’IA (dont recognition) —
-                  debug uniquement, ne pilote pas encore « Faites un détour ». Σ
-                  = appeal + discovery + planning + recognition.
+                  Shortlist déterministe évaluée par l’IA — debug. Σ = appeal +
+                  missRisk + planningNeed + localRarity + likelyDemand.
                 </p>
                 <div className="overflow-x-auto rounded-xl border border-line bg-paper">
                   <table className="min-w-full text-left text-xs">
@@ -780,9 +860,10 @@ export function EventsDebugPanel({
                           AI rank — Détour
                         </th>
                         <th className="px-3 py-2.5 font-medium">Appeal</th>
-                        <th className="px-3 py-2.5 font-medium">Discovery</th>
+                        <th className="px-3 py-2.5 font-medium">Miss risk</th>
                         <th className="px-3 py-2.5 font-medium">Planning</th>
-                        <th className="px-3 py-2.5 font-medium">Recognition</th>
+                        <th className="px-3 py-2.5 font-medium">Local rarity</th>
+                        <th className="px-3 py-2.5 font-medium">Likely demand</th>
                         <th className="px-3 py-2.5 font-medium">Conf.</th>
                         <th className="px-3 py-2.5 font-medium">Σ</th>
                         <th className="px-3 py-2.5 font-medium">Reasons</th>
@@ -810,13 +891,16 @@ export function EventsDebugPanel({
                             {assessment.appeal}
                           </td>
                           <td className="px-3 py-2.5 font-mono text-ink">
-                            {assessment.discoveryValue}
+                            {assessment.missRisk}
                           </td>
                           <td className="px-3 py-2.5 font-mono text-ink">
-                            {assessment.planningValue}
+                            {assessment.planningNeed}
                           </td>
                           <td className="px-3 py-2.5 font-mono text-ink">
-                            {assessment.recognition}
+                            {assessment.localRarity}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {assessment.likelyDemand}
                           </td>
                           <td className="px-3 py-2.5 font-mono text-cream-dim">
                             {assessment.confidence.toFixed(2)}

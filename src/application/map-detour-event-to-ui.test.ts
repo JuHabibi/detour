@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   mapDetourEventToEventItem,
+  mapDetourHighlightToEventItem,
   resolveCategoryBadgeLabel,
 } from "@/application/map-detour-event-to-ui";
 import type { DetourEvent } from "@/domain/event";
+import type { EventHighlight } from "@/domain/select-detour-highlights";
 import {
   CITY_CENTER_FALLBACKS,
   ORLEANS_CENTER,
@@ -165,5 +167,52 @@ describe("mapDetourEventToEventItem — distance", () => {
       }),
     );
     expect(item.distanceKm).toBeUndefined();
+  });
+});
+
+describe("mapDetourHighlightToEventItem — pastille éditoriale", () => {
+  function highlight(
+    overrides: {
+      registrationUrl?: string | null;
+      ai?: EventHighlight["aiSelection"];
+    } = {},
+  ): EventHighlight {
+    return {
+      event: baseEvent({
+        id: "h1",
+        title: "Spectacle",
+        registrationUrl: overrides.registrationUrl ?? null,
+      }),
+      score: 10,
+      planningScore: 2,
+      reasons: ["headline-appeal"],
+      selectionSource: "ai",
+      aiSelection: overrides.ai,
+    };
+  }
+
+  it("attache À réserver depuis assessment + registrationUrl", () => {
+    const item = mapDetourHighlightToEventItem(
+      highlight({
+        registrationUrl: "https://book.example",
+        ai: {
+          formula: "strong",
+          slotScore: 12,
+          appeal: 4,
+          missRisk: 2,
+          planningNeed: 4,
+          localRarity: 5,
+          likelyDemand: 4,
+          confidence: 0.8,
+          aiReasons: [],
+        },
+      }),
+    );
+    expect(item.editorialBadge).toBe("À réserver");
+  });
+
+  it("sans aiSelection → pas de pastille", () => {
+    const item = mapDetourHighlightToEventItem(highlight());
+    expect(item.editorialBadge).toBeUndefined();
   });
 });

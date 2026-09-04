@@ -1,0 +1,152 @@
+{
+  "checyTitles": [
+    {
+      "id": "36270117",
+      "title": "FORUM DES ASSOS",
+      "startAt": "2026-09-06T09:30:00+02:00",
+      "venue": "Val des Pâtures"
+    },
+    {
+      "id": "35041664",
+      "title": "Clic et Déclic",
+      "startAt": "2026-09-09T14:30:00+02:00",
+      "venue": "La Canopée"
+    },
+    {
+      "id": "57977978",
+      "title": "Kabinet - SAISON CULTURELLE 26/27",
+      "startAt": "2026-09-18T19:30:00+02:00",
+      "venue": "Espace George Sand"
+    },
+    {
+      "id": "3583301",
+      "title": "Clic et Déclic",
+      "startAt": "2026-09-23T14:30:00+02:00",
+      "venue": "La Canopée"
+    },
+    {
+      "id": "88852667",
+      "title": "Mission forêt tropicale - SAISON CULTURELLE 26/27",
+      "startAt": "2026-10-04T10:00:00+02:00",
+      "venue": "Espace George Sand"
+    },
+    {
+      "id": "85527432",
+      "title": "Clic et Déclic",
+      "startAt": "2026-10-07T13:30:00+02:00",
+      "venue": "La Canopée"
+    },
+    {
+      "id": "92355707",
+      "title": "LES VOISINS DU DESSUS - SAISON CULTURELLE 26/27",
+      "startAt": "2026-10-08T20:30:00+02:00",
+      "venue": "Espace George Sand"
+    },
+    {
+      "id": "43156192",
+      "title": "Clic et Déclic",
+      "startAt": "2026-10-14T14:30:00+02:00",
+      "venue": "La Canopée"
+    },
+    {
+      "id": "28823899",
+      "title": "AUX MARGES DU PALAIS - SAISON CULTURELLE 26/27",
+      "startAt": "2026-10-15T20:30:00+02:00",
+      "venue": "Espace George Sand"
+    },
+    {
+      "id": "51045072",
+      "title": "Clic et Déclic",
+      "startAt": "2026-10-27T14:30:00+01:00",
+      "venue": "La Canopée"
+    },
+    {
+      "id": "4456271",
+      "title": "Clic et Déclic",
+      "startAt": "2026-10-28T14:30:00+01:00",
+      "venue": "La Canopée"
+    },
+    {
+      "id": "28552054",
+      "title": "CHARLOTTE BOISSELIER - SAISON CULTURELLE 26/27",
+      "startAt": "2026-11-05T20:30:00+01:00",
+      "venue": "Espace George Sand"
+    },
+    {
+      "id": "62161124",
+      "title": "L’ORCHESTRE D’HARMONIE DE LA RÉGION CENTRE - SAISON CULTURELLE 26/27",
+      "startAt": "2026-11-07T20:30:00+01:00",
+      "venue": "Espace George Sand"
+    },
+    {
+      "id": "22745578",
+      "title": "Y‘ EN A VRAIMENT MARRE DE L’AMOUR ! - SAISON CULTURELLE 26/27",
+      "startAt": "2026-11-12T20:30:00+01:00",
+      "venue": "Espace George Sand"
+    },
+    {
+      "id": "15994858",
+      "title": "PIERRE, PAULE et PAUL - SAISON CULTURELLE 26/27",
+      "startAt": "2026-11-19T20:30:00+01:00",
+      "venue": "Espace George Sand"
+    },
+    {
+      "id": "47822110",
+      "title": "LES CONCERTS IMPROMPTUS - SAISON CULTURELLE 26/27",
+      "startAt": "2026-11-27T20:00:00+01:00",
+      "venue": "Espace George Sand"
+    },
+    {
+      "id": "96065479",
+      "title": "À dos de chameau - SAISON CULTURELLE 26/27",
+      "startAt": "2026-12-06T17:00:00+01:00",
+      "venue": "Espace George Sand"
+    },
+    {
+      "id": "98381150",
+      "title": "MOZES ROSENBERG TRIO - SAISON CULTURELLE 26/27",
+      "startAt": "2026-12-17T20:30:00+01:00",
+      "venue": "Espace George Sand"
+    },
+    {
+      "id": "59662176",
+      "title": "LE BOURGEOIS GENTILHOMME - SAISON CULTURELLE 26/27",
+      "startAt": "2027-01-20T20:30:00+01:00",
+      "venue": "Espace George Sand"
+    },
+    {
+      "id": "62834753",
+      "title": "Tournepouce - SAISON CULTURELLE 26/27",
+      "startAt": "2027-02-03T15:00:00+01:00",
+      "venue": "Espace George Sand"
+    }
+  ],
+  "jpExact": [
+    {
+      "id": "59662176",
+      "title": "LE BOURGEOIS GENTILHOMME - SAISON CULTURELLE 26/27",
+      "description": "Jean-Paul Rouve n’a qu’un objectif, nous faire rire.",
+      "imageUrl": "https://img.openagenda.com/main/d2f71fe7d69348299fc9854be3ea4749.base.image.jpg",
+      "startAt": "2027-01-20T20:30:00+01:00",
+      "endAt": "2027-01-20T22:00:00+01:00",
+      "venue": "Espace George Sand",
+      "city": "Chécy",
+      "latitude": 47.900714,
+      "longitude": 2.023362,
+      "category": "Musique;Spectacle",
+      "genre": null,
+      "conditions": "Variable selon spectacle",
+      "source": "Agenda de  Chécy",
+      "sourceUrl": "https://openagenda.com/orleans-metropole/events/le-bourgeois-gentilhomme-saison-culturelle-2627",
+      "registrationUrl": "https://www.checy.fr/billetterie/"
+    }
+  ],
+  "rouveWord": [
+    {
+      "id": "59662176",
+      "title": "LE BOURGEOIS GENTILHOMME - SAISON CULTURELLE 26/27",
+      "city": "Chécy",
+      "startAt": "2027-01-20T20:30:00+01:00"
+    }
+  ]
+}

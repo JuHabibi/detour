@@ -5,6 +5,8 @@ import {
   distanceKmBetween,
   resolveEventCoordinates,
 } from "@/domain/geo";
+import { resolveEditorialBadge } from "@/domain/resolve-editorial-badge";
+import type { EventHighlight } from "@/domain/select-detour-highlights";
 import type { EventItem } from "@/data/types";
 
 export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
@@ -34,6 +36,27 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
     relevanceReason: event.relevanceReason,
     weekend: isWeekendDay(start),
   };
+}
+
+/**
+ * Mapping highlight « Faites un détour » → UI, avec pastille éditoriale si assessment IA.
+ */
+export function mapDetourHighlightToEventItem(
+  highlight: EventHighlight,
+): EventItem {
+  const item = mapDetourEventToEventItem(highlight.event);
+  const ai = highlight.aiSelection;
+  if (!ai) return item;
+
+  const editorialBadge = resolveEditorialBadge({
+    planningNeed: ai.planningNeed,
+    localRarity: ai.localRarity,
+    likelyDemand: ai.likelyDemand,
+    missRisk: ai.missRisk,
+    hasRegistrationUrl: Boolean(highlight.event.registrationUrl),
+  });
+
+  return editorialBadge ? { ...item, editorialBadge } : item;
 }
 
 /**

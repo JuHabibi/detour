@@ -39,11 +39,12 @@ describe("parseAiHighlightAssessments", () => {
           {
             eventId: "a",
             appeal: 4,
-            discoveryValue: 5,
-            planningValue: 3,
-            recognition: 4,
+            missRisk: 5,
+            planningNeed: 3,
+            localRarity: 4,
+            likelyDemand: 3,
             confidence: 0.8,
-            reasons: ["spectacle clair"],
+            reasons: ["programmation locale peu visible mais intéressante"],
           },
         ],
       },
@@ -54,11 +55,12 @@ describe("parseAiHighlightAssessments", () => {
       {
         eventId: "a",
         appeal: 4,
-        discoveryValue: 5,
-        planningValue: 3,
-        recognition: 4,
+        missRisk: 5,
+        planningNeed: 3,
+        localRarity: 4,
+        likelyDemand: 3,
         confidence: 0.8,
-        reasons: ["spectacle clair"],
+        reasons: ["programmation locale peu visible mais intéressante"],
       },
     ]);
   });
@@ -75,9 +77,10 @@ describe("parseAiHighlightAssessments", () => {
           {
             eventId: "a",
             appeal: 99,
-            discoveryValue: -3,
-            planningValue: "4",
-            recognition: 12,
+            missRisk: -3,
+            planningNeed: "4",
+            localRarity: 12,
+            likelyDemand: -1,
             confidence: 2,
             reasons: ["ok"],
           },
@@ -88,22 +91,21 @@ describe("parseAiHighlightAssessments", () => {
 
     expect(result[0]).toMatchObject({
       appeal: 5,
-      discoveryValue: 0,
-      planningValue: 4,
-      recognition: 5,
+      missRisk: 0,
+      planningNeed: 4,
+      localRarity: 5,
+      likelyDemand: 0,
       confidence: 1,
     });
   });
 
-  it("recognition absente → défaut sûr (0)", () => {
+  it("dimensions absentes → défaut sûr (0)", () => {
     const result = parseAiHighlightAssessments(
       {
         assessments: [
           {
             eventId: "a",
             appeal: 3,
-            discoveryValue: 3,
-            planningValue: 3,
             confidence: 0.5,
             reasons: [],
           },
@@ -112,25 +114,27 @@ describe("parseAiHighlightAssessments", () => {
       ["a"],
     );
 
-    expect(result[0]?.recognition).toBe(0);
     expect(result[0]).toMatchObject({
       appeal: 3,
-      discoveryValue: 3,
-      planningValue: 3,
+      missRisk: 0,
+      planningNeed: 0,
+      localRarity: 0,
+      likelyDemand: 0,
       confidence: 0.5,
     });
   });
 
-  it("clamp recognition <0 et >5", () => {
+  it("clamp localRarity et likelyDemand <0 et >5", () => {
     const low = parseAiHighlightAssessments(
       {
         assessments: [
           {
             eventId: "low",
             appeal: 1,
-            discoveryValue: 1,
-            planningValue: 1,
-            recognition: -4,
+            missRisk: 1,
+            planningNeed: 1,
+            localRarity: -4,
+            likelyDemand: -2,
             confidence: 0.1,
             reasons: [],
           },
@@ -144,9 +148,10 @@ describe("parseAiHighlightAssessments", () => {
           {
             eventId: "high",
             appeal: 1,
-            discoveryValue: 1,
-            planningValue: 1,
-            recognition: 99,
+            missRisk: 1,
+            planningNeed: 1,
+            localRarity: 99,
+            likelyDemand: 88,
             confidence: 0.1,
             reasons: [],
           },
@@ -155,8 +160,10 @@ describe("parseAiHighlightAssessments", () => {
       ["high"],
     );
 
-    expect(low[0]?.recognition).toBe(0);
-    expect(high[0]?.recognition).toBe(5);
+    expect(low[0]?.localRarity).toBe(0);
+    expect(low[0]?.likelyDemand).toBe(0);
+    expect(high[0]?.localRarity).toBe(5);
+    expect(high[0]?.likelyDemand).toBe(5);
   });
 
   it("ignore un événement manquant dans la réponse", () => {
@@ -166,9 +173,10 @@ describe("parseAiHighlightAssessments", () => {
           {
             eventId: "a",
             appeal: 3,
-            discoveryValue: 3,
-            planningValue: 3,
-            recognition: 2,
+            missRisk: 3,
+            planningNeed: 3,
+            localRarity: 2,
+            likelyDemand: 2,
             confidence: 0.5,
             reasons: [],
           },
@@ -189,18 +197,20 @@ describe("parseAiHighlightAssessments", () => {
           {
             eventId: "ok",
             appeal: 2,
-            discoveryValue: 2,
-            planningValue: 2,
-            recognition: 1,
+            missRisk: 2,
+            planningNeed: 2,
+            localRarity: 1,
+            likelyDemand: 1,
             confidence: 0.4,
             reasons: ["partiel"],
           },
           {
             eventId: "foreign",
             appeal: 5,
-            discoveryValue: 5,
-            planningValue: 5,
-            recognition: 5,
+            missRisk: 5,
+            planningNeed: 5,
+            localRarity: 5,
+            likelyDemand: 5,
             confidence: 1,
             reasons: [],
           },
@@ -211,7 +221,7 @@ describe("parseAiHighlightAssessments", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]?.eventId).toBe("ok");
-    expect(result[0]?.recognition).toBe(1);
+    expect(result[0]?.localRarity).toBe(1);
   });
 
   it("accepte un tableau racine", () => {
@@ -220,9 +230,10 @@ describe("parseAiHighlightAssessments", () => {
         {
           eventId: "a",
           appeal: 1,
-          discoveryValue: 1,
-          planningValue: 1,
-          recognition: 0,
+          missRisk: 1,
+          planningNeed: 1,
+          localRarity: 0,
+          likelyDemand: 0,
           confidence: 0.2,
           reasons: [],
         },
@@ -234,18 +245,19 @@ describe("parseAiHighlightAssessments", () => {
 });
 
 describe("combinedAiScore", () => {
-  it("somme appeal + discovery + planning + recognition", () => {
+  it("somme appeal + missRisk + planningNeed + localRarity + likelyDemand", () => {
     expect(
       combinedAiScore({
         eventId: "a",
         appeal: 4,
-        discoveryValue: 5,
-        planningValue: 3,
-        recognition: 2,
+        missRisk: 5,
+        planningNeed: 3,
+        localRarity: 2,
+        likelyDemand: 1,
         confidence: 0.9,
         reasons: [],
       }),
-    ).toBe(14);
+    ).toBe(15);
   });
 });
 
@@ -298,11 +310,12 @@ describe("OpenAiHighlightAssessmentProvider", () => {
                   {
                     eventId: "a",
                     appeal: 4,
-                    discoveryValue: 3,
-                    planningValue: 5,
-                    recognition: 2,
+                    missRisk: 3,
+                    planningNeed: 5,
+                    localRarity: 2,
+                    likelyDemand: 4,
                     confidence: 0.7,
-                    reasons: ["réservation anticipée"],
+                    reasons: ["réservation anticipée probable"],
                   },
                 ],
               }),
@@ -321,12 +334,15 @@ describe("OpenAiHighlightAssessmentProvider", () => {
     const result = await provider.assess([event("a")]);
     expect(result).toHaveLength(1);
     expect(result[0]?.appeal).toBe(4);
-    expect(result[0]?.recognition).toBe(2);
+    expect(result[0]?.localRarity).toBe(2);
+    expect(result[0]?.likelyDemand).toBe(4);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
 
     const body = JSON.parse(
       (fetchImpl.mock.calls[0]?.[1] as RequestInit).body as string,
     );
-    expect(body.messages[0].content).toContain("recognition");
+    expect(body.messages[0].content).toContain("localRarity");
+    expect(body.messages[0].content).toContain("missRisk");
+    expect(body.messages[0].content).not.toContain("discoveryValue");
   });
 });

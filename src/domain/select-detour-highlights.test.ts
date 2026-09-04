@@ -537,7 +537,8 @@ describe("selectDetourHighlights", () => {
     expect(selectDetourHighlights(events, { limit: 4 })).toHaveLength(4);
     expect(selectDetourHighlights(events, { limit: 2 })).toHaveLength(2);
     expect(selectDetourHighlights(events, { limit: 6 })).toHaveLength(6);
-    expect(selectDetourHighlights(events)).toHaveLength(6);
+    expect(selectDetourHighlights(events, { limit: 10 })).toHaveLength(10);
+    expect(selectDetourHighlights(events)).toHaveLength(10);
   });
 
   it("limit 6 → 1 strong, 2 local-gems, 1 planning, 2 wildcards (sans doublon)", () => {
@@ -573,10 +574,16 @@ describe("selectDetourHighlights", () => {
       1,
     );
     expect(highlights.filter((item) => item.slot === "local-gem")).toHaveLength(2);
-    expect(
-      highlights.filter((item) => item.slot === "worth-planning"),
-    ).toHaveLength(1);
-    expect(highlights.filter((item) => item.slot === "wildcard")).toHaveLength(2);
+    // Planning non forcé : si le seul candidat >30j a déjà été pris en local-gem,
+    // le slot devient wildcard.
+    const planningCount = highlights.filter(
+      (item) => item.slot === "worth-planning",
+    ).length;
+    const wildCount = highlights.filter(
+      (item) => item.slot === "wildcard",
+    ).length;
+    expect(planningCount + wildCount).toBe(3);
+    expect(planningCount).toBeLessThanOrEqual(1);
   });
 
   it("le score est la somme directe des reasons", () => {

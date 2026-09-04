@@ -7,6 +7,7 @@ import type {
 } from "@/components/EventsDebugPanel";
 import type { UpcomingEventsResult } from "@/application/event.service";
 import { combinedAiScore } from "@/domain/ai-highlight-assessment";
+import { resolveEditorialBadge } from "@/domain/resolve-editorial-badge";
 import type { EventHighlight } from "@/domain/select-detour-highlights";
 import { shortenCacheKey } from "@/infrastructure/ai/ai-assessment-cache-key";
 
@@ -16,10 +17,25 @@ function formatScoresUsed(highlight: EventHighlight): string | undefined {
   return [
     `${ai.formula}=${ai.slotScore}`,
     `a${ai.appeal}`,
-    `d${ai.discoveryValue}`,
-    `p${ai.planningValue}`,
-    `r${ai.recognition}`,
+    `m${ai.missRisk}`,
+    `p${ai.planningNeed}`,
+    `lr${ai.localRarity}`,
+    `ld${ai.likelyDemand}`,
   ].join(" · ");
+}
+
+function resolveHighlightEditorialBadge(
+  highlight: EventHighlight,
+): string | null {
+  const ai = highlight.aiSelection;
+  if (!ai) return null;
+  return resolveEditorialBadge({
+    planningNeed: ai.planningNeed,
+    localRarity: ai.localRarity,
+    likelyDemand: ai.likelyDemand,
+    missRisk: ai.missRisk,
+    hasRegistrationUrl: Boolean(highlight.event.registrationUrl),
+  });
 }
 
 function toHighlightDebug(
@@ -44,6 +60,7 @@ function toHighlightDebug(
     deterministicRank: options?.deterministicRank,
     aiRank: options?.aiRank,
     scoresUsed: formatScoresUsed(highlight),
+    editorialBadge: resolveHighlightEditorialBadge(highlight),
   };
 }
 
@@ -73,6 +90,8 @@ export function buildEventsDebugMeta(
     planningEvents,
     highlightCandidates,
     aiShortlist,
+    aiShortlistInclusion,
+    aiShortlistBucketSizes,
     scoredCandidatesCount,
     aiAssessments,
     aiMeta,
@@ -115,9 +134,10 @@ export function buildEventsDebugMeta(
       title: event?.title ?? assessment.eventId,
       deterministicRank: shortlistRankById.get(assessment.eventId),
       appeal: assessment.appeal,
-      discoveryValue: assessment.discoveryValue,
-      planningValue: assessment.planningValue,
-      recognition: assessment.recognition,
+      missRisk: assessment.missRisk,
+      planningNeed: assessment.planningNeed,
+      localRarity: assessment.localRarity,
+      likelyDemand: assessment.likelyDemand,
       confidence: assessment.confidence,
       reasons: assessment.reasons,
       combined: combinedAiScore(assessment),
@@ -156,6 +176,17 @@ export function buildEventsDebugMeta(
     highlightCandidates: highlightCandidates.map((highlight, index) =>
       toHighlightDebug(highlight, { rank: index + 1 }),
     ),
+    aiShortlist: aiShortlist.map((highlight, index) => ({
+      eventId: highlight.event.id,
+      title: highlight.event.title,
+      rank: index + 1,
+      score: highlight.score,
+      planningScore: highlight.planningScore,
+      city: highlight.event.city,
+      inclusionReasons:
+        aiShortlistInclusion[highlight.event.id] ?? [],
+    })),
+    aiShortlistBucketSizes,
     aiAssessments: aiDebug.length > 0 ? aiDebug : undefined,
     planningEvents:
       planningEvents.length > 0

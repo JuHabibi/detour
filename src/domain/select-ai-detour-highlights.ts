@@ -8,8 +8,10 @@ import type {
   HighlightSlot,
 } from "@/domain/select-detour-highlights";
 
-export type AiSlotFormula =
-  AiHighlightSelectionMeta["formula"];
+export type AiSlotFormula = AiHighlightSelectionMeta["formula"];
+
+/** Radar culturel local — jusqu’à 10 événements. */
+export const AI_DETOUR_DEFAULT_LIMIT = 10;
 
 type AssessedCandidate = {
   candidate: EventHighlight;
@@ -17,53 +19,119 @@ type AssessedCandidate = {
   index: number;
 };
 
-/** Séquence de slots : 1 strong, 1–2 gems, 1 planning, wildcards. */
+/**
+ * Séquence IA cible (limit ≥ 10) :
+ * 2 strong, 2 easy-to-miss, 2 worth-planning, 2 rare-local, 2 wildcard.
+ * Limites plus petites : mix réduit, wildcards en complément.
+ */
 export function buildAiDetourSlotSequence(limit: number): HighlightSlot[] {
   if (limit <= 0) return [];
 
-  const slots: HighlightSlot[] = ["strong-event"];
-  const localGemCount = limit >= 6 ? 2 : 1;
-  for (let i = 0; i < localGemCount && slots.length < limit; i += 1) {
-    slots.push("local-gem");
+  const ideal: HighlightSlot[] = [
+    "strong-event",
+    "strong-event",
+    "easy-to-miss",
+    "easy-to-miss",
+    "worth-planning",
+    "worth-planning",
+    "rare-local",
+    "rare-local",
+    "wildcard",
+    "wildcard",
+  ];
+
+  if (limit >= ideal.length) {
+    const slots = [...ideal];
+    while (slots.length < limit) slots.push("wildcard");
+    return slots;
   }
-  if (slots.length < limit) slots.push("worth-planning");
-  while (slots.length < limit) slots.push("wildcard");
-  return slots;
+
+  if (limit >= 6) {
+    const slots: HighlightSlot[] = [
+      "strong-event",
+      "easy-to-miss",
+      "easy-to-miss",
+      "worth-planning",
+      "rare-local",
+    ];
+    while (slots.length < limit) slots.push("wildcard");
+    return slots.slice(0, limit);
+  }
+
+  const compact: HighlightSlot[] = [
+    "strong-event",
+    "easy-to-miss",
+    "worth-planning",
+    "rare-local",
+    "wildcard",
+  ];
+  return compact.slice(0, limit);
 }
 
-/** strong-event : recognition pèse autant que appeal. */
+/** Fort potentiel global. */
 export function strongEventScore(assessment: AiHighlightAssessment): number {
-  return assessment.appeal * 2 + assessment.recognition * 2 + assessment.planningValue;
-}
-
-/** local-gem : favorise la découverte locale. */
-export function localGemScore(assessment: AiHighlightAssessment): number {
-  return assessment.discoveryValue * 2 + assessment.appeal;
-}
-
-/** worth-planning : anticipation, pas urgence / stock. */
-export function worthPlanningScore(assessment: AiHighlightAssessment): number {
   return (
-    assessment.planningValue * 2 + assessment.appeal + assessment.recognition
+    assessment.appeal * 2 + assessment.likelyDemand * 2 + assessment.planningNeed
   );
 }
 
-/** wildcard : somme indicative des 4 dimensions. */
+/** Facile à rater malgré l’intérêt. */
+export function easyToMissScore(assessment: AiHighlightAssessment): number {
+  return assessment.missRisk * 2 + assessment.appeal + assessment.localRarity;
+}
+
+/** Nécessite de l’anticipation. */
+export function worthPlanningScore(assessment: AiHighlightAssessment): number {
+  return (
+    assessment.planningNeed * 2 + assessment.likelyDemand + assessment.appeal
+  );
+}
+
+/** Localement rare / inhabituel. */
+export function rareLocalScore(assessment: AiHighlightAssessment): number {
+  return (
+    assessment.localRarity * 2 + assessment.appeal + assessment.likelyDemand
+  );
+}
+
+/** Wildcard éditorial. */
 export function wildcardSlotScore(assessment: AiHighlightAssessment): number {
   return combinedAiScore(assessment);
 }
 
 /**
+ * Un slot thématique n’est rempli que si le signal principal est crédible.
+ * Sinon → meilleur restant en wildcard (pas de quota artificiel).
+ */
+export function meetsAiSlotFloor(
+  slot: HighlightSlot,
+  assessment: AiHighlightAssessment,
+): boolean {
+  switch (slot) {
+    case "strong-event":
+      return assessment.appeal >= 3 || assessment.likelyDemand >= 3;
+    case "easy-to-miss":
+      return assessment.missRisk >= 2;
+    case "worth-planning":
+      return assessment.planningNeed >= 2;
+    case "rare-local":
+      return assessment.localRarity >= 2;
+    case "wildcard":
+    case "local-gem":
+      return true;
+  }
+}
+
+/**
  * Sélection éditoriale « Faites un détour » pilotée par l’IA.
  * Limité aux événements évalués. Retourne [] si aucun assessment → fallback appelant.
- * Formules de score inchangées — seule la séquence de slots s’adapte à `limit`.
  */
 export function selectAiDetourHighlights(
   candidates: EventHighlight[],
   assessments: AiHighlightAssessment[],
   options?: { limit?: number },
 ): EventHighlight[] {
-  const limit = options?.limit ?? 6;
+  const limit = options?.limit ?? AI_DETOUR_DEFAULT_LIMIT;
   if (limit <= 0 || assessments.length === 0 || candidates.length === 0) {
     return [];
   }
@@ -117,11 +185,15 @@ export function selectAiDetourHighlights(
 
     const { formula, scoreFn } = scoreConfigForSlot(slot);
     const best = pickBest(scoreFn);
-    if (best) take(best, slot, formula, scoreFn);
-    else {
-      const fallback = pickBest(wildcardSlotScore);
-      if (fallback) take(fallback, slot, "wildcard", wildcardSlotScore);
+
+    if (best && meetsAiSlotFloor(slot, best.assessment)) {
+      take(best, slot, formula, scoreFn);
+      continue;
     }
+
+    // Candidat trop faible pour le quota thématique → meilleur restant.
+    const fallback = pickBest(wildcardSlotScore);
+    if (fallback) take(fallback, "wildcard", "wildcard", wildcardSlotScore);
   }
 
   return selected.slice(0, limit);
@@ -134,11 +206,14 @@ function scoreConfigForSlot(slot: HighlightSlot): {
   switch (slot) {
     case "strong-event":
       return { formula: "strong", scoreFn: strongEventScore };
-    case "local-gem":
-      return { formula: "local-gem", scoreFn: localGemScore };
+    case "easy-to-miss":
+      return { formula: "easy-to-miss", scoreFn: easyToMissScore };
     case "worth-planning":
       return { formula: "worth-planning", scoreFn: worthPlanningScore };
+    case "rare-local":
+      return { formula: "rare-local", scoreFn: rareLocalScore };
     case "wildcard":
+    case "local-gem":
       return { formula: "wildcard", scoreFn: wildcardSlotScore };
   }
 }
@@ -159,9 +234,10 @@ function toAiHighlight(
       formula,
       slotScore,
       appeal: assessment.appeal,
-      discoveryValue: assessment.discoveryValue,
-      planningValue: assessment.planningValue,
-      recognition: assessment.recognition,
+      missRisk: assessment.missRisk,
+      planningNeed: assessment.planningNeed,
+      localRarity: assessment.localRarity,
+      likelyDemand: assessment.likelyDemand,
       confidence: assessment.confidence,
       aiReasons: assessment.reasons,
     },

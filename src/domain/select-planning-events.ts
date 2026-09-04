@@ -78,7 +78,7 @@ export function selectPlanningEvents(params: {
         const assessment = assessmentById.get(event.id);
         return (
           assessment != null &&
-          assessment.planningValue >= MIN_AI_PLANNING_VALUE
+          assessment.planningNeed >= MIN_AI_PLANNING_VALUE
         );
       })
       .map((event) =>
@@ -138,14 +138,14 @@ function scoreAiCandidate(
     event,
     selectionSource: "ai",
     selectionScore:
-      assessment.planningValue * 3 +
+      assessment.planningNeed * 3 +
       assessment.appeal +
-      assessment.recognition,
-    planningValue: assessment.planningValue,
+      assessment.likelyDemand,
+    planningValue: assessment.planningNeed,
     planningScore: candidatesById.get(event.id)?.planningScore ?? 0,
     appeal: assessment.appeal,
-    recognition: assessment.recognition,
-    discoveryValue: assessment.discoveryValue,
+    recognition: assessment.likelyDemand,
+    discoveryValue: assessment.missRisk,
   };
 }
 

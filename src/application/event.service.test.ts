@@ -55,9 +55,10 @@ function mockAssessments(): HighlightAssessmentProvider {
           return {
             eventId: "star",
             appeal: 5,
-            discoveryValue: 2,
-            planningValue: 2,
-            recognition: 5,
+            missRisk: 2,
+            localRarity: 0,
+            planningNeed: 2,
+            likelyDemand: 5,
             confidence: 0.9,
             reasons: ["connu"],
           };
@@ -66,9 +67,10 @@ function mockAssessments(): HighlightAssessmentProvider {
           return {
             eventId: "gem",
             appeal: 4,
-            discoveryValue: 5,
-            planningValue: 1,
-            recognition: 0,
+            missRisk: 5,
+            localRarity: 0,
+            planningNeed: 1,
+            likelyDemand: 0,
             confidence: 0.8,
             reasons: ["local"],
           };
@@ -77,9 +79,10 @@ function mockAssessments(): HighlightAssessmentProvider {
           return {
             eventId: "plan",
             appeal: 3,
-            discoveryValue: 2,
-            planningValue: 5,
-            recognition: 2,
+            missRisk: 2,
+            localRarity: 0,
+            planningNeed: 5,
+            likelyDemand: 2,
             confidence: 0.8,
             reasons: ["anticiper"],
           };
@@ -87,9 +90,10 @@ function mockAssessments(): HighlightAssessmentProvider {
         return {
           eventId: item.id,
           appeal: 3,
-          discoveryValue: 3,
-          planningValue: 3,
-          recognition: 1,
+          missRisk: 3,
+          localRarity: 0,
+          planningNeed: 3,
+          likelyDemand: 1,
           confidence: 0.7,
           reasons: ["ok"],
         };

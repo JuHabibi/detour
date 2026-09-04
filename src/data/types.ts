@@ -64,4 +64,16 @@ export type EventItem = {
   /** Flag éditorial — défini plus tard par le service, pas par le mapper. */
   upcoming?: boolean;
   signal?: EventSignal;
+  /**
+   * Pastille éditoriale « Faites un détour » uniquement.
+   * Calculée hors composant (assessment IA + registrationUrl).
+   */
+  editorialBadge?: EditorialBadge;
 };
+
+export type EditorialBadge =
+  | "À réserver"
+  | "À anticiper"
+  | "Passage rare"
+  | "Fort potentiel"
+  | "Pépite locale";

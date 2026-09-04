@@ -3,7 +3,8 @@ import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
 import type { DetourEvent } from "@/domain/event";
 import {
   buildAiDetourSlotSequence,
-  localGemScore,
+  easyToMissScore,
+  rareLocalScore,
   selectAiDetourHighlights,
   strongEventScore,
   worthPlanningScore,
@@ -47,9 +48,10 @@ function assessment(
     Pick<
       AiHighlightAssessment,
       | "appeal"
-      | "discoveryValue"
-      | "planningValue"
-      | "recognition"
+      | "missRisk"
+      | "planningNeed"
+      | "localRarity"
+      | "likelyDemand"
       | "confidence"
     >
   >,
@@ -57,131 +59,259 @@ function assessment(
   return {
     eventId,
     appeal: scores.appeal ?? 0,
-    discoveryValue: scores.discoveryValue ?? 0,
-    planningValue: scores.planningValue ?? 0,
-    recognition: scores.recognition ?? 0,
+    missRisk: scores.missRisk ?? 0,
+    planningNeed: scores.planningNeed ?? 0,
+    localRarity: scores.localRarity ?? 0,
+    likelyDemand: scores.likelyDemand ?? 0,
     confidence: scores.confidence ?? 0.8,
     reasons: ["test"],
   };
 }
 
 describe("selectAiDetourHighlights", () => {
-  it("appeal + recognition élevés → strong-event", () => {
+  it("événement très connu mais peu rare localement → strong-event, pas rare-local", () => {
+    const knownBigVenue = assessment("star", {
+      appeal: 5,
+      likelyDemand: 5,
+      planningNeed: 2,
+      localRarity: 1,
+      missRisk: 1,
+    });
+    // localRarity haute, missRisk basse → survit jusqu’au slot rare-local
+    const rare = assessment("rare", {
+      appeal: 4,
+      localRarity: 5,
+      likelyDemand: 3,
+      missRisk: 0,
+      planningNeed: 0,
+    });
+
     const highlights = selectAiDetourHighlights(
       [
         candidate("star"),
-        candidate("local"),
+        candidate("miss"),
+        candidate("miss2"),
         candidate("plan"),
+        candidate("rare"),
         candidate("wild"),
       ],
       [
-        assessment("star", { appeal: 5, recognition: 5, planningValue: 2 }),
-        assessment("local", { appeal: 2, discoveryValue: 5, recognition: 0 }),
-        assessment("plan", { appeal: 2, planningValue: 5, recognition: 1 }),
-        assessment("wild", { appeal: 3, discoveryValue: 3, planningValue: 3, recognition: 1 }),
+        knownBigVenue,
+        assessment("miss", { appeal: 3, missRisk: 5, localRarity: 2 }),
+        assessment("miss2", { appeal: 3, missRisk: 4, localRarity: 2 }),
+        assessment("plan", { appeal: 2, planningNeed: 5, likelyDemand: 2 }),
+        rare,
+        assessment("wild", {
+          appeal: 2,
+          missRisk: 2,
+          planningNeed: 2,
+          localRarity: 2,
+          likelyDemand: 2,
+        }),
       ],
-      { limit: 4 },
+      { limit: 6 },
     );
 
     expect(highlights[0]?.slot).toBe("strong-event");
     expect(highlights[0]?.event.id).toBe("star");
-    expect(highlights[0]?.selectionSource).toBe("ai");
-    expect(highlights[0]?.score).toBe(
-      strongEventScore(
-        assessment("star", { appeal: 5, recognition: 5, planningValue: 2 }),
-      ),
+    expect(highlights[0]?.score).toBe(strongEventScore(knownBigVenue));
+
+    const rareSlot = highlights.find((item) => item.slot === "rare-local");
+    expect(rareSlot?.event.id).toBe("rare");
+    expect(rareSlot?.score).toBe(rareLocalScore(rare));
+    expect(rareLocalScore(rare)).toBeGreaterThan(
+      rareLocalScore(knownBigVenue),
     );
   });
 
-  it("discovery très élevée + peu de recognition → local-gem", () => {
+  it("artiste connu dans une petite commune → localRarity élevée gagne rare-local", () => {
+    // missRisk volontairement basse pour ne pas être pris en easy-to-miss
+    const checy = assessment("checy", {
+      appeal: 5,
+      localRarity: 5,
+      likelyDemand: 4,
+      planningNeed: 1,
+      missRisk: 1,
+    });
+    const orleansHall = assessment("orleans", {
+      appeal: 5,
+      localRarity: 1,
+      likelyDemand: 5,
+      planningNeed: 2,
+      missRisk: 1,
+    });
+
     const highlights = selectAiDetourHighlights(
       [
-        candidate("star"),
-        candidate("gem"),
+        candidate("orleans"),
+        candidate("checy"),
+        candidate("m1"),
+        candidate("m2"),
         candidate("plan"),
         candidate("wild"),
       ],
       [
-        assessment("star", { appeal: 5, recognition: 5, planningValue: 1 }),
-        assessment("gem", { appeal: 4, discoveryValue: 5, recognition: 0 }),
-        assessment("plan", { appeal: 2, planningValue: 5, recognition: 1 }),
-        assessment("wild", { appeal: 3, discoveryValue: 2, planningValue: 2, recognition: 1 }),
+        orleansHall,
+        checy,
+        assessment("m1", { appeal: 3, missRisk: 5, localRarity: 2 }),
+        assessment("m2", { appeal: 3, missRisk: 5, localRarity: 1 }),
+        assessment("plan", { appeal: 2, planningNeed: 5, likelyDemand: 1 }),
+        assessment("wild", {
+          appeal: 1,
+          missRisk: 1,
+          planningNeed: 1,
+          localRarity: 1,
+          likelyDemand: 1,
+        }),
       ],
-      { limit: 4 },
+      { limit: 6 },
     );
 
-    const localGem = highlights.find((item) => item.slot === "local-gem");
-    expect(localGem?.event.id).toBe("gem");
-    expect(localGem?.score).toBe(
-      localGemScore(assessment("gem", { appeal: 4, discoveryValue: 5 })),
-    );
+    expect(highlights[0]?.event.id).toBe("orleans");
+    const rareSlot = highlights.find((item) => item.slot === "rare-local");
+    expect(rareSlot?.event.id).toBe("checy");
+    expect(rareLocalScore(checy)).toBeGreaterThan(rareLocalScore(orleansHall));
   });
 
-  it("planningValue élevé → worth-planning", () => {
+  it("petit événement peu connu mais fort missRisk → easy-to-miss", () => {
+    const hidden = assessment("hidden", {
+      appeal: 4,
+      missRisk: 5,
+      localRarity: 3,
+      likelyDemand: 0,
+      planningNeed: 1,
+    });
+
     const highlights = selectAiDetourHighlights(
       [
         candidate("star"),
-        candidate("gem"),
+        candidate("hidden"),
         candidate("plan"),
-        candidate("wild"),
+        candidate("rare"),
+        candidate("w1"),
+        candidate("w2"),
       ],
       [
-        assessment("star", { appeal: 5, recognition: 5, planningValue: 1 }),
-        assessment("gem", { appeal: 3, discoveryValue: 5, recognition: 0 }),
-        assessment("plan", { appeal: 3, planningValue: 5, recognition: 3 }),
-        assessment("wild", { appeal: 2, discoveryValue: 2, planningValue: 2, recognition: 1 }),
+        assessment("star", {
+          appeal: 5,
+          likelyDemand: 5,
+          planningNeed: 1,
+          missRisk: 0,
+        }),
+        hidden,
+        assessment("plan", { appeal: 2, planningNeed: 5, likelyDemand: 2 }),
+        assessment("rare", { appeal: 2, localRarity: 5, likelyDemand: 1 }),
+        assessment("w1", { appeal: 2, missRisk: 2 }),
+        assessment("w2", { appeal: 1, missRisk: 1 }),
       ],
-      { limit: 4 },
+      { limit: 6 },
+    );
+
+    const easyMiss = highlights.filter((item) => item.slot === "easy-to-miss");
+    expect(easyMiss.some((item) => item.event.id === "hidden")).toBe(true);
+    expect(easyToMissScore(hidden)).toBe(5 * 2 + 4 + 3);
+  });
+
+  it("événement à forte planningNeed → worth-planning", () => {
+    const plan = assessment("plan", {
+      appeal: 3,
+      planningNeed: 5,
+      likelyDemand: 3,
+      missRisk: 1,
+      localRarity: 1,
+    });
+
+    const highlights = selectAiDetourHighlights(
+      [
+        candidate("star"),
+        candidate("miss"),
+        candidate("miss2"),
+        candidate("plan"),
+        candidate("rare"),
+        candidate("w1"),
+      ],
+      [
+        assessment("star", { appeal: 5, likelyDemand: 5, planningNeed: 1 }),
+        assessment("miss", { appeal: 3, missRisk: 5, localRarity: 2 }),
+        assessment("miss2", { appeal: 2, missRisk: 4, localRarity: 1 }),
+        plan,
+        assessment("rare", { appeal: 2, localRarity: 5, likelyDemand: 1 }),
+        assessment("w1", { appeal: 2, missRisk: 2 }),
+      ],
+      { limit: 6 },
     );
 
     const planning = highlights.find((item) => item.slot === "worth-planning");
     expect(planning?.event.id).toBe("plan");
-    expect(planning?.score).toBe(
-      worthPlanningScore(
-        assessment("plan", { appeal: 3, planningValue: 5, recognition: 3 }),
-      ),
-    );
+    expect(planning?.score).toBe(worthPlanningScore(plan));
   });
 
-  it("aucun doublon entre slots", () => {
+  it("aucun doublon dans les 6 slots", () => {
     const highlights = selectAiDetourHighlights(
+      ["a", "b", "c", "d", "e", "f"].map((id) => candidate(id)),
       [
-        candidate("a"),
-        candidate("b"),
-        candidate("c"),
-        candidate("d"),
+        assessment("a", {
+          appeal: 5,
+          likelyDemand: 5,
+          planningNeed: 5,
+          missRisk: 5,
+          localRarity: 5,
+        }),
+        assessment("b", {
+          appeal: 4,
+          likelyDemand: 4,
+          planningNeed: 4,
+          missRisk: 4,
+          localRarity: 4,
+        }),
+        assessment("c", {
+          appeal: 3,
+          likelyDemand: 3,
+          planningNeed: 3,
+          missRisk: 3,
+          localRarity: 3,
+        }),
+        assessment("d", {
+          appeal: 2,
+          likelyDemand: 2,
+          planningNeed: 2,
+          missRisk: 2,
+          localRarity: 2,
+        }),
+        assessment("e", {
+          appeal: 2,
+          likelyDemand: 2,
+          planningNeed: 2,
+          missRisk: 2,
+          localRarity: 2,
+        }),
+        assessment("f", {
+          appeal: 1,
+          likelyDemand: 1,
+          planningNeed: 1,
+          missRisk: 1,
+          localRarity: 1,
+        }),
       ],
-      [
-        assessment("a", { appeal: 5, recognition: 5, discoveryValue: 5, planningValue: 5 }),
-        assessment("b", { appeal: 4, recognition: 4, discoveryValue: 4, planningValue: 4 }),
-        assessment("c", { appeal: 3, recognition: 3, discoveryValue: 3, planningValue: 3 }),
-        assessment("d", { appeal: 2, recognition: 2, discoveryValue: 2, planningValue: 2 }),
-      ],
-      { limit: 4 },
+      { limit: 6 },
     );
 
     const ids = highlights.map((item) => item.event.id);
-    expect(ids).toHaveLength(4);
-    expect(new Set(ids).size).toBe(4);
-    expect(highlights.map((item) => item.slot)).toEqual([
-      "strong-event",
-      "local-gem",
-      "worth-planning",
-      "wildcard",
-    ]);
+    expect(ids).toHaveLength(6);
+    expect(new Set(ids).size).toBe(6);
   });
 
   it("aucun assessment → [] (fallback appelant)", () => {
     expect(
-      selectAiDetourHighlights([candidate("a")], [], { limit: 4 }),
+      selectAiDetourHighlights([candidate("a")], [], { limit: 6 }),
     ).toEqual([]);
   });
 
   it("ignore les candidats sans assessment", () => {
     const highlights = selectAiDetourHighlights(
       [candidate("only"), candidate("missing")],
-      [assessment("only", { appeal: 4, recognition: 4, planningValue: 2 })],
-      { limit: 4 },
+      [assessment("only", { appeal: 4, likelyDemand: 4, planningNeed: 2 })],
+      { limit: 6 },
     );
 
     expect(highlights).toHaveLength(1);
@@ -189,25 +319,31 @@ describe("selectAiDetourHighlights", () => {
     expect(highlights[0]?.slot).toBe("strong-event");
   });
 
-  it("limit 6 → séquence 1 strong / 2 gems / 1 planning / 2 wildcards", () => {
+  it("limit 6 → 1 strong / 2 easy-to-miss / 1 planning / 1 rare-local / 1 wildcard", () => {
     expect(buildAiDetourSlotSequence(6)).toEqual([
       "strong-event",
-      "local-gem",
-      "local-gem",
+      "easy-to-miss",
+      "easy-to-miss",
       "worth-planning",
-      "wildcard",
+      "rare-local",
       "wildcard",
     ]);
 
     const pool = ["a", "b", "c", "d", "e", "f", "g"].map((id) => candidate(id));
     const assessments = [
-      assessment("a", { appeal: 5, recognition: 5, planningValue: 1 }),
-      assessment("b", { appeal: 3, discoveryValue: 5, recognition: 0 }),
-      assessment("c", { appeal: 3, discoveryValue: 4, recognition: 0 }),
-      assessment("d", { appeal: 2, planningValue: 5, recognition: 2 }),
-      assessment("e", { appeal: 3, discoveryValue: 3, planningValue: 3, recognition: 2 }),
-      assessment("f", { appeal: 2, discoveryValue: 2, planningValue: 2, recognition: 1 }),
-      assessment("g", { appeal: 1, discoveryValue: 1, planningValue: 1, recognition: 1 }),
+      assessment("a", { appeal: 5, likelyDemand: 5, planningNeed: 1 }),
+      assessment("b", { appeal: 3, missRisk: 5, localRarity: 2 }),
+      assessment("c", { appeal: 3, missRisk: 4, localRarity: 2 }),
+      assessment("d", { appeal: 2, planningNeed: 5, likelyDemand: 2 }),
+      assessment("e", { appeal: 2, localRarity: 5, likelyDemand: 2 }),
+      assessment("f", {
+        appeal: 2,
+        missRisk: 2,
+        planningNeed: 2,
+        localRarity: 2,
+        likelyDemand: 2,
+      }),
+      assessment("g", { appeal: 1, missRisk: 1 }),
     ];
 
     const highlights = selectAiDetourHighlights(pool, assessments, {
@@ -218,11 +354,118 @@ describe("selectAiDetourHighlights", () => {
     expect(new Set(highlights.map((item) => item.event.id)).size).toBe(6);
     expect(highlights.map((item) => item.slot)).toEqual([
       "strong-event",
-      "local-gem",
-      "local-gem",
+      "easy-to-miss",
+      "easy-to-miss",
       "worth-planning",
+      "rare-local",
+      "wildcard",
+    ]);
+  });
+
+  it("limit 10 → 2 de chaque slot (sans doublon)", () => {
+    expect(buildAiDetourSlotSequence(10)).toEqual([
+      "strong-event",
+      "strong-event",
+      "easy-to-miss",
+      "easy-to-miss",
+      "worth-planning",
+      "worth-planning",
+      "rare-local",
+      "rare-local",
       "wildcard",
       "wildcard",
     ]);
+
+    const ids = Array.from({ length: 12 }, (_, i) => `e${i}`);
+    const assessments = ids.map((id, index) =>
+      assessment(id, {
+        appeal: 5 - Math.min(index, 4),
+        likelyDemand: 5 - Math.min(index, 4),
+        missRisk: index % 2 === 0 ? 4 : 3,
+        planningNeed: index % 3 === 0 ? 4 : 3,
+        localRarity: index % 2 === 1 ? 4 : 3,
+      }),
+    );
+
+    const highlights = selectAiDetourHighlights(
+      ids.map((id) => candidate(id)),
+      assessments,
+      { limit: 10 },
+    );
+
+    expect(highlights).toHaveLength(10);
+    expect(new Set(highlights.map((item) => item.event.id)).size).toBe(10);
+
+    const counts = highlights.reduce(
+      (acc, item) => {
+        const slot = item.slot ?? "unknown";
+        acc[slot] = (acc[slot] ?? 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    expect(counts["strong-event"]).toBe(2);
+    expect(counts["easy-to-miss"]).toBe(2);
+    expect(counts["worth-planning"]).toBe(2);
+    expect(counts["rare-local"]).toBe(2);
+    expect(counts.wildcard).toBe(2);
+  });
+
+  it("slot thématique faible → remplissage wildcard plutôt que quota forcé", () => {
+    const highlights = selectAiDetourHighlights(
+      ["star", "weak-rare", "w1", "w2"].map((id) => candidate(id)),
+      [
+        assessment("star", { appeal: 5, likelyDemand: 5, planningNeed: 1 }),
+        // localRarity trop bas pour rare-local (floor = 2)
+        assessment("weak-rare", {
+          appeal: 4,
+          localRarity: 1,
+          likelyDemand: 4,
+          missRisk: 1,
+          planningNeed: 1,
+        }),
+        assessment("w1", {
+          appeal: 3,
+          missRisk: 3,
+          planningNeed: 3,
+          localRarity: 1,
+          likelyDemand: 3,
+        }),
+        assessment("w2", {
+          appeal: 3,
+          missRisk: 2,
+          planningNeed: 2,
+          localRarity: 1,
+          likelyDemand: 2,
+        }),
+      ],
+      { limit: 4 },
+    );
+
+    expect(highlights.map((item) => item.slot)).not.toContain("rare-local");
+    expect(highlights.some((item) => item.slot === "wildcard")).toBe(true);
+    expect(new Set(highlights.map((item) => item.event.id)).size).toBe(
+      highlights.length,
+    );
+  });
+
+  it("aucune dépendance avec relevance ou taxonomy (scores seuls)", () => {
+    const outOfScope = candidate("x");
+    outOfScope.event = {
+      ...outOfScope.event,
+      relevance: "out_of_scope",
+      category: "Autre",
+    };
+
+    const highlights = selectAiDetourHighlights(
+      [outOfScope],
+      [assessment("x", { appeal: 5, likelyDemand: 4, planningNeed: 2 })],
+      { limit: 1 },
+    );
+
+    expect(highlights).toHaveLength(1);
+    expect(highlights[0]?.event.relevance).toBe("out_of_scope");
+    expect(highlights[0]?.event.category).toBe("Autre");
   });
 });

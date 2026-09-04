@@ -3,9 +3,10 @@ import type { DetourEvent } from "@/domain/event";
 export type AiHighlightAssessment = {
   eventId: string;
   appeal: number;
-  discoveryValue: number;
-  planningValue: number;
-  recognition: number;
+  missRisk: number;
+  planningNeed: number;
+  localRarity: number;
+  likelyDemand: number;
   confidence: number;
   reasons: string[];
 };
@@ -26,7 +27,7 @@ export type AiHighlightEventInput = {
   hasRegistrationUrl: boolean;
 };
 
-export const AI_HIGHLIGHT_SHORTLIST_SIZE = 30;
+export const AI_HIGHLIGHT_SHORTLIST_SIZE = 60;
 export const AI_HIGHLIGHT_BATCH_SIZE = 10;
 
 export function toAiHighlightEventInput(event: DetourEvent): AiHighlightEventInput {
@@ -101,9 +102,10 @@ function parseOneAssessment(raw: unknown): AiHighlightAssessment | null {
   return {
     eventId,
     appeal: clampScore(item.appeal, 0, 5),
-    discoveryValue: clampScore(item.discoveryValue, 0, 5),
-    planningValue: clampScore(item.planningValue, 0, 5),
-    recognition: clampScore(item.recognition, 0, 5),
+    missRisk: clampScore(item.missRisk, 0, 5),
+    planningNeed: clampScore(item.planningNeed, 0, 5),
+    localRarity: clampScore(item.localRarity, 0, 5),
+    likelyDemand: clampScore(item.likelyDemand, 0, 5),
     confidence: clampScore(item.confidence, 0, 1),
     reasons,
   };
@@ -125,8 +127,9 @@ export function clampScore(value: unknown, min: number, max: number): number {
 export function combinedAiScore(assessment: AiHighlightAssessment): number {
   return (
     assessment.appeal +
-    assessment.discoveryValue +
-    assessment.planningValue +
-    assessment.recognition
+    assessment.missRisk +
+    assessment.planningNeed +
+    assessment.localRarity +
+    assessment.likelyDemand
   );
 }

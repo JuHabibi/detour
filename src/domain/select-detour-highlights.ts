@@ -10,19 +10,27 @@ export type HighlightReason =
 export type HighlightSlot =
   | "strong-event"
   | "local-gem"
+  | "easy-to-miss"
   | "worth-planning"
+  | "rare-local"
   | "wildcard";
 
 export type HighlightSelectionSource = "ai" | "deterministic";
 
 /** Méta debug quand la sélection vient des scores IA. */
 export type AiHighlightSelectionMeta = {
-  formula: "strong" | "local-gem" | "worth-planning" | "wildcard";
+  formula:
+    | "strong"
+    | "easy-to-miss"
+    | "worth-planning"
+    | "rare-local"
+    | "wildcard";
   slotScore: number;
   appeal: number;
-  discoveryValue: number;
-  planningValue: number;
-  recognition: number;
+  missRisk: number;
+  planningNeed: number;
+  localRarity: number;
+  likelyDemand: number;
   confidence: number;
   aiReasons: string[];
 };
@@ -49,7 +57,7 @@ export const HIGHLIGHT_WEIGHTS: Record<HighlightReason, number> = {
   "booking-available": 1,
 };
 
-const DEFAULT_LIMIT = 6;
+const DEFAULT_LIMIT = 10;
 
 const CULTURAL_RELEVANCE = new Set(["culture", "culture_leisure"]);
 
@@ -406,11 +414,11 @@ function hasAnyCue(text: string, cues: readonly string[]): boolean {
 
 /**
  * Composition éditoriale :
- * A. strong-event ×1 — headline, sinon high-appeal
- * B. local-gem ×1 (×2 si limit ≥ 6)
- * C. worth-planning ×1 — planningScore > 0 + booking + >30j
- * D. wildcard — completer jusqu’à limit
- * Fallback : meilleur restant si un slot est vide.
+ * A. strong-event ×2 (si limit ≥ 10 ; sinon ×1)
+ * B. local-gem ×2 (si limit ≥ 6)
+ * C. worth-planning ×2 (si limit ≥ 10 ; sinon ×1)
+ * D. wildcard — compléter jusqu’à limit
+ * Fallback : meilleur restant si un slot thématique est vide.
  */
 function pickEditorialSlots(
   ranked: EventHighlight[],
@@ -419,7 +427,9 @@ function pickEditorialSlots(
 ): EventHighlight[] {
   const selected: EventHighlight[] = [];
   const selectedIds = new Set<string>();
+  const strongTarget = limit >= 10 ? 2 : 1;
   const localGemTarget = limit >= 6 ? 2 : 1;
+  const planningTarget = limit >= 10 ? 2 : 1;
 
   const available = () =>
     ranked.filter((item) => !selectedIds.has(item.event.id));
@@ -436,7 +446,7 @@ function pickEditorialSlots(
   };
 
   // A. strong-event
-  if (selected.length < limit) {
+  for (let i = 0; i < strongTarget && selected.length < limit; i += 1) {
     const headline = available()
       .filter((item) => item.reasons.includes("headline-appeal"))
       .sort(compareHighlights);
@@ -444,22 +454,23 @@ function pickEditorialSlots(
       .filter((item) => item.reasons.includes("high-appeal"))
       .sort(compareHighlights);
     const strongPool = headline.length > 0 ? headline : highAppeal;
-    if (strongPool[0]) take(strongPool[0], "strong-event");
-    else takeBestRemaining("strong-event");
+    const strongPick = pickBestDifferentProfile(strongPool, selected);
+    if (strongPick) take(strongPick, "strong-event");
+    else takeBestRemaining("wildcard");
   }
 
-  // B. local-gem (1 ou 2)
+  // B. local-gem
   for (let i = 0; i < localGemTarget && selected.length < limit; i += 1) {
     const localPool = available()
       .filter((item) => item.reasons.includes("local-discovery"))
       .sort(compareHighlights);
     const localPick = pickBestDifferentProfile(localPool, selected);
     if (localPick) take(localPick, "local-gem");
-    else takeBestRemaining("local-gem");
+    else takeBestRemaining("wildcard");
   }
 
   // C. worth-planning
-  if (selected.length < limit) {
+  for (let i = 0; i < planningTarget && selected.length < limit; i += 1) {
     const planningPool = available()
       .filter(
         (item) =>
@@ -470,7 +481,7 @@ function pickEditorialSlots(
       .sort(comparePlanningFirst);
     const planningPick = pickBestDifferentProfile(planningPool, selected);
     if (planningPick) take(planningPick, "worth-planning");
-    else takeBestRemaining("worth-planning");
+    else takeBestRemaining("wildcard");
   }
 
   // D. wildcard + compléments

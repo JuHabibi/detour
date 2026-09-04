@@ -1,6 +1,6 @@
 import { EventService } from "@/application/event.service";
 import { buildEventsDebugMeta } from "@/application/build-events-debug-meta";
-import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
+import { mapDetourEventToEventItem, mapDetourHighlightToEventItem } from "@/application/map-detour-event-to-ui";
 import { HomePage } from "@/components/HomePage";
 import { getAiConfig } from "@/config/ai-config";
 import { createHighlightAssessmentProvider } from "@/infrastructure/ai/create-highlight-assessment-provider";
@@ -33,7 +33,7 @@ export default async function Page() {
     <HomePage
       events={result.events.map((event) => mapDetourEventToEventItem(event))}
       highlights={result.highlights.map((highlight) =>
-        mapDetourEventToEventItem(highlight.event),
+        mapDetourHighlightToEventItem(highlight),
       )}
       planningEvents={result.planningEvents.map((item) =>
         mapDetourEventToEventItem(item.event),

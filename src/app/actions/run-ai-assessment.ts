@@ -2,7 +2,7 @@
 
 import { EventService } from "@/application/event.service";
 import { buildEventsDebugMeta } from "@/application/build-events-debug-meta";
-import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
+import { mapDetourEventToEventItem, mapDetourHighlightToEventItem } from "@/application/map-detour-event-to-ui";
 import type { EventsDebugMeta } from "@/components/EventsDebugPanel";
 import { getAiConfig } from "@/config/ai-config";
 import type { EventItem } from "@/data/types";
@@ -71,7 +71,7 @@ export async function runAiHighlightAssessment(options?: {
     return {
       ok: true,
       highlights: result.highlights.map((highlight) =>
-        mapDetourEventToEventItem(highlight.event),
+        mapDetourHighlightToEventItem(highlight),
       ),
       planningEvents: result.planningEvents.map((item) =>
         mapDetourEventToEventItem(item.event),

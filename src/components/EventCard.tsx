@@ -194,9 +194,12 @@ export function StandardEventCard(props: CardProps) {
 
         <div className="relative flex min-w-0 flex-1 flex-col py-0.5 pr-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
-              {resolveCategoryBadgeLabel(event)}
-            </p>
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
+                {resolveCategoryBadgeLabel(event)}
+              </p>
+              <EditorialBadgePill label={event.editorialBadge} />
+            </div>
             {onToggleFavorite ? (
               <FavoriteButton
                 isFavorite={isFavorite}
@@ -264,10 +267,11 @@ export function StandardEventCard(props: CardProps) {
         ) : null}
       </div>
 
-      <div className="relative flex flex-1 flex-col px-0.5 pb-1 pt-3">
+        <div className="relative flex flex-1 flex-col px-0.5 pb-1 pt-3">
         <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
           {resolveCategoryBadgeLabel(event)}
         </p>
+        <EditorialBadgePill label={event.editorialBadge} />
         <h3 className="mt-1.5 line-clamp-2 font-display text-[1.4rem] leading-tight tracking-tight">
           {event.title}
         </h3>
@@ -335,9 +339,12 @@ export function TextEventCard({
 
       <div className="relative flex flex-1 flex-col p-5 md:p-6">
         <div className="flex items-start justify-between gap-3">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-sand">
-            {resolveCategoryBadgeLabel(event)}
-          </p>
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-sand">
+              {resolveCategoryBadgeLabel(event)}
+            </p>
+            <EditorialBadgePill label={event.editorialBadge} />
+          </div>
           {onToggleFavorite ? (
             <FavoriteButton
               isFavorite={isFavorite}
@@ -387,6 +394,16 @@ export function TextEventCard({
         </div>
       </div>
     </article>
+  );
+}
+
+/** Affichage pur — le label est déjà résolu hors UI. */
+function EditorialBadgePill({ label }: { label?: string }) {
+  if (!label) return null;
+  return (
+    <p className="mt-1.5 w-fit rounded-full border border-line bg-foam px-2.5 py-0.5 text-[11px] font-medium leading-none text-ink">
+      {label}
+    </p>
   );
 }
 
