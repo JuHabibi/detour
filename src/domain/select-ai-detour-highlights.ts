@@ -12,8 +12,14 @@ export type AiSlotFormula = AiHighlightSelectionMeta["formula"];
 
 /** Radar culturel local — jusqu’à 10 événements. */
 export const AI_DETOUR_DEFAULT_LIMIT = 10;
+/** Garde-fou diversité : max events même venue. */
+export const AI_DETOUR_MAX_PER_VENUE = 2;
+/** Garde-fou diversité : max events même ville. */
+export const AI_DETOUR_MAX_PER_CITY = 3;
+/** Tolérance de score pour remplacer un candidat saturant (points de slot). */
+export const AI_DETOUR_DIVERSITY_SCORE_TOLERANCE = 2;
 
-type AssessedCandidate = {
+export type AssessedCandidate = {
   candidate: EventHighlight;
   assessment: AiHighlightAssessment;
   index: number;
@@ -22,7 +28,6 @@ type AssessedCandidate = {
 /**
  * Séquence IA cible (limit ≥ 10) :
  * 2 strong, 2 easy-to-miss, 2 worth-planning, 2 rare-local, 2 wildcard.
- * Limites plus petites : mix réduit, wildcards en complément.
  */
 export function buildAiDetourSlotSequence(limit: number): HighlightSlot[] {
   if (limit <= 0) return [];
@@ -68,41 +73,32 @@ export function buildAiDetourSlotSequence(limit: number): HighlightSlot[] {
   return compact.slice(0, limit);
 }
 
-/** Fort potentiel global. */
 export function strongEventScore(assessment: AiHighlightAssessment): number {
   return (
     assessment.appeal * 2 + assessment.likelyDemand * 2 + assessment.planningNeed
   );
 }
 
-/** Facile à rater malgré l’intérêt. */
 export function easyToMissScore(assessment: AiHighlightAssessment): number {
   return assessment.missRisk * 2 + assessment.appeal + assessment.localRarity;
 }
 
-/** Nécessite de l’anticipation. */
 export function worthPlanningScore(assessment: AiHighlightAssessment): number {
   return (
     assessment.planningNeed * 2 + assessment.likelyDemand + assessment.appeal
   );
 }
 
-/** Localement rare / inhabituel. */
 export function rareLocalScore(assessment: AiHighlightAssessment): number {
   return (
     assessment.localRarity * 2 + assessment.appeal + assessment.likelyDemand
   );
 }
 
-/** Wildcard éditorial. */
 export function wildcardSlotScore(assessment: AiHighlightAssessment): number {
   return combinedAiScore(assessment);
 }
 
-/**
- * Un slot thématique n’est rempli que si le signal principal est crédible.
- * Sinon → meilleur restant en wildcard (pas de quota artificiel).
- */
 export function meetsAiSlotFloor(
   slot: HighlightSlot,
   assessment: AiHighlightAssessment,
@@ -122,9 +118,17 @@ export function meetsAiSlotFloor(
   }
 }
 
+export function scoreForHighlightSlot(
+  slot: HighlightSlot | undefined,
+  assessment: AiHighlightAssessment,
+): number {
+  const { scoreFn } = scoreConfigForSlot(slot ?? "wildcard");
+  return scoreFn(assessment);
+}
+
 /**
  * Sélection éditoriale « Faites un détour » pilotée par l’IA.
- * Limité aux événements évalués. Retourne [] si aucun assessment → fallback appelant.
+ * Puis garde-fou diversité venue/ville (souple, tolérance de score).
  */
 export function selectAiDetourHighlights(
   candidates: EventHighlight[],
@@ -191,12 +195,113 @@ export function selectAiDetourHighlights(
       continue;
     }
 
-    // Candidat trop faible pour le quota thématique → meilleur restant.
     const fallback = pickBest(wildcardSlotScore);
     if (fallback) take(fallback, "wildcard", "wildcard", wildcardSlotScore);
   }
 
-  return selected.slice(0, limit);
+  return applyLightDiversity(selected.slice(0, limit), pool);
+}
+
+/**
+ * Évite une sur-représentation venue/ville si une alternative proche existe.
+ * Ne remplace jamais un candidat nettement meilleur (écart > tolérance).
+ */
+export function applyLightDiversity(
+  selected: EventHighlight[],
+  pool: AssessedCandidate[],
+): EventHighlight[] {
+  const usedIds = new Set<string>();
+  const result: EventHighlight[] = [];
+
+  for (const item of selected) {
+    const overVenue = isOverVenueCap(result, item.event.venue);
+    const overCity = isOverCityCap(result, item.event.city);
+
+    if (!overVenue && !overCity) {
+      result.push(item);
+      usedIds.add(item.event.id);
+      continue;
+    }
+
+    const itemScore = item.score;
+    const slot = item.slot ?? "wildcard";
+    const { formula, scoreFn } = scoreConfigForSlot(slot);
+
+    const alternative = [...pool]
+      .filter((candidate) => !usedIds.has(candidate.candidate.event.id))
+      .filter((candidate) => candidate.candidate.event.id !== item.event.id)
+      .map((candidate) => ({
+        candidate,
+        score: scoreFn(candidate.assessment),
+      }))
+      .filter(({ candidate, score }) => {
+        if (score < itemScore - AI_DETOUR_DIVERSITY_SCORE_TOLERANCE) {
+          return false;
+        }
+        if (isOverVenueCap(result, candidate.candidate.event.venue)) {
+          return false;
+        }
+        if (isOverCityCap(result, candidate.candidate.event.city)) {
+          return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.candidate.index - b.candidate.index;
+      })[0];
+
+    if (alternative) {
+      result.push(
+        toAiHighlight(
+          alternative.candidate.candidate,
+          alternative.candidate.assessment,
+          slot,
+          formula,
+          alternative.score,
+        ),
+      );
+      usedIds.add(alternative.candidate.candidate.event.id);
+    } else {
+      // Pas d’alternative proche → on conserve le meilleur malgré la concentration.
+      result.push(item);
+      usedIds.add(item.event.id);
+    }
+  }
+
+  return result;
+}
+
+function isOverVenueCap(
+  current: EventHighlight[],
+  venue: string | null,
+): boolean {
+  const key = normalizePlace(venue);
+  if (!key) return false;
+  const count = current.filter(
+    (item) => normalizePlace(item.event.venue) === key,
+  ).length;
+  return count >= AI_DETOUR_MAX_PER_VENUE;
+}
+
+function isOverCityCap(current: EventHighlight[], city: string | null): boolean {
+  const key = normalizePlace(city);
+  if (!key) return false;
+  const count = current.filter(
+    (item) => normalizePlace(item.event.city) === key,
+  ).length;
+  return count >= AI_DETOUR_MAX_PER_CITY;
+}
+
+function normalizePlace(value: string | null | undefined): string {
+  if (!value?.trim()) return "";
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function scoreConfigForSlot(slot: HighlightSlot): {

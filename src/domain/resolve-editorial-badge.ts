@@ -1,12 +1,12 @@
 /**
  * Pastille éditoriale « Faites un détour » — une seule, priorité fixe.
- * Seuils dimensions 0–5 : « élevé » = ≥ 3.
- * Confidence 0–1 : « élevé » = ≥ 0.7.
  * likelyDemand reste interne au ranking IA — ne produit plus de badge UI.
  */
 
 export const EDITORIAL_BADGE_THRESHOLD = 3;
 export const EDITORIAL_BADGE_CONFIDENCE_THRESHOLD = 0.7;
+/** Pépite : missRisk strict (échelle 0–5). */
+export const EDITORIAL_PEPITE_MISS_RISK_THRESHOLD = 4;
 
 export type EditorialBadge =
   | "À réserver"
@@ -28,9 +28,9 @@ export type EditorialBadgeInput = {
 /**
  * Priorité :
  * 1. planningNeed élevé + réservation → À réserver
- * 2. Passage rare (localRarity + confidence + reason explicite)
+ * 2. Passage rare (localRarity + confidence + reason rareté locale)
  * 3. planningNeed élevé → À anticiper
- * 4. missRisk élevé → Pépite locale
+ * 4. Pépite locale (missRisk strict + confidence + reason miss/visibilité)
  * sinon aucune pastille.
  */
 export function resolveEditorialBadge(
@@ -51,13 +51,12 @@ export function resolveEditorialBadge(
   if (planningNeed >= threshold) {
     return "À anticiper";
   }
-  if (missRisk >= threshold) {
+  if (qualifiesAsPepiteLocale(missRisk, confidence, input.reasons)) {
     return "Pépite locale";
   }
   return null;
 }
 
-/** Exposé pour tests / debug. */
 export function qualifiesAsPassageRare(
   localRarity: number,
   confidence: number,
@@ -68,44 +67,93 @@ export function qualifiesAsPassageRare(
   return hasExplicitLocalRarityReason(reasons);
 }
 
+export function qualifiesAsPepiteLocale(
+  missRisk: number,
+  confidence: number,
+  reasons: string[] | null | undefined,
+): boolean {
+  if (missRisk < EDITORIAL_PEPITE_MISS_RISK_THRESHOLD) return false;
+  if (confidence < EDITORIAL_BADGE_CONFIDENCE_THRESHOLD) return false;
+  return hasExplicitPepiteReason(reasons);
+}
+
 /**
- * Preuve textuelle de rareté locale du passage.
- * Ignore les signaux génériques (singular, local-discovery, commune seule, format).
+ * Preuve textuelle de rareté locale du passage (famille élargie).
  */
 export function hasExplicitLocalRarityReason(
   reasons: string[] | null | undefined,
+): boolean {
+  return reasonsMatch(reasons, LOCAL_RARITY_REASON_PATTERNS);
+}
+
+/** Preuve textuelle de faible visibilité / facile à rater. */
+export function hasExplicitPepiteReason(
+  reasons: string[] | null | undefined,
+): boolean {
+  return reasonsMatch(reasons, PEPITE_REASON_PATTERNS);
+}
+
+function reasonsMatch(
+  reasons: string[] | null | undefined,
+  patterns: RegExp[],
 ): boolean {
   if (!reasons || reasons.length === 0) return false;
 
   return reasons.some((reason) => {
     const normalized = normalizeReason(reason);
     if (!normalized) return false;
-    if (isGenericNonRarityReason(normalized)) return false;
-    return LOCAL_RARITY_REASON_PATTERNS.some((pattern) =>
-      pattern.test(normalized),
-    );
+    if (isGenericNonProofReason(normalized)) return false;
+    return patterns.some((pattern) => pattern.test(normalized));
   });
 }
 
 const LOCAL_RARITY_REASON_PATTERNS: RegExp[] = [
   /passage inhabituel/,
-  /inhabituel (?:dans|sur) (?:cette|ce|cet) (?:commune|lieu|territoire|ville)/,
+  /passage d (?:une|un) (?:artiste|compagnie|groupe|spectacle|comedien|humoriste)/,
+  /inhabituel (?:dans|sur|pour)/,
+  /peu habituel (?:dans|sur|pour|a)/,
   /artiste rarement/,
   /rarement programm/,
   /peu programm\w* localement/,
   /presence exceptionnelle/,
-  /exceptionnell?\w* (?:dans|sur) (?:cette|ce|cet) (?:commune|lieu|territoire|ville)/,
+  /exceptionnell?\w* (?:dans|sur|pour)/,
   /rar(?:e|ete)\w* (?:locale|localement)/,
-  /rare (?:dans|sur) (?:cette|ce|cet) (?:commune|lieu|territoire|ville)/,
+  /rarete .{0,60}(?:commune|lieu|territoire|region|contexte|local)/,
+  /format rare/,
+  /evenement rare/,
+  /rare (?:dans|sur) (?:cette|ce|cet|la|le|une) (?:commune|lieu|territoire|ville|region|contexte)/,
+  /artiste (?:reconnu|connu).{0,40}(?:petite commune|commune|lieu local|cadre local)/,
+  /(?:reconnu|connu).{0,30}(?:petite commune|dans une petite|cadre local)/,
+  /peu frequen\w*.{0,40}(?:commune|lieu|territoire|region|local)/,
+  /moins frequen\w*/,
+  /peu courant/,
+  /programmation .{0,40}peu frequen/,
 ];
 
-/** Reasons / tokens qui ne prouvent pas la rareté du passage. */
-function isGenericNonRarityReason(normalized: string): boolean {
+const PEPITE_REASON_PATTERNS: RegExp[] = [
+  /faible visibilite/,
+  /visibilite .{0,30}faible/,
+  /peu visible/,
+  /peu mediatis/,
+  /peu relay/,
+  /facile(?:ment)? a rater/,
+  /passer sous le radar/,
+  /sous le radar/,
+  /passer inapercu/,
+  /decouverte locale/,
+  /programmation (?:locale )?peu (?:visible|relay|mediatis)/,
+  /circuit (?:local )?peu (?:visible|mediatis)/,
+  /evenement (?:local )?peu (?:visible|mediatis|relay)/,
+];
+
+/** Reasons génériques qui ne prouvent ni rareté ni pépite. */
+function isGenericNonProofReason(normalized: string): boolean {
   if (
     normalized === "singular" ||
     normalized === "local-discovery" ||
     normalized === "local discovery" ||
     normalized === "billetterie" ||
+    normalized === "booking" ||
     normalized === "reservation"
   ) {
     return true;

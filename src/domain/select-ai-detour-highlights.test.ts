@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
 import type { DetourEvent } from "@/domain/event";
 import {
+  applyLightDiversity,
   buildAiDetourSlotSequence,
   easyToMissScore,
   rareLocalScore,
   selectAiDetourHighlights,
   strongEventScore,
+  wildcardSlotScore,
   worthPlanningScore,
+  type AssessedCandidate,
 } from "@/domain/select-ai-detour-highlights";
 import type { EventHighlight } from "@/domain/select-detour-highlights";
 
@@ -468,4 +471,142 @@ describe("selectAiDetourHighlights", () => {
     expect(highlights[0]?.event.relevance).toBe("out_of_scope");
     expect(highlights[0]?.event.category).toBe("Autre");
   });
+
+  it("diversité : 3e event même venue écarté si alternative proche", () => {
+    const a = poolItem("a", "Passerelle", "Fleury", {
+      appeal: 4,
+      missRisk: 4,
+      planningNeed: 4,
+      localRarity: 4,
+      likelyDemand: 4,
+    }, 0);
+    const b = poolItem("b", "Passerelle", "Fleury", {
+      appeal: 4,
+      missRisk: 3,
+      planningNeed: 3,
+      localRarity: 3,
+      likelyDemand: 3,
+    }, 1);
+    const c = poolItem("c", "Passerelle", "Fleury", {
+      appeal: 3,
+      missRisk: 3,
+      planningNeed: 3,
+      localRarity: 3,
+      likelyDemand: 3,
+    }, 2);
+    const alt = poolItem("alt", "Autre salle", "Orléans", {
+      appeal: 3,
+      missRisk: 3,
+      planningNeed: 3,
+      localRarity: 3,
+      likelyDemand: 2,
+    }, 3);
+
+    const selected = [
+      selectedHighlight(a, "wildcard"),
+      selectedHighlight(b, "wildcard"),
+      selectedHighlight(c, "wildcard"),
+    ];
+
+    const diversified = applyLightDiversity(selected, [a, b, c, alt]);
+    expect(diversified.map((item) => item.event.id)).toEqual([
+      "a",
+      "b",
+      "alt",
+    ]);
+    expect(diversified[2]?.event.venue).toBe("Autre salle");
+  });
+
+  it("diversité : candidat nettement meilleur conservé malgré concentration", () => {
+    const a = poolItem("a", "Passerelle", "Fleury", {
+      appeal: 5,
+      missRisk: 5,
+      planningNeed: 5,
+      localRarity: 5,
+      likelyDemand: 5,
+    }, 0);
+    const b = poolItem("b", "Passerelle", "Fleury", {
+      appeal: 4,
+      missRisk: 4,
+      planningNeed: 4,
+      localRarity: 4,
+      likelyDemand: 4,
+    }, 1);
+    // Score combiné 25 vs alt 12 → écart > tolérance (2)
+    const c = poolItem("c", "Passerelle", "Fleury", {
+      appeal: 5,
+      missRisk: 5,
+      planningNeed: 5,
+      localRarity: 5,
+      likelyDemand: 5,
+    }, 2);
+    const weakAlt = poolItem("weak", "Autre salle", "Orléans", {
+      appeal: 2,
+      missRisk: 2,
+      planningNeed: 2,
+      localRarity: 2,
+      likelyDemand: 2,
+    }, 3);
+
+    const selected = [
+      selectedHighlight(a, "wildcard"),
+      selectedHighlight(b, "wildcard"),
+      selectedHighlight(c, "wildcard"),
+    ];
+
+    const diversified = applyLightDiversity(selected, [a, b, c, weakAlt]);
+    expect(diversified.map((item) => item.event.id)).toEqual(["a", "b", "c"]);
+  });
 });
+
+function poolItem(
+  id: string,
+  venue: string,
+  city: string,
+  scores: Partial<
+    Pick<
+      AiHighlightAssessment,
+      | "appeal"
+      | "missRisk"
+      | "planningNeed"
+      | "localRarity"
+      | "likelyDemand"
+      | "confidence"
+    >
+  >,
+  index: number,
+): AssessedCandidate {
+  const base = candidate(id);
+  return {
+    candidate: {
+      ...base,
+      event: { ...base.event, venue, city },
+    },
+    assessment: assessment(id, scores),
+    index,
+  };
+}
+
+function selectedHighlight(
+  item: AssessedCandidate,
+  slot: "wildcard",
+): EventHighlight {
+  const score = wildcardSlotScore(item.assessment);
+  return {
+    ...item.candidate,
+    score,
+    slot,
+    selectionSource: "ai",
+    aiSelection: {
+      formula: "wildcard",
+      slotScore: score,
+      appeal: item.assessment.appeal,
+      missRisk: item.assessment.missRisk,
+      planningNeed: item.assessment.planningNeed,
+      localRarity: item.assessment.localRarity,
+      likelyDemand: item.assessment.likelyDemand,
+      confidence: item.assessment.confidence,
+      aiReasons: item.assessment.reasons,
+    },
+  };
+}

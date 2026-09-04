@@ -20,8 +20,6 @@ function input(
 
 describe("resolveEditorialBadge", () => {
   it("likelyDemand élevé seul → aucun badge", () => {
-    // likelyDemand n’est plus un input badge ; un assessment « fort potentiel » seul
-    // ne doit rien afficher s’il n’y a que missRisk/planning bas.
     expect(resolveEditorialBadge(input())).toBe(null);
     expect(
       resolveEditorialBadge(
@@ -52,6 +50,33 @@ describe("resolveEditorialBadge", () => {
     ).toBe("Passage rare");
   });
 
+  it("localRarity élevé + format rare dans la région → Passage rare", () => {
+    expect(
+      resolveEditorialBadge(
+        input({
+          localRarity: 4,
+          confidence: 0.75,
+          reasons: ["Format rare dans la région pour ce type d’artiste"],
+        }),
+      ),
+    ).toBe("Passage rare");
+  });
+
+  it("localRarity élevé + rareté dans la commune → Passage rare", () => {
+    expect(
+      resolveEditorialBadge(
+        input({
+          localRarity: 4,
+          confidence: 0.8,
+          reasons: [
+            "Interprétation d’une œuvre connue avec un artiste reconnu",
+            "Rareté d’un tel spectacle dans la commune",
+          ],
+        }),
+      ),
+    ).toBe("Passage rare");
+  });
+
   it("planningNeed sans réservation → À anticiper", () => {
     expect(
       resolveEditorialBadge(
@@ -60,8 +85,50 @@ describe("resolveEditorialBadge", () => {
     ).toBe("À anticiper");
   });
 
-  it("missRisk élevé → Pépite locale", () => {
-    expect(resolveEditorialBadge(input({ missRisk: 5 }))).toBe("Pépite locale");
+  it("missRisk=3 → pas Pépite locale", () => {
+    expect(
+      resolveEditorialBadge(
+        input({
+          missRisk: 3,
+          confidence: 0.9,
+          reasons: ["événement facile à rater", "faible visibilité"],
+        }),
+      ),
+    ).toBe(null);
+  });
+
+  it("missRisk=4 + reason cohérente → Pépite locale", () => {
+    expect(
+      resolveEditorialBadge(
+        input({
+          missRisk: 4,
+          confidence: 0.8,
+          reasons: ["faible visibilité", "programmation peu relayée"],
+        }),
+      ),
+    ).toBe("Pépite locale");
+
+    expect(
+      resolveEditorialBadge(
+        input({
+          missRisk: 4,
+          confidence: 0.7,
+          reasons: ["découverte locale facile à rater"],
+        }),
+      ),
+    ).toBe("Pépite locale");
+  });
+
+  it("missRisk élevé sans reason pépite → pas Pépite", () => {
+    expect(
+      resolveEditorialBadge(
+        input({
+          missRisk: 5,
+          confidence: 0.9,
+          reasons: ["concert", "singular"],
+        }),
+      ),
+    ).toBe(null);
   });
 
   it("aucune condition → aucun badge", () => {
@@ -82,6 +149,17 @@ describe("resolveEditorialBadge", () => {
         }),
       ),
     ).toBe(null);
+
+    expect(
+      resolveEditorialBadge(
+        input({
+          localRarity: 4,
+          confidence: 0.9,
+          reasons: ["petite commune", "booking"],
+          missRisk: 2,
+        }),
+      ),
+    ).toBe(null);
   });
 
   it("fallback si rareté non justifiée", () => {
@@ -97,6 +175,7 @@ describe("resolveEditorialBadge", () => {
       ),
     ).toBe("À anticiper");
 
+    // Confidence trop basse pour Passage rare ; pas de reason pépite → aucun badge
     expect(
       resolveEditorialBadge(
         input({
@@ -106,7 +185,7 @@ describe("resolveEditorialBadge", () => {
           missRisk: 4,
         }),
       ),
-    ).toBe("Pépite locale");
+    ).toBe(null);
   });
 
   it("une seule pastille — priorité respectée", () => {
