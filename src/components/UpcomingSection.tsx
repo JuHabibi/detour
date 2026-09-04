@@ -92,7 +92,7 @@ function UpcomingRow({
           href={action.href}
           target="_blank"
           rel="noopener noreferrer"
-          className="absolute inset-0 z-[1]"
+          className="absolute inset-0 z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink"
           aria-label={`${action.label} — « ${event.title} » (nouvel onglet)`}
         />
       ) : null}
@@ -156,8 +156,12 @@ function UpcomingRow({
             onToggleFavorite(event.id);
           }}
           aria-pressed={isFavorite}
-          aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-          className="flex size-9 items-center justify-center rounded-full border border-line bg-foam text-ink transition-colors hover:border-ink/20"
+          aria-label={
+            isFavorite
+              ? `Retirer « ${event.title} » des favoris`
+              : `Ajouter « ${event.title} » aux favoris`
+          }
+          className="flex size-11 items-center justify-center rounded-full border border-line bg-foam text-ink transition-colors hover:border-ink/20"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path

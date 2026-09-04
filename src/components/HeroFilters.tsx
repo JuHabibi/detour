@@ -20,7 +20,8 @@ export function HeroFilters() {
         <div className="mt-5 md:mt-6">
           <button
             type="button"
-            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-line bg-foam px-4 py-2.5 text-sm text-ink"
+            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-line bg-foam px-4 py-2.5 text-sm text-ink"
+            aria-label={`Lieu : autour d’${CITY}`}
           >
             Autour d’{CITY}
             <Chevron />

@@ -88,11 +88,11 @@ export function FeaturedEventCard({
       <div className="relative aspect-[4/5] overflow-hidden rounded-[1.35rem] sm:aspect-[16/10] lg:aspect-auto lg:min-h-0 lg:flex-1">
         <Image
           src={event.image}
-          alt={event.imageAlt ?? event.title}
+          alt={resolveEventImageAlt(event)}
           fill
           priority={priority}
           sizes="(max-width: 1024px) 100vw, 58vw"
-          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+          className="object-cover transition-transform duration-700 ease-out motion-safe:group-hover:scale-[1.03]"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
@@ -111,6 +111,7 @@ export function FeaturedEventCard({
           <FavoriteButton
             isFavorite={isFavorite}
             onClick={() => onToggleFavorite(event.id)}
+            eventTitle={event.title}
             className="absolute right-4 top-4 z-[2]"
           />
         ) : null}
@@ -178,11 +179,11 @@ export function StandardEventCard(props: CardProps) {
         <div className="relative w-[38%] max-w-[11.5rem] shrink-0 overflow-hidden rounded-[1.05rem] sm:w-[40%]">
           <Image
             src={imageSrc}
-            alt={event.imageAlt ?? event.title}
+            alt={resolveEventImageAlt(event)}
             fill
             priority={priority}
             sizes="(max-width: 1024px) 40vw, 18vw"
-            className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+            className="object-cover transition-transform duration-700 ease-out motion-safe:group-hover:scale-[1.03]"
           />
           {signal ? (
             <span className="absolute left-2.5 top-2.5 z-[2] rounded-full bg-paper/92 px-2 py-0.5 text-[10px] text-ink">
@@ -200,7 +201,8 @@ export function StandardEventCard(props: CardProps) {
               <FavoriteButton
                 isFavorite={isFavorite}
                 onClick={() => onToggleFavorite(event.id)}
-                className="relative z-[2] size-8 shrink-0"
+                eventTitle={event.title}
+                className="relative z-[2] shrink-0"
               />
             ) : null}
           </div>
@@ -241,11 +243,11 @@ export function StandardEventCard(props: CardProps) {
       <div className="relative aspect-[16/10] overflow-hidden rounded-[1.2rem]">
         <Image
           src={imageSrc}
-          alt={event.imageAlt ?? event.title}
+          alt={resolveEventImageAlt(event)}
           fill
           priority={priority}
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"
-          className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+          className="object-cover object-center transition-transform duration-700 ease-out motion-safe:group-hover:scale-[1.03]"
         />
         {signal ? (
           <span className="absolute left-3 top-3 z-[2] rounded-full bg-paper/92 px-2.5 py-1 text-[10px] text-ink">
@@ -256,6 +258,7 @@ export function StandardEventCard(props: CardProps) {
           <FavoriteButton
             isFavorite={isFavorite}
             onClick={() => onToggleFavorite(event.id)}
+            eventTitle={event.title}
             className="absolute right-3 top-3 z-[2]"
           />
         ) : null}
@@ -339,6 +342,7 @@ export function TextEventCard({
             <FavoriteButton
               isFavorite={isFavorite}
               onClick={() => onToggleFavorite(event.id)}
+              eventTitle={event.title}
               className="relative z-[2] shrink-0 bg-paper/70"
             />
           ) : null}
@@ -395,9 +399,61 @@ function EventActionLink({ event }: { event: EventItem }) {
       href={action.href}
       target="_blank"
       rel="noopener noreferrer"
-      className="absolute inset-0 z-[1]"
+      className="absolute inset-0 z-[1] rounded-[1.2rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
       aria-label={`${action.label} — « ${event.title} » (nouvel onglet)`}
     />
+  );
+}
+
+/** Image carte : décorative si le titre est déjà visible (évite la double annonce). */
+export function resolveEventImageAlt(
+  event: Pick<EventItem, "title" | "imageAlt">,
+): string {
+  const custom = event.imageAlt?.trim();
+  if (custom && custom !== event.title) return custom;
+  return "";
+}
+
+function FavoriteButton({
+  isFavorite,
+  onClick,
+  className,
+  eventTitle,
+}: {
+  isFavorite: boolean;
+  onClick: () => void;
+  className?: string;
+  eventTitle: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
+      aria-pressed={isFavorite}
+      aria-label={
+        isFavorite
+          ? `Retirer « ${eventTitle} » des favoris`
+          : `Ajouter « ${eventTitle} » aux favoris`
+      }
+      className={cn(
+        "flex size-11 items-center justify-center rounded-full bg-paper/90 text-ink backdrop-blur-sm transition-colors hover:bg-paper",
+        className,
+      )}
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path
+          d="M12 20s-7.2-4.4-9.2-8.6C1.2 8.2 3 5 6.4 5c2 0 3.3 1.1 3.6 1.5C10.3 6.1 11.6 5 13.6 5 17 5 18.8 8.2 17.2 11.4 15.2 15.6 12 20 12 20Z"
+          className={cn(
+            isFavorite ? "fill-coral stroke-coral" : "stroke-current",
+          )}
+          strokeWidth="1.6"
+        />
+      </svg>
+    </button>
   );
 }
 
@@ -475,42 +531,5 @@ function LocationLine({
         </span>
       ) : null}
     </p>
-  );
-}
-
-function FavoriteButton({
-  isFavorite,
-  onClick,
-  className,
-}: {
-  isFavorite: boolean;
-  onClick: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onClick();
-      }}
-      aria-pressed={isFavorite}
-      aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-      className={cn(
-        "flex size-9 items-center justify-center rounded-full bg-paper/90 text-ink backdrop-blur-sm transition-colors hover:bg-paper",
-        className,
-      )}
-    >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path
-          d="M12 20s-7.2-4.4-9.2-8.6C1.2 8.2 3 5 6.4 5c2 0 3.3 1.1 3.6 1.5C10.3 6.1 11.6 5 13.6 5 17 5 18.8 8.2 17.2 11.4 15.2 15.6 12 20 12 20Z"
-          className={cn(
-            isFavorite ? "fill-coral stroke-coral" : "stroke-current",
-          )}
-          strokeWidth="1.6"
-        />
-      </svg>
-    </button>
   );
 }

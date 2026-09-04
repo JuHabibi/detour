@@ -10,37 +10,51 @@ export function Header({ favoriteCount }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-4 md:px-8 lg:px-12">
-        <a href="#top" className="font-display text-[1.65rem] leading-none tracking-tight">
+        <a
+          href="#top"
+          className="font-display text-[1.65rem] leading-none tracking-tight rounded-sm"
+        >
           Détour
-          <span className="text-coral">.</span>
+          <span className="text-coral" aria-hidden="true">
+            .
+          </span>
         </a>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <nav className="hidden items-center gap-6 text-[13px] tracking-[0.12em] text-sand uppercase md:flex">
-            <a href="#explorer" className="transition-colors hover:text-ink">
+          <nav
+            aria-label="Sections"
+            className="hidden items-center gap-6 text-[13px] tracking-[0.12em] text-sand uppercase md:flex"
+          >
+            <a href="#explorer" className="rounded-sm transition-colors hover:text-ink">
               Explorer
             </a>
-            <a href="#a-prevoir" className="transition-colors hover:text-ink">
+            <a href="#a-prevoir" className="rounded-sm transition-colors hover:text-ink">
               À prévoir
             </a>
           </nav>
 
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-full border border-line bg-foam px-3 py-2 text-[13px] text-ink transition-colors hover:border-ink/20"
+            aria-label="Lieu actuel : Orléans"
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-foam px-3 py-2 text-[13px] text-ink transition-colors hover:border-ink/20"
           >
             <PinIcon />
-            <span className="hidden sm:inline">Orléans</span>
+            <span className="hidden sm:inline" aria-hidden="true">
+              Orléans
+            </span>
           </button>
 
           <button
             type="button"
-            aria-label={`Mes détours, ${favoriteCount} enregistrés`}
-            className="relative flex size-10 items-center justify-center rounded-full border border-line bg-foam transition-colors hover:border-ink/20"
+            aria-label={`Mes détours, ${favoriteCount} enregistré${favoriteCount > 1 ? "s" : ""}`}
+            className="relative flex size-11 items-center justify-center rounded-full border border-line bg-foam transition-colors hover:border-ink/20"
           >
             <HeartIcon filled={favoriteCount > 0} />
             {favoriteCount > 0 ? (
-              <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-coral text-[10px] font-medium text-ink">
+              <span
+                aria-hidden="true"
+                className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-coral text-[10px] font-medium text-ink"
+              >
                 {favoriteCount}
               </span>
             ) : null}

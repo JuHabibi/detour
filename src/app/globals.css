@@ -8,7 +8,8 @@
   --color-ink-3: #eee9e0;
   --color-cream: #fffcf7;
   --color-cream-dim: #5f5c57;
-  --color-sand: #7d7973;
+  /* Assombri pour ~4.5:1 sur paper (AA texte secondaire). */
+  --color-sand: #615e58;
   --color-line: rgb(23 23 23 / 10%);
   --color-terracotta: #f06b4f;
   --color-coral: #f06b4f;
@@ -75,6 +76,16 @@ body::before {
   animation: rise-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Focus visible global — ne jamais supprimer sans remplacement. */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -82,5 +93,9 @@ body::before {
 
   .animate-rise {
     animation: none;
+  }
+
+  .scroll-smooth {
+    scroll-behavior: auto;
   }
 }

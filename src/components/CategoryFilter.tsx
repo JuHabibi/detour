@@ -14,7 +14,11 @@ export function CategoryFilter({
   onCategoryChange,
 }: CategoryFilterProps) {
   return (
-    <div className="scrollbar-none -mx-5 flex gap-1 overflow-x-auto px-5 md:mx-0 md:flex-wrap md:px-0">
+    <div
+      role="group"
+      aria-label="Filtrer par catégorie"
+      className="scrollbar-none -mx-5 flex gap-1 overflow-x-auto px-5 md:mx-0 md:flex-wrap md:px-0"
+    >
       {categories.map((item) => {
         const isActive = category === item.id;
         return (
@@ -24,7 +28,7 @@ export function CategoryFilter({
             aria-pressed={isActive}
             onClick={() => onCategoryChange(item.id)}
             className={cn(
-              "shrink-0 rounded-full px-3.5 py-2 text-sm transition-colors",
+              "min-h-11 shrink-0 rounded-full px-3.5 py-2.5 text-sm transition-colors",
               isActive
                 ? "bg-ink text-paper"
                 : "text-cream-dim hover:text-ink",

@@ -38,15 +38,21 @@ export function ExplorationFilters({
     radiusOptions.find((option) => option.id === radius)?.label ?? "15 km";
 
   return (
-    <div className="scrollbar-none flex gap-2 overflow-x-auto pb-1">
+    <div
+      role="group"
+      aria-label="Filtres d’exploration"
+      className="scrollbar-none flex gap-2 overflow-x-auto pb-1"
+    >
       <FilterSelect
-        label={whenLabel}
+        accessibleName="Période"
+        visibleLabel={whenLabel}
         value={when}
         options={whenOptions}
         onChange={(value) => onWhenChange(value as WhenFilter)}
       />
       <FilterSelect
-        label={radiusLabel}
+        accessibleName="Rayon"
+        visibleLabel={radiusLabel}
         value={String(radius)}
         options={radiusOptions.map((option) => ({
           id: String(option.id),
@@ -59,27 +65,33 @@ export function ExplorationFilters({
 }
 
 function FilterSelect({
-  label,
+  accessibleName,
+  visibleLabel,
   value,
   options,
   onChange,
 }: {
-  label: string;
+  accessibleName: string;
+  visibleLabel: string;
   value: string;
   options: { id: string; label: string }[];
   onChange: (value: string) => void;
 }) {
   return (
     <label className="relative shrink-0">
-      <span className="inline-flex items-center gap-2 rounded-full border border-line bg-foam px-4 py-2.5 text-sm text-ink">
-        {label}
+      <span className="sr-only">{accessibleName}</span>
+      <span
+        aria-hidden="true"
+        className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-foam px-4 py-2.5 text-sm text-ink"
+      >
+        {visibleLabel}
         <Chevron />
       </span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="absolute inset-0 cursor-pointer opacity-0"
-        aria-label={label}
+        aria-label={accessibleName}
       >
         {options.map((option) => (
           <option key={option.id} value={option.id}>

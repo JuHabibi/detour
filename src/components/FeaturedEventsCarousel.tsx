@@ -55,7 +55,13 @@ export function FeaturedEventsCarousel({
     const node = scrollerRef.current;
     if (!node) return;
     const amount = Math.max(node.clientWidth * 0.85, 240);
-    node.scrollBy({ left: direction * amount, behavior: "smooth" });
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    node.scrollBy({
+      left: direction * amount,
+      behavior: prefersReduced ? "auto" : "smooth",
+    });
   }
 
   if (events.length === 0) return null;
@@ -65,12 +71,13 @@ export function FeaturedEventsCarousel({
       <div
         ref={scrollerRef}
         className={cn(
-          "flex gap-4 overflow-x-auto scroll-smooth pb-1",
-          "snap-x snap-mandatory",
+          "flex gap-4 overflow-x-auto pb-1",
+          "snap-x snap-mandatory scroll-smooth motion-reduce:scroll-auto",
           "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
         )}
         tabIndex={0}
         role="region"
+        aria-roledescription="carousel"
         aria-label="Faites un détour — événements recommandés"
         onKeyDown={(event) => {
           if (event.key === "ArrowRight") {
@@ -87,7 +94,6 @@ export function FeaturedEventsCarousel({
             key={event.id}
             className={cn(
               "shrink-0 snap-start",
-              // ~1.2 mobile · ~2 tablette · ~3 laptop · ~4 desktop + peek
               "w-[82%] sm:w-[48%] md:w-[47%] lg:w-[32%] xl:w-[24%]",
             )}
           >
@@ -124,6 +130,7 @@ function CarouselArrow({
   disabled: boolean;
   onClick: () => void;
 }) {
+  // Non rendu = non focusable quand inutilisable.
   if (disabled) return null;
 
   const isPrev = direction === "prev";
@@ -134,10 +141,9 @@ function CarouselArrow({
       aria-label={isPrev ? "Événements précédents" : "Événements suivants"}
       onClick={onClick}
       className={cn(
-        "absolute top-[38%] z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center",
+        "absolute top-[38%] z-10 hidden size-11 -translate-y-1/2 items-center justify-center",
         "rounded-full border border-line bg-paper/95 text-ink shadow-sm",
-        "transition hover:bg-foam focus-visible:outline focus-visible:outline-2",
-        "focus-visible:outline-offset-2 focus-visible:outline-ink/40",
+        "transition hover:bg-foam",
         "md:flex",
         isPrev ? "left-0 -translate-x-1/3" : "right-0 translate-x-1/3",
       )}

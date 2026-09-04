@@ -68,7 +68,7 @@ export function EventGrid({
                 <button
                   type="button"
                   onClick={onShowMore}
-                  className="border-b border-ink/25 pb-0.5 text-sm text-ink transition-colors hover:border-ink"
+                  className="min-h-11 border-b border-ink/25 px-2 pb-0.5 text-sm text-ink transition-colors hover:border-ink"
                 >
                   Voir plus
                 </button>
