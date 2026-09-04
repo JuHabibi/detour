@@ -12,6 +12,7 @@ export type DetourCategory =
   | "Jeune public"
   | "Rencontre"
   | "Visite"
+  | "Fête / salon / marché"
   | "Loisirs culturels"
   | "Autre";
 
@@ -23,6 +24,7 @@ export const DETOUR_CATEGORIES: DetourCategory[] = [
   "Jeune public",
   "Rencontre",
   "Visite",
+  "Fête / salon / marché",
   "Loisirs culturels",
   "Autre",
 ];
@@ -32,15 +34,36 @@ type Cue = {
   wholeWord?: boolean;
 };
 
+type ProductCategory = Exclude<DetourCategory, "Autre">;
+
 /**
- * Priorité V1 (premier match gagne) :
- * Musique → Spectacle → Exposition → Atelier → Jeune public
- * → Rencontre → Visite → Loisirs culturels → Autre
+ * Priorité sur champs structurés (category / genre) :
+ * Fête → Spectacle → Exposition → Atelier → Jeune public
+ * → Rencontre → Visite → Musique → Loisirs culturels
  *
- * Le type de contenu prime sur l’audience
- * (« Concert jeune public » → Musique).
+ * « Fête - salon - marché;Musique » → Fête / salon / marché
+ * (le type d’événement structurel prime sur le tag secondaire).
  */
-const CATEGORY_PRIORITY: Exclude<DetourCategory, "Autre">[] = [
+const STRUCTURED_PRIORITY: ProductCategory[] = [
+  "Fête / salon / marché",
+  "Spectacle",
+  "Exposition",
+  "Atelier",
+  "Jeune public",
+  "Rencontre",
+  "Visite",
+  "Musique",
+  "Loisirs culturels",
+];
+
+/**
+ * Priorité textuelle (title / description / venue) si pas de signal structuré :
+ * Musique → Spectacle → Exposition → Atelier → Jeune public
+ * → Rencontre → Visite → Fête → Loisirs → Autre
+ *
+ * Contenu > audience (« Concert jeune public » → Musique).
+ */
+const TEXT_PRIORITY: ProductCategory[] = [
   "Musique",
   "Spectacle",
   "Exposition",
@@ -48,14 +71,17 @@ const CATEGORY_PRIORITY: Exclude<DetourCategory, "Autre">[] = [
   "Jeune public",
   "Rencontre",
   "Visite",
+  "Fête / salon / marché",
   "Loisirs culturels",
 ];
 
-/** Signaux sur category / genre structurés (OpenAgenda). */
-const STRUCTURED_SIGNALS: Record<
-  Exclude<DetourCategory, "Autre">,
-  Cue[]
-> = {
+/** Signaux sur category / genre structurés. */
+const STRUCTURED_SIGNALS: Record<ProductCategory, Cue[]> = {
+  "Fête / salon / marché": [
+    { match: "fete" },
+    { match: "salon" },
+    { match: "marche" },
+  ],
   Musique: [
     { match: "musique" },
     { match: "concert" },
@@ -99,8 +125,8 @@ const STRUCTURED_SIGNALS: Record<
   "Loisirs culturels": [],
 };
 
-/** Signaux title / description / venue (+ category / genre en rattrapage). */
-const TEXT_SIGNALS: Record<Exclude<DetourCategory, "Autre">, Cue[]> = {
+/** Signaux title / description / venue. */
+const TEXT_SIGNALS: Record<ProductCategory, Cue[]> = {
   Musique: [
     { match: "concert" },
     { match: "musique" },
@@ -155,6 +181,11 @@ const TEXT_SIGNALS: Record<Exclude<DetourCategory, "Autre">, Cue[]> = {
     { match: "patrimoine" },
     { match: "decouverte" },
   ],
+  "Fête / salon / marché": [
+    { match: "fete" },
+    { match: "salon" },
+    { match: "marche", wholeWord: true },
+  ],
   "Loisirs culturels": [
     { match: "escape game" },
     { match: "realite virtuelle" },
@@ -167,7 +198,7 @@ const TEXT_SIGNALS: Record<Exclude<DetourCategory, "Autre">, Cue[]> = {
 };
 
 /**
- * Catégorie produit normalisée — n’altère jamais `relevance`.
+ * Catégorie produit normalisée — indépendante de `relevance`.
  * Agnostique des sources.
  */
 export function classifyEventCategory(event: DetourEvent): DetourCategory {
@@ -175,24 +206,18 @@ export function classifyEventCategory(event: DetourEvent): DetourCategory {
     [event.category, event.genre].filter(Boolean).join(" "),
   );
   const text = normalize(
-    [
-      event.category,
-      event.genre,
-      event.title,
-      event.description,
-      event.venue,
-    ]
-      .filter(Boolean)
-      .join(" "),
+    [event.title, event.description, event.venue].filter(Boolean).join(" "),
   );
 
-  for (const category of CATEGORY_PRIORITY) {
-    if (findCue(structured, STRUCTURED_SIGNALS[category])) {
-      return category;
+  if (structured) {
+    for (const category of STRUCTURED_PRIORITY) {
+      if (findCue(structured, STRUCTURED_SIGNALS[category])) {
+        return category;
+      }
     }
   }
 
-  for (const category of CATEGORY_PRIORITY) {
+  for (const category of TEXT_PRIORITY) {
     if (findCue(text, TEXT_SIGNALS[category])) {
       return category;
     }

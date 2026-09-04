@@ -11,6 +11,7 @@ export const categories: { id: CategoryId; label: string }[] = [
   { id: "Jeune public", label: "Jeune public" },
   { id: "Rencontre", label: "Rencontre" },
   { id: "Visite", label: "Visite" },
+  { id: "Fête / salon / marché", label: "Fête / salon / marché" },
   { id: "Loisirs culturels", label: "Loisirs culturels" },
   { id: "Autre", label: "Autre" },
 ];

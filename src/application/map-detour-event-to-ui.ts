@@ -1,6 +1,10 @@
 import { classifyEventCategory } from "@/domain/classify-event-category";
 import type { DetourEvent } from "@/domain/event";
-import { ORLEANS_CENTER, distanceKmBetween } from "@/domain/geo";
+import {
+  ORLEANS_CENTER,
+  distanceKmBetween,
+  resolveEventCoordinates,
+} from "@/domain/geo";
 import type { EventItem } from "@/data/types";
 
 export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
@@ -32,15 +36,27 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
   };
 }
 
-function computeDistanceKm(event: DetourEvent): number | undefined {
-  if (event.latitude == null || event.longitude == null) {
-    return undefined;
-  }
+/**
+ * Label / badge carte : sourceCategory → genre → catégorie produit.
+ * Le filtre continue d’utiliser `event.category`.
+ */
+export function resolveCategoryBadgeLabel(
+  event: Pick<EventItem, "category" | "genre" | "sourceCategory">,
+): string {
+  const fromSource = formatGenre(event.sourceCategory ?? null);
+  if (fromSource) return fromSource;
 
-  return distanceKmBetween(ORLEANS_CENTER, {
-    latitude: event.latitude,
-    longitude: event.longitude,
-  });
+  const fromGenre = event.genre?.trim();
+  if (fromGenre) return fromGenre;
+
+  if (event.category && event.category !== "tout") return event.category;
+  return "Autre";
+}
+
+function computeDistanceKm(event: DetourEvent): number | undefined {
+  const point = resolveEventCoordinates(event);
+  if (!point) return undefined;
+  return distanceKmBetween(ORLEANS_CENTER, point);
 }
 
 /** Samedi (6) et dimanche (0) uniquement. */

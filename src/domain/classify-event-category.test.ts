@@ -27,6 +27,53 @@ function event(
 }
 
 describe("classifyEventCategory", () => {
+  it("Lapanty en Fête → Fête / salon / marché (structure > musique)", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Lapanty en Fête",
+          category: "Fête - salon - marché;Musique",
+        }),
+      ),
+    ).toBe("Fête / salon / marché");
+  });
+
+  it("Forum des associations out_of_scope → Fête / salon / marché (pas Autre)", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Forum des associations 2026",
+          category: "Fête - salon - marché;Musique",
+          description: "Animations musicales et stands",
+          relevance: "out_of_scope",
+        }),
+      ),
+    ).toBe("Fête / salon / marché");
+  });
+
+  it("Soutien Numérique out_of_scope → Atelier (pas Autre)", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Soutien Numérique Personnalisé",
+          category: "Stage - atelier -  jeu",
+          relevance: "out_of_scope",
+        }),
+      ),
+    ).toBe("Atelier");
+  });
+
+  it("title musique + sourceCategory Fête → Fête / salon / marché", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Animations musicales du village",
+          category: "Fête - salon - marché",
+        }),
+      ),
+    ).toBe("Fête / salon / marché");
+  });
+
   it("OpenAgenda category structurée Musique → Musique", () => {
     expect(
       classifyEventCategory(
@@ -43,6 +90,17 @@ describe("classifyEventCategory", () => {
     ).toBe("Spectacle");
   });
 
+  it("Spectacle;Jeune public → Spectacle (structure, contenu > audience)", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Spectacle familial",
+          category: "Spectacle;Jeune public",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
   it("Saran sans category, title concert → Musique", () => {
     expect(
       classifyEventCategory(
@@ -51,7 +109,7 @@ describe("classifyEventCategory", () => {
     ).toBe("Musique");
   });
 
-  it('Exposition « Un regard sur le vivant » → Exposition', () => {
+  it('Exposition Saran, category null, title explicite → Exposition', () => {
     expect(
       classifyEventCategory(
         event({
@@ -132,7 +190,7 @@ describe("classifyEventCategory", () => {
     ).toBe("Autre");
   });
 
-  it("Concert jeune public → Musique (contenu > audience)", () => {
+  it("Concert jeune public → Musique (texte, contenu > audience)", () => {
     expect(
       classifyEventCategory(
         event({
@@ -167,15 +225,18 @@ describe("classifyEventCategory", () => {
     ).toBe("Autre");
   });
 
-  it("n’utilise pas relevance — out_of_scope peut avoir une famille", () => {
+  it("relevance n’influence jamais la category", () => {
+    const base = {
+      title: "Concert annulé",
+      category: "Musique" as string | null,
+    };
     expect(
       classifyEventCategory(
-        event({
-          title: "Concert annulé",
-          category: "Musique",
-          relevance: "out_of_scope",
-        }),
+        event({ ...base, relevance: "out_of_scope" }),
       ),
+    ).toBe("Musique");
+    expect(
+      classifyEventCategory(event({ ...base, relevance: "culture" })),
     ).toBe("Musique");
   });
 });

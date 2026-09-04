@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { formatDistanceKm } from "@/application/format-distance";
+import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
 import type { CategoryId, EventItem, EventSignal } from "@/data/types";
 import { cn } from "@/lib/cn";
 
@@ -35,6 +36,7 @@ const pastelByCategory: Record<Exclude<CategoryId, "tout">, string> = {
   "Jeune public": "bg-sun/20",
   Rencontre: "bg-mint/25",
   Visite: "bg-sand/15",
+  "Fête / salon / marché": "bg-sun/15",
   "Loisirs culturels": "bg-mint/20",
   Autre: "bg-sand/15",
 };
@@ -47,6 +49,7 @@ const accentByCategory: Record<Exclude<CategoryId, "tout">, string> = {
   "Jeune public": "bg-sun/40",
   Rencontre: "bg-mint/45",
   Visite: "bg-sand/30",
+  "Fête / salon / marché": "bg-sun/35",
   "Loisirs culturels": "bg-mint/40",
   Autre: "bg-sand/30",
 };
@@ -95,7 +98,7 @@ export function FeaturedEventCard({
 
         <div className="absolute left-4 top-4 z-[2] flex flex-wrap gap-2">
           <span className="rounded-full bg-paper/92 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-ink">
-            {event.genre}
+            {resolveCategoryBadgeLabel(event)}
           </span>
           {signal ? (
             <span className="rounded-full bg-coral/90 px-3 py-1 text-[11px] text-ink">
@@ -190,13 +193,9 @@ export function StandardEventCard(props: CardProps) {
 
         <div className="relative flex min-w-0 flex-1 flex-col py-0.5 pr-1">
           <div className="flex items-start justify-between gap-2">
-            {event.genre ? (
-              <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
-                {event.genre}
-              </p>
-            ) : (
-              <span />
-            )}
+            <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
+              {resolveCategoryBadgeLabel(event)}
+            </p>
             {onToggleFavorite ? (
               <FavoriteButton
                 isFavorite={isFavorite}
@@ -263,11 +262,9 @@ export function StandardEventCard(props: CardProps) {
       </div>
 
       <div className="relative flex flex-1 flex-col px-0.5 pb-1 pt-3">
-        {event.genre ? (
-          <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
-            {event.genre}
-          </p>
-        ) : null}
+        <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
+          {resolveCategoryBadgeLabel(event)}
+        </p>
         <h3 className="mt-1.5 line-clamp-2 font-display text-[1.4rem] leading-tight tracking-tight">
           {event.title}
         </h3>
@@ -335,13 +332,9 @@ export function TextEventCard({
 
       <div className="relative flex flex-1 flex-col p-5 md:p-6">
         <div className="flex items-start justify-between gap-3">
-          {event.genre ? (
-            <p className="text-[11px] uppercase tracking-[0.16em] text-sand">
-              {event.genre}
-            </p>
-          ) : (
-            <span />
-          )}
+          <p className="text-[11px] uppercase tracking-[0.16em] text-sand">
+            {resolveCategoryBadgeLabel(event)}
+          </p>
           {onToggleFavorite ? (
             <FavoriteButton
               isFavorite={isFavorite}
