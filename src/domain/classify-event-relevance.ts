@@ -1,94 +1,44 @@
 import type { DetourEvent, EventRelevance } from "@/domain/event";
+import {
+  AMBIGUOUS_CATEGORY_SIGNALS,
+  ASSOCIATION_FORUM_TITLE_SIGNALS,
+  CULTURE_CATEGORY_SIGNALS,
+  CULTURE_TEXT_SIGNALS,
+  CULTURE_VENUE_SIGNALS,
+  LEISURE_CATEGORY_SIGNALS,
+  LEISURE_TEXT_SIGNALS,
+  RECURRING_ACTIVITY_SIGNALS,
+  SPORT_CATEGORY_SIGNALS,
+  STRONG_EXCLUSION_SIGNALS,
+  type ClassificationCue,
+} from "@/domain/event-classification-signals";
 
 export type EventClassification = {
   relevance: EventRelevance;
   reason: string;
 };
 
-type Cue = {
-  /** Forme normalisée (sans accents) recherchée dans le texte. */
-  match: string;
-  /** Libellé affiché dans `reason`. */
-  label: string;
-  /** Si true, ne match que comme mot entier. */
-  wholeWord?: boolean;
-};
-
-/** Indices textuels clairement culturels. */
-const CULTURE_CUES: Cue[] = [
-  { match: "concert", label: "concert" },
-  { match: "musique", label: "musique" },
-  { match: "jazz", label: "jazz" },
-  { match: "theatre", label: "théâtre" },
-  { match: "cinema", label: "cinéma" },
-  { match: "projection", label: "projection" },
-  { match: "exposition", label: "exposition" },
-  // "expo" uniquement en mot complet — évite les faux positifs (ex. sous-chaînes).
-  { match: "expo", label: "expo", wholeWord: true },
-  { match: "design", label: "design" },
-  { match: "artiste", label: "artiste" },
-  { match: "danse", label: "danse" },
-  { match: "lecture", label: "lecture" },
-  { match: "litterature", label: "littérature" },
-  { match: "musee", label: "musée" },
-  { match: "patrimoine", label: "patrimoine" },
-  { match: "spectacle", label: "spectacle" },
-  { match: "festival", label: "festival" },
-  { match: "photographie", label: "photographie" },
-  { match: "ecriture", label: "écriture" },
-  { match: "creation", label: "création" },
-  { match: "philharmonie", label: "philharmonie" },
-  { match: "orchestre", label: "orchestre" },
-  { match: "opera", label: "opéra" },
-  { match: "chorale", label: "chorale" },
-  { match: "batterie", label: "batterie" },
-];
-
-/** Exclusions structurelles / activités hors périmètre. */
-const EXCLUDED_KEYWORDS: Cue[] = [
-  { match: "soutien numerique", label: "soutien numérique" },
-  { match: "zumba", label: "zumba" },
-  { match: "qi gong", label: "qi gong" },
-  { match: "qigong", label: "qi gong" },
-  { match: "marche nordique", label: "marche nordique" },
-  { match: "don de sang", label: "don de sang" },
-  { match: "free fit", label: "free fit" },
-  { match: "yoga nidra", label: "yoga" },
-  { match: "hatha yoga", label: "yoga" },
-  { match: "yoga", label: "yoga" },
-];
-
-/** Forums / journées d’associations — hors périmètre Détour. */
-const ASSOCIATION_FORUM_TITLE_CUES = [
-  "forum des associations",
-  "forum des assos",
-  "journee des associations",
-  "rentree des associations",
-] as const;
 /**
- * Activité récurrente / inscription longue.
- * Prioritaire même face à une catégorie ou un mot culturel fort.
- */
-const RECURRING_ACTIVITY_CUES: Cue[] = [
-  { match: "cours annuel", label: "cours annuel" },
-  { match: "inscription annuelle", label: "inscription annuelle" },
-  { match: "atelier annuel", label: "atelier annuel" },
-  { match: "adhesion annuelle", label: "adhésion annuelle" },
-];
-
-/**
- * Classification culturelle Détour.
- * Ordre : exclusions structurelles → catégories fortes → mots culturels
- * → loisirs/contextuels → uncertain.
+ * Classification culturelle Détour (agnostique des sources).
+ *
+ * Priorité :
+ * 1. exclusions fortes
+ * 2. catégories culture structurées
+ * 3. texte culture (contenu)
+ * 4. texte culture_leisure
+ * 5. lieux culturels (signal faible)
+ * 6. catégories leisure / ambiguës
+ * 7. uncertain
  */
 export function classifyEventRelevance(
   event: DetourEvent,
 ): EventClassification {
   const category = normalize(event.category);
-  const text = buildSearchText(event);
+  const text = buildContentText(event);
+  const placeText = buildPlaceText(event);
 
-  // A. Exclusions structurelles fortes (battent les signaux culturels).
-  const recurring = findCue(text, RECURRING_ACTIVITY_CUES);
+  // 1. Exclusions fortes (battent lieux et mots culturels).
+  const recurring = findCue(text, RECURRING_ACTIVITY_SIGNALS);
   if (recurring) {
     return {
       relevance: "out_of_scope",
@@ -110,7 +60,7 @@ export function classifyEventRelevance(
     };
   }
 
-  const excludedKeyword = findCue(text, EXCLUDED_KEYWORDS);
+  const excludedKeyword = findCue(text, STRONG_EXCLUSION_SIGNALS);
   if (excludedKeyword) {
     return {
       relevance: "out_of_scope",
@@ -118,24 +68,24 @@ export function classifyEventRelevance(
     };
   }
 
-  if (isSportCategory(category)) {
+  if (matchesAnySubstring(category, SPORT_CATEGORY_SIGNALS)) {
     return {
       relevance: "out_of_scope",
       reason: "excluded-category:sport",
     };
   }
 
-  // B. Catégories culturelles fortes.
-  const strongCategory = detectStrongCultureCategory(category);
+  // 2. Catégories culturelles structurées.
+  const strongCategory = findCue(category, CULTURE_CATEGORY_SIGNALS);
   if (strongCategory) {
     return {
       relevance: "culture",
-      reason: `strong-category:${strongCategory}`,
+      reason: `strong-category:${strongCategory.label}`,
     };
   }
 
-  // C. Signaux textuels culturels.
-  const cultureKeyword = findCue(text, CULTURE_CUES);
+  // 3. Contenu culturel textuel.
+  const cultureKeyword = findCue(text, CULTURE_TEXT_SIGNALS);
   if (cultureKeyword) {
     return {
       relevance: "culture",
@@ -143,89 +93,70 @@ export function classifyEventRelevance(
     };
   }
 
-  // D. Catégories loisirs / contextuelles.
-  if (isWalkVisitCategory(category)) {
+  // 4. Loisirs culturels (avant le seul signal lieu).
+  const leisureKeyword = findCue(text, LEISURE_TEXT_SIGNALS);
+  if (leisureKeyword) {
+    return {
+      relevance: "culture_leisure",
+      reason: `leisure-keyword:${leisureKeyword.label}`,
+    };
+  }
+
+  // 5. Lieux culturels — signal, pas vérité absolue.
+  const venueSignal = findCue(placeText, CULTURE_VENUE_SIGNALS);
+  if (venueSignal) {
+    return {
+      relevance: "culture",
+      reason: `cultural-venue:${venueSignal.label}`,
+    };
+  }
+
+  // 6. Catégories leisure / ambiguës.
+  if (matchesAnySubstring(category, LEISURE_CATEGORY_SIGNALS)) {
     return {
       relevance: "culture_leisure",
       reason: "leisure-category:balade",
     };
   }
 
-  if (isYoungAudienceCategory(category) || isAmbiguousCategory(category)) {
+  if (matchesAnySubstring(category, AMBIGUOUS_CATEGORY_SIGNALS)) {
     return {
       relevance: "uncertain",
       reason: "ambiguous-category",
     };
   }
 
-  // E. Aucun signal exploitable.
+  // 7. Aucun signal exploitable.
   return {
     relevance: "uncertain",
     reason: "no-signal",
   };
 }
 
-function buildSearchText(event: DetourEvent): string {
+/** Texte de contenu (sans venue) — préserve le matching historique. */
+function buildContentText(event: DetourEvent): string {
   return normalize(
-    [event.category, event.title, event.description, event.source, event.conditions]
+    [
+      event.category,
+      event.title,
+      event.description,
+      event.source,
+      event.conditions,
+    ]
       .filter(Boolean)
       .join(" "),
   );
 }
 
-function detectStrongCultureCategory(category: string): string | null {
-  if (!category) return null;
-  if (category.includes("musique")) return "musique";
-  if (category.includes("spectacle")) return "spectacle";
-  if (category.includes("exposition") || /\bexpo\b/.test(category)) {
-    return "exposition";
-  }
-  if (category.includes("projection") || category.includes("cinema")) {
-    return "projection-cinéma";
-  }
-  return null;
-}
-
-function isYoungAudienceCategory(category: string): boolean {
-  return category.includes("jeune public");
-}
-
-function isWalkVisitCategory(category: string): boolean {
-  return (
-    category.includes("balade") ||
-    category.includes("decouverte") ||
-    category.includes("visite")
-  );
-}
-
-function isAmbiguousCategory(category: string): boolean {
-  if (!category) return false;
-  if (category.includes("stage") || category.includes("atelier")) return true;
-  if (
-    category.includes("conference") ||
-    category.includes("rencontre") ||
-    category.includes("debat")
-  ) {
-    return true;
-  }
-  if (
-    category.includes("fete") ||
-    category.includes("salon") ||
-    category.includes("marche")
-  ) {
-    return true;
-  }
-  return false;
-}
-
-function isSportCategory(category: string): boolean {
-  return category.includes("sport");
+/** Lieu + titre (noms de structures souvent dans le titre iCal). */
+function buildPlaceText(event: DetourEvent): string {
+  return normalize([event.venue, event.title].filter(Boolean).join(" "));
 }
 
 function isAssociationsForumTitle(title: string | null): boolean {
   const normalizedTitle = normalize(title);
   if (!normalizedTitle) return false;
-  return ASSOCIATION_FORUM_TITLE_CUES.some((cue) =>
+  return ASSOCIATION_FORUM_TITLE_SIGNALS.some((cue) =>
     normalizedTitle.includes(cue),
   );
 }
@@ -235,17 +166,24 @@ function isSeasonEnrollment(text: string): boolean {
     return false;
   }
 
-  const enrollmentHints = [
-    "inscription",
-    "cours",
-    "adhesion",
-    "essai",
-  ];
-
-  return enrollmentHints.some((hint) => text.includes(hint));
+  return ["inscription", "cours", "adhesion", "essai"].some((hint) =>
+    text.includes(hint),
+  );
 }
 
-function findCue(text: string, cues: Cue[]): Cue | null {
+function matchesAnySubstring(
+  text: string,
+  signals: readonly string[],
+): boolean {
+  if (!text) return false;
+  return signals.some((signal) => text.includes(signal));
+}
+
+function findCue(
+  text: string,
+  cues: ClassificationCue[],
+): ClassificationCue | null {
+  if (!text) return null;
   for (const cue of cues) {
     if (cue.wholeWord) {
       if (hasWholeWord(text, cue.match)) return cue;

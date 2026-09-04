@@ -310,4 +310,125 @@ describe("classifyEventRelevance", () => {
     expect(result.relevance).toBe("culture");
     expect(result.reason).toBe("cultural-keyword:danse");
   });
+
+  it("category spectacle → culture", () => {
+    const result = classifyEventRelevance(
+      event({ title: "Soirée", category: "Spectacle" }),
+    );
+    expect(result.relevance).toBe("culture");
+    expect(result.reason).toBe("strong-category:spectacle");
+  });
+
+  it("category sport → out_of_scope", () => {
+    const result = classifyEventRelevance(
+      event({ title: "Match amical", category: "Sport" }),
+    );
+    expect(result.relevance).toBe("out_of_scope");
+    expect(result.reason).toBe("excluded-category:sport");
+  });
+
+  it("conseil municipal → out_of_scope", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Conseil Municipal",
+        venue: "Médiathèque",
+        description: "Séance publique",
+      }),
+    );
+    expect(result.relevance).toBe("out_of_scope");
+    expect(result.reason).toBe("excluded-keyword:conseil municipal");
+  });
+
+  it("PSC1 en MJC → out_of_scope (exclusion > lieu)", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Formation psc1 - croix blanche",
+        venue: "MJC Jacques Prévert",
+      }),
+    );
+    expect(result.relevance).toBe("out_of_scope");
+    expect(result.reason).toBe("excluded-keyword:psc1");
+  });
+
+  it("title culturel évident → culture", () => {
+    const result = classifyEventRelevance(
+      event({ title: "Concert en plein air" }),
+    );
+    expect(result.relevance).toBe("culture");
+    expect(result.reason).toBe("cultural-keyword:concert");
+  });
+
+  it("aucun signal → uncertain", () => {
+    const result = classifyEventRelevance(
+      event({ title: "Réunion de quartier", description: "Échanges locaux" }),
+    );
+    expect(result.relevance).toBe("uncertain");
+    expect(result.reason).toBe("no-signal");
+  });
+
+  it("lecture en médiathèque → culture", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Lecture du mardi",
+        venue: "Médiathèque",
+        description: "Temps de lecture partagée",
+      }),
+    );
+    expect(result.relevance).toBe("culture");
+    expect(result.reason).toMatch(/^cultural-/);
+  });
+
+  it("histoires pour les petites oreilles → culture", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Histoires pour les petites oreilles",
+        venue: "Médiathèque",
+      }),
+    );
+    expect(result.relevance).toBe("culture");
+  });
+
+  it("guinguette → culture_leisure", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Feu d'artifice et clôture de la Guinguette du Château",
+        description: "Bar, restauration, soirée dansante",
+      }),
+    );
+    expect(result.relevance).toBe("culture_leisure");
+    expect(result.reason).toMatch(/^leisure-keyword:/);
+  });
+
+  it("scrapbooking → culture_leisure", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Scrapbooking - Maison des loisirs et de la culture",
+        venue: "Annexes du château",
+      }),
+    );
+    expect(result.relevance).toBe("culture_leisure");
+    expect(result.reason).toBe("leisure-keyword:scrapbooking");
+  });
+
+  it("escape game en médiathèque → culture_leisure (loisir > lieu)", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Escape Game - Cyber enquête",
+        venue: "Médiathèque",
+      }),
+    );
+    expect(result.relevance).toBe("culture_leisure");
+    expect(result.reason).toBe("leisure-keyword:escape game");
+  });
+
+  it("atelier seul → uncertain", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Atelier parents-enfants",
+        category: "Stage - atelier -  jeu",
+        description: "Temps d’accueil",
+      }),
+    );
+    expect(result.relevance).toBe("uncertain");
+  });
 });
