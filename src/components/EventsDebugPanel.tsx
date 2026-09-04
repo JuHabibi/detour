@@ -25,18 +25,23 @@ export type EventDuplicateDebug = {
 export type HighlightDebug = {
   title: string;
   score: number;
+  planningScore: number;
   reasons: string[];
   source: string | null;
   city: string | null;
   hasRegistration: boolean;
+  rank?: number;
+  slot?: string;
 };
 
 export type EventsDebugMeta = {
   rawCount: number;
   dedupedCount: number;
   duplicateCount: number;
+  scoredCandidatesCount?: number;
   duplicates: EventDuplicateDebug[];
   highlights?: HighlightDebug[];
+  highlightCandidates?: HighlightDebug[];
 };
 
 type EventsDebugPanelProps = {
@@ -132,10 +137,14 @@ export function EventsDebugPanel({ events, meta }: EventsDebugPanelProps) {
             </p>
 
             {meta ? (
-              <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+              <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                 <Stat label="Brut chargé" value={meta.rawCount} />
                 <Stat label="Après dédup" value={meta.dedupedCount} />
                 <Stat label="Doublons détectés" value={meta.duplicateCount} />
+                <Stat
+                  label="Candidats scorés"
+                  value={meta.scoredCandidatesCount ?? "—"}
+                />
               </dl>
             ) : null}
 
@@ -195,12 +204,13 @@ export function EventsDebugPanel({ events, meta }: EventsDebugPanelProps) {
                   <table className="min-w-full text-left text-xs">
                     <thead className="border-b border-line bg-foam/60 text-[10px] uppercase tracking-[0.14em] text-sand">
                       <tr>
+                        <th className="px-3 py-2.5 font-medium">Slot</th>
                         <th className="px-3 py-2.5 font-medium">Titre</th>
                         <th className="px-3 py-2.5 font-medium">Score</th>
+                        <th className="px-3 py-2.5 font-medium">Planning</th>
                         <th className="px-3 py-2.5 font-medium">Reasons</th>
-                        <th className="px-3 py-2.5 font-medium">Source</th>
                         <th className="px-3 py-2.5 font-medium">Ville</th>
-                        <th className="px-3 py-2.5 font-medium">Résa</th>
+                        <th className="px-3 py-2.5 font-medium">Source</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -209,23 +219,81 @@ export function EventsDebugPanel({ events, meta }: EventsDebugPanelProps) {
                           key={`${highlight.title}-${index}`}
                           className="border-b border-line/70 align-top last:border-b-0"
                         >
+                          <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[10px] text-ink">
+                            {highlight.slot ?? "—"}
+                          </td>
                           <td className="max-w-[16rem] px-3 py-2.5 font-medium text-ink">
                             {highlight.title}
                           </td>
                           <td className="whitespace-nowrap px-3 py-2.5 font-mono text-ink">
                             {highlight.score}
                           </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 font-mono text-ink">
+                            {highlight.planningScore}
+                          </td>
                           <td className="max-w-[16rem] px-3 py-2.5 font-mono text-[10px] text-cream-dim">
                             {highlight.reasons.join(", ")}
-                          </td>
-                          <td className="max-w-[12rem] px-3 py-2.5 text-cream-dim">
-                            {highlight.source || "—"}
                           </td>
                           <td className="whitespace-nowrap px-3 py-2.5 text-cream-dim">
                             {highlight.city || "—"}
                           </td>
-                          <td className="px-3 py-2.5">
-                            <Flag ok={highlight.hasRegistration} />
+                          <td className="max-w-[12rem] px-3 py-2.5 text-cream-dim">
+                            {highlight.source || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {meta &&
+            meta.highlightCandidates &&
+            meta.highlightCandidates.length > 0 ? (
+              <div className="space-y-3">
+                <h3 className="font-display text-lg tracking-tight">
+                  Top scored candidates (20)
+                </h3>
+                <div className="overflow-x-auto rounded-xl border border-line bg-paper">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="border-b border-line bg-foam/60 text-[10px] uppercase tracking-[0.14em] text-sand">
+                      <tr>
+                        <th className="px-3 py-2.5 font-medium">Rank</th>
+                        <th className="px-3 py-2.5 font-medium">Titre</th>
+                        <th className="px-3 py-2.5 font-medium">Score</th>
+                        <th className="px-3 py-2.5 font-medium">Planning</th>
+                        <th className="px-3 py-2.5 font-medium">Reasons</th>
+                        <th className="px-3 py-2.5 font-medium">Ville</th>
+                        <th className="px-3 py-2.5 font-medium">Source</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {meta.highlightCandidates.map((candidate, index) => (
+                        <tr
+                          key={`candidate-${candidate.title}-${index}`}
+                          className="border-b border-line/70 align-top last:border-b-0"
+                        >
+                          <td className="px-3 py-2.5 font-mono text-sand">
+                            {candidate.rank ?? index + 1}
+                          </td>
+                          <td className="max-w-[16rem] px-3 py-2.5 font-medium text-ink">
+                            {candidate.title}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 font-mono text-ink">
+                            {candidate.score}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 font-mono text-ink">
+                            {candidate.planningScore}
+                          </td>
+                          <td className="max-w-[16rem] px-3 py-2.5 font-mono text-[10px] text-cream-dim">
+                            {candidate.reasons.join(", ")}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 text-cream-dim">
+                            {candidate.city || "—"}
+                          </td>
+                          <td className="max-w-[12rem] px-3 py-2.5 text-cream-dim">
+                            {candidate.source || "—"}
                           </td>
                         </tr>
                       ))}

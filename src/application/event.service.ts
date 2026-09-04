@@ -5,6 +5,7 @@ import {
 } from "@/domain/deduplicate-events";
 import type { DetourEvent } from "@/domain/event";
 import {
+  rankDetourHighlightCandidates,
   selectDetourHighlights,
   type EventHighlight,
 } from "@/domain/select-detour-highlights";
@@ -13,6 +14,10 @@ import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 export type UpcomingEventsResult = {
   events: DetourEvent[];
   highlights: EventHighlight[];
+  /** Top candidats scorés (avant diversité) — debug. */
+  highlightCandidates: EventHighlight[];
+  /** Nombre total de candidats ayant reçu un score. */
+  scoredCandidatesCount: number;
   duplicates: EventDuplicate[];
   rawCount: number;
   classifiedEvents: DetourEvent[];
@@ -37,11 +42,15 @@ export class EventService {
     });
 
     const { events, duplicates } = deduplicateEvents(classifiedEvents);
+    const rankedCandidates = rankDetourHighlightCandidates(events);
+    const highlightCandidates = rankedCandidates.slice(0, 20);
     const highlights = selectDetourHighlights(events, { limit: 4 });
 
     return {
       events,
       highlights,
+      highlightCandidates,
+      scoredCandidatesCount: rankedCandidates.length,
       duplicates,
       rawCount: rawEvents.length,
       classifiedEvents,
