@@ -12,6 +12,8 @@ function input(
     localRarity: 0,
     likelyDemand: 0,
     missRisk: 0,
+    confidence: 0,
+    reasons: [],
     hasRegistrationUrl: false,
     ...overrides,
   };
@@ -26,10 +28,67 @@ describe("resolveEditorialBadge", () => {
     ).toBe("À réserver");
   });
 
-  it("localRarity élevé sans priorité supérieure → Passage rare", () => {
+  it("localRarity élevé mais reason générique → pas Passage rare", () => {
     expect(
-      resolveEditorialBadge(input({ localRarity: 4, missRisk: 5 })),
+      resolveEditorialBadge(
+        input({
+          localRarity: 5,
+          confidence: 0.9,
+          reasons: ["spectacle intéressant", "local-discovery", "singular"],
+          missRisk: 2,
+        }),
+      ),
+    ).toBe(null);
+  });
+
+  it("localRarity élevé + confidence élevé + reason explicite rareté → Passage rare", () => {
+    expect(
+      resolveEditorialBadge(
+        input({
+          localRarity: 4,
+          confidence: 0.8,
+          reasons: [
+            "Passage inhabituel d’un artiste reconnu dans une petite commune",
+          ],
+        }),
+      ),
     ).toBe("Passage rare");
+  });
+
+  it("fallback vers autre badge si rareté non justifiée", () => {
+    expect(
+      resolveEditorialBadge(
+        input({
+          localRarity: 5,
+          confidence: 0.9,
+          reasons: ["concert local"],
+          planningNeed: 4,
+          hasRegistrationUrl: false,
+        }),
+      ),
+    ).toBe("À anticiper");
+
+    expect(
+      resolveEditorialBadge(
+        input({
+          localRarity: 5,
+          confidence: 0.5,
+          reasons: ["artiste rarement programmé localement"],
+          likelyDemand: 4,
+        }),
+      ),
+    ).toBe("Fort potentiel");
+
+    expect(
+      resolveEditorialBadge(
+        input({
+          localRarity: 5,
+          confidence: 0.9,
+          reasons: ["petite commune"],
+          missRisk: 4,
+        }),
+      ),
+    ).toBe("Pépite locale");
   });
 
   it("planningNeed élevé sans registrationUrl → À anticiper", () => {
@@ -65,6 +124,8 @@ describe("resolveEditorialBadge", () => {
           localRarity: 5,
           likelyDemand: 5,
           missRisk: 5,
+          confidence: 0.9,
+          reasons: ["passage inhabituel dans cette commune"],
           hasRegistrationUrl: true,
         }),
       ),
@@ -77,6 +138,8 @@ describe("resolveEditorialBadge", () => {
           localRarity: 5,
           likelyDemand: 5,
           missRisk: 5,
+          confidence: 0.9,
+          reasons: ["présence exceptionnelle dans ce lieu"],
           hasRegistrationUrl: false,
         }),
       ),

@@ -53,6 +53,8 @@ export function mapDetourHighlightToEventItem(
     localRarity: ai.localRarity,
     likelyDemand: ai.likelyDemand,
     missRisk: ai.missRisk,
+    confidence: ai.confidence,
+    reasons: ai.aiReasons,
     hasRegistrationUrl: Boolean(highlight.event.registrationUrl),
   });
 
