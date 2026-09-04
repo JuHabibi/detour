@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
 import type { DetourEvent } from "@/domain/event";
 import {
+  buildAiDetourSlotSequence,
   localGemScore,
   selectAiDetourHighlights,
   strongEventScore,
@@ -188,4 +189,40 @@ describe("selectAiDetourHighlights", () => {
     expect(highlights[0]?.slot).toBe("strong-event");
   });
 
+  it("limit 6 → séquence 1 strong / 2 gems / 1 planning / 2 wildcards", () => {
+    expect(buildAiDetourSlotSequence(6)).toEqual([
+      "strong-event",
+      "local-gem",
+      "local-gem",
+      "worth-planning",
+      "wildcard",
+      "wildcard",
+    ]);
+
+    const pool = ["a", "b", "c", "d", "e", "f", "g"].map((id) => candidate(id));
+    const assessments = [
+      assessment("a", { appeal: 5, recognition: 5, planningValue: 1 }),
+      assessment("b", { appeal: 3, discoveryValue: 5, recognition: 0 }),
+      assessment("c", { appeal: 3, discoveryValue: 4, recognition: 0 }),
+      assessment("d", { appeal: 2, planningValue: 5, recognition: 2 }),
+      assessment("e", { appeal: 3, discoveryValue: 3, planningValue: 3, recognition: 2 }),
+      assessment("f", { appeal: 2, discoveryValue: 2, planningValue: 2, recognition: 1 }),
+      assessment("g", { appeal: 1, discoveryValue: 1, planningValue: 1, recognition: 1 }),
+    ];
+
+    const highlights = selectAiDetourHighlights(pool, assessments, {
+      limit: 6,
+    });
+
+    expect(highlights).toHaveLength(6);
+    expect(new Set(highlights.map((item) => item.event.id)).size).toBe(6);
+    expect(highlights.map((item) => item.slot)).toEqual([
+      "strong-event",
+      "local-gem",
+      "local-gem",
+      "worth-planning",
+      "wildcard",
+      "wildcard",
+    ]);
+  });
 });

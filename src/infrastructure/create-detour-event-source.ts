@@ -6,7 +6,15 @@ import { SaranEventAdapter } from "@/infrastructure/sources/saran/saran-event.ad
 /** Source agrégée par défaut — EventService reste agnostique des villes. */
 export function createDetourEventSource(): EventSourceAdapter {
   return new CompositeEventSourceAdapter([
-    { name: "orleans", adapter: new OrleansEventAdapter() },
-    { name: "saran", adapter: new SaranEventAdapter() },
+    {
+      name: "orleans",
+      label: "Orléans / OpenAgenda",
+      adapter: new OrleansEventAdapter(),
+    },
+    {
+      name: "saran",
+      label: "Ville de Saran",
+      adapter: new SaranEventAdapter(),
+    },
   ]);
 }

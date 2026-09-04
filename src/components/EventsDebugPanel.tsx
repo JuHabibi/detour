@@ -79,12 +79,39 @@ export type EventsDebugMeta = {
   highlightCandidates?: HighlightDebug[];
   aiAssessments?: AiHighlightDebug[];
   planningEvents?: PlanningEventDebug[];
-  sourceCoverage?: Array<{
-    source: string;
+  sourceIngestion?: Array<{
+    adapterId: string;
+    sourceName: string;
     rawCount: number;
     classifiedCount: number;
-    dedupedCount: number;
+    dedupedContribution: number;
+    editorialContribution: number;
+    duplicatesRemoved: number;
   }>;
+  saranDuplicates?: Array<{
+    saranTitle: string;
+    keptTitle: string;
+    keptSource: string | null;
+    keptAdapterId: string | null;
+    reason: string;
+  }>;
+  saranClassificationAudit?: {
+    total: number;
+    culture: number;
+    cultureLeisure: number;
+    outOfScope: number;
+    uncertain: number;
+    rows: Array<{
+      eventId: string;
+      title: string;
+      relevance: string;
+      relevanceReason: string | null;
+      category: string | null;
+      genre: string | null;
+      venue: string | null;
+      descriptionSnippet: string | null;
+    }>;
+  };
   aiRuntime?: {
     mode: "manual" | "auto" | "disabled";
     source: "fresh" | "cache" | "fallback";
@@ -246,11 +273,16 @@ export function EventsDebugPanel({
               </dl>
             ) : null}
 
-            {meta?.sourceCoverage && meta.sourceCoverage.length > 0 ? (
+            {meta?.sourceIngestion && meta.sourceIngestion.length > 0 ? (
               <div className="space-y-3">
                 <h3 className="font-display text-lg tracking-tight">
-                  Source coverage
+                  Source ingestion
                 </h3>
+                <p className="text-sm text-cream-dim">
+                  Compteurs par adapter technique (pas par libellé
+                  OpenAgenda). Relevant = culture / culture_leisure ;
+                  Relevant final = relevant encore présents après dédup.
+                </p>
                 <div className="overflow-x-auto rounded-xl border border-line bg-paper">
                   <table className="min-w-full text-left text-xs">
                     <thead className="border-b border-line bg-foam/60 text-[10px] uppercase tracking-[0.14em] text-sand">
@@ -258,19 +290,27 @@ export function EventsDebugPanel({
                         <th className="px-3 py-2.5 font-medium">Source</th>
                         <th className="px-3 py-2.5 font-medium">Raw</th>
                         <th className="px-3 py-2.5 font-medium">
-                          Classified
+                          Relevant
                         </th>
-                        <th className="px-3 py-2.5 font-medium">Deduped</th>
+                        <th className="px-3 py-2.5 font-medium">
+                          Relevant final
+                        </th>
+                        <th className="px-3 py-2.5 font-medium">
+                          Duplicates removed
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {meta.sourceCoverage.map((row) => (
+                      {meta.sourceIngestion.map((row) => (
                         <tr
-                          key={row.source}
+                          key={row.adapterId}
                           className="border-b border-line/70 last:border-b-0"
                         >
                           <td className="max-w-[20rem] px-3 py-2.5 font-medium text-ink">
-                            {row.source}
+                            {row.sourceName}
+                            <span className="mt-0.5 block font-mono text-[10px] text-sand">
+                              {row.adapterId}
+                            </span>
                           </td>
                           <td className="px-3 py-2.5 font-mono text-ink">
                             {row.rawCount}
@@ -279,7 +319,151 @@ export function EventsDebugPanel({
                             {row.classifiedCount}
                           </td>
                           <td className="px-3 py-2.5 font-mono text-ink">
-                            {row.dedupedCount}
+                            {row.editorialContribution}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {row.duplicatesRemoved}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {meta?.saranDuplicates && meta.saranDuplicates.length > 0 ? (
+              <div className="space-y-3">
+                <h3 className="font-display text-lg tracking-tight">
+                  Saran duplicates
+                </h3>
+                <div className="overflow-x-auto rounded-xl border border-line bg-paper">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="border-b border-line bg-foam/60 text-[10px] uppercase tracking-[0.14em] text-sand">
+                      <tr>
+                        <th className="px-3 py-2.5 font-medium">
+                          Titre Saran
+                        </th>
+                        <th className="px-3 py-2.5 font-medium">
+                          Titre conservé
+                        </th>
+                        <th className="px-3 py-2.5 font-medium">
+                          Source conservée
+                        </th>
+                        <th className="px-3 py-2.5 font-medium">Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {meta.saranDuplicates.map((row, index) => (
+                        <tr
+                          key={`${row.saranTitle}-${index}`}
+                          className="border-b border-line/70 align-top last:border-b-0"
+                        >
+                          <td className="max-w-[14rem] px-3 py-2.5 font-medium text-ink">
+                            {row.saranTitle}
+                          </td>
+                          <td className="max-w-[14rem] px-3 py-2.5 text-cream-dim">
+                            {row.keptTitle}
+                          </td>
+                          <td className="max-w-[12rem] px-3 py-2.5 text-cream-dim">
+                            {row.keptSource || "—"}
+                            {row.keptAdapterId ? (
+                              <span className="mt-0.5 block font-mono text-[10px] text-sand">
+                                {row.keptAdapterId}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-[10px] text-cream-dim">
+                            {row.reason}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {meta?.saranClassificationAudit &&
+            meta.saranClassificationAudit.total > 0 ? (
+              <div className="space-y-3">
+                <h3 className="font-display text-lg tracking-tight">
+                  Saran classification audit
+                </h3>
+                <p className="text-sm text-cream-dim">
+                  Audit temporaire — Saran iCal sans category/genre fiables.
+                  Sans signal textuel le classifieur renvoie surtout{" "}
+                  <span className="font-mono">uncertain</span> (pas
+                  out_of_scope). Tri : out_of_scope → uncertain →
+                  culture_leisure → culture.
+                </p>
+                <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                  <Stat
+                    label="Total Saran"
+                    value={meta.saranClassificationAudit.total}
+                  />
+                  <Stat
+                    label="culture"
+                    value={meta.saranClassificationAudit.culture}
+                  />
+                  <Stat
+                    label="culture_leisure"
+                    value={meta.saranClassificationAudit.cultureLeisure}
+                  />
+                  <Stat
+                    label="out_of_scope"
+                    value={meta.saranClassificationAudit.outOfScope}
+                  />
+                  <Stat
+                    label="uncertain"
+                    value={meta.saranClassificationAudit.uncertain}
+                  />
+                </dl>
+                <div className="overflow-x-auto rounded-xl border border-line bg-paper">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="border-b border-line bg-foam/60 text-[10px] uppercase tracking-[0.14em] text-sand">
+                      <tr>
+                        <th className="px-3 py-2.5 font-medium">Title</th>
+                        <th className="px-3 py-2.5 font-medium">
+                          Relevance
+                        </th>
+                        <th className="px-3 py-2.5 font-medium">Reason</th>
+                        <th className="px-3 py-2.5 font-medium">
+                          Category
+                        </th>
+                        <th className="px-3 py-2.5 font-medium">Genre</th>
+                        <th className="px-3 py-2.5 font-medium">Venue</th>
+                        <th className="px-3 py-2.5 font-medium">
+                          Description
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {meta.saranClassificationAudit.rows.map((row) => (
+                        <tr
+                          key={row.eventId}
+                          className="border-b border-line/70 align-top last:border-b-0"
+                        >
+                          <td className="max-w-[14rem] px-3 py-2.5 font-medium text-ink">
+                            {row.title}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[10px] text-ink">
+                            {row.relevance}
+                          </td>
+                          <td className="max-w-[10rem] px-3 py-2.5 font-mono text-[10px] text-cream-dim">
+                            {row.relevanceReason || "—"}
+                          </td>
+                          <td className="px-3 py-2.5 text-cream-dim">
+                            {row.category || "—"}
+                          </td>
+                          <td className="px-3 py-2.5 text-cream-dim">
+                            {row.genre || "—"}
+                          </td>
+                          <td className="max-w-[10rem] px-3 py-2.5 text-cream-dim">
+                            {row.venue || "—"}
+                          </td>
+                          <td className="max-w-[16rem] px-3 py-2.5 text-cream-dim">
+                            {row.descriptionSnippet || "—"}
                           </td>
                         </tr>
                       ))}

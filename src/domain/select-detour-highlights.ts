@@ -49,7 +49,7 @@ export const HIGHLIGHT_WEIGHTS: Record<HighlightReason, number> = {
   "booking-available": 1,
 };
 
-const DEFAULT_LIMIT = 4;
+const DEFAULT_LIMIT = 6;
 
 const CULTURAL_RELEVANCE = new Set(["culture", "culture_leisure"]);
 
@@ -405,11 +405,11 @@ function hasAnyCue(text: string, cues: readonly string[]): boolean {
 }
 
 /**
- * Composition éditoriale (limit=4) :
- * A. strong-event — headline, sinon high-appeal
- * B. local-gem — local-discovery (profil différent si possible)
- * C. worth-planning — planningScore > 0 + booking + >30j
- * D. wildcard — meilleur restant
+ * Composition éditoriale :
+ * A. strong-event ×1 — headline, sinon high-appeal
+ * B. local-gem ×1 (×2 si limit ≥ 6)
+ * C. worth-planning ×1 — planningScore > 0 + booking + >30j
+ * D. wildcard — completer jusqu’à limit
  * Fallback : meilleur restant si un slot est vide.
  */
 function pickEditorialSlots(
@@ -419,6 +419,7 @@ function pickEditorialSlots(
 ): EventHighlight[] {
   const selected: EventHighlight[] = [];
   const selectedIds = new Set<string>();
+  const localGemTarget = limit >= 6 ? 2 : 1;
 
   const available = () =>
     ranked.filter((item) => !selectedIds.has(item.event.id));
@@ -447,8 +448,8 @@ function pickEditorialSlots(
     else takeBestRemaining("strong-event");
   }
 
-  // B. local-gem
-  if (selected.length < limit) {
+  // B. local-gem (1 ou 2)
+  for (let i = 0; i < localGemTarget && selected.length < limit; i += 1) {
     const localPool = available()
       .filter((item) => item.reasons.includes("local-discovery"))
       .sort(compareHighlights);

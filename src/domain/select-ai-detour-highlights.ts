@@ -17,12 +17,19 @@ type AssessedCandidate = {
   index: number;
 };
 
-const SLOT_ORDER: HighlightSlot[] = [
-  "strong-event",
-  "local-gem",
-  "worth-planning",
-  "wildcard",
-];
+/** Séquence de slots : 1 strong, 1–2 gems, 1 planning, wildcards. */
+export function buildAiDetourSlotSequence(limit: number): HighlightSlot[] {
+  if (limit <= 0) return [];
+
+  const slots: HighlightSlot[] = ["strong-event"];
+  const localGemCount = limit >= 6 ? 2 : 1;
+  for (let i = 0; i < localGemCount && slots.length < limit; i += 1) {
+    slots.push("local-gem");
+  }
+  if (slots.length < limit) slots.push("worth-planning");
+  while (slots.length < limit) slots.push("wildcard");
+  return slots;
+}
 
 /** strong-event : recognition pèse autant que appeal. */
 export function strongEventScore(assessment: AiHighlightAssessment): number {
@@ -49,13 +56,14 @@ export function wildcardSlotScore(assessment: AiHighlightAssessment): number {
 /**
  * Sélection éditoriale « Faites un détour » pilotée par l’IA.
  * Limité aux événements évalués. Retourne [] si aucun assessment → fallback appelant.
+ * Formules de score inchangées — seule la séquence de slots s’adapte à `limit`.
  */
 export function selectAiDetourHighlights(
   candidates: EventHighlight[],
   assessments: AiHighlightAssessment[],
   options?: { limit?: number },
 ): EventHighlight[] {
-  const limit = options?.limit ?? 4;
+  const limit = options?.limit ?? 6;
   if (limit <= 0 || assessments.length === 0 || candidates.length === 0) {
     return [];
   }
@@ -104,7 +112,7 @@ export function selectAiDetourHighlights(
     return [...remaining].sort((a, b) => compareByScore(a, b, scoreFn))[0];
   };
 
-  for (const slot of SLOT_ORDER) {
+  for (const slot of buildAiDetourSlotSequence(limit)) {
     if (selected.length >= limit) break;
 
     const { formula, scoreFn } = scoreConfigForSlot(slot);

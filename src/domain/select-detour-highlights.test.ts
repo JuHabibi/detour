@@ -536,6 +536,47 @@ describe("selectDetourHighlights", () => {
 
     expect(selectDetourHighlights(events, { limit: 4 })).toHaveLength(4);
     expect(selectDetourHighlights(events, { limit: 2 })).toHaveLength(2);
+    expect(selectDetourHighlights(events, { limit: 6 })).toHaveLength(6);
+    expect(selectDetourHighlights(events)).toHaveLength(6);
+  });
+
+  it("limit 6 → 1 strong, 2 local-gems, 1 planning, 2 wildcards (sans doublon)", () => {
+    const events = Array.from({ length: 8 }, (_, index) =>
+      event({
+        id: `slot-${index}`,
+        title:
+          index === 0
+            ? "Spectacle avec Alice Moreau"
+            : `Concert local ${index}`,
+        category: index % 2 === 0 ? "Spectacle" : "Musique",
+        description: "x".repeat(90),
+        registrationUrl: `https://example.com/${index}`,
+        source: "Agenda",
+        sourceUrl: `https://example.com/s${index}`,
+        city: index === 0 ? "Orléans" : "Olivet",
+        venue: index === 0 ? "CO'Met" : "Médiathèque",
+        startAt:
+          index === 2
+            ? "2026-12-01T20:00:00+01:00"
+            : `2026-09-${String(10 + index).padStart(2, "0")}T20:00:00+02:00`,
+      }),
+    );
+
+    const highlights = selectDetourHighlights(events, {
+      limit: 6,
+      now: new Date("2026-09-04T12:00:00+02:00"),
+    });
+
+    expect(highlights).toHaveLength(6);
+    expect(new Set(highlights.map((item) => item.event.id)).size).toBe(6);
+    expect(highlights.filter((item) => item.slot === "strong-event")).toHaveLength(
+      1,
+    );
+    expect(highlights.filter((item) => item.slot === "local-gem")).toHaveLength(2);
+    expect(
+      highlights.filter((item) => item.slot === "worth-planning"),
+    ).toHaveLength(1);
+    expect(highlights.filter((item) => item.slot === "wildcard")).toHaveLength(2);
   });
 
   it("le score est la somme directe des reasons", () => {

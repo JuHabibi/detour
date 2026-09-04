@@ -1,4 +1,4 @@
-import { StandardEventCard } from "@/components/EventCard";
+import { FeaturedEventsCarousel } from "@/components/FeaturedEventsCarousel";
 import type { EventItem } from "@/data/types";
 
 type DetourSectionProps = {
@@ -12,7 +12,7 @@ export function DetourSection({
   favorites,
   onToggleFavorite,
 }: DetourSectionProps) {
-  const picks = events.slice(0, 4);
+  const picks = events.slice(0, 6);
   if (picks.length === 0) return null;
 
   return (
@@ -30,17 +30,11 @@ export function DetourSection({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-7">
-          {picks.map((event, index) => (
-            <StandardEventCard
-              key={event.id}
-              event={event}
-              priority={index < 2}
-              isFavorite={favorites.has(event.id)}
-              onToggleFavorite={onToggleFavorite}
-            />
-          ))}
-        </div>
+        <FeaturedEventsCarousel
+          events={picks}
+          favorites={favorites}
+          onToggleFavorite={onToggleFavorite}
+        />
       </div>
     </section>
   );

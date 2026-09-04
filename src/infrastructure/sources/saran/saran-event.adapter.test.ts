@@ -205,8 +205,8 @@ describe("CompositeEventSourceAdapter", () => {
     };
 
     const composite = new CompositeEventSourceAdapter([
-      { name: "orleans", adapter: orleans },
-      { name: "saran", adapter: saran },
+      { name: "orleans", label: "Orléans / OpenAgenda", adapter: orleans },
+      { name: "saran", label: "Ville de Saran", adapter: saran },
     ]);
 
     const events = await composite.fetchUpcomingEvents({
@@ -229,8 +229,8 @@ describe("CompositeEventSourceAdapter", () => {
     };
 
     const composite = new CompositeEventSourceAdapter([
-      { name: "saran", adapter: failing },
-      { name: "orleans", adapter: ok },
+      { name: "saran", label: "Ville de Saran", adapter: failing },
+      { name: "orleans", label: "Orléans / OpenAgenda", adapter: ok },
     ]);
 
     const events = await composite.fetchUpcomingEvents({

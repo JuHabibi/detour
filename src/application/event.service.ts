@@ -33,6 +33,19 @@ import {
   selectPlanningEvents,
   type PlanningEvent,
 } from "@/domain/select-planning-events";
+import {
+  isIngestingEventSource,
+} from "@/infrastructure/composite-event-source.adapter";
+import {
+  buildSaranClassificationAudit,
+  buildSaranDuplicateDebug,
+  buildSourceIngestionStats,
+  ingestionFromPlainEvents,
+  type EventIngestionResult,
+  type SaranClassificationAudit,
+  type SaranDuplicateDebug,
+  type SourceIngestionStat,
+} from "@/application/source-ingestion-stats";
 
 export type UpcomingEventsAiMeta = {
   displayMode: AiDisplayMode;
@@ -43,32 +56,24 @@ export type UpcomingEventsAiMeta = {
   assessedAt: string | null;
 };
 
-export type SourceCoverageStat = {
-  source: string;
-  rawCount: number;
-  classifiedCount: number;
-  dedupedCount: number;
-};
-
 export type UpcomingEventsResult = {
   events: DetourEvent[];
   highlights: EventHighlight[];
-  /** Section « À prévoir » — anticipation, hors Faites un détour. */
   planningEvents: PlanningEvent[];
-  /** Top candidats scorés (avant diversité) — debug. */
   highlightCandidates: EventHighlight[];
-  /** Shortlist envoyée à l’IA (top N déterministe). */
   aiShortlist: EventHighlight[];
-  /** Nombre total de candidats ayant reçu un score. */
   scoredCandidatesCount: number;
-  /** Évaluations IA sur la shortlist — debug. */
   aiAssessments: AiHighlightAssessment[];
   aiMeta: UpcomingEventsAiMeta;
   duplicates: EventDuplicate[];
   rawCount: number;
   classifiedEvents: DetourEvent[];
-  /** Couverture par libellé `event.source` — debug multi-source. */
-  sourceCoverage: SourceCoverageStat[];
+  /** Stats d’ingestion par adapter (debug). */
+  sourceIngestion: SourceIngestionStat[];
+  /** Doublons impliquant Saran (debug). */
+  saranDuplicates: SaranDuplicateDebug[];
+  /** Audit classification Saran (debug temporaire). */
+  saranClassificationAudit: SaranClassificationAudit;
 };
 
 export type EventServiceOptions = {
@@ -111,9 +116,6 @@ export class EventService {
     return this.composeResult(pipeline, autoAi);
   }
 
-  /**
-   * Déclenchement manuel (debug) — shortlist Détour uniquement, pas de prompt libre.
-   */
   async runManualAiAssessment(params: {
     from: Date;
     to: Date;
@@ -133,8 +135,20 @@ export class EventService {
     return this.composeResult(pipeline, assessed);
   }
 
+  private async ingestRaw(params: {
+    from: Date;
+    to: Date;
+  }): Promise<EventIngestionResult> {
+    if (isIngestingEventSource(this.source)) {
+      return this.source.ingestUpcomingEvents(params);
+    }
+    const events = await this.source.fetchUpcomingEvents(params);
+    return ingestionFromPlainEvents(events);
+  }
+
   private async buildPipeline(params: { from: Date; to: Date }) {
-    const rawEvents = await this.source.fetchUpcomingEvents(params);
+    const ingestion = await this.ingestRaw(params);
+    const rawEvents = ingestion.events;
 
     const classifiedEvents = rawEvents.map((event) => {
       const classification = classifyEventRelevance(event);
@@ -151,6 +165,7 @@ export class EventService {
     const aiShortlist = rankedCandidates.slice(0, AI_HIGHLIGHT_SHORTLIST_SIZE);
 
     return {
+      ingestion,
       rawEvents,
       classifiedEvents,
       events,
@@ -169,13 +184,13 @@ export class EventService {
     const aiHighlights = selectAiDetourHighlights(
       pipeline.aiShortlist,
       aiAssessments,
-      { limit: 4 },
+      { limit: 6 },
     );
 
     const highlights =
       aiHighlights.length > 0
         ? aiHighlights
-        : selectDetourHighlights(pipeline.events, { limit: 4 }).map(
+        : selectDetourHighlights(pipeline.events, { limit: 6 }).map(
             (highlight) => ({
               ...highlight,
               selectionSource: "deterministic" as const,
@@ -187,6 +202,24 @@ export class EventService {
       aiAssessments,
       excludedEventIds: highlights.map((item) => item.event.id),
       deterministicCandidates: pipeline.rankedCandidates,
+    });
+
+    const sourceIngestion = buildSourceIngestionStats({
+      ingestion: pipeline.ingestion,
+      classifiedEvents: pipeline.classifiedEvents,
+      dedupedEvents: pipeline.events,
+      duplicates: pipeline.duplicates,
+    });
+
+    const saranDuplicates = buildSaranDuplicateDebug({
+      duplicates: pipeline.duplicates,
+      classifiedEvents: pipeline.classifiedEvents,
+      adapterByEventId: pipeline.ingestion.adapterByEventId,
+    });
+
+    const saranClassificationAudit = buildSaranClassificationAudit({
+      classifiedEvents: pipeline.classifiedEvents,
+      adapterByEventId: pipeline.ingestion.adapterByEventId,
     });
 
     return {
@@ -208,11 +241,9 @@ export class EventService {
       duplicates: pipeline.duplicates,
       rawCount: pipeline.rawEvents.length,
       classifiedEvents: pipeline.classifiedEvents,
-      sourceCoverage: buildSourceCoverage(
-        pipeline.rawEvents,
-        pipeline.classifiedEvents,
-        pipeline.events,
-      ),
+      sourceIngestion,
+      saranDuplicates,
+      saranClassificationAudit,
     };
   }
 
@@ -238,30 +269,4 @@ export class EventService {
       },
     });
   }
-}
-
-function buildSourceCoverage(
-  rawEvents: DetourEvent[],
-  classifiedEvents: DetourEvent[],
-  dedupedEvents: DetourEvent[],
-): SourceCoverageStat[] {
-  const keys = new Set<string>();
-  for (const event of [...rawEvents, ...classifiedEvents, ...dedupedEvents]) {
-    keys.add(event.source?.trim() || "(sans source)");
-  }
-
-  return [...keys]
-    .sort((a, b) => a.localeCompare(b, "fr"))
-    .map((source) => ({
-      source,
-      rawCount: countBySource(rawEvents, source),
-      classifiedCount: countBySource(classifiedEvents, source),
-      dedupedCount: countBySource(dedupedEvents, source),
-    }));
-}
-
-function countBySource(events: DetourEvent[], source: string): number {
-  return events.filter(
-    (event) => (event.source?.trim() || "(sans source)") === source,
-  ).length;
 }

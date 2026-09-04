@@ -79,7 +79,9 @@ export function buildEventsDebugMeta(
     duplicates,
     rawCount,
     classifiedEvents,
-    sourceCoverage,
+    sourceIngestion,
+    saranDuplicates,
+    saranClassificationAudit,
   } = result;
 
   const byId = new Map(
@@ -159,8 +161,14 @@ export function buildEventsDebugMeta(
       planningEvents.length > 0
         ? planningEvents.map(toPlanningDebug)
         : undefined,
-    sourceCoverage:
-      sourceCoverage.length > 0 ? sourceCoverage : undefined,
+    sourceIngestion:
+      sourceIngestion.length > 0 ? sourceIngestion : undefined,
+    saranDuplicates:
+      saranDuplicates.length > 0 ? saranDuplicates : undefined,
+    saranClassificationAudit:
+      saranClassificationAudit.total > 0
+        ? saranClassificationAudit
+        : undefined,
     aiRuntime: {
       mode: aiMeta.displayMode,
       source: aiMeta.source,
