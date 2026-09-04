@@ -1,50 +1,42 @@
 import type { DetourEvent } from "@/domain/event";
 import type { CategoryId, EventItem } from "@/data/types";
 
-/** Fallback temporaire tant que la distance n’est pas calculée. */
-const FALLBACK_DISTANCE_KM = 5;
-
-const DAY_MS = 86_400_000;
-
 /**
- * Pont temporaire DetourEvent → EventItem pour la maquette actuelle.
- * Les champs éditoriaux (distance, prix, sections) restent en fallback simple.
+ * Pont DetourEvent → EventItem pour la maquette.
+ * Ne fabrique aucune donnée métier (distance, prix, ranking éditorial).
  */
-export function mapDetourEventToEventItem(
-  event: DetourEvent,
-  now: Date = new Date(),
-): EventItem {
+export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
   const start = new Date(event.startAt);
-  const daysAhead = (start.getTime() - now.getTime()) / DAY_MS;
-  const weekday = start.getDay();
-  const isWeekendDay = weekday === 0 || weekday === 5 || weekday === 6;
 
   return {
     id: event.id,
     title: event.title,
     category: mapCategory(event.category),
-    genre: event.category ?? "Événement",
-    venue: event.venue ?? "Lieu à confirmer",
+    genre: event.category ?? "",
+    venue: event.venue,
     city: event.city,
     date: toDateKey(start),
     dateLabel: formatDateLabel(start),
     time: formatTime(start),
-    distanceKm: FALLBACK_DISTANCE_KM,
-    price: "free",
     image: event.imageUrl ?? undefined,
     description: event.description ?? undefined,
-    detour: daysAhead >= 0 && daysAhead <= 10,
-    weekend: isWeekendDay && daysAhead >= 0 && daysAhead <= 7,
-    upcoming: daysAhead > 14,
+    sourceUrl: event.sourceUrl ?? undefined,
+    registrationUrl: event.registrationUrl ?? undefined,
+    // Fait calendaire uniquement (samedi / dimanche).
+    weekend: isWeekendDay(start),
   };
 }
 
 function mapCategory(raw: string | null): CategoryId {
-  if (!raw) return "spectacles";
+  if (!raw) return "other";
 
   const value = raw.toLowerCase();
   if (value.includes("musique") || value.includes("concert")) return "musique";
-  if (value.includes("cinéma") || value.includes("cinema") || value.includes("projection")) {
+  if (
+    value.includes("cinéma") ||
+    value.includes("cinema") ||
+    value.includes("projection")
+  ) {
     return "cinema";
   }
   if (value.includes("expo") || value.includes("patrimoine")) return "expos";
@@ -67,7 +59,17 @@ function mapCategory(raw: string | null): CategoryId {
     return "spectacles";
   }
 
-  return "spectacles";
+  return "other";
+}
+
+/** Samedi (6) et dimanche (0) uniquement. */
+function isWeekendDay(date: Date): boolean {
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Paris",
+    weekday: "short",
+  }).format(date);
+
+  return weekday === "Sat" || weekday === "Sun";
 }
 
 function toDateKey(date: Date): string {
@@ -88,9 +90,11 @@ function formatDateLabel(date: Date): string {
   const label = new Intl.DateTimeFormat("fr-FR", {
     timeZone: "Europe/Paris",
     weekday: "long",
+    day: "numeric",
+    month: "long",
   }).format(date);
 
-  return label.charAt(0).toUpperCase() + label.slice(1);
+  return capitalizeFr(label);
 }
 
 function formatTime(date: Date): string {
@@ -101,4 +105,9 @@ function formatTime(date: Date): string {
   })
     .format(date)
     .replace(":", "h");
+}
+
+function capitalizeFr(value: string): string {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

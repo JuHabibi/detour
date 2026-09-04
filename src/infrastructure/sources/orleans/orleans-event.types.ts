@@ -16,6 +16,8 @@ export type OrleansRawEvent = {
   conditions_fr: string | null;
   originagenda_title: string | null;
   canonicalurl: string | null;
+  /** JSON stringifié OpenAgenda : [{ type, value }, ...] */
+  registration: string | null;
   statut_evenement: string | null;
 };
 

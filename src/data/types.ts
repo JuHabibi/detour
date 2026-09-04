@@ -5,7 +5,8 @@ export type CategoryId =
   | "expos"
   | "cinema"
   | "famille"
-  | "ateliers";
+  | "ateliers"
+  | "other";
 
 export type WhenFilter =
   | "today"
@@ -25,18 +26,27 @@ export type EventItem = {
   title: string;
   category: CategoryId;
   genre: string;
-  venue: string;
-  city: string;
+  venue: string | null;
+  city: string | null;
   date: string;
   dateLabel: string;
   time?: string;
-  distanceKm: number;
-  price: number | "free";
+  /** Absent tant que la distance n’est pas calculée. */
+  distanceKm?: number;
+  /** Absent tant que le prix n’est pas normalisé. */
+  price?: number | "free";
   image?: string;
   imageAlt?: string;
   description?: string;
+  /** Lien source (ex. fiche OpenAgenda). Absent si inconnu. */
+  sourceUrl?: string;
+  /** Lien de réservation / inscription, si extrait de registration. */
+  registrationUrl?: string;
+  /** Flag éditorial — défini plus tard par le service, pas par le mapper. */
   detour?: boolean;
+  /** Fait calendaire : l’événement tombe un samedi ou un dimanche. */
   weekend?: boolean;
+  /** Flag éditorial — défini plus tard par le service, pas par le mapper. */
   upcoming?: boolean;
   signal?: EventSignal;
 };

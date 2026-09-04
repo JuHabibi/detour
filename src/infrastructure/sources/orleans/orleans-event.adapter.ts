@@ -20,48 +20,68 @@ const SELECT_FIELDS = [
   "conditions_fr",
   "originagenda_title",
   "canonicalurl",
+  "registration",
   "statut_evenement",
 ].join(",");
 
-/** Limite ODS raisonnable pour le premier POC (pas de pagination avancée). */
-const RESULT_LIMIT = 100;
+const PAGE_SIZE = 100;
 
 export class OrleansEventAdapter implements EventSourceAdapter {
   async fetchUpcomingEvents(params: {
     from: Date;
     to: Date;
   }): Promise<DetourEvent[]> {
-    const url = buildOrleansUrl(params.from, params.to);
-    const response = await fetch(url, {
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new Error(`Orleans API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = (await response.json()) as OrleansApiResponse;
     const events: DetourEvent[] = [];
+    let offset = 0;
+    let totalCount = Number.POSITIVE_INFINITY;
 
-    for (const rawEvent of data.results ?? []) {
-      const mapped = mapOrleansEventToDetourEvent(rawEvent);
-      if (mapped) events.push(mapped);
+    while (offset < totalCount) {
+      const page = await fetchOrleansPage(params.from, params.to, offset);
+      totalCount = page.total_count;
+
+      const results = page.results ?? [];
+      if (results.length === 0) break;
+
+      for (const rawEvent of results) {
+        const mapped = mapOrleansEventToDetourEvent(rawEvent);
+        if (mapped) events.push(mapped);
+      }
+
+      offset += results.length;
+      if (results.length < PAGE_SIZE) break;
     }
 
     return events;
   }
 }
 
-function buildOrleansUrl(from: Date, to: Date): string {
+async function fetchOrleansPage(
+  from: Date,
+  to: Date,
+  offset: number,
+): Promise<OrleansApiResponse> {
+  const url = buildOrleansUrl(from, to, offset);
+  const response = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Orleans API error: ${response.status} ${response.statusText}`);
+  }
+
+  return (await response.json()) as OrleansApiResponse;
+}
+
+function buildOrleansUrl(from: Date, to: Date, offset: number): string {
   const fromLiteral = toOdsDateLiteral(from);
   const toLiteral = toOdsDateLiteral(to);
 
   const searchParams = new URLSearchParams({
-    limit: String(RESULT_LIMIT),
+    limit: String(PAGE_SIZE),
+    offset: String(offset),
     select: SELECT_FIELDS,
     order_by: "firstdate_begin asc",
     timezone: "Europe/Paris",
-    // Intervalle demandé + événements encore « à venir » côté OpenAgenda.
     where: [
       `firstdate_begin >= date'${fromLiteral}'`,
       `firstdate_begin <= date'${toLiteral}'`,

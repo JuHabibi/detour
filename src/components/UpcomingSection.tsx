@@ -9,7 +9,7 @@ type UpcomingSectionProps = {
   onToggleFavorite: (id: string) => void;
 };
 
-const MONTHS_FR = [
+const MONTHS_SHORT_FR = [
   "JAN",
   "FÉV",
   "MAR",
@@ -70,26 +70,51 @@ function UpcomingRow({
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
 }) {
-  const date = new Date(`${event.date}T12:00:00`);
-  const month = MONTHS_FR[date.getMonth()];
-  const day = String(date.getDate()).padStart(2, "0");
-  const priceLabel = event.price === "free" ? "Gratuit" : `${event.price} €`;
+  const { day, month, year, showYear } = formatUpcomingDate(event.date);
+  const action = resolveUpcomingAction(event);
+  const priceLabel =
+    event.price == null
+      ? null
+      : event.price === "free"
+        ? "Gratuit"
+        : `${event.price} €`;
 
   return (
-    <article className="group grid grid-cols-[4.5rem_1fr_auto] items-start gap-4 py-6 md:grid-cols-[6.5rem_1fr_auto] md:gap-8 md:py-7">
-      <div className="pt-0.5">
+    <article
+      className={cn(
+        "group relative grid grid-cols-[4.5rem_1fr_auto] items-start gap-4 py-6 md:grid-cols-[6.5rem_1fr_auto] md:gap-8 md:py-7",
+        action.href && "cursor-pointer",
+      )}
+    >
+      {action.href ? (
+        <a
+          href={action.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute inset-0 z-[1]"
+          aria-label={`${action.label} — « ${event.title} » (nouvel onglet)`}
+        />
+      ) : null}
+      <div className="relative pt-0.5">
         <p className="text-[11px] uppercase tracking-[0.22em] text-sand">
           {month}
         </p>
         <p className="mt-1 font-display text-4xl leading-none tracking-tight md:text-5xl">
           {day}
         </p>
+        {showYear ? (
+          <p className="mt-1.5 text-[11px] tracking-[0.08em] text-sand">
+            {year}
+          </p>
+        ) : null}
       </div>
 
-      <div className="min-w-0">
-        <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
-          {event.genre}
-        </p>
+      <div className="relative min-w-0">
+        {event.genre ? (
+          <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
+            {event.genre}
+          </p>
+        ) : null}
         <h3 className="mt-1.5 font-display text-[1.45rem] leading-tight md:text-[1.7rem]">
           {event.title}
         </h3>
@@ -99,22 +124,34 @@ function UpcomingRow({
           </p>
         ) : null}
         <p className="mt-3 text-sm">
-          <span className="text-cream-dim">{event.city}</span>
-          <span className="text-sand"> · </span>
-          <span className="font-medium text-ink">{event.distanceKm} km</span>
+          {event.city ? (
+            <span className="text-cream-dim">{event.city}</span>
+          ) : null}
+          {event.city && event.distanceKm != null ? (
+            <span className="text-sand"> · </span>
+          ) : null}
+          {event.distanceKm != null ? (
+            <span className="font-medium text-ink">{event.distanceKm} km</span>
+          ) : null}
           {event.time ? (
             <>
-              <span className="text-sand"> · </span>
+              {(event.city || event.distanceKm != null) && (
+                <span className="text-sand"> · </span>
+              )}
               <span className="text-cream-dim">{event.time}</span>
             </>
           ) : null}
         </p>
       </div>
 
-      <div className="flex flex-col items-end gap-3 pt-1">
+      <div className="relative z-[2] flex flex-col items-end gap-3 pt-1">
         <button
           type="button"
-          onClick={() => onToggleFavorite(event.id)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleFavorite(event.id);
+          }}
           aria-pressed={isFavorite}
           aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
           className="flex size-9 items-center justify-center rounded-full border border-line bg-foam text-ink transition-colors hover:border-ink/20"
@@ -129,8 +166,42 @@ function UpcomingRow({
             />
           </svg>
         </button>
-        <p className="text-sm text-ink">{priceLabel}</p>
+        {priceLabel ? <p className="text-sm text-ink">{priceLabel}</p> : null}
       </div>
     </article>
   );
+}
+
+function formatUpcomingDate(dateKey: string) {
+  const [yearStr, monthStr, dayStr] = dateKey.split("-");
+  const year = Number(yearStr);
+  const monthIndex = Number(monthStr) - 1;
+  const day = dayStr ?? "01";
+
+  const currentYear = Number(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Paris",
+      year: "numeric",
+    }).format(new Date()),
+  );
+
+  return {
+    day,
+    month: MONTHS_SHORT_FR[monthIndex] ?? "",
+    year,
+    showYear: year !== currentYear,
+  };
+}
+
+function resolveUpcomingAction(event: EventItem): {
+  href?: string;
+  label: string;
+} {
+  if (event.registrationUrl) {
+    return { href: event.registrationUrl, label: "Réserver" };
+  }
+  if (event.sourceUrl) {
+    return { href: event.sourceUrl, label: "Voir les infos" };
+  }
+  return { label: "Voir les infos" };
 }

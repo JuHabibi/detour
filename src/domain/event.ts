@@ -8,7 +8,7 @@ export type DetourEvent = {
   endAt: string | null;
 
   venue: string | null;
-  city: string;
+  city: string | null;
 
   latitude: number | null;
   longitude: number | null;
@@ -16,6 +16,8 @@ export type DetourEvent = {
   category: string | null;
   conditions: string | null;
 
-  source: string;
-  sourceUrl: string;
+  source: string | null;
+  sourceUrl: string | null;
+  /** Lien de réservation / inscription extrait de registration, si présent. */
+  registrationUrl: string | null;
 };

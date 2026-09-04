@@ -24,31 +24,36 @@ export function HomePage({ events }: HomePageProps) {
   const [category, setCategory] = useState<CategoryId>("tout");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
+  // Distance absente = pas encore filtrable ; on n’exclut pas l’événement.
   const withinRadius = useMemo(
-    () => events.filter((event) => event.distanceKm <= radius),
+    () =>
+      events.filter(
+        (event) =>
+          event.distanceKm == null || event.distanceKm <= radius,
+      ),
     [events, radius],
   );
 
-  const detourEvents = useMemo(() => {
-    const selected = withinRadius.filter((event) => event.detour);
-    if (selected.length >= 2) return selected.slice(0, 4);
-    return events.filter((event) => event.detour).slice(0, 4);
-  }, [events, withinRadius]);
+  // Sections temporaires basées sur la chronologie / le calendrier,
+  // pas sur un ranking éditorial (à venir dans EventService).
+  const detourEvents = useMemo(
+    () => withinRadius.slice(0, 4),
+    [withinRadius],
+  );
 
   const weekendEvents = useMemo(
     () =>
       withinRadius.filter((event) => {
-        if (event.upcoming) return false;
         if (category !== "tout" && event.category !== category) return false;
         if (when === "weekend") return Boolean(event.weekend);
-        return !event.detour || Boolean(event.weekend);
+        return true;
       }),
     [withinRadius, category, when],
   );
 
   const upcomingEvents = useMemo(
-    () => events.filter((event) => event.upcoming).slice(0, 4),
-    [events],
+    () => withinRadius.filter((event) => !event.weekend).slice(0, 4),
+    [withinRadius],
   );
 
   function toggleFavorite(id: string) {

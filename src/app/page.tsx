@@ -13,9 +13,7 @@ export default async function Page() {
   to.setDate(to.getDate() + UPCOMING_WINDOW_DAYS);
 
   const detourEvents = await eventService.getUpcomingEvents({ from, to });
-  const events = detourEvents.map((event) =>
-    mapDetourEventToEventItem(event, from),
-  );
+  const events = detourEvents.map((event) => mapDetourEventToEventItem(event));
 
   return <HomePage events={events} />;
 }
