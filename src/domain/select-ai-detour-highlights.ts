@@ -205,6 +205,7 @@ export function selectAiDetourHighlights(
 /**
  * Évite une sur-représentation venue/ville si une alternative proche existe.
  * Ne remplace jamais un candidat nettement meilleur (écart > tolérance).
+ * Garantit un eventId unique dans le résultat (garde si un swap a déjà pris un id plus loin).
  */
 export function applyLightDiversity(
   selected: EventHighlight[],
@@ -214,6 +215,16 @@ export function applyLightDiversity(
   const result: EventHighlight[] = [];
 
   for (const item of selected) {
+    // Déjà émis plus tôt (ex. swap diversité) → pas de doublon ; tenter un remplissage.
+    if (usedIds.has(item.event.id)) {
+      const filler = pickDiversityAlternative(item, result, pool, usedIds);
+      if (filler) {
+        result.push(filler.highlight);
+        usedIds.add(filler.id);
+      }
+      continue;
+    }
+
     const overVenue = isOverVenueCap(result, item.event.venue);
     const overCity = isOverCityCap(result, item.event.city);
 
@@ -223,45 +234,10 @@ export function applyLightDiversity(
       continue;
     }
 
-    const itemScore = item.score;
-    const slot = item.slot ?? "wildcard";
-    const { formula, scoreFn } = scoreConfigForSlot(slot);
-
-    const alternative = [...pool]
-      .filter((candidate) => !usedIds.has(candidate.candidate.event.id))
-      .filter((candidate) => candidate.candidate.event.id !== item.event.id)
-      .map((candidate) => ({
-        candidate,
-        score: scoreFn(candidate.assessment),
-      }))
-      .filter(({ candidate, score }) => {
-        if (score < itemScore - AI_DETOUR_DIVERSITY_SCORE_TOLERANCE) {
-          return false;
-        }
-        if (isOverVenueCap(result, candidate.candidate.event.venue)) {
-          return false;
-        }
-        if (isOverCityCap(result, candidate.candidate.event.city)) {
-          return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        return a.candidate.index - b.candidate.index;
-      })[0];
-
+    const alternative = pickDiversityAlternative(item, result, pool, usedIds);
     if (alternative) {
-      result.push(
-        toAiHighlight(
-          alternative.candidate.candidate,
-          alternative.candidate.assessment,
-          slot,
-          formula,
-          alternative.score,
-        ),
-      );
-      usedIds.add(alternative.candidate.candidate.event.id);
+      result.push(alternative.highlight);
+      usedIds.add(alternative.id);
     } else {
       // Pas d’alternative proche → on conserve le meilleur malgré la concentration.
       result.push(item);
@@ -270,6 +246,55 @@ export function applyLightDiversity(
   }
 
   return result;
+}
+
+function pickDiversityAlternative(
+  item: EventHighlight,
+  result: EventHighlight[],
+  pool: AssessedCandidate[],
+  usedIds: Set<string>,
+): { id: string; highlight: EventHighlight } | undefined {
+  const itemScore = item.score;
+  const slot = item.slot ?? "wildcard";
+  const { formula, scoreFn } = scoreConfigForSlot(slot);
+
+  const alternative = [...pool]
+    .filter((candidate) => !usedIds.has(candidate.candidate.event.id))
+    .filter((candidate) => candidate.candidate.event.id !== item.event.id)
+    .map((candidate) => ({
+      candidate,
+      score: scoreFn(candidate.assessment),
+    }))
+    .filter(({ candidate, score }) => {
+      if (score < itemScore - AI_DETOUR_DIVERSITY_SCORE_TOLERANCE) {
+        return false;
+      }
+      if (isOverVenueCap(result, candidate.candidate.event.venue)) {
+        return false;
+      }
+      if (isOverCityCap(result, candidate.candidate.event.city)) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.candidate.index - b.candidate.index;
+    })[0];
+
+  if (!alternative) return undefined;
+
+  const id = alternative.candidate.candidate.event.id;
+  return {
+    id,
+    highlight: toAiHighlight(
+      alternative.candidate.candidate,
+      alternative.candidate.assessment,
+      slot,
+      formula,
+      alternative.score,
+    ),
+  };
 }
 
 function isOverVenueCap(

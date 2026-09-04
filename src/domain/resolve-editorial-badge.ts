@@ -78,12 +78,21 @@ export function qualifiesAsPepiteLocale(
 }
 
 /**
- * Preuve textuelle de rareté locale du passage (famille élargie).
+ * Preuve textuelle de rareté locale du passage (présence / programmation).
+ * La rareté de format artistique seule ne suffit pas.
  */
 export function hasExplicitLocalRarityReason(
   reasons: string[] | null | undefined,
 ): boolean {
-  return reasonsMatch(reasons, LOCAL_RARITY_REASON_PATTERNS);
+  if (!reasons || reasons.length === 0) return false;
+
+  return reasons.some((reason) => {
+    const normalized = normalizeReason(reason);
+    if (!normalized) return false;
+    if (isGenericNonProofReason(normalized)) return false;
+    if (isArtisticFormatRarityClaim(normalized)) return false;
+    return LOCAL_RARITY_REASON_PATTERNS.some((pattern) => pattern.test(normalized));
+  });
 }
 
 /** Preuve textuelle de faible visibilité / facile à rater. */
@@ -107,27 +116,25 @@ function reasonsMatch(
   });
 }
 
+/**
+ * Preuves de rareté de présence / programmation locale — pas de rareté de format artistique.
+ */
 const LOCAL_RARITY_REASON_PATTERNS: RegExp[] = [
   /passage inhabituel/,
   /passage d (?:une|un) (?:artiste|compagnie|groupe|spectacle|comedien|humoriste)/,
-  /inhabituel (?:dans|sur|pour)/,
-  /peu habituel (?:dans|sur|pour|a)/,
+  /inhabituel (?:dans|sur|pour) (?:cette|ce|cet|la|le|un|une )?(?:commune|lieu|territoire|region|ville|cadre)/,
+  /peu habituel (?:dans|sur|pour) (?:cette|ce|cet|la|le|un|une )?(?:commune|lieu|territoire|region|ville|cadre)/,
   /artiste rarement/,
   /rarement programm/,
   /peu programm\w* localement/,
+  /evenement rarement programm/,
   /presence exceptionnelle/,
-  /exceptionnell?\w* (?:dans|sur|pour)/,
+  /exceptionnell?\w* (?:dans|sur|pour) (?:ce|cet|cette|le|la )?(?:lieu|territoire|commune|region|ville)/,
   /rar(?:e|ete)\w* (?:locale|localement)/,
   /rarete .{0,60}(?:commune|lieu|territoire|region|contexte|local)/,
-  /format rare/,
-  /evenement rare/,
   /rare (?:dans|sur) (?:cette|ce|cet|la|le|une) (?:commune|lieu|territoire|ville|region|contexte)/,
-  /artiste (?:reconnu|connu).{0,40}(?:petite commune|commune|lieu local|cadre local)/,
-  /(?:reconnu|connu).{0,30}(?:petite commune|dans une petite|cadre local)/,
-  /peu frequen\w*.{0,40}(?:commune|lieu|territoire|region|local)/,
-  /moins frequen\w*/,
-  /peu courant/,
-  /programmation .{0,40}peu frequen/,
+  /artiste (?:reconnu|connu).{0,50}(?:petite commune|commune|lieu local|cadre local)/,
+  /(?:reconnu|connu).{0,40}(?:petite commune|dans une petite|cadre local)/,
 ];
 
 const PEPITE_REASON_PATTERNS: RegExp[] = [
@@ -162,6 +169,33 @@ function isGenericNonProofReason(normalized: string): boolean {
   if (
     /^(petite )?commune$/.test(normalized) ||
     /^(spectacle|concert|exposition|expo|humour)$/.test(normalized)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Rareté de format artistique ≠ rareté de présence / programmation locale. */
+function isArtisticFormatRarityClaim(normalized: string): boolean {
+  if (
+    /format (?:rare|peu courant|original|inhabituel|atypique)/.test(normalized)
+  ) {
+    return true;
+  }
+  if (
+    /(?:concert|spectacle|evenement).{0,40}format (?:rare|peu courant|original)/.test(
+      normalized,
+    )
+  ) {
+    return true;
+  }
+  if (/peu courant/.test(normalized)) {
+    return true;
+  }
+  // « moins/peu fréquenté » sans preuve de programmation / passage local.
+  if (
+    /(?:moins|peu) frequen/.test(normalized) &&
+    !/(?:programm|passage|presence|artiste rarement)/.test(normalized)
   ) {
     return true;
   }

@@ -40,3 +40,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# audit éditorial (outputs générés — garder le script .mts)
+scripts/audit-detour-editorial.json
+scripts/audit-detour-editorial-compact.json
+scripts/audit-detour-editorial*.json

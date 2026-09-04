@@ -557,6 +557,91 @@ describe("selectAiDetourHighlights", () => {
     const diversified = applyLightDiversity(selected, [a, b, c, weakAlt]);
     expect(diversified.map((item) => item.event.id)).toEqual(["a", "b", "c"]);
   });
+
+  it("diversité : pas de doublon si l’alternative existe déjà plus loin dans selected", () => {
+    const a = poolItem(
+      "a",
+      "Passerelle",
+      "Fleury",
+      {
+        appeal: 4,
+        missRisk: 4,
+        planningNeed: 4,
+        localRarity: 4,
+        likelyDemand: 4,
+      },
+      0,
+    );
+    const b = poolItem(
+      "b",
+      "Passerelle",
+      "Fleury",
+      {
+        appeal: 4,
+        missRisk: 3,
+        planningNeed: 3,
+        localRarity: 3,
+        likelyDemand: 3,
+      },
+      1,
+    );
+    // 3e même venue → remplacé par "dup" qui est aussi plus loin dans selected
+    const c = poolItem(
+      "c",
+      "Passerelle",
+      "Fleury",
+      {
+        appeal: 3,
+        missRisk: 3,
+        planningNeed: 3,
+        localRarity: 3,
+        likelyDemand: 3,
+      },
+      2,
+    );
+    const dup = poolItem(
+      "dup",
+      "Autre salle",
+      "Orléans",
+      {
+        appeal: 3,
+        missRisk: 3,
+        planningNeed: 3,
+        localRarity: 3,
+        likelyDemand: 2,
+      },
+      3,
+    );
+    // Remplissage quand on saute le doublon plus loin
+    const filler = poolItem(
+      "filler",
+      "Troisième lieu",
+      "Saran",
+      {
+        appeal: 3,
+        missRisk: 3,
+        planningNeed: 2,
+        localRarity: 3,
+        likelyDemand: 2,
+      },
+      4,
+    );
+
+    const selected = [
+      selectedHighlight(a, "wildcard"),
+      selectedHighlight(b, "wildcard"),
+      selectedHighlight(c, "wildcard"),
+      selectedHighlight(dup, "wildcard"),
+    ];
+
+    const diversified = applyLightDiversity(selected, [a, b, c, dup, filler]);
+    const ids = diversified.map((item) => item.event.id);
+
+    expect(ids.filter((id) => id === "dup")).toHaveLength(1);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toHaveLength(4);
+    expect(ids).toEqual(["a", "b", "dup", "filler"]);
+  });
 });
 
 function poolItem(

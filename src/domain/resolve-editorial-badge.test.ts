@@ -50,13 +50,45 @@ describe("resolveEditorialBadge", () => {
     ).toBe("Passage rare");
   });
 
-  it("localRarity élevé + format rare dans la région → Passage rare", () => {
+  it("format rare seul → pas Passage rare", () => {
     expect(
       resolveEditorialBadge(
         input({
           localRarity: 4,
           confidence: 0.75,
-          reasons: ["Format rare dans la région pour ce type d’artiste"],
+          reasons: ["Format rare dans la région"],
+        }),
+      ),
+    ).toBe(null);
+
+    expect(
+      resolveEditorialBadge(
+        input({
+          localRarity: 4,
+          confidence: 0.8,
+          reasons: ["concert dans un format peu courant"],
+        }),
+      ),
+    ).toBe(null);
+  });
+
+  it("programmation / passage local → Passage rare", () => {
+    expect(
+      resolveEditorialBadge(
+        input({
+          localRarity: 4,
+          confidence: 0.8,
+          reasons: ["artiste rarement programmé dans la région"],
+        }),
+      ),
+    ).toBe("Passage rare");
+
+    expect(
+      resolveEditorialBadge(
+        input({
+          localRarity: 4,
+          confidence: 0.8,
+          reasons: ["passage inhabituel dans cette commune"],
         }),
       ),
     ).toBe("Passage rare");
