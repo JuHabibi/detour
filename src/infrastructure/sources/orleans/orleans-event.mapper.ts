@@ -1,0 +1,33 @@
+import type { DetourEvent } from "@/domain/event";
+import type { OrleansRawEvent } from "./orleans-event.types";
+
+export function mapOrleansEventToDetourEvent(
+  rawEvent: OrleansRawEvent,
+): DetourEvent | null {
+  if (!rawEvent.uid || !rawEvent.title_fr || !rawEvent.firstdate_begin) {
+    return null;
+  }
+
+  return {
+    id: rawEvent.uid,
+    title: rawEvent.title_fr.trim(),
+    description: emptyToNull(rawEvent.description_fr),
+    imageUrl: emptyToNull(rawEvent.image),
+    startAt: rawEvent.firstdate_begin,
+    endAt: emptyToNull(rawEvent.firstdate_end),
+    venue: emptyToNull(rawEvent.location_name),
+    city: emptyToNull(rawEvent.location_city) ?? "Orléans",
+    latitude: rawEvent.location_coordinates?.lat ?? null,
+    longitude: rawEvent.location_coordinates?.lon ?? null,
+    category: emptyToNull(rawEvent.categorie_principale),
+    conditions: emptyToNull(rawEvent.conditions_fr),
+    source: emptyToNull(rawEvent.originagenda_title) ?? "Orléans Métropole",
+    sourceUrl: emptyToNull(rawEvent.canonicalurl) ?? "",
+  };
+}
+
+function emptyToNull(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}

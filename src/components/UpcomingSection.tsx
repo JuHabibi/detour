@@ -1,0 +1,136 @@
+"use client";
+
+import type { EventItem } from "@/data/types";
+import { cn } from "@/lib/cn";
+
+type UpcomingSectionProps = {
+  events: EventItem[];
+  favorites: Set<string>;
+  onToggleFavorite: (id: string) => void;
+};
+
+const MONTHS_FR = [
+  "JAN",
+  "FÉV",
+  "MAR",
+  "AVR",
+  "MAI",
+  "JUIN",
+  "JUIL",
+  "AOÛT",
+  "SEPT",
+  "OCT",
+  "NOV",
+  "DÉC",
+];
+
+export function UpcomingSection({
+  events,
+  favorites,
+  onToggleFavorite,
+}: UpcomingSectionProps) {
+  if (events.length === 0) return null;
+
+  return (
+    <section id="a-prevoir" className="scroll-mt-24 px-5 py-10 md:px-8 md:py-14 lg:px-12">
+      <div className="mx-auto max-w-[1440px]">
+        <div className="mb-8 md:mb-10">
+          <p className="text-[11px] uppercase tracking-[0.28em] text-sand">
+            Plus tard
+          </p>
+          <h2 className="mt-2 font-display text-3xl tracking-tight md:text-5xl">
+            À prévoir
+          </h2>
+          <p className="mt-3 max-w-lg text-sm leading-6 text-cream-dim">
+            Pour s’organiser à temps, avant que ça se remplisse.
+          </p>
+        </div>
+
+        <div className="divide-y divide-line border-y border-line">
+          {events.map((event) => (
+            <UpcomingRow
+              key={event.id}
+              event={event}
+              isFavorite={favorites.has(event.id)}
+              onToggleFavorite={onToggleFavorite}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function UpcomingRow({
+  event,
+  isFavorite,
+  onToggleFavorite,
+}: {
+  event: EventItem;
+  isFavorite: boolean;
+  onToggleFavorite: (id: string) => void;
+}) {
+  const date = new Date(`${event.date}T12:00:00`);
+  const month = MONTHS_FR[date.getMonth()];
+  const day = String(date.getDate()).padStart(2, "0");
+  const priceLabel = event.price === "free" ? "Gratuit" : `${event.price} €`;
+
+  return (
+    <article className="group grid grid-cols-[4.5rem_1fr_auto] items-start gap-4 py-6 md:grid-cols-[6.5rem_1fr_auto] md:gap-8 md:py-7">
+      <div className="pt-0.5">
+        <p className="text-[11px] uppercase tracking-[0.22em] text-sand">
+          {month}
+        </p>
+        <p className="mt-1 font-display text-4xl leading-none tracking-tight md:text-5xl">
+          {day}
+        </p>
+      </div>
+
+      <div className="min-w-0">
+        <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
+          {event.genre}
+        </p>
+        <h3 className="mt-1.5 font-display text-[1.45rem] leading-tight md:text-[1.7rem]">
+          {event.title}
+        </h3>
+        {event.description ? (
+          <p className="mt-2 max-w-xl text-sm leading-6 text-cream-dim line-clamp-2">
+            {event.description}
+          </p>
+        ) : null}
+        <p className="mt-3 text-sm">
+          <span className="text-cream-dim">{event.city}</span>
+          <span className="text-sand"> · </span>
+          <span className="font-medium text-ink">{event.distanceKm} km</span>
+          {event.time ? (
+            <>
+              <span className="text-sand"> · </span>
+              <span className="text-cream-dim">{event.time}</span>
+            </>
+          ) : null}
+        </p>
+      </div>
+
+      <div className="flex flex-col items-end gap-3 pt-1">
+        <button
+          type="button"
+          onClick={() => onToggleFavorite(event.id)}
+          aria-pressed={isFavorite}
+          aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+          className="flex size-9 items-center justify-center rounded-full border border-line bg-foam text-ink transition-colors hover:border-ink/20"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M12 20s-7.2-4.4-9.2-8.6C1.2 8.2 3 5 6.4 5c2 0 3.3 1.1 3.6 1.5C10.3 6.1 11.6 5 13.6 5 17 5 18.8 8.2 17.2 11.4 15.2 15.6 12 20 12 20Z"
+              className={cn(
+                isFavorite ? "fill-coral stroke-coral" : "stroke-current",
+              )}
+              strokeWidth="1.6"
+            />
+          </svg>
+        </button>
+        <p className="text-sm text-ink">{priceLabel}</p>
+      </div>
+    </article>
+  );
+}
