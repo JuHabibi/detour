@@ -1,9 +1,16 @@
 "use client";
 
 import Image from "next/image";
+import { useId } from "react";
 import { formatDistanceKm } from "@/application/format-distance";
 import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
-import type { CategoryId, EventItem, EventSignal } from "@/data/types";
+import { getEditorialBadgeExplanation } from "@/components/editorial-badge-copy";
+import type {
+  CategoryId,
+  EditorialBadge,
+  EventItem,
+  EventSignal,
+} from "@/data/types";
 import { cn } from "@/lib/cn";
 
 type CardProps = {
@@ -397,13 +404,56 @@ export function TextEventCard({
   );
 }
 
-/** Affichage pur — le label est déjà résolu hors UI. */
-function EditorialBadgePill({ label }: { label?: string }) {
+/**
+ * Pastille éditoriale — label déjà résolu hors UI.
+ * Même traitement visuel pour les 4 badges ; micro-explication au survol / focus.
+ */
+export function EditorialBadgePill({ label }: { label?: EditorialBadge }) {
+  const tooltipId = useId();
   if (!label) return null;
+
+  const explanation = getEditorialBadgeExplanation(label);
+
   return (
-    <p className="mt-1.5 w-fit rounded-full border border-line bg-foam px-2.5 py-0.5 text-[11px] font-medium leading-none text-ink">
-      {label}
-    </p>
+    <span className="group/edbadge relative z-[2] mt-1.5 inline-flex max-w-full">
+      <button
+        type="button"
+        className={cn(
+          "inline-flex max-w-full items-center gap-1.5 rounded-md",
+          "border border-ink/12 bg-ink/[0.035] px-2 py-1",
+          "text-left text-[12px] font-medium leading-none tracking-[0.01em] text-ink/75",
+          "transition-colors hover:border-ink/20 hover:bg-ink/[0.055] hover:text-ink/90",
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
+        )}
+        aria-describedby={tooltipId}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+      >
+        <span className="truncate">{label}</span>
+        <span
+          aria-hidden
+          className="flex size-3.5 shrink-0 items-center justify-center rounded-full border border-ink/20 text-[8px] font-semibold leading-none text-ink/45"
+        >
+          i
+        </span>
+      </button>
+      <span
+        id={tooltipId}
+        role="tooltip"
+        className={cn(
+          "pointer-events-none absolute left-0 top-[calc(100%+0.4rem)] z-20",
+          "w-max max-w-[15.5rem] rounded-md border border-line bg-paper px-2.5 py-2",
+          "text-[12px] leading-snug text-cream-dim shadow-sm",
+          "opacity-0 transition-opacity duration-150",
+          "group-hover/edbadge:opacity-100 group-focus-within/edbadge:opacity-100",
+          "motion-reduce:transition-none",
+        )}
+      >
+        {explanation}
+      </span>
+    </span>
   );
 }
 

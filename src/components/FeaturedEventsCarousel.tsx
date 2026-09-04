@@ -78,7 +78,7 @@ export function FeaturedEventsCarousel({
         tabIndex={0}
         role="region"
         aria-roledescription="carousel"
-        aria-label="Faites un détour — événements recommandés"
+        aria-label="Faites un détour — sélection éditoriale"
         onKeyDown={(event) => {
           if (event.key === "ArrowRight") {
             event.preventDefault();
