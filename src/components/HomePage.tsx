@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { DetourSection } from "@/components/DetourSection";
 import { EventGrid } from "@/components/EventGrid";
@@ -43,6 +43,17 @@ export function HomePage({ events, highlights, debugMeta }: HomePageProps) {
   const [category, setCategory] = useState<CategoryId>("tout");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [overrideHighlights, setOverrideHighlights] = useState<EventItem[] | null>(
+    null,
+  );
+  const [liveDebugMeta, setLiveDebugMeta] = useState(debugMeta);
+
+  useEffect(() => {
+    setLiveDebugMeta(debugMeta);
+    setOverrideHighlights(null);
+  }, [debugMeta]);
+
+  const displayedHighlights = overrideHighlights ?? highlights;
 
   // Distance absente = pas encore filtrable ; on n’exclut pas l’événement.
   const withinRadius = useMemo(
@@ -101,7 +112,7 @@ export function HomePage({ events, highlights, debugMeta }: HomePageProps) {
       <main>
         <HeroFilters />
         <DetourSection
-          events={highlights}
+          events={displayedHighlights}
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
         />
@@ -136,7 +147,14 @@ export function HomePage({ events, highlights, debugMeta }: HomePageProps) {
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
         />
-        <EventsDebugPanel events={events} meta={debugMeta} />
+        <EventsDebugPanel
+          events={events}
+          meta={liveDebugMeta}
+          onManualAiResult={({ highlights: nextHighlights, debugMeta: nextMeta }) => {
+            setOverrideHighlights(nextHighlights);
+            setLiveDebugMeta(nextMeta);
+          }}
+        />
       </main>
       <footer className="border-t border-line px-5 py-10 md:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-3 md:flex-row md:items-end md:justify-between">

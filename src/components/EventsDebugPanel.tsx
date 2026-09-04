@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { EventItem, EventRelevance } from "@/data/types";
+import { runAiHighlightAssessment } from "@/app/actions/run-ai-assessment";
 
 const DEBUG_LIMIT = 100;
 
@@ -65,19 +66,72 @@ export type EventsDebugMeta = {
   highlights?: HighlightDebug[];
   highlightCandidates?: HighlightDebug[];
   aiAssessments?: AiHighlightDebug[];
+  aiRuntime?: {
+    mode: "manual" | "auto" | "disabled";
+    source: "fresh" | "cache" | "fallback";
+    cacheKeyShort: string | null;
+    assessedAt: string | null;
+    canRunManual: boolean;
+  };
 };
 
 type EventsDebugPanelProps = {
   events: EventItem[];
   meta?: EventsDebugMeta;
+  /** Après Run AI manual : met à jour highlights + meta debug (HomePage). */
+  onManualAiResult?: (result: {
+    highlights: EventItem[];
+    debugMeta: EventsDebugMeta;
+  }) => void;
 };
 
 /** Panneau temporaire pour inspecter la qualité des données Orléans. */
-export function EventsDebugPanel({ events, meta }: EventsDebugPanelProps) {
+export function EventsDebugPanel({
+  events,
+  meta: initialMeta,
+  onManualAiResult,
+}: EventsDebugPanelProps) {
   const [open, setOpen] = useState(false);
   const [relevanceFilter, setRelevanceFilter] = useState<"all" | EventRelevance>(
     "all",
   );
+  const [meta, setMeta] = useState(initialMeta);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [hasRunAi, setHasRunAi] = useState(
+    Boolean(initialMeta?.aiAssessments?.length),
+  );
+
+  // Sync si la page serveur renvoie un nouveau meta (refresh).
+  useEffect(() => {
+    setMeta(initialMeta);
+    setHasRunAi(Boolean(initialMeta?.aiAssessments?.length));
+    setAiError(null);
+  }, [initialMeta]);
+
+  async function handleRunAi(force: boolean) {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const result = await runAiHighlightAssessment({ force });
+      if (!result.ok) {
+        setAiError(result.error);
+        return;
+      }
+      setMeta(result.debugMeta);
+      setHasRunAi(true);
+      onManualAiResult?.({
+        highlights: result.highlights,
+        debugMeta: result.debugMeta,
+      });
+    } catch (error) {
+      setAiError(
+        error instanceof Error ? error.message : "Évaluation IA impossible.",
+      );
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   const relevanceCounts = useMemo(() => {
     const counts: Record<EventRelevance, number> = {
@@ -169,6 +223,52 @@ export function EventsDebugPanel({ events, meta }: EventsDebugPanelProps) {
                   value={meta.scoredCandidatesCount ?? "—"}
                 />
               </dl>
+            ) : null}
+
+            {meta?.aiRuntime ? (
+              <div className="space-y-3 rounded-xl border border-line bg-paper p-4">
+                <h3 className="font-display text-lg tracking-tight">
+                  AI runtime
+                </h3>
+                <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                  <Stat label="AI mode" value={meta.aiRuntime.mode} />
+                  <Stat label="AI source" value={meta.aiRuntime.source} />
+                  <Stat
+                    label="Cache key"
+                    value={meta.aiRuntime.cacheKeyShort ?? "—"}
+                  />
+                  <Stat
+                    label="Last assessment"
+                    value={
+                      meta.aiRuntime.assessedAt
+                        ? formatDebugDate(meta.aiRuntime.assessedAt)
+                        : "—"
+                    }
+                  />
+                </dl>
+                {meta.aiRuntime.canRunManual ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={aiLoading}
+                      onClick={() => handleRunAi(hasRunAi)}
+                      className="rounded-full border border-line bg-ink px-4 py-2 text-sm text-paper transition-opacity disabled:opacity-50"
+                    >
+                      {aiLoading
+                        ? "Running…"
+                        : hasRunAi
+                          ? "Re-run AI assessment"
+                          : "Run AI assessment"}
+                    </button>
+                    {aiLoading ? (
+                      <span className="text-sm text-cream-dim">loading</span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {aiError ? (
+                  <p className="text-sm text-coral">{aiError}</p>
+                ) : null}
+              </div>
             ) : null}
 
             <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-4">
