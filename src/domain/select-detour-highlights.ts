@@ -13,6 +13,20 @@ export type HighlightSlot =
   | "worth-planning"
   | "wildcard";
 
+export type HighlightSelectionSource = "ai" | "deterministic";
+
+/** Méta debug quand la sélection vient des scores IA. */
+export type AiHighlightSelectionMeta = {
+  formula: "strong" | "local-gem" | "worth-planning" | "wildcard";
+  slotScore: number;
+  appeal: number;
+  discoveryValue: number;
+  planningValue: number;
+  recognition: number;
+  confidence: number;
+  aiReasons: string[];
+};
+
 export type EventHighlight = {
   event: DetourEvent;
   score: number;
@@ -21,6 +35,10 @@ export type EventHighlight = {
   reasons: HighlightReason[];
   /** Renseigné uniquement après sélection éditoriale. */
   slot?: HighlightSlot;
+  /** Origine de la sélection « Faites un détour ». */
+  selectionSource?: HighlightSelectionSource;
+  /** Scores IA utilisés pour le slot (debug). */
+  aiSelection?: AiHighlightSelectionMeta;
 };
 
 export const HIGHLIGHT_WEIGHTS: Record<HighlightReason, number> = {

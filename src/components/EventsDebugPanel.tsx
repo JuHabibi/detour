@@ -32,6 +32,28 @@ export type HighlightDebug = {
   hasRegistration: boolean;
   rank?: number;
   slot?: string;
+  selectionSource?: "ai" | "deterministic";
+  deterministicRank?: number;
+  aiRank?: number;
+  /** Scores IA / formule du slot (debug). */
+  scoresUsed?: string;
+};
+
+export type AiHighlightDebug = {
+  eventId: string;
+  title: string;
+  deterministicRank?: number;
+  appeal: number;
+  discoveryValue: number;
+  planningValue: number;
+  recognition: number;
+  confidence: number;
+  reasons: string[];
+  combined: number;
+  /** Rang debug : Σ (appeal + discovery + planning + recognition). */
+  aiRankTotal?: number;
+  /** Rang debug « Détour » — même Σ pour l’instant (poids futurs). */
+  aiRankDetour?: number;
 };
 
 export type EventsDebugMeta = {
@@ -42,6 +64,7 @@ export type EventsDebugMeta = {
   duplicates: EventDuplicateDebug[];
   highlights?: HighlightDebug[];
   highlightCandidates?: HighlightDebug[];
+  aiAssessments?: AiHighlightDebug[];
 };
 
 type EventsDebugPanelProps = {
@@ -205,8 +228,12 @@ export function EventsDebugPanel({ events, meta }: EventsDebugPanelProps) {
                     <thead className="border-b border-line bg-foam/60 text-[10px] uppercase tracking-[0.14em] text-sand">
                       <tr>
                         <th className="px-3 py-2.5 font-medium">Slot</th>
+                        <th className="px-3 py-2.5 font-medium">Sel.</th>
                         <th className="px-3 py-2.5 font-medium">Titre</th>
                         <th className="px-3 py-2.5 font-medium">Score</th>
+                        <th className="px-3 py-2.5 font-medium">Det. rank</th>
+                        <th className="px-3 py-2.5 font-medium">AI rank</th>
+                        <th className="px-3 py-2.5 font-medium">Scores used</th>
                         <th className="px-3 py-2.5 font-medium">Planning</th>
                         <th className="px-3 py-2.5 font-medium">Reasons</th>
                         <th className="px-3 py-2.5 font-medium">Ville</th>
@@ -222,11 +249,23 @@ export function EventsDebugPanel({ events, meta }: EventsDebugPanelProps) {
                           <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[10px] text-ink">
                             {highlight.slot ?? "—"}
                           </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[10px] text-sand">
+                            {highlight.selectionSource ?? "—"}
+                          </td>
                           <td className="max-w-[16rem] px-3 py-2.5 font-medium text-ink">
                             {highlight.title}
                           </td>
                           <td className="whitespace-nowrap px-3 py-2.5 font-mono text-ink">
                             {highlight.score}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 font-mono text-sand">
+                            {highlight.deterministicRank ?? "—"}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 font-mono text-sand">
+                            {highlight.aiRank ?? "—"}
+                          </td>
+                          <td className="max-w-[18rem] px-3 py-2.5 font-mono text-[10px] text-cream-dim">
+                            {highlight.scoresUsed ?? "—"}
                           </td>
                           <td className="whitespace-nowrap px-3 py-2.5 font-mono text-ink">
                             {highlight.planningScore}
@@ -294,6 +333,84 @@ export function EventsDebugPanel({ events, meta }: EventsDebugPanelProps) {
                           </td>
                           <td className="max-w-[12rem] px-3 py-2.5 text-cream-dim">
                             {candidate.source || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {meta && meta.aiAssessments && meta.aiAssessments.length > 0 ? (
+              <div className="space-y-3">
+                <h3 className="font-display text-lg tracking-tight">
+                  AI highlight assessment
+                </h3>
+                <p className="text-sm text-cream-dim">
+                  Shortlist déterministe évaluée par l’IA (dont recognition) —
+                  debug uniquement, ne pilote pas encore « Faites un détour ». Σ
+                  = appeal + discovery + planning + recognition.
+                </p>
+                <div className="overflow-x-auto rounded-xl border border-line bg-paper">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="border-b border-line bg-foam/60 text-[10px] uppercase tracking-[0.14em] text-sand">
+                      <tr>
+                        <th className="px-3 py-2.5 font-medium">Titre</th>
+                        <th className="px-3 py-2.5 font-medium">Det. rank</th>
+                        <th className="px-3 py-2.5 font-medium">
+                          AI rank — total
+                        </th>
+                        <th className="px-3 py-2.5 font-medium">
+                          AI rank — Détour
+                        </th>
+                        <th className="px-3 py-2.5 font-medium">Appeal</th>
+                        <th className="px-3 py-2.5 font-medium">Discovery</th>
+                        <th className="px-3 py-2.5 font-medium">Planning</th>
+                        <th className="px-3 py-2.5 font-medium">Recognition</th>
+                        <th className="px-3 py-2.5 font-medium">Conf.</th>
+                        <th className="px-3 py-2.5 font-medium">Σ</th>
+                        <th className="px-3 py-2.5 font-medium">Reasons</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {meta.aiAssessments.map((assessment) => (
+                        <tr
+                          key={assessment.eventId}
+                          className="border-b border-line/70 align-top last:border-b-0"
+                        >
+                          <td className="max-w-[16rem] px-3 py-2.5 font-medium text-ink">
+                            {assessment.title}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-sand">
+                            {assessment.deterministicRank ?? "—"}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-sand">
+                            {assessment.aiRankTotal ?? "—"}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-sand">
+                            {assessment.aiRankDetour ?? "—"}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {assessment.appeal}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {assessment.discoveryValue}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {assessment.planningValue}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {assessment.recognition}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-cream-dim">
+                            {assessment.confidence.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {assessment.combined}
+                          </td>
+                          <td className="max-w-[18rem] px-3 py-2.5 text-[10px] text-cream-dim">
+                            {assessment.reasons.join(" · ") || "—"}
                           </td>
                         </tr>
                       ))}
