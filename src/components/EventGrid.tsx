@@ -4,16 +4,27 @@ import type { EventItem } from "@/data/types";
 type EventGridProps = {
   title?: string;
   events: EventItem[];
+  /** Total filtré (avant « Voir plus ») — pour le compteur discret. */
+  totalCount?: number;
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
+  onShowMore?: () => void;
 };
 
 export function EventGrid({
   title = "Ce week-end autour de vous",
   events,
+  totalCount,
   favorites,
   onToggleFavorite,
+  onShowMore,
 }: EventGridProps) {
+  const total = totalCount ?? events.length;
+  const countLabel =
+    total > events.length
+      ? `${events.length} sur ${total}`
+      : `${events.length} proposition${events.length > 1 ? "s" : ""}`;
+
   return (
     <section id="week-end" className="scroll-mt-24 px-5 py-10 md:px-8 md:py-14 lg:px-12">
       <div className="mx-auto max-w-[1440px]">
@@ -26,9 +37,7 @@ export function EventGrid({
               {title}
             </h2>
           </div>
-          <p className="hidden text-sm text-sand md:block">
-            {events.length} proposition{events.length > 1 ? "s" : ""}
-          </p>
+          <p className="hidden text-sm text-sand md:block">{countLabel}</p>
         </div>
 
         {events.length === 0 ? (
@@ -36,17 +45,34 @@ export function EventGrid({
             Rien dans ce rayon pour le moment. Essayez un peu plus loin.
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {events.map((event, index) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                priority={index < 3}
-                isFavorite={favorites.has(event.id)}
-                onToggleFavorite={onToggleFavorite}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {events.map((event, index) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  priority={index < 3}
+                  isFavorite={favorites.has(event.id)}
+                  onToggleFavorite={onToggleFavorite}
+                />
+              ))}
+            </div>
+
+            {onShowMore ? (
+              <div className="mt-10 flex flex-col items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onShowMore}
+                  className="border-b border-ink/25 pb-0.5 text-sm text-ink transition-colors hover:border-ink"
+                >
+                  Voir plus
+                </button>
+                <p className="text-xs text-sand md:hidden">
+                  {events.length} sur {total}
+                </p>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </section>

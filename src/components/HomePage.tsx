@@ -16,6 +16,8 @@ import type {
   WhenFilter,
 } from "@/data/types";
 
+const PAGE_SIZE = 12;
+
 type HomePageProps = {
   events: EventItem[];
   debugMeta?: EventsDebugMeta;
@@ -26,6 +28,7 @@ export function HomePage({ events, debugMeta }: HomePageProps) {
   const [radius, setRadius] = useState<RadiusFilter>(15);
   const [category, setCategory] = useState<CategoryId>("tout");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // Distance absente = pas encore filtrable ; on n’exclut pas l’événement.
   const withinRadius = useMemo(
@@ -54,10 +57,23 @@ export function HomePage({ events, debugMeta }: HomePageProps) {
     [withinRadius, category, when],
   );
 
+  const visibleWeekendEvents = weekendEvents.slice(0, visibleCount);
+  const canShowMore = visibleCount < weekendEvents.length;
+
   const upcomingEvents = useMemo(
     () => withinRadius.filter((event) => !event.weekend).slice(0, 4),
     [withinRadius],
   );
+
+  function handleWhenChange(value: WhenFilter) {
+    setWhen(value);
+    setVisibleCount(PAGE_SIZE);
+  }
+
+  function handleCategoryChange(value: CategoryId) {
+    setCategory(value);
+    setVisibleCount(PAGE_SIZE);
+  }
 
   function toggleFavorite(id: string) {
     setFavorites((current) => {
@@ -75,7 +91,7 @@ export function HomePage({ events, debugMeta }: HomePageProps) {
         <HeroFilters
           when={when}
           radius={radius}
-          onWhenChange={setWhen}
+          onWhenChange={handleWhenChange}
           onRadiusChange={setRadius}
         />
         <DetourSection
@@ -85,13 +101,19 @@ export function HomePage({ events, debugMeta }: HomePageProps) {
         />
         <CategoryFilter
           category={category}
-          onCategoryChange={setCategory}
+          onCategoryChange={handleCategoryChange}
         />
         <EventGrid
           title="Ce week-end autour de vous"
-          events={weekendEvents}
+          events={visibleWeekendEvents}
+          totalCount={weekendEvents.length}
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
+          onShowMore={
+            canShowMore
+              ? () => setVisibleCount((current) => current + PAGE_SIZE)
+              : undefined
+          }
         />
         <UpcomingSection
           events={upcomingEvents}
