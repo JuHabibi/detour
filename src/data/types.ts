@@ -1,3 +1,5 @@
+import type { EventRelevance } from "@/domain/event";
+
 export type CategoryId =
   | "tout"
   | "musique"
@@ -21,6 +23,8 @@ export type RadiusFilter = 5 | 15 | 30 | 50;
 
 export type EventSignal = "discover" | "nearby" | "free" | "intimate";
 
+export type { EventRelevance };
+
 export type EventItem = {
   id: string;
   title: string;
@@ -42,6 +46,14 @@ export type EventItem = {
   sourceUrl?: string;
   /** Lien de réservation / inscription, si extrait de registration. */
   registrationUrl?: string;
+  /** Titre de l’agenda source (ex. OpenAgenda). */
+  source?: string;
+  /** Conditions / tarifs bruts, si fournis par la source. */
+  conditions?: string;
+  /** Pertinence culturelle Détour (métier). */
+  relevance?: EventRelevance;
+  /** Raison machine-lisible de la classification. */
+  relevanceReason?: string;
   /** Flag éditorial — défini plus tard par le service, pas par le mapper. */
   detour?: boolean;
   /** Fait calendaire : l’événement tombe un samedi ou un dimanche. */

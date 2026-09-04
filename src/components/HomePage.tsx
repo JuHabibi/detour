@@ -7,6 +7,8 @@ import { EventGrid } from "@/components/EventGrid";
 import { Header } from "@/components/Header";
 import { HeroFilters } from "@/components/HeroFilters";
 import { UpcomingSection } from "@/components/UpcomingSection";
+import { EventsDebugPanel } from "@/components/EventsDebugPanel";
+import type { EventsDebugMeta } from "@/components/EventsDebugPanel";
 import type {
   CategoryId,
   EventItem,
@@ -16,9 +18,10 @@ import type {
 
 type HomePageProps = {
   events: EventItem[];
+  debugMeta?: EventsDebugMeta;
 };
 
-export function HomePage({ events }: HomePageProps) {
+export function HomePage({ events, debugMeta }: HomePageProps) {
   const [when, setWhen] = useState<WhenFilter>("weekend");
   const [radius, setRadius] = useState<RadiusFilter>(15);
   const [category, setCategory] = useState<CategoryId>("tout");
@@ -95,6 +98,7 @@ export function HomePage({ events }: HomePageProps) {
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
         />
+        <EventsDebugPanel events={events} meta={debugMeta} />
       </main>
       <footer className="border-t border-line px-5 py-10 md:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-3 md:flex-row md:items-end md:justify-between">

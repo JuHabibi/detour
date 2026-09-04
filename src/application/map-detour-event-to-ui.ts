@@ -22,6 +22,10 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
     description: event.description ?? undefined,
     sourceUrl: event.sourceUrl ?? undefined,
     registrationUrl: event.registrationUrl ?? undefined,
+    source: event.source ?? undefined,
+    conditions: event.conditions ?? undefined,
+    relevance: event.relevance,
+    relevanceReason: event.relevanceReason,
     // Fait calendaire uniquement (samedi / dimanche).
     weekend: isWeekendDay(start),
   };

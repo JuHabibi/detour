@@ -1,6 +1,7 @@
 import { EventService } from "@/application/event.service";
 import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
 import { HomePage } from "@/components/HomePage";
+import type { EventDuplicateDebug } from "@/components/EventsDebugPanel";
 import { OrleansEventAdapter } from "@/infrastructure/sources/orleans/orleans-event.adapter";
 
 const UPCOMING_WINDOW_DAYS = 60;
@@ -12,8 +13,36 @@ export default async function Page() {
   const to = new Date(from);
   to.setDate(to.getDate() + UPCOMING_WINDOW_DAYS);
 
-  const detourEvents = await eventService.getUpcomingEvents({ from, to });
-  const events = detourEvents.map((event) => mapDetourEventToEventItem(event));
+  const { events, duplicates, rawCount, classifiedEvents } =
+    await eventService.getUpcomingEvents({ from, to });
 
-  return <HomePage events={events} />;
+  const byId = new Map(
+    classifiedEvents.map((event) => [event.id, event] as const),
+  );
+
+  const duplicateDebug: EventDuplicateDebug[] = duplicates.map((duplicate) => {
+    const kept = byId.get(duplicate.keptId);
+    const removed = byId.get(duplicate.duplicateId);
+
+    return {
+      keptTitle: kept?.title ?? duplicate.keptId,
+      duplicateTitle: removed?.title ?? duplicate.duplicateId,
+      date: kept?.startAt ?? removed?.startAt ?? "",
+      venue: kept?.venue ?? removed?.venue ?? null,
+      city: kept?.city ?? removed?.city ?? null,
+      reason: duplicate.reason,
+    };
+  });
+
+  return (
+    <HomePage
+      events={events.map((event) => mapDetourEventToEventItem(event))}
+      debugMeta={{
+        rawCount,
+        dedupedCount: events.length,
+        duplicateCount: duplicates.length,
+        duplicates: duplicateDebug,
+      }}
+    />
+  );
 }
