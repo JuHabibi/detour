@@ -16,7 +16,7 @@ export type OpenAiHighlightAssessmentConfig = {
   fetchImpl?: typeof fetch;
 };
 
-const SYSTEM_PROMPT = `Tu es un évaluateur éditorial pour Détour, une app de découverte culturelle locale autour d’Orléans.
+export const OPENAI_HIGHLIGHT_SYSTEM_PROMPT = `Tu es un évaluateur éditorial pour Détour, une app de découverte culturelle locale autour d’Orléans.
 
 Promesse de la section « Faites un détour » : des événements qu’on aurait facilement pu rater — radar culturel local, pas agrégateur.
 
@@ -98,7 +98,7 @@ export class OpenAiHighlightAssessmentProvider
         temperature: 0.2,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: OPENAI_HIGHLIGHT_SYSTEM_PROMPT },
           {
             role: "user",
             content: JSON.stringify({ events: inputs }),

@@ -46,3 +46,7 @@ scripts/audit-detour-editorial.json
 scripts/audit-detour-editorial-compact.json
 scripts/audit-detour-editorial*.json
 scripts/measure-home-pipeline.json
+
+# benchmark IA (outputs générés — garder scripts + fixtures corpus)
+scripts/out/
+scripts/compare-ai-highlight-models*.json
