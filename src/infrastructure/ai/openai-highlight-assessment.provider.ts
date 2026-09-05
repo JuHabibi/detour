@@ -12,9 +12,19 @@ export type OpenAiHighlightAssessmentConfig = {
   /** Ex. https://api.openai.com/v1 */
   baseUrl?: string;
   model?: string;
+  temperature?: number;
   batchSize?: number;
   fetchImpl?: typeof fetch;
 };
+
+/**
+ * Version explicite du contrat prompt / scoring.
+ * À bumper manuellement si le system prompt ou les dimensions changent.
+ */
+export const AI_ASSESSMENT_PROMPT_VERSION = "detour-ai-assess-v1";
+
+export const AI_ASSESSMENT_DEFAULT_MODEL = "gpt-4o-mini";
+export const AI_ASSESSMENT_DEFAULT_TEMPERATURE = 0.2;
 
 export const OPENAI_HIGHLIGHT_SYSTEM_PROMPT = `Tu es un évaluateur éditorial pour Détour, une app de découverte culturelle locale autour d’Orléans.
 
@@ -52,7 +62,8 @@ export class OpenAiHighlightAssessmentProvider
 {
   private readonly apiKey: string;
   private readonly baseUrl: string;
-  private readonly model: string;
+  readonly model: string;
+  readonly temperature: number;
   private readonly batchSize: number;
   private readonly fetchImpl: typeof fetch;
 
@@ -62,7 +73,9 @@ export class OpenAiHighlightAssessmentProvider
       /\/$/,
       "",
     );
-    this.model = config.model ?? "gpt-4o-mini";
+    this.model = config.model ?? AI_ASSESSMENT_DEFAULT_MODEL;
+    this.temperature =
+      config.temperature ?? AI_ASSESSMENT_DEFAULT_TEMPERATURE;
     this.batchSize = config.batchSize ?? AI_HIGHLIGHT_BATCH_SIZE;
     this.fetchImpl = config.fetchImpl ?? fetch;
   }
@@ -95,7 +108,7 @@ export class OpenAiHighlightAssessmentProvider
       },
       body: JSON.stringify({
         model: this.model,
-        temperature: 0.2,
+        temperature: this.temperature,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: OPENAI_HIGHLIGHT_SYSTEM_PROMPT },
