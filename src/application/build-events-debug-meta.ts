@@ -207,6 +207,8 @@ export function buildEventsDebugMeta(
       cacheKeyShort: aiMeta.cacheKey
         ? shortenCacheKey(aiMeta.cacheKey)
         : null,
+      cacheHits: aiMeta.cacheHits,
+      cacheMisses: aiMeta.cacheMisses,
       assessedAt: aiMeta.assessedAt,
       canRunManual: aiMeta.enabled && aiMeta.mode === "manual",
     },

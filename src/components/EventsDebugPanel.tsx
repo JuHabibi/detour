@@ -134,8 +134,11 @@ export type EventsDebugMeta = {
   };
   aiRuntime?: {
     mode: "manual" | "auto" | "disabled";
-    source: "fresh" | "cache" | "fallback";
+    source: "fresh" | "cache" | "partial" | "fallback";
+    /** @deprecated Cache per-event — souvent null. */
     cacheKeyShort: string | null;
+    cacheHits?: number;
+    cacheMisses?: number;
     assessedAt: string | null;
     canRunManual: boolean;
   };
@@ -502,8 +505,12 @@ export function EventsDebugPanel({
                   <Stat label="AI mode" value={meta.aiRuntime.mode} />
                   <Stat label="AI source" value={meta.aiRuntime.source} />
                   <Stat
-                    label="Cache key"
-                    value={meta.aiRuntime.cacheKeyShort ?? "—"}
+                    label="Cache hits"
+                    value={String(meta.aiRuntime.cacheHits ?? 0)}
+                  />
+                  <Stat
+                    label="Cache misses"
+                    value={String(meta.aiRuntime.cacheMisses ?? 0)}
                   />
                   <Stat
                     label="Last assessment"

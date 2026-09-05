@@ -87,7 +87,7 @@ describe("buildAiAssessmentEventCacheKey", () => {
     const other = buildAiAssessmentEventCacheKey({
       event: event(),
       ...baseParams,
-      promptVersion: "detour-ai-assess-v2",
+      promptVersion: "detour-ai-assess-v999",
     });
     expect(other).not.toBe(base);
   });

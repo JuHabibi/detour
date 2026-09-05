@@ -3,8 +3,8 @@ import { toAiHighlightEventInput } from "@/domain/ai-highlight-assessment";
 import type { DetourEvent } from "@/domain/event";
 
 /**
- * @deprecated Fingerprint dédié — préférer `toAiHighlightEventInput` via
- * `buildAiAssessmentEventCacheKey` (commit suivant : cache per-event).
+ * @deprecated Remplacé par `buildAiAssessmentEventCacheKey`.
+ * Conservé pour compat éventuelle des imports de tests legacy.
  */
 export type AiAssessmentCacheFingerprint = {
   id: string;
@@ -42,8 +42,7 @@ export function toAiAssessmentCacheFingerprint(
 }
 
 /**
- * @deprecated Clé shortlist entière — remplacée par des clés per-event.
- * Conservée tant que `assessHighlightsCached` l’utilise encore.
+ * @deprecated Remplacé par le cache per-event.
  */
 export function buildAiAssessmentCacheKey(events: DetourEvent[]): string {
   const fingerprint = events.map(toAiAssessmentCacheFingerprint);

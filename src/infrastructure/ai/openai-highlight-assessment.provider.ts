@@ -21,7 +21,7 @@ export type OpenAiHighlightAssessmentConfig = {
  * Version explicite du contrat prompt / scoring.
  * À bumper manuellement si le system prompt ou les dimensions changent.
  */
-export const AI_ASSESSMENT_PROMPT_VERSION = "detour-ai-assess-v1";
+export const AI_ASSESSMENT_PROMPT_VERSION = "detour-ai-assess-v2";
 
 export const AI_ASSESSMENT_DEFAULT_MODEL = "gpt-4o-mini";
 export const AI_ASSESSMENT_DEFAULT_TEMPERATURE = 0.2;
@@ -31,6 +31,8 @@ export const OPENAI_HIGHLIGHT_SYSTEM_PROMPT = `Tu es un évaluateur éditorial p
 Promesse de la section « Faites un détour » : des événements qu’on aurait facilement pu rater — radar culturel local, pas agrégateur.
 
 Tu scores chaque événement. Tu peux utiliser tes connaissances générales d’entraînement pour estimer notoriété, popularité probable, ou rareté relative d’un passage dans une petite commune. Ne fais aucune recherche web.
+
+Évalue chaque événement indépendamment des autres événements présents dans cette requête. Ne modifie pas son score selon la qualité relative des autres événements du batch.
 
 Dimensions (entiers 0–5 sauf confidence) :
 - appeal : intérêt intrinsèque de l’événement (proposition, format, sujet, qualité apparente). Indépendant de la notoriété.

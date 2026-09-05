@@ -26,11 +26,18 @@ import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-
 import { NoopHighlightAssessmentProvider } from "@/infrastructure/ai/noop-highlight-assessment.provider";
 import {
   assessHighlightsCached,
+  type AiAssessmentCacheContext,
   type AiAssessmentCacheEntry,
   type AiAssessmentCacheSource,
   type AiAssessmentCacheStore,
   type AssessHighlightsCachedResult,
 } from "@/infrastructure/ai/ai-assessment-cache";
+import {
+  AI_ASSESSMENT_DEFAULT_MODEL,
+  AI_ASSESSMENT_DEFAULT_TEMPERATURE,
+  AI_ASSESSMENT_PROMPT_VERSION,
+  OpenAiHighlightAssessmentProvider,
+} from "@/infrastructure/ai/openai-highlight-assessment.provider";
 import {
   selectPlanningEvents,
   type PlanningEvent,
@@ -58,7 +65,10 @@ export type UpcomingEventsAiMeta = {
   mode: AiConfig["mode"];
   enabled: boolean;
   source: AiAssessmentCacheSource;
+  /** @deprecated Toujours null — cache per-event. */
   cacheKey: string | null;
+  cacheHits: number;
+  cacheMisses: number;
   assessedAt: string | null;
 };
 
@@ -257,6 +267,8 @@ export class EventService {
         enabled: this.aiConfig.enabled,
         source: assessed?.source ?? "fallback",
         cacheKey: assessed?.cacheKey ?? null,
+        cacheHits: assessed?.cacheHits ?? 0,
+        cacheMisses: assessed?.cacheMisses ?? 0,
         assessedAt: assessed?.assessedAt ?? null,
       },
       duplicates: pipeline.duplicates,
@@ -280,6 +292,7 @@ export class EventService {
       store: this.cacheStore,
       readThrough: this.readThrough,
       onForceInvalidate: this.onForceInvalidate,
+      cacheContext: this.resolveAssessmentCacheContext(),
       assess: async (batch) => {
         try {
           return await this.highlightAssessor.assess(batch);
@@ -289,5 +302,20 @@ export class EventService {
         }
       },
     });
+  }
+
+  private resolveAssessmentCacheContext(): AiAssessmentCacheContext {
+    if (this.highlightAssessor instanceof OpenAiHighlightAssessmentProvider) {
+      return {
+        model: this.highlightAssessor.model,
+        promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
+        generation: { temperature: this.highlightAssessor.temperature },
+      };
+    }
+    return {
+      model: AI_ASSESSMENT_DEFAULT_MODEL,
+      promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
+      generation: { temperature: AI_ASSESSMENT_DEFAULT_TEMPERATURE },
+    };
   }
 }

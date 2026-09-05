@@ -4,7 +4,11 @@ import {
   assessHighlightsCached,
   createMemoryAiAssessmentCacheStore,
 } from "@/infrastructure/ai/ai-assessment-cache";
-import { buildAiAssessmentCacheKey } from "@/infrastructure/ai/ai-assessment-cache-key";
+import {
+  AI_ASSESSMENT_DEFAULT_MODEL,
+  AI_ASSESSMENT_DEFAULT_TEMPERATURE,
+  AI_ASSESSMENT_PROMPT_VERSION,
+} from "@/infrastructure/ai/openai-highlight-assessment.provider";
 import type { DetourEvent } from "@/domain/event";
 
 function event(id: string): DetourEvent {
@@ -28,6 +32,12 @@ function event(id: string): DetourEvent {
     relevance: "culture",
   };
 }
+
+const cacheContext = {
+  model: AI_ASSESSMENT_DEFAULT_MODEL,
+  promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
+  generation: { temperature: AI_ASSESSMENT_DEFAULT_TEMPERATURE },
+};
 
 describe("getAiConfig", () => {
   it("DETOUR_AI_MODE explicite prime sur NODE_ENV", () => {
@@ -75,18 +85,7 @@ describe("getAiConfig", () => {
   });
 });
 
-describe("AI assessment cache", () => {
-  it("même shortlist → même clé", () => {
-    const a = [event("1"), event("2")];
-    expect(buildAiAssessmentCacheKey(a)).toBe(buildAiAssessmentCacheKey(a));
-  });
-
-  it("shortlist modifiée → clé différente", () => {
-    expect(buildAiAssessmentCacheKey([event("1")])).not.toBe(
-      buildAiAssessmentCacheKey([event("1"), event("2")]),
-    );
-  });
-
+describe("AI assessment cache (smoke)", () => {
   it("cache hit / force / fallback", async () => {
     const store = createMemoryAiAssessmentCacheStore();
     let calls = 0;
@@ -110,6 +109,7 @@ describe("AI assessment cache", () => {
       events: [event("1")],
       assess,
       store,
+      cacheContext,
     });
     expect(first.source).toBe("fresh");
     expect(calls).toBe(1);
@@ -118,6 +118,7 @@ describe("AI assessment cache", () => {
       events: [event("1")],
       assess,
       store,
+      cacheContext,
     });
     expect(second.source).toBe("cache");
     expect(calls).toBe(1);
@@ -126,6 +127,7 @@ describe("AI assessment cache", () => {
       events: [event("1")],
       assess,
       store,
+      cacheContext,
       force: true,
     });
     expect(forced.source).toBe("fresh");
@@ -137,6 +139,7 @@ describe("AI assessment cache", () => {
         throw new Error("boom");
       },
       store: createMemoryAiAssessmentCacheStore(),
+      cacheContext,
     });
     expect(failed.source).toBe("fallback");
     expect(failed.assessments).toEqual([]);

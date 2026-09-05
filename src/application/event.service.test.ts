@@ -5,7 +5,6 @@ import type { DetourEvent } from "@/domain/event";
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-assessment.provider";
 import { createMemoryAiAssessmentCacheStore } from "@/infrastructure/ai/ai-assessment-cache";
-import { buildAiAssessmentCacheKey } from "@/infrastructure/ai/ai-assessment-cache-key";
 
 function event(id: string, title?: string): DetourEvent {
   return {
@@ -226,7 +225,7 @@ describe("EventService AI mode + cache", () => {
     expect(assessor.assess).toHaveBeenCalledTimes(1);
   });
 
-  it("shortlist modifiée → cache miss", async () => {
+  it("event ajouté → nouvel appel uniquement pour le miss", async () => {
     let payload = [event("a"), event("b")];
     const source: EventSourceAdapter = {
       fetchUpcomingEvents: async () => payload,
@@ -250,9 +249,9 @@ describe("EventService AI mode + cache", () => {
     });
 
     expect(assessor.assess).toHaveBeenCalledTimes(2);
-    expect(buildAiAssessmentCacheKey(payload.slice(0, 2))).not.toBe(
-      buildAiAssessmentCacheKey(payload),
-    );
+    const secondArg = (assessor.assess as ReturnType<typeof vi.fn>).mock
+      .calls[1]?.[0] as DetourEvent[];
+    expect(secondArg.map((item) => item.id)).toEqual(["c"]);
   });
 
   it("force refresh / re-run → nouvel appel provider", async () => {
