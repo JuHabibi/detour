@@ -45,3 +45,4 @@ next-env.d.ts
 scripts/audit-detour-editorial.json
 scripts/audit-detour-editorial-compact.json
 scripts/audit-detour-editorial*.json
+scripts/measure-home-pipeline.json

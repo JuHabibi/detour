@@ -1,9 +1,13 @@
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 import { CompositeEventSourceAdapter } from "@/infrastructure/composite-event-source.adapter";
+import {
+  wrapWithIngestionCache,
+  type IngestionReadThrough,
+} from "@/infrastructure/ingestion-cache";
 import { OrleansEventAdapter } from "@/infrastructure/sources/orleans/orleans-event.adapter";
 import { SaranEventAdapter } from "@/infrastructure/sources/saran/saran-event.adapter";
 
-/** Source agrégée par défaut — EventService reste agnostique des villes. */
+/** Source agrégée brute — sans cache (tests adapters / scripts de mesure bruts). */
 export function createDetourEventSource(): EventSourceAdapter {
   return new CompositeEventSourceAdapter([
     {
@@ -17,4 +21,14 @@ export function createDetourEventSource(): EventSourceAdapter {
       adapter: new SaranEventAdapter(),
     },
   ]);
+}
+
+/**
+ * Source home / actions : ingestion Orléans+Saran derrière un read-through
+ * (Next Data Cache ou mémoire). Le ranking / IA restent hors de ce cache.
+ */
+export function createCachedDetourEventSource(
+  readThrough: IngestionReadThrough,
+): EventSourceAdapter {
+  return wrapWithIngestionCache(createDetourEventSource(), readThrough);
 }

@@ -286,3 +286,54 @@ describe("EventService AI mode + cache", () => {
     expect(assessor.assess).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("EventService fraîcheur (encore actif)", () => {
+  const now = new Date("2026-09-05T12:00:00.000Z");
+
+  it("event terminé exclu des events et highlights", async () => {
+    const ended = event("ended", "Spectacle terminé Alice Moreau");
+    ended.startAt = "2026-09-01T10:00:00.000Z";
+    ended.endAt = "2026-09-05T11:00:00.000Z";
+
+    const active = event("active", "Spectacle actif Alice Moreau");
+    active.startAt = "2026-10-01T20:00:00.000Z";
+    active.endAt = null;
+
+    const result = await new EventService(
+      { fetchUpcomingEvents: async () => [ended, active] },
+      mockAssessments(),
+      { aiConfig: manualConfig, cacheStore: createMemoryAiAssessmentCacheStore() },
+    ).getUpcomingEvents({
+      from: now,
+      to: new Date("2027-03-01T00:00:00.000Z"),
+    });
+
+    expect(result.events.map((item) => item.id)).toEqual(["active"]);
+    expect(result.highlights.every((item) => item.event.id !== "ended")).toBe(
+      true,
+    );
+    expect(result.highlights.some((item) => item.event.id === "active")).toBe(
+      true,
+    );
+  });
+
+  it("event commencé mais encore en cours reste sélectionnable", async () => {
+    const ongoing = event("ongoing", "Festival en cours Alice Moreau");
+    ongoing.startAt = "2026-09-01T10:00:00.000Z";
+    ongoing.endAt = "2026-09-10T18:00:00.000Z";
+
+    const result = await new EventService(
+      { fetchUpcomingEvents: async () => [ongoing] },
+      mockAssessments(),
+      { aiConfig: manualConfig, cacheStore: createMemoryAiAssessmentCacheStore() },
+    ).getUpcomingEvents({
+      from: now,
+      to: new Date("2027-03-01T00:00:00.000Z"),
+    });
+
+    expect(result.events.map((item) => item.id)).toEqual(["ongoing"]);
+    expect(result.highlights.some((item) => item.event.id === "ongoing")).toBe(
+      true,
+    );
+  });
+});

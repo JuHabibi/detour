@@ -11,7 +11,8 @@ import {
   createNextAiAssessmentReadThrough,
   invalidateNextAiAssessmentCache,
 } from "@/infrastructure/ai/next-ai-assessment-cache";
-import { createDetourEventSource } from "@/infrastructure/create-detour-event-source";
+import { createCachedDetourEventSource } from "@/infrastructure/create-detour-event-source";
+import { createNextIngestionReadThrough } from "@/infrastructure/next-ingestion-cache";
 
 const UPCOMING_WINDOW_DAYS = 180;
 
@@ -52,7 +53,7 @@ export async function runAiHighlightAssessment(options?: {
   to.setDate(to.getDate() + UPCOMING_WINDOW_DAYS);
 
   const eventService = new EventService(
-    createDetourEventSource(),
+    createCachedDetourEventSource(createNextIngestionReadThrough()),
     createHighlightAssessmentProvider(),
     {
       aiConfig: config,

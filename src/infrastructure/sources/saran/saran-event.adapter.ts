@@ -1,5 +1,6 @@
 import type { DetourEvent } from "@/domain/event";
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import { INGESTION_CACHE_TTL_SECONDS } from "@/infrastructure/ingestion-cache";
 import {
   mapSaranIcalEventToDetourEvent,
   saranEventIntersectsWindow,
@@ -31,7 +32,10 @@ export class SaranEventAdapter implements EventSourceAdapter {
     from: Date;
     to: Date;
   }): Promise<DetourEvent[]> {
-    const response = await this.fetchImpl(this.icalUrl, { cache: "no-store" });
+    const response = await this.fetchImpl(this.icalUrl, {
+      // Aligné sur le TTL d’ingestion — pas de no-store (chemin caché).
+      next: { revalidate: INGESTION_CACHE_TTL_SECONDS },
+    });
     if (!response.ok) {
       throw new Error(
         `Saran iCal error: ${response.status} ${response.statusText}`,

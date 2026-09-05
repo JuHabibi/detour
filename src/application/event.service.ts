@@ -6,6 +6,7 @@ import {
 import type { DetourEvent } from "@/domain/event";
 import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
 import { buildAiHighlightShortlist } from "@/domain/build-ai-highlight-shortlist";
+import { filterStillActiveEvents } from "@/domain/is-event-still-active";
 import {
   AI_DETOUR_DEFAULT_LIMIT,
   selectAiDetourHighlights,
@@ -156,7 +157,8 @@ export class EventService {
 
   private async buildPipeline(params: { from: Date; to: Date }) {
     const ingestion = await this.ingestRaw(params);
-    const rawEvents = ingestion.events;
+    // Fraîcheur explicite : hors relevance / dedup — bornes Date (params.from = now home).
+    const rawEvents = filterStillActiveEvents(ingestion.events, params.from);
 
     const classifiedEvents = rawEvents.map((event) => {
       const classification = classifyEventRelevance(event);
