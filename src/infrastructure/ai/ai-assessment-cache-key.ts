@@ -56,6 +56,13 @@ export type AiAssessmentGenerationConfig = {
   temperature: number;
 };
 
+/** Identité de cache partagée provider ↔ couche cache. */
+export type AiAssessmentCacheContext = {
+  model: string;
+  promptVersion: string;
+  generation: AiAssessmentGenerationConfig;
+};
+
 export type AiAssessmentEventCacheKeyParams = {
   event: DetourEvent;
   model: string;

@@ -67,7 +67,7 @@ function candidate(e: DetourEvent): EventHighlight {
     event: e,
     score: 5,
     planningScore: 1,
-    reasons: ["test"],
+    reasons: ["high-appeal"],
   };
 }
 
@@ -278,7 +278,7 @@ describe("assessHighlightsCached per-event", () => {
       cacheContext: baseContext,
     });
     expect(first.assessments.map((item) => item.eventId)).toEqual(["a"]);
-    expect(first.source).toBe("fresh");
+    expect(first.source).toBe("partial");
 
     const second = await assessHighlightsCached({
       events: [event("a"), event("b")],
@@ -397,5 +397,152 @@ describe("assessHighlightsCached per-event", () => {
 
     expect(assess).toHaveBeenCalledTimes(1);
     expect(readThrough).toHaveBeenCalledTimes(2);
+  });
+
+  it("readThrough : seuls les vrais misses Next partent au provider", async () => {
+    const { buildAiAssessmentEventCacheKey } = await import(
+      "@/infrastructure/ai/ai-assessment-cache-key"
+    );
+
+    const assess = vi.fn(async (events: DetourEvent[]) =>
+      events.map((item) => assessment(item.id)),
+    );
+
+    const keyOf = (id: string) =>
+      buildAiAssessmentEventCacheKey({
+        event: event(id),
+        model: baseContext.model,
+        promptVersion: baseContext.promptVersion,
+        generation: baseContext.generation,
+      });
+
+    const nextStore = new Map<string, AiAssessmentCacheEntry>([
+      [
+        keyOf("a"),
+        { assessment: assessment("a"), assessedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+      [
+        keyOf("b"),
+        { assessment: assessment("b"), assessedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+    ]);
+
+    const readThrough = vi.fn(
+      async (
+        key: string,
+        compute: () => Promise<AiAssessmentCacheEntry>,
+      ) => {
+        const hit = nextStore.get(key);
+        if (hit) return hit;
+        const entry = await compute();
+        nextStore.set(key, entry);
+        return entry;
+      },
+    );
+
+    const result = await assessHighlightsCached({
+      events: [event("a"), event("b"), event("c")],
+      assess,
+      store: createMemoryAiAssessmentCacheStore(),
+      cacheContext: baseContext,
+      readThrough,
+    });
+
+    expect(assess).toHaveBeenCalledTimes(1);
+    expect((assess.mock.calls[0]?.[0] as DetourEvent[]).map((e) => e.id)).toEqual([
+      "c",
+    ]);
+    expect(result.assessments.map((item) => item.eventId).sort()).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+    expect(result.cacheHits).toBe(2);
+    expect(result.cacheMisses).toBe(1);
+    expect(result.source).toBe("partial");
+  });
+
+  it("full Next hit après cold start → hits=N, misses=0, source=cache", async () => {
+    const assess = vi.fn(async (events: DetourEvent[]) =>
+      events.map((item) => assessment(item.id)),
+    );
+    const nextStore = new Map<string, AiAssessmentCacheEntry>();
+    const readThrough = async (
+      key: string,
+      compute: () => Promise<AiAssessmentCacheEntry>,
+    ) => {
+      const hit = nextStore.get(key);
+      if (hit) return hit;
+      const entry = await compute();
+      nextStore.set(key, entry);
+      return entry;
+    };
+
+    await assessHighlightsCached({
+      events: [event("a"), event("b")],
+      assess,
+      store: createMemoryAiAssessmentCacheStore(),
+      cacheContext: baseContext,
+      readThrough,
+    });
+    assess.mockClear();
+
+    const result = await assessHighlightsCached({
+      events: [event("a"), event("b")],
+      assess,
+      store: createMemoryAiAssessmentCacheStore(),
+      cacheContext: baseContext,
+      readThrough,
+    });
+
+    expect(assess).not.toHaveBeenCalled();
+    expect(result.cacheHits).toBe(2);
+    expect(result.cacheMisses).toBe(0);
+    expect(result.source).toBe("cache");
+  });
+
+  it("Next hits + provider failure sur miss → partial, conserve hits", async () => {
+    const assess = vi
+      .fn()
+      .mockImplementationOnce(async (events: DetourEvent[]) =>
+        events.map((item) => assessment(item.id)),
+      )
+      .mockRejectedValueOnce(new Error("down"));
+
+    const nextStore = new Map<string, AiAssessmentCacheEntry>();
+    const readThrough = async (
+      key: string,
+      compute: () => Promise<AiAssessmentCacheEntry>,
+    ) => {
+      const hit = nextStore.get(key);
+      if (hit) return hit;
+      const entry = await compute();
+      nextStore.set(key, entry);
+      return entry;
+    };
+
+    await assessHighlightsCached({
+      events: [event("a"), event("b")],
+      assess,
+      store: createMemoryAiAssessmentCacheStore(),
+      cacheContext: baseContext,
+      readThrough,
+    });
+
+    const result = await assessHighlightsCached({
+      events: [event("a"), event("b"), event("c")],
+      assess,
+      store: createMemoryAiAssessmentCacheStore(),
+      cacheContext: baseContext,
+      readThrough,
+    });
+
+    expect(result.source).toBe("partial");
+    expect(result.assessments.map((item) => item.eventId).sort()).toEqual([
+      "a",
+      "b",
+    ]);
+    expect(result.cacheHits).toBe(2);
+    expect(result.cacheMisses).toBe(1);
   });
 });

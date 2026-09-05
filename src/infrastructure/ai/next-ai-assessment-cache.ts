@@ -1,9 +1,8 @@
-import { revalidateTag, unstable_cache } from "next/cache";
+import { updateTag, unstable_cache } from "next/cache";
 import {
   AI_ASSESSMENT_CACHE_TTL_SECONDS,
   type AiAssessmentCacheEntry,
 } from "@/infrastructure/ai/ai-assessment-cache";
-
 
 export function createNextAiAssessmentReadThrough(): (
   cacheKey: string,
@@ -18,8 +17,12 @@ export function createNextAiAssessmentReadThrough(): (
   };
 }
 
+/**
+ * Invalidation immédiate (Server Actions).
+ * `updateTag` expire le tag sans stale-while-revalidate — adapté au force refresh.
+ */
 export function invalidateNextAiAssessmentCache(cacheKey: string): void {
-  revalidateTag(aiAssessmentCacheTag(cacheKey), "max");
+  updateTag(aiAssessmentCacheTag(cacheKey));
 }
 
 export function aiAssessmentCacheTag(cacheKey: string): string {

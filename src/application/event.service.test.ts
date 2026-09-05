@@ -48,6 +48,11 @@ const disabledConfig: AiConfig = {
 
 function mockAssessments(): HighlightAssessmentProvider {
   return {
+    cacheContext: {
+      model: "gpt-4o-mini",
+      promptVersion: "detour-ai-assess-v2",
+      generation: { temperature: 0.2 },
+    },
     assess: vi.fn().mockImplementation(async (input: DetourEvent[]) =>
       input.map((item) => {
         if (item.id === "star") {
@@ -181,6 +186,11 @@ describe("EventService AI mode + cache", () => {
       fetchUpcomingEvents: async () => [event("a"), event("b")],
     };
     const assessor: HighlightAssessmentProvider = {
+      cacheContext: {
+        model: "gpt-4o-mini",
+        promptVersion: "detour-ai-assess-v2",
+        generation: { temperature: 0.2 },
+      },
       assess: vi.fn().mockRejectedValue(new Error("provider down")),
     };
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});

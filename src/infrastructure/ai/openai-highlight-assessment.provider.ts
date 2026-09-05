@@ -6,6 +6,7 @@ import {
 } from "@/domain/ai-highlight-assessment";
 import type { DetourEvent } from "@/domain/event";
 import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-assessment.provider";
+import type { AiAssessmentCacheContext } from "@/infrastructure/ai/ai-assessment-cache-key";
 
 export type OpenAiHighlightAssessmentConfig = {
   apiKey: string;
@@ -66,6 +67,7 @@ export class OpenAiHighlightAssessmentProvider
   private readonly baseUrl: string;
   readonly model: string;
   readonly temperature: number;
+  readonly cacheContext: AiAssessmentCacheContext;
   private readonly batchSize: number;
   private readonly fetchImpl: typeof fetch;
 
@@ -78,6 +80,11 @@ export class OpenAiHighlightAssessmentProvider
     this.model = config.model ?? AI_ASSESSMENT_DEFAULT_MODEL;
     this.temperature =
       config.temperature ?? AI_ASSESSMENT_DEFAULT_TEMPERATURE;
+    this.cacheContext = {
+      model: this.model,
+      promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
+      generation: { temperature: this.temperature },
+    };
     this.batchSize = config.batchSize ?? AI_HIGHLIGHT_BATCH_SIZE;
     this.fetchImpl = config.fetchImpl ?? fetch;
   }

@@ -2,8 +2,10 @@ import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
 import type { DetourEvent } from "@/domain/event";
 import {
   buildAiAssessmentEventCacheKey,
-  type AiAssessmentGenerationConfig,
+  type AiAssessmentCacheContext,
 } from "@/infrastructure/ai/ai-assessment-cache-key";
+
+export type { AiAssessmentCacheContext };
 
 /** TTL POC : 6 heures. */
 export const AI_ASSESSMENT_CACHE_TTL_SECONDS = 6 * 60 * 60;
@@ -29,12 +31,6 @@ export type AssessHighlightsCachedResult = {
   /** @deprecated Clé shortlist globale — toujours null en per-event. */
   cacheKey: string | null;
   assessedAt: string | null;
-};
-
-export type AiAssessmentCacheContext = {
-  model: string;
-  promptVersion: string;
-  generation: AiAssessmentGenerationConfig;
 };
 
 export type AiAssessmentCacheStore = {
@@ -90,16 +86,22 @@ function eventCacheKey(
 function resolveSource(params: {
   cacheHits: number;
   assessmentCount: number;
+  shortlistSize: number;
   providerCalled: boolean;
   providerFailed: boolean;
 }): AiAssessmentCacheSource {
-  const { cacheHits, assessmentCount, providerCalled, providerFailed } =
-    params;
+  const {
+    cacheHits,
+    assessmentCount,
+    shortlistSize,
+    providerCalled,
+    providerFailed,
+  } = params;
 
   if (assessmentCount === 0) return "fallback";
-  if (providerFailed && cacheHits > 0) return "partial";
+  if (providerFailed) return "partial";
   if (!providerCalled) return "cache";
-  if (cacheHits === 0) return "fresh";
+  if (cacheHits === 0 && assessmentCount === shortlistSize) return "fresh";
   return "partial";
 }
 
@@ -110,16 +112,100 @@ class AssessmentOmittedError extends Error {
   }
 }
 
+type BatchWaiter = {
+  event: DetourEvent;
+  resolve: (entry: AiAssessmentCacheEntry) => void;
+  reject: (reason: unknown) => void;
+};
+
+/**
+ * Batcher request-scoped : seuls les `compute()` réellement exécutés
+ * (vrais misses Next) s’enregistrent ; un seul `assess` pour la vague.
+ */
+function createRequestScopedAssessmentBatcher(params: {
+  assess: (events: DetourEvent[]) => Promise<AiHighlightAssessment[]>;
+  assessedAt: string;
+  totalLookups: number;
+  onProviderCalled: () => void;
+  onProviderFailed: () => void;
+  onNextHit: () => void;
+  onNextMiss: () => void;
+}) {
+  const {
+    assess,
+    assessedAt,
+    totalLookups,
+    onProviderCalled,
+    onProviderFailed,
+    onNextHit,
+    onNextMiss,
+  } = params;
+
+  let declared = 0;
+  const waiters: BatchWaiter[] = [];
+  let batchPromise: Promise<void> | null = null;
+
+  const startBatchIfReady = () => {
+    if (declared < totalLookups || batchPromise) return;
+    if (waiters.length === 0) {
+      batchPromise = Promise.resolve();
+      return;
+    }
+
+    onProviderCalled();
+    const enrolled = waiters.slice();
+    batchPromise = (async () => {
+      try {
+        const fresh = await assess(enrolled.map((item) => item.event));
+        const byId = new Map(
+          fresh.map((assessment) => [assessment.eventId, assessment]),
+        );
+        for (const waiter of enrolled) {
+          const assessment = byId.get(waiter.event.id);
+          if (!assessment) {
+            waiter.reject(new AssessmentOmittedError(waiter.event.id));
+            continue;
+          }
+          waiter.resolve({ assessment, assessedAt });
+        }
+      } catch (error) {
+        onProviderFailed();
+        for (const waiter of enrolled) {
+          waiter.reject(error);
+        }
+      }
+    })();
+  };
+
+  return {
+    declareHit() {
+      onNextHit();
+      declared += 1;
+      startBatchIfReady();
+    },
+    enroll(event: DetourEvent): Promise<AiAssessmentCacheEntry> {
+      return new Promise<AiAssessmentCacheEntry>((resolve, reject) => {
+        onNextMiss();
+        waiters.push({ event, resolve, reject });
+        declared += 1;
+        startBatchIfReady();
+      });
+    },
+    whenSettled(): Promise<void> {
+      return batchPromise ?? Promise.resolve();
+    },
+  };
+}
+
 /**
  * Évalue la shortlist avec cache **per-event**.
  *
  * - Lookup mémoire par clé event
- * - Misses : un seul `assess(misses)` (batching provider inchangé)
- * - `readThrough` (Next) : hydratation / peuplement via batch partagé
- *   (jamais 1 appel API par clé)
- * - Provider throw + cached → partial
+ * - Misses mémoire : `readThrough` (Next) ; seuls les compute exécutés
+ *   sont batchés vers le provider
+ * - Provider throw + cached (memory/Next) → partial
  * - 0 assessment → fallback
- * - Id omis → pas de cache
+ * - Id omis → pas de cache pour cette key
  */
 export async function assessHighlightsCached(params: {
   events: DetourEvent[];
@@ -184,8 +270,8 @@ export async function assessHighlightsCached(params: {
     memoryMisses.push(item);
   }
 
-  const cacheHits = resolved.size;
-  const cacheMisses = memoryMisses.length;
+  let cacheHits = resolved.size;
+  let cacheMisses = 0;
   let providerCalled = false;
   let providerFailed = false;
 
@@ -193,54 +279,49 @@ export async function assessHighlightsCached(params: {
     const assessedAt = now().toISOString();
 
     if (readThrough) {
-      let sharedBatch: Promise<Map<string, AiAssessmentCacheEntry>> | null =
-        null;
-
-      const ensureBatch = () => {
-        if (!sharedBatch) {
+      const batcher = createRequestScopedAssessmentBatcher({
+        assess,
+        assessedAt,
+        totalLookups: memoryMisses.length,
+        onProviderCalled: () => {
           providerCalled = true;
-          sharedBatch = assess(memoryMisses.map((item) => item.event)).then(
-            (fresh) => {
-              const map = new Map<string, AiAssessmentCacheEntry>();
-              for (const assessment of fresh) {
-                map.set(assessment.eventId, { assessment, assessedAt });
-              }
-              return map;
-            },
-          );
-        }
-        return sharedBatch;
-      };
+        },
+        onProviderFailed: () => {
+          providerFailed = true;
+        },
+        onNextHit: () => {
+          cacheHits += 1;
+        },
+        onNextMiss: () => {
+          cacheMisses += 1;
+        },
+      });
 
-      const settlements = await Promise.allSettled(
+      await Promise.allSettled(
         memoryMisses.map(async ({ event, key }) => {
-          const entry = await readThrough(key, async () => {
-            const map = await ensureBatch();
-            const found = map.get(event.id);
-            if (!found) throw new AssessmentOmittedError(event.id);
-            return found;
-          });
-          store.set(key, entry, ttlMs);
-          resolved.set(event.id, entry);
+          let computeStarted = false;
+          try {
+            const entry = await readThrough(key, () => {
+              computeStarted = true;
+              return batcher.enroll(event);
+            });
+            if (!computeStarted) {
+              batcher.declareHit();
+            }
+            store.set(key, entry, ttlMs);
+            resolved.set(event.id, entry);
+          } catch (error) {
+            if (!computeStarted) {
+              batcher.declareHit();
+            }
+            if (error instanceof AssessmentOmittedError) return;
+          }
         }),
       );
 
-      if (sharedBatch) {
-        const batchResult = await Promise.allSettled([sharedBatch]);
-        if (batchResult[0]?.status === "rejected") {
-          providerFailed = true;
-        }
-      }
-
-      for (const settlement of settlements) {
-        if (settlement.status === "rejected") {
-          const reason = settlement.reason;
-          if (reason instanceof AssessmentOmittedError) continue;
-          // Erreurs hors omit : si le batch a échoué, déjà providerFailed.
-          // Sinon ignorer (event sans assessment).
-        }
-      }
+      await batcher.whenSettled();
     } else {
+      cacheMisses = memoryMisses.length;
       providerCalled = true;
       try {
         const fresh = await assess(memoryMisses.map((item) => item.event));
@@ -277,6 +358,7 @@ export async function assessHighlightsCached(params: {
     source: resolveSource({
       cacheHits,
       assessmentCount: assessments.length,
+      shortlistSize: events.length,
       providerCalled,
       providerFailed,
     }),
