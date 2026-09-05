@@ -11,7 +11,12 @@ import {
   unfoldIcalLines,
   unescapeIcalText,
 } from "@/infrastructure/sources/saran/saran-ical.parser";
-import { SaranEventAdapter } from "@/infrastructure/sources/saran/saran-event.adapter";
+import {
+  SARAN_ICAL_BASE_URL,
+  SaranEventAdapter,
+  buildSaranIcalUrl,
+  saranIcalMonthsForWindow,
+} from "@/infrastructure/sources/saran/saran-event.adapter";
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 import type { DetourEvent } from "@/domain/event";
 
@@ -164,6 +169,39 @@ describe("saran ical mapper", () => {
   });
 });
 
+describe("saran iCal URL months", () => {
+  it("septembre 2026 construit 2026-09", () => {
+    expect(
+      saranIcalMonthsForWindow(
+        new Date("2026-09-01T00:00:00+02:00"),
+        new Date("2026-10-01T00:00:00+02:00"),
+      ),
+    ).toEqual(["2026-09"]);
+    expect(buildSaranIcalUrl("2026-09")).toBe(
+      `${SARAN_ICAL_BASE_URL}/2026-09`,
+    );
+  });
+
+  it("octobre 2026 ne réutilise pas septembre", () => {
+    expect(
+      saranIcalMonthsForWindow(
+        new Date("2026-10-01T00:00:00+02:00"),
+        new Date("2026-11-01T00:00:00+01:00"),
+      ),
+    ).toEqual(["2026-10"]);
+    expect(buildSaranIcalUrl("2026-10")).not.toContain("2026-09");
+  });
+
+  it("fenêtre traversant deux mois liste les deux", () => {
+    expect(
+      saranIcalMonthsForWindow(
+        new Date("2026-09-15T00:00:00+02:00"),
+        new Date("2026-10-15T00:00:00+02:00"),
+      ),
+    ).toEqual(["2026-09", "2026-10"]);
+  });
+});
+
 describe("SaranEventAdapter", () => {
   it("fetch + parse + filtre fenêtre (mock réseau)", async () => {
     const fetchSimple = vi.fn().mockResolvedValue({
@@ -181,13 +219,92 @@ describe("SaranEventAdapter", () => {
     });
     expect(inWindow).toHaveLength(1);
     expect(inWindow[0]?.source).toBe(SARAN_SOURCE_NAME);
+    expect(fetchSimple.mock.calls[0]?.[0]).toBe(
+      `${SARAN_ICAL_BASE_URL}/2026-09`,
+    );
 
     const outWindow = await adapter.fetchUpcomingEvents({
       from: new Date("2026-11-01T00:00:00+01:00"),
       to: new Date("2026-11-30T23:59:59+01:00"),
     });
     expect(outWindow).toHaveLength(0);
-    expect(fetchSimple).toHaveBeenCalled();
+    expect(fetchSimple.mock.calls[1]?.[0]).toBe(
+      `${SARAN_ICAL_BASE_URL}/2026-11`,
+    );
+  });
+
+  it("octobre fetch l’URL octobre, pas septembre", async () => {
+    const fetchSimple = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => NO_LOCATION_VEVENT,
+    });
+
+    const adapter = new SaranEventAdapter({
+      fetchImpl: fetchSimple as unknown as typeof fetch,
+    });
+
+    const events = await adapter.fetchUpcomingEvents({
+      from: new Date("2026-10-01T00:00:00+02:00"),
+      to: new Date("2026-11-01T00:00:00+01:00"),
+    });
+
+    expect(fetchSimple).toHaveBeenCalledTimes(1);
+    expect(fetchSimple.mock.calls[0]?.[0]).toBe(
+      `${SARAN_ICAL_BASE_URL}/2026-10`,
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]?.startAt).toBe("2026-10-10T10:00:00+02:00");
+  });
+
+  it("fenêtre bi-mois merge les deux feeds sans perdre le 2ᵉ mois", async () => {
+    const fetchByUrl = vi.fn(async (url: string) => {
+      const body =
+        url.endsWith("/2026-09")
+          ? STANDARD_VEVENT
+          : url.endsWith("/2026-10")
+            ? NO_LOCATION_VEVENT
+            : "BEGIN:VCALENDAR\nEND:VCALENDAR";
+      return { ok: true, text: async () => body };
+    });
+
+    const adapter = new SaranEventAdapter({
+      fetchImpl: fetchByUrl as unknown as typeof fetch,
+    });
+
+    const events = await adapter.fetchUpcomingEvents({
+      from: new Date("2026-09-01T00:00:00+02:00"),
+      to: new Date("2026-11-01T00:00:00+01:00"),
+    });
+
+    expect(fetchByUrl.mock.calls.map((call) => call[0]).sort()).toEqual([
+      `${SARAN_ICAL_BASE_URL}/2026-09`,
+      `${SARAN_ICAL_BASE_URL}/2026-10`,
+    ]);
+    expect(events.map((event) => event.id).sort()).toEqual([
+      "saran:calendar.12529.field_date_debut.0@www.mairie-saran.fr",
+      "saran:no-loc@www.mairie-saran.fr",
+    ]);
+  });
+
+  it("icalUrl override ignore la dérivation mensuelle", async () => {
+    const fetchSimple = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => STANDARD_VEVENT,
+    });
+    const override = "https://example.test/saran.ics";
+
+    const adapter = new SaranEventAdapter({
+      icalUrl: override,
+      fetchImpl: fetchSimple as unknown as typeof fetch,
+    });
+
+    await adapter.fetchUpcomingEvents({
+      from: new Date("2026-09-01T00:00:00+02:00"),
+      to: new Date("2026-11-01T00:00:00+01:00"),
+    });
+
+    expect(fetchSimple).toHaveBeenCalledTimes(1);
+    expect(fetchSimple.mock.calls[0]?.[0]).toBe(override);
   });
 });
 
