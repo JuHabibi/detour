@@ -43,6 +43,7 @@ describe("resolveIngestionCacheWindow", () => {
     );
     expect(a.cacheKey).toBe(b.cacheKey);
     expect(a.from.getTime()).toBe(b.from.getTime());
+    expect(a.to.getTime()).toBe(b.to.getTime());
   });
 
   it("pas de nouvelle clé à chaque milliseconde", () => {
@@ -54,6 +55,21 @@ describe("resolveIngestionCacheWindow", () => {
       keys.add(resolveIngestionCacheWindow(from, to).cacheKey);
     }
     expect(keys.size).toBe(1);
+  });
+
+  it("la borne to ne recule pas par rapport à la fenêtre demandée", () => {
+    const from = new Date("2026-09-05T10:07:00.000Z");
+    const to = new Date(from.getTime() + 180 * 24 * 60 * 60 * 1000);
+    const window = resolveIngestionCacheWindow(from, to);
+
+    expect(window.to.getTime()).toBeGreaterThanOrEqual(to.getTime());
+    // Couvre aussi la requête la plus tardive du même bucket.
+    const lateFrom = new Date("2026-09-05T10:09:59.000Z");
+    const lateTo = new Date(lateFrom.getTime() + 180 * 24 * 60 * 60 * 1000);
+    expect(window.to.getTime()).toBeGreaterThanOrEqual(lateTo.getTime());
+    expect(window.cacheKey).toBe(
+      resolveIngestionCacheWindow(lateFrom, lateTo).cacheKey,
+    );
   });
 
   it("bucket suivant → autre clé", () => {

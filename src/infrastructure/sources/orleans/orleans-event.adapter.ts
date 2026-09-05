@@ -1,5 +1,4 @@
 import type { DetourEvent } from "@/domain/event";
-import { INGESTION_CACHE_TTL_SECONDS } from "@/infrastructure/ingestion-cache";
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 import { mapOrleansEventToDetourEvent } from "./orleans-event.mapper";
 import type { OrleansApiResponse } from "./orleans-event.types";
@@ -62,10 +61,7 @@ async function fetchOrleansPage(
   offset: number,
 ): Promise<OrleansApiResponse> {
   const url = buildOrleansUrl(from, to, offset);
-  const response = await fetch(url, {
-    // Aligné sur le TTL d’ingestion — pas de no-store (chemin caché).
-    next: { revalidate: INGESTION_CACHE_TTL_SECONDS },
-  });
+  const response = await fetch(url);
 
   if (!response.ok) {
     throw new Error(`Orleans API error: ${response.status} ${response.statusText}`);

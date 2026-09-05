@@ -20,10 +20,14 @@ export type SerializableIngestionResult = {
 };
 
 export type IngestionCacheWindow = {
-  /** Borne from bucketisée (stable entre requêtes proches). */
+  /**
+   * Fenêtre fetch stable pour tout le bucket :
+   * from = début de bucket ; to = fin de bucket + durée demandée
+   * (jamais plus courte que la borne haute métier demandée).
+   */
   from: Date;
   to: Date;
-  /** Clé stable — pas de Date.now() à la ms. */
+  /** Clé stable — bucket from uniquement, pas de Date.now() à la ms. */
   cacheKey: string;
 };
 
@@ -38,8 +42,12 @@ export type IngestionCacheStats = {
 };
 
 /**
- * Bucketise from sur TTL ; conserve la durée demandée (arrondie à la seconde).
- * Plusieurs hits dans le même bucket partagent la même entrée.
+ * Une seule politique de fraîcheur côté clé/fenêtre d’ingestion.
+ *
+ * - `cacheKey` : bucket sur `from` + durée (secondes) → partage entre requêtes proches
+ * - fetch `from` : début du bucket (légèrement plus large en bas)
+ * - fetch `to` : début du bucket + durée du bucket + durée demandée
+ *   → la borne haute ne recule jamais vs la fenêtre demandée dans le bucket
  */
 export function resolveIngestionCacheWindow(
   from: Date,
@@ -47,14 +55,18 @@ export function resolveIngestionCacheWindow(
   options?: { bucketMs?: number },
 ): IngestionCacheWindow {
   const bucketMs = options?.bucketMs ?? INGESTION_CACHE_TTL_MS;
-  const fromMs = Math.floor(from.getTime() / bucketMs) * bucketMs;
-  const durationSec = Math.max(0, Math.round((to.getTime() - from.getTime()) / 1000));
-  const toMs = fromMs + durationSec * 1000;
+  const fromBucketMs = Math.floor(from.getTime() / bucketMs) * bucketMs;
+  const durationSec = Math.max(
+    0,
+    Math.round((to.getTime() - from.getTime()) / 1000),
+  );
+  // Couvre la requête la plus tardive du bucket : from≈bucketEnd, to≈bucketEnd+duration.
+  const fetchToMs = fromBucketMs + bucketMs + durationSec * 1000;
 
   return {
-    from: new Date(fromMs),
-    to: new Date(toMs),
-    cacheKey: `detour-ingestion:v1:${fromMs}:${durationSec}`,
+    from: new Date(fromBucketMs),
+    to: new Date(fetchToMs),
+    cacheKey: `detour-ingestion:v1:${fromBucketMs}:${durationSec}`,
   };
 }
 
