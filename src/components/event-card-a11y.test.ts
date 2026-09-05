@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveEventImageAlt } from "@/components/EventCard";
-import {
-  DETOUR_SECTION_EDITORIAL_LINE,
-  getEditorialBadgeExplanation,
-} from "@/components/editorial-badge-copy";
+import { getEditorialBadgeExplanation } from "@/components/editorial-badge-copy";
 
 describe("resolveEventImageAlt", () => {
   it("alt vide si pas d’imageAlt distinct (évite double annonce du titre)", () => {
@@ -33,10 +30,5 @@ describe("présentation éditoriale (a11y / wording)", () => {
     expect(getEditorialBadgeExplanation("Passage rare")).toContain(
       "inhabituel",
     );
-  });
-
-  it("la micro-ligne de section reste éditoriale, sans jargon IA", () => {
-    expect(DETOUR_SECTION_EDITORIAL_LINE).toMatch(/sélection/i);
-    expect(DETOUR_SECTION_EDITORIAL_LINE).not.toMatch(/\bIA\b|algorithme/i);
   });
 });

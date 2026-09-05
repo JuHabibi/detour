@@ -1,8 +1,4 @@
 import { FeaturedEventsCarousel } from "@/components/FeaturedEventsCarousel";
-import {
-  DETOUR_SECTION_EDITORIAL_LINE,
-  DETOUR_SECTION_SUBTITLE,
-} from "@/components/editorial-badge-copy";
 import type { EventItem } from "@/data/types";
 
 type DetourSectionProps = {
@@ -24,16 +20,14 @@ export function DetourSection({
       <div className="mx-auto max-w-[1440px] px-5 py-7 md:px-8 md:py-9 lg:px-12">
         <div className="mb-5 md:mb-6">
           <p className="text-[11px] uppercase tracking-[0.28em] text-sand">
-            Découverte
+            À REPÉRER
           </p>
           <h2 className="mt-2 font-display text-3xl tracking-tight md:text-[2.75rem]">
-            Faites un détour
+            À voir avant de passer à côté
           </h2>
           <p className="mt-2.5 max-w-md text-sm leading-6 text-cream-dim">
-            {DETOUR_SECTION_SUBTITLE}
-          </p>
-          <p className="mt-1.5 max-w-xl text-[13px] leading-5 text-sand">
-            {DETOUR_SECTION_EDITORIAL_LINE}
+            Des spectacles, concerts et rendez-vous locaux qu’on aurait
+            facilement pu rater.
           </p>
         </div>
 
