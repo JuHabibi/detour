@@ -1,5 +1,6 @@
 import type { EventRelevance } from "@/domain/events/event";
 import type { DetourCategory } from "@/domain/events/classify-event-category";
+import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 
 export type { DetourCategory };
 
@@ -61,9 +62,3 @@ export type EventItem = {
    */
   editorialBadge?: EditorialBadge;
 };
-
-export type EditorialBadge =
-  | "À réserver"
-  | "À anticiper"
-  | "Passage rare"
-  | "Pépite locale";

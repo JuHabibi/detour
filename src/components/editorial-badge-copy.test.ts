@@ -3,7 +3,7 @@ import {
   EDITORIAL_BADGE_EXPLANATIONS,
   getEditorialBadgeExplanation,
 } from "@/components/editorial-badge-copy";
-import type { EditorialBadge } from "@/data/types";
+import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 
 const BADGES: EditorialBadge[] = [
   "À réserver",

@@ -5,12 +5,8 @@ import { useId } from "react";
 import { formatDistanceKm } from "@/application/format-distance";
 import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
 import { getEditorialBadgeExplanation } from "@/components/editorial-badge-copy";
-import type {
-  CategoryId,
-  EditorialBadge,
-  EventItem,
-  EventSignal,
-} from "@/data/types";
+import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
+import type { CategoryId, EventItem, EventSignal } from "@/data/types";
 import { cn } from "@/lib/cn";
 
 type CardProps = {

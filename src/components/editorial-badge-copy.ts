@@ -1,4 +1,4 @@
-import type { EditorialBadge } from "@/data/types";
+import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 
 /** Sous-titre section « Faites un détour » (inchangé). */
 export const DETOUR_SECTION_SUBTITLE =
