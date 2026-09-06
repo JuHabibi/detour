@@ -9,8 +9,8 @@ import {
   type IngestingEventSource,
 } from "@/infrastructure/composite-event-source.adapter";
 
-/** TTL POC ingestion : 10 min (milieu de la fourchette 5–15). */
-export const INGESTION_CACHE_TTL_SECONDS = 10 * 60;
+/** TTL ingestion : 1 h — bucket + revalidate Next alignés. */
+export const INGESTION_CACHE_TTL_SECONDS = 60 * 60;
 export const INGESTION_CACHE_TTL_MS = INGESTION_CACHE_TTL_SECONDS * 1000;
 
 /** Forme JSON-safe pour Next Data Cache / mémoire. */
@@ -58,6 +58,7 @@ export type IngestionCacheStats = {
  * - fetch `from` : début du bucket (légèrement plus large en bas)
  * - fetch `to` : début du bucket + durée du bucket + durée demandée
  *   → la borne haute ne recule jamais vs la fenêtre demandée dans le bucket
+ * - avec TTL 1 h : sur-fetch max ≈ +1 h en haut vs la fenêtre métier demandée
  */
 export function resolveIngestionCacheWindow(
   from: Date,
@@ -76,7 +77,7 @@ export function resolveIngestionCacheWindow(
   return {
     from: new Date(fromBucketMs),
     to: new Date(fetchToMs),
-    cacheKey: `detour-ingestion:v1:${fromBucketMs}:${durationSec}`,
+    cacheKey: `detour-ingestion:v2:${fromBucketMs}:${durationSec}`,
   };
 }
 
@@ -138,6 +139,9 @@ export function createMemoryIngestionReadThrough(options?: {
 /**
  * Wrapper infrastructure : cache l’ingestion composite, pas le ranking.
  * EventService reste agnostique du mécanisme Next/mémoire.
+ *
+ * Singleflight in-process sur `cacheKey` : plusieurs cold misses concurrents
+ * partagent une seule Promise (pas de cache supplémentaire ; multi-instance hors scope).
  */
 export function wrapWithIngestionCache(
   inner: EventSourceAdapter,
@@ -161,10 +165,18 @@ export function wrapWithIngestionCache(
     };
   };
 
+  const inflight = new Map<string, Promise<SerializableIngestionResult>>();
+
   const cached: EventSourceAdapter & IngestingEventSource = {
     async ingestUpcomingEvents(params) {
       const window = resolveIngestionCacheWindow(params.from, params.to);
-      const payload = await readThrough(window.cacheKey, async () => {
+
+      const existing = inflight.get(window.cacheKey);
+      if (existing) {
+        return deserializeIngestionResult(await existing);
+      }
+
+      const pending = readThrough(window.cacheKey, async () => {
         const result = await ingestInner({
           from: window.from,
           to: window.to,
@@ -173,8 +185,14 @@ export function wrapWithIngestionCache(
           payload: serializeIngestionResult(result),
           cacheable: !isPartialIngestion(result),
         };
+      }).finally(() => {
+        if (inflight.get(window.cacheKey) === pending) {
+          inflight.delete(window.cacheKey);
+        }
       });
-      return deserializeIngestionResult(payload);
+
+      inflight.set(window.cacheKey, pending);
+      return deserializeIngestionResult(await pending);
     },
     async fetchUpcomingEvents(params) {
       const ingestion = await cached.ingestUpcomingEvents(params);
