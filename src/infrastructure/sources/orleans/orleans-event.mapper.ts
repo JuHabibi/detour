@@ -9,7 +9,7 @@ export function mapOrleansEventToDetourEvent(
   }
 
   return {
-    id: rawEvent.uid,
+    id: `openagenda:${rawEvent.uid}`,
     title: rawEvent.title_fr.trim(),
     description: emptyToNull(rawEvent.description_fr),
     imageUrl: emptyToNull(rawEvent.image),
