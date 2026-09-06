@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ingestionFromPlainEvents } from "@/application/source-ingestion-stats";
+import { ingestionFromPlainEvents } from "@/application/ingestion/event-ingestion-result";
 import { mapOrleansEventToDetourEvent } from "@/infrastructure/sources/orleans/orleans-event.mapper";
 import type { OrleansRawEvent } from "@/infrastructure/sources/orleans/orleans-event.types";
 import { mapSaranIcalEventToDetourEvent } from "@/infrastructure/sources/saran/saran-ical.mapper";

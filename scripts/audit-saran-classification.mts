@@ -3,7 +3,7 @@
  * Usage : npx tsx scripts/audit-saran-classification.mts
  */
 import { classifyEventRelevance } from "../src/domain/classify-event-relevance";
-import { buildSaranClassificationAudit } from "../src/application/source-ingestion-stats";
+import { buildSaranClassificationAudit } from "../src/application/debug/saran-ingestion-debug";
 import { SaranEventAdapter } from "../src/infrastructure/sources/saran/saran-event.adapter";
 
 const WINDOW_DAYS = 180;

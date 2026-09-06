@@ -41,13 +41,17 @@ import {
 import {
   buildSaranClassificationAudit,
   buildSaranDuplicateDebug,
-  buildSourceIngestionStats,
-  ingestionFromPlainEvents,
-  type EventIngestionResult,
   type SaranClassificationAudit,
   type SaranDuplicateDebug,
+} from "@/application/debug/saran-ingestion-debug";
+import {
+  ingestionFromPlainEvents,
+  type EventIngestionResult,
+} from "@/application/ingestion/event-ingestion-result";
+import {
+  buildSourceIngestionStats,
   type SourceIngestionStat,
-} from "@/application/source-ingestion-stats";
+} from "@/application/ingestion/source-ingestion-stats";
 import type {
   AiShortlistBucketStats,
   AiShortlistInclusionReason,

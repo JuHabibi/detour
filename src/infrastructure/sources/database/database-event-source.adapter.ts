@@ -1,7 +1,7 @@
 import type {
   EventIngestionResult,
   SourceIngestionStatus,
-} from "@/application/source-ingestion-stats";
+} from "@/application/ingestion/event-ingestion-result";
 import type { DetourEvent } from "@/domain/event";
 import type { IngestingEventSource } from "@/infrastructure/composite-event-source.adapter";
 import {

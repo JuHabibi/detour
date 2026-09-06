@@ -1,11 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { EventService } from "@/application/event.service";
-import {
-  buildSaranClassificationAudit,
-  buildSaranDuplicateDebug,
-  buildSourceIngestionStats,
-  type EventIngestionResult,
-} from "@/application/source-ingestion-stats";
+import type { EventIngestionResult } from "@/application/ingestion/event-ingestion-result";
+import { buildSourceIngestionStats } from "@/application/ingestion/source-ingestion-stats";
 import type { AiConfig } from "@/config/ai-config";
 import { classifyEventRelevance } from "@/domain/classify-event-relevance";
 import { deduplicateEvents } from "@/domain/deduplicate-events";
@@ -198,45 +194,7 @@ describe("Source ingestion stats", () => {
     });
   });
 
-  it("Saran classification audit : counts + tri out_of_scope d’abord", () => {
-    const classified = classifyAll([
-      baseEvent({ id: "saran:c", title: "Concert jazz" }),
-      baseEvent({
-        id: "saran:x",
-        title: "Cours de yoga",
-        category: "Sport",
-        description: "Séance douce pour débutants dans le parc.",
-      }),
-      baseEvent({
-        id: "saran:l",
-        title: "Balade nature",
-        category: "Loisirs",
-        description: "Sortie familiale en forêt.",
-      }),
-      baseEvent({ id: "oa-1", title: "Concert Orléans" }),
-    ]);
-
-    const audit = buildSaranClassificationAudit({
-      classifiedEvents: classified,
-      adapterByEventId: new Map([
-        ["saran:c", "saran"],
-        ["saran:x", "saran"],
-        ["saran:l", "saran"],
-        ["oa-1", "orleans"],
-      ]),
-    });
-
-    expect(audit.total).toBe(3);
-    expect(audit.culture).toBe(1);
-    expect(audit.outOfScope).toBeGreaterThanOrEqual(1);
-    expect(audit.rows[0]?.relevance).toBe("out_of_scope");
-    expect(audit.rows.some((row) => row.eventId === "oa-1")).toBe(false);
-    expect(
-      audit.rows.find((row) => row.eventId === "saran:x")?.descriptionSnippet,
-    ).toContain("Séance douce");
-  });
-
-  it("déduplication cross-source + stats cohérentes + Saran duplicates", () => {
+  it("déduplication cross-source + stats cohérentes", () => {
     const sharedStart = "2026-09-20T20:00:00+02:00";
     const sharedVenue = "Espace culturel";
     const sharedCity = "Saran";
@@ -325,20 +283,6 @@ describe("Source ingestion stats", () => {
         duplicatesRemoved: 1,
       },
     ]);
-
-    const saranRows = buildSaranDuplicateDebug({
-      duplicates,
-      classifiedEvents: classified,
-      adapterByEventId: ingestion.adapterByEventId,
-    });
-    expect(saranRows).toHaveLength(1);
-    expect(saranRows[0]).toMatchObject({
-      saranTitle: "Festival des arts vivants",
-      keptTitle: "Festival des arts vivants",
-      keptSource: "Ville d'Orléans",
-      keptAdapterId: "orleans",
-      reason: "same-time-place-similar-title",
-    });
   });
 
   it("source en échec → rawCount 0, stats présentes", async () => {

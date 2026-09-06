@@ -226,7 +226,7 @@ describe("wrapWithIngestionCache", () => {
       "@/infrastructure/composite-event-source.adapter"
     );
     const { isPartialIngestion } = await import(
-      "@/application/source-ingestion-stats"
+      "@/application/ingestion/event-ingestion-result"
     );
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});

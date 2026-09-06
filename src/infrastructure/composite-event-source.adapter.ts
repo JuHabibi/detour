@@ -3,7 +3,7 @@ import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 import type {
   EventIngestionResult,
   SourceIngestionStatus,
-} from "@/application/source-ingestion-stats";
+} from "@/application/ingestion/event-ingestion-result";
 
 export type NamedEventSource = {
   /** Id technique : orleans | saran | … */
