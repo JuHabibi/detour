@@ -136,11 +136,109 @@ describe("wrapWithIngestionCache", () => {
       events: [stubEvent("x")],
       adapterByEventId: new Map([["x", "orleans"]]),
       rawCountByAdapter: new Map([["orleans", 1]]),
+      statusByAdapter: new Map([["orleans", "ok" as const]]),
       sourceNameByAdapter: new Map([["orleans", "Orléans"]]),
       adapterOrder: ["orleans"],
     };
     const roundTrip = deserializeIngestionResult(serializeIngestionResult(result));
     expect(roundTrip.adapterByEventId.get("x")).toBe("orleans");
     expect(roundTrip.rawCountByAdapter.get("orleans")).toBe(1);
+    expect(roundTrip.statusByAdapter.get("orleans")).toBe("ok");
+  });
+
+  it("ingestion partielle (source error) → non persistée, corpus restant retourné", async () => {
+    const { CompositeEventSourceAdapter } = await import(
+      "@/infrastructure/composite-event-source.adapter"
+    );
+    const { isPartialIngestion } = await import(
+      "@/application/source-ingestion-stats"
+    );
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const orleansCalls = vi.fn(async () => {
+      throw new Error("rate limit");
+    });
+    const saranCalls = vi.fn(async () => [stubEvent("saran:1")]);
+
+    const composite = new CompositeEventSourceAdapter([
+      {
+        name: "orleans",
+        label: "Orléans / OpenAgenda",
+        adapter: { fetchUpcomingEvents: orleansCalls },
+      },
+      {
+        name: "saran",
+        label: "Ville de Saran",
+        adapter: { fetchUpcomingEvents: saranCalls },
+      },
+    ]);
+
+    const stats = { hits: 0, misses: 0 };
+    const cached = wrapWithIngestionCache(
+      composite,
+      createMemoryIngestionReadThrough({ stats }),
+    );
+
+    const from = new Date("2026-09-05T10:01:00.000Z");
+    const to = new Date("2027-03-04T10:01:00.000Z");
+
+    const first = await cached.ingestUpcomingEvents({ from, to });
+    expect(isPartialIngestion(first)).toBe(true);
+    expect(first.statusByAdapter.get("orleans")).toBe("error");
+    expect(first.statusByAdapter.get("saran")).toBe("ok");
+    expect(first.events.map((e) => e.id)).toEqual(["saran:1"]);
+    expect(stats.misses).toBe(1);
+    expect(stats.hits).toBe(0);
+
+    const second = await cached.ingestUpcomingEvents({ from, to });
+    expect(second.events.map((e) => e.id)).toEqual(["saran:1"]);
+    // Pas de hit : le partiel n’a pas été stocké → second miss + re-fetch
+    expect(stats.misses).toBe(2);
+    expect(stats.hits).toBe(0);
+    expect(orleansCalls).toHaveBeenCalledTimes(2);
+    expect(saranCalls).toHaveBeenCalledTimes(2);
+
+    errorSpy.mockRestore();
+  });
+
+  it("toutes sources ok → cacheable (hit sur 2e requête)", async () => {
+    const { CompositeEventSourceAdapter } = await import(
+      "@/infrastructure/composite-event-source.adapter"
+    );
+
+    const fetchOrleans = vi.fn(async () => [stubEvent("oa-1")]);
+    const fetchSaran = vi.fn(async () => [stubEvent("saran:1")]);
+    const composite = new CompositeEventSourceAdapter([
+      {
+        name: "orleans",
+        label: "Orléans / OpenAgenda",
+        adapter: { fetchUpcomingEvents: fetchOrleans },
+      },
+      {
+        name: "saran",
+        label: "Ville de Saran",
+        adapter: { fetchUpcomingEvents: fetchSaran },
+      },
+    ]);
+
+    const stats = { hits: 0, misses: 0 };
+    const cached = wrapWithIngestionCache(
+      composite,
+      createMemoryIngestionReadThrough({ stats }),
+    );
+
+    const from = new Date("2026-09-05T10:01:00.000Z");
+    const to = new Date("2027-03-04T10:01:00.000Z");
+
+    const first = await cached.ingestUpcomingEvents({ from, to });
+    expect(first.statusByAdapter.get("orleans")).toBe("ok");
+    expect(first.statusByAdapter.get("saran")).toBe("ok");
+
+    const second = await cached.ingestUpcomingEvents({ from, to });
+    expect(second.events).toHaveLength(2);
+    expect(stats.misses).toBe(1);
+    expect(stats.hits).toBe(1);
+    expect(fetchOrleans).toHaveBeenCalledTimes(1);
+    expect(fetchSaran).toHaveBeenCalledTimes(1);
   });
 });

@@ -102,6 +102,7 @@ export type EventsDebugMeta = {
   sourceIngestion?: Array<{
     adapterId: string;
     sourceName: string;
+    status: "ok" | "error";
     rawCount: number;
     classifiedCount: number;
     dedupedContribution: number;
@@ -311,6 +312,7 @@ export function EventsDebugPanel({
                     <thead className="border-b border-line bg-foam/60 text-[10px] uppercase tracking-[0.14em] text-sand">
                       <tr>
                         <th className="px-3 py-2.5 font-medium">Source</th>
+                        <th className="px-3 py-2.5 font-medium">Status</th>
                         <th className="px-3 py-2.5 font-medium">Raw</th>
                         <th className="px-3 py-2.5 font-medium">
                           Relevant
@@ -334,6 +336,9 @@ export function EventsDebugPanel({
                             <span className="mt-0.5 block font-mono text-[10px] text-sand">
                               {row.adapterId}
                             </span>
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-ink">
+                            {row.status}
                           </td>
                           <td className="px-3 py-2.5 font-mono text-ink">
                             {row.rawCount}

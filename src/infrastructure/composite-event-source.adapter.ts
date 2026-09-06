@@ -1,6 +1,9 @@
 import type { DetourEvent } from "@/domain/event";
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
-import type { EventIngestionResult } from "@/application/source-ingestion-stats";
+import type {
+  EventIngestionResult,
+  SourceIngestionStatus,
+} from "@/application/source-ingestion-stats";
 
 export type NamedEventSource = {
   /** Id technique : orleans | saran | … */
@@ -19,7 +22,7 @@ export type IngestingEventSource = {
 
 /**
  * Agrège plusieurs sources avec provenance adapterId.
- * Une source en erreur n’interrompt pas les autres (rawCount = 0).
+ * Une source en erreur n’interrompt pas les autres (status=error, rawCount=0).
  */
 export class CompositeEventSourceAdapter
   implements EventSourceAdapter, IngestingEventSource
@@ -40,6 +43,7 @@ export class CompositeEventSourceAdapter
   }): Promise<EventIngestionResult> {
     const adapterByEventId = new Map<string, string>();
     const rawCountByAdapter = new Map<string, number>();
+    const statusByAdapter = new Map<string, SourceIngestionStatus>();
     const sourceNameByAdapter = new Map<string, string>();
     const adapterOrder = this.sources.map(({ name }) => name);
     const allEvents: DetourEvent[] = [];
@@ -47,21 +51,31 @@ export class CompositeEventSourceAdapter
     for (const { name, label } of this.sources) {
       sourceNameByAdapter.set(name, label);
       rawCountByAdapter.set(name, 0);
+      statusByAdapter.set(name, "ok");
     }
 
     const batches = await Promise.all(
       this.sources.map(async ({ name, adapter }) => {
         try {
           const events = await adapter.fetchUpcomingEvents(params);
-          return { name, events };
+          return {
+            name,
+            events,
+            status: "ok" as const,
+          };
         } catch (error) {
           console.error(`[detour] event source failed: ${name}`, error);
-          return { name, events: [] as DetourEvent[] };
+          return {
+            name,
+            events: [] as DetourEvent[],
+            status: "error" as const,
+          };
         }
       }),
     );
 
-    for (const { name, events } of batches) {
+    for (const { name, events, status } of batches) {
+      statusByAdapter.set(name, status);
       rawCountByAdapter.set(name, events.length);
       for (const event of events) {
         adapterByEventId.set(event.id, name);
@@ -73,6 +87,7 @@ export class CompositeEventSourceAdapter
       events: allEvents,
       adapterByEventId,
       rawCountByAdapter,
+      statusByAdapter,
       sourceNameByAdapter,
       adapterOrder,
     };

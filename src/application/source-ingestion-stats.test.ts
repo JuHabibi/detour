@@ -98,6 +98,8 @@ describe("Source ingestion stats", () => {
     expect(ingestion.adapterByEventId.get("saran:1")).toBe("saran");
     expect(ingestion.rawCountByAdapter.get("orleans")).toBe(2);
     expect(ingestion.rawCountByAdapter.get("saran")).toBe(1);
+    expect(ingestion.statusByAdapter.get("orleans")).toBe("ok");
+    expect(ingestion.statusByAdapter.get("saran")).toBe("ok");
     // Deux sources métier OpenAgenda ≠ un seul adapterId
     expect(ingestion.events.filter((e) => e.source !== "Ville de Saran")).toHaveLength(2);
   });
@@ -119,6 +121,7 @@ describe("Source ingestion stats", () => {
         ["c2", "saran"],
       ]),
       rawCountByAdapter: new Map([["saran", 3]]),
+      statusByAdapter: new Map([["saran", "ok"]]),
       sourceNameByAdapter: new Map([["saran", "Ville de Saran"]]),
       adapterOrder: ["saran"],
     };
@@ -136,6 +139,7 @@ describe("Source ingestion stats", () => {
       {
         adapterId: "saran",
         sourceName: "Ville de Saran",
+        status: "ok",
         rawCount: 3,
         classifiedCount: 2,
         dedupedContribution: 3,
@@ -161,6 +165,7 @@ describe("Source ingestion stats", () => {
         ["oos", "orleans"],
       ]),
       rawCountByAdapter: new Map([["orleans", 2]]),
+      statusByAdapter: new Map([["orleans", "ok"]]),
       sourceNameByAdapter: new Map([
         ["orleans", "Orléans / OpenAgenda"],
       ]),
@@ -184,6 +189,7 @@ describe("Source ingestion stats", () => {
     expect(stats[0]).toEqual({
       adapterId: "orleans",
       sourceName: "Orléans / OpenAgenda",
+      status: "ok",
       rawCount: 2,
       classifiedCount: 1,
       dedupedContribution: 2,
@@ -273,6 +279,10 @@ describe("Source ingestion stats", () => {
         ["orleans", 1],
         ["saran", 2],
       ]),
+      statusByAdapter: new Map([
+        ["orleans", "ok"],
+        ["saran", "ok"],
+      ]),
       sourceNameByAdapter: new Map([
         ["orleans", "Orléans / OpenAgenda"],
         ["saran", "Ville de Saran"],
@@ -297,6 +307,7 @@ describe("Source ingestion stats", () => {
       {
         adapterId: "orleans",
         sourceName: "Orléans / OpenAgenda",
+        status: "ok",
         rawCount: 1,
         classifiedCount: 1,
         dedupedContribution: 1,
@@ -306,6 +317,7 @@ describe("Source ingestion stats", () => {
       {
         adapterId: "saran",
         sourceName: "Ville de Saran",
+        status: "ok",
         rawCount: 2,
         classifiedCount: 2,
         dedupedContribution: 1,
@@ -354,6 +366,8 @@ describe("Source ingestion stats", () => {
 
     expect(ingestion.rawCountByAdapter.get("saran")).toBe(0);
     expect(ingestion.rawCountByAdapter.get("orleans")).toBe(1);
+    expect(ingestion.statusByAdapter.get("saran")).toBe("error");
+    expect(ingestion.statusByAdapter.get("orleans")).toBe("ok");
     expect(ingestion.adapterOrder).toEqual(["orleans", "saran"]);
 
     const classified = classifyAll(ingestion.events);
@@ -368,6 +382,7 @@ describe("Source ingestion stats", () => {
     expect(stats.find((s) => s.adapterId === "saran")).toEqual({
       adapterId: "saran",
       sourceName: "Ville de Saran",
+      status: "error",
       rawCount: 0,
       classifiedCount: 0,
       dedupedContribution: 0,
@@ -414,6 +429,7 @@ describe("Source ingestion stats", () => {
 
     expect(stats[1]).toMatchObject({
       adapterId: "saran",
+      status: "ok",
       rawCount: 0,
       classifiedCount: 0,
       dedupedContribution: 0,
@@ -481,6 +497,7 @@ describe("Source ingestion stats", () => {
       {
         adapterId: "orleans",
         sourceName: "Orléans / OpenAgenda",
+        status: "ok",
         rawCount: 2,
         classifiedCount: 1,
         dedupedContribution: 2,
@@ -490,6 +507,7 @@ describe("Source ingestion stats", () => {
       {
         adapterId: "saran",
         sourceName: "Ville de Saran",
+        status: "ok",
         rawCount: 1,
         classifiedCount: 1,
         dedupedContribution: 0,

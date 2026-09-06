@@ -1,4 +1,7 @@
-import type { EventIngestionResult } from "@/application/source-ingestion-stats";
+import {
+  isPartialIngestion,
+  type EventIngestionResult,
+} from "@/application/source-ingestion-stats";
 import type { DetourEvent } from "@/domain/event";
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 import {
@@ -15,8 +18,15 @@ export type SerializableIngestionResult = {
   events: DetourEvent[];
   adapterByEventId: Array<[string, string]>;
   rawCountByAdapter: Array<[string, number]>;
+  statusByAdapter: Array<[string, "ok" | "error"]>;
   sourceNameByAdapter: Array<[string, string]>;
   adapterOrder: string[];
+};
+
+/** Résultat du compute : le store décide selon `cacheable`. */
+export type IngestionComputeResult = {
+  payload: SerializableIngestionResult;
+  cacheable: boolean;
 };
 
 export type IngestionCacheWindow = {
@@ -33,7 +43,7 @@ export type IngestionCacheWindow = {
 
 export type IngestionReadThrough = (
   cacheKey: string,
-  compute: () => Promise<SerializableIngestionResult>,
+  compute: () => Promise<IngestionComputeResult>,
 ) => Promise<SerializableIngestionResult>;
 
 export type IngestionCacheStats = {
@@ -77,6 +87,7 @@ export function serializeIngestionResult(
     events: result.events,
     adapterByEventId: [...result.adapterByEventId.entries()],
     rawCountByAdapter: [...result.rawCountByAdapter.entries()],
+    statusByAdapter: [...result.statusByAdapter.entries()],
     sourceNameByAdapter: [...result.sourceNameByAdapter.entries()],
     adapterOrder: [...result.adapterOrder],
   };
@@ -89,6 +100,7 @@ export function deserializeIngestionResult(
     events: payload.events,
     adapterByEventId: new Map(payload.adapterByEventId),
     rawCountByAdapter: new Map(payload.rawCountByAdapter),
+    statusByAdapter: new Map(payload.statusByAdapter),
     sourceNameByAdapter: new Map(payload.sourceNameByAdapter),
     adapterOrder: payload.adapterOrder,
   };
@@ -103,7 +115,10 @@ export function createMemoryIngestionReadThrough(options?: {
   const now = options?.now ?? Date.now;
   const ttlMs = options?.ttlMs ?? INGESTION_CACHE_TTL_MS;
   const stats = options?.stats;
-  const store = new Map<string, { entry: SerializableIngestionResult; expiresAt: number }>();
+  const store = new Map<
+    string,
+    { entry: SerializableIngestionResult; expiresAt: number }
+  >();
 
   return async (cacheKey, compute) => {
     const record = store.get(cacheKey);
@@ -112,9 +127,11 @@ export function createMemoryIngestionReadThrough(options?: {
       return record.entry;
     }
     if (stats) stats.misses += 1;
-    const entry = await compute();
-    store.set(cacheKey, { entry, expiresAt: now() + ttlMs });
-    return entry;
+    const { payload, cacheable } = await compute();
+    if (cacheable) {
+      store.set(cacheKey, { entry: payload, expiresAt: now() + ttlMs });
+    }
+    return payload;
   };
 }
 
@@ -138,6 +155,7 @@ export function wrapWithIngestionCache(
       events,
       adapterByEventId: new Map(events.map((event) => [event.id, "default"])),
       rawCountByAdapter: new Map([["default", events.length]]),
+      statusByAdapter: new Map([["default", "ok"]]),
       sourceNameByAdapter: new Map([["default", "default"]]),
       adapterOrder: ["default"],
     };
@@ -151,7 +169,10 @@ export function wrapWithIngestionCache(
           from: window.from,
           to: window.to,
         });
-        return serializeIngestionResult(result);
+        return {
+          payload: serializeIngestionResult(result),
+          cacheable: !isPartialIngestion(result),
+        };
       });
       return deserializeIngestionResult(payload);
     },

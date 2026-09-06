@@ -350,14 +350,97 @@ describe("CompositeEventSourceAdapter", () => {
       { name: "orleans", label: "Orléans / OpenAgenda", adapter: ok },
     ]);
 
-    const events = await composite.fetchUpcomingEvents({
+    const ingestion = await composite.ingestUpcomingEvents({
       from: new Date("2026-09-01"),
       to: new Date("2026-12-01"),
     });
 
-    expect(events).toHaveLength(1);
-    expect(events[0]?.id).toBe("ok");
+    expect(ingestion.events).toHaveLength(1);
+    expect(ingestion.events[0]?.id).toBe("ok");
+    expect(ingestion.statusByAdapter.get("saran")).toBe("error");
+    expect(ingestion.statusByAdapter.get("orleans")).toBe("ok");
+    expect(ingestion.rawCountByAdapter.get("saran")).toBe(0);
     expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("OpenAgenda ok avec events → status ok + count", async () => {
+    const composite = new CompositeEventSourceAdapter([
+      {
+        name: "orleans",
+        label: "Orléans / OpenAgenda",
+        adapter: {
+          fetchUpcomingEvents: async () => [
+            eventStub("openagenda:1", "Agenda Orléans"),
+            eventStub("openagenda:2", "Agenda Orléans"),
+          ],
+        },
+      },
+    ]);
+
+    const ingestion = await composite.ingestUpcomingEvents({
+      from: new Date("2026-09-01"),
+      to: new Date("2026-12-01"),
+    });
+
+    expect(ingestion.statusByAdapter.get("orleans")).toBe("ok");
+    expect(ingestion.rawCountByAdapter.get("orleans")).toBe(2);
+    expect(ingestion.adapterByEventId.get("openagenda:1")).toBe("orleans");
+  });
+
+  it("OpenAgenda ok avec [] → status ok, rawCount 0", async () => {
+    const composite = new CompositeEventSourceAdapter([
+      {
+        name: "orleans",
+        label: "Orléans / OpenAgenda",
+        adapter: { fetchUpcomingEvents: async () => [] },
+      },
+    ]);
+
+    const ingestion = await composite.ingestUpcomingEvents({
+      from: new Date("2026-09-01"),
+      to: new Date("2026-12-01"),
+    });
+
+    expect(ingestion.statusByAdapter.get("orleans")).toBe("ok");
+    expect(ingestion.rawCountByAdapter.get("orleans")).toBe(0);
+    expect(ingestion.events).toEqual([]);
+  });
+
+  it("OpenAgenda throw + Saran ok → error isolé, events Saran conservés", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const composite = new CompositeEventSourceAdapter([
+      {
+        name: "orleans",
+        label: "Orléans / OpenAgenda",
+        adapter: {
+          fetchUpcomingEvents: async () => {
+            throw new Error("429 rate limit");
+          },
+        },
+      },
+      {
+        name: "saran",
+        label: "Ville de Saran",
+        adapter: {
+          fetchUpcomingEvents: async () => [
+            eventStub("saran:1", SARAN_SOURCE_NAME),
+          ],
+        },
+      },
+    ]);
+
+    const ingestion = await composite.ingestUpcomingEvents({
+      from: new Date("2026-09-01"),
+      to: new Date("2026-12-01"),
+    });
+
+    expect(ingestion.statusByAdapter.get("orleans")).toBe("error");
+    expect(ingestion.statusByAdapter.get("saran")).toBe("ok");
+    expect(ingestion.rawCountByAdapter.get("orleans")).toBe(0);
+    expect(ingestion.rawCountByAdapter.get("saran")).toBe(1);
+    expect(ingestion.events.map((e) => e.id)).toEqual(["saran:1"]);
+    expect(ingestion.adapterByEventId.get("saran:1")).toBe("saran");
     errorSpy.mockRestore();
   });
 });
