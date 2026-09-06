@@ -216,3 +216,109 @@ describe("mapDetourHighlightToEventItem — pastille éditoriale", () => {
     expect(item.editorialBadge).toBeUndefined();
   });
 });
+
+describe("mapDetourEventToEventItem — labels multi-jours", () => {
+  it("single-day : dateLabel long + time inchangés", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "single",
+        title: "Concert",
+        startAt: "2026-09-12T20:00:00+02:00",
+        endAt: null,
+      }),
+    );
+    expect(item.dateLabel).toMatch(/samedi/i);
+    expect(item.dateLabel).toMatch(/12/);
+    expect(item.time).toBe("20h00");
+  });
+
+  it("même jour civil Paris avec endAt → single-day (avec heure)", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "same-day",
+        title: "Atelier",
+        startAt: "2026-09-12T14:00:00+02:00",
+        endAt: "2026-09-12T18:00:00+02:00",
+      }),
+    );
+    expect(item.dateLabel).toMatch(/samedi/i);
+    expect(item.time).toBe("14h00");
+  });
+
+  it("multi-day futur => Du … au …, sans time", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "future-range",
+        title: "Expo",
+        startAt: "2026-09-10T14:00:00+02:00",
+        endAt: "2026-09-27T18:00:00+02:00",
+      }),
+    );
+    expect(item.dateLabel).toBe("Du 10 au 27 sept.");
+    expect(item.time).toBeUndefined();
+  });
+
+  it("multi-day déjà commencé => Du … au … (pas Jusqu’au), sans time", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "ongoing",
+        title: "Exposition - Un regard sur le vivant",
+        startAt: "2026-09-04T14:00:00+02:00",
+        endAt: "2026-09-27T18:00:00+02:00",
+      }),
+    );
+    expect(item.dateLabel).toBe("Du 4 au 27 sept.");
+    expect(item.time).toBeUndefined();
+  });
+
+  it("plage sur deux mois", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "cross-month",
+        title: "Expo",
+        startAt: "2026-08-28T10:00:00+02:00",
+        endAt: "2026-09-02T18:00:00+02:00",
+      }),
+    );
+    expect(item.dateLabel).toBe("Du 28 août au 2 sept.");
+    expect(item.time).toBeUndefined();
+  });
+
+  it("timezone Europe/Paris : UTC minuit peut basculer de jour civil", () => {
+    // 2026-09-04T22:00:00Z = 2026-09-05 00:00 Europe/Paris
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "tz",
+        title: "Expo",
+        startAt: "2026-09-04T22:00:00.000Z",
+        endAt: "2026-09-27T16:00:00.000Z",
+      }),
+    );
+    expect(item.dateLabel).toBe("Du 5 au 27 sept.");
+    expect(item.time).toBeUndefined();
+  });
+
+  it("endAt invalide ou antérieur à startAt → fallback single-day", () => {
+    const invalid = mapDetourEventToEventItem(
+      baseEvent({
+        id: "bad-end",
+        title: "Concert",
+        startAt: "2026-09-12T20:00:00+02:00",
+        endAt: "not-a-date",
+      }),
+    );
+    expect(invalid.time).toBe("20h00");
+    expect(invalid.dateLabel).toMatch(/samedi/i);
+
+    const inverted = mapDetourEventToEventItem(
+      baseEvent({
+        id: "inverted",
+        title: "Concert",
+        startAt: "2026-09-12T20:00:00+02:00",
+        endAt: "2026-09-10T20:00:00+02:00",
+      }),
+    );
+    expect(inverted.time).toBe("20h00");
+    expect(inverted.dateLabel).toMatch(/samedi/i);
+  });
+});

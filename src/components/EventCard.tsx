@@ -551,9 +551,41 @@ function formatPrice(price: EventItem["price"]): string | null {
 }
 
 function formatWhen(event: EventItem) {
+  if (isMultiDayCivilParis(event)) {
+    return event.dateLabel;
+  }
   // Version compacte pour les cartes (densité).
   const label = formatCompactDateLabel(event.date);
   return event.time ? `${label} · ${event.time}` : label;
+}
+
+/** Exporté pour tests — label affiché sur les cards. */
+export { formatWhen };
+
+function isMultiDayCivilParis(event: EventItem): boolean {
+  if (!event.startAt || !event.endAt) return false;
+  const startKey = toParisDateKey(event.startAt);
+  const endKey = toParisDateKey(event.endAt);
+  if (!startKey || !endKey) return false;
+  return startKey !== endKey;
+}
+
+function toParisDateKey(iso: string): string | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) return null;
+  return `${year}-${month}-${day}`;
 }
 
 function formatCompactDateLabel(dateKey: string): string {

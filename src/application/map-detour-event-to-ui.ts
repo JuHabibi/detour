@@ -11,6 +11,7 @@ import type { EventItem } from "@/data/types";
 
 export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
   const start = new Date(event.startAt);
+  const presentation = resolveDatePresentation(event, start);
 
   return {
     id: event.id,
@@ -20,10 +21,10 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
     venue: event.venue,
     city: event.city,
     date: toDateKey(start),
-    dateLabel: formatDateLabel(start),
+    dateLabel: presentation.dateLabel,
     startAt: event.startAt,
     endAt: event.endAt,
-    time: formatTime(start),
+    time: presentation.time,
     distanceKm: computeDistanceKm(event),
     image: event.imageUrl ?? undefined,
     description: event.description ?? undefined,
@@ -75,6 +76,71 @@ export function resolveCategoryBadgeLabel(
 
   if (event.category && event.category !== "tout") return event.category;
   return "Autre";
+}
+
+function resolveDatePresentation(
+  event: DetourEvent,
+  start: Date,
+): { dateLabel: string; time: string | undefined } {
+  const singleDay = {
+    dateLabel: formatDateLabel(start),
+    time: formatTime(start),
+  };
+
+  if (!event.endAt) return singleDay;
+
+  const end = new Date(event.endAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return singleDay;
+  }
+  if (end.getTime() < start.getTime()) return singleDay;
+
+  const startKey = toDateKey(start);
+  const endKey = toDateKey(end);
+  if (startKey === endKey) return singleDay;
+
+  return {
+    dateLabel: formatMultiDayRange(start, end),
+    time: undefined,
+  };
+}
+
+function formatMultiDayRange(start: Date, end: Date): string {
+  const startParts = parisDayMonthParts(start);
+  const endParts = parisDayMonthParts(end);
+
+  if (startParts.month === endParts.month && startParts.year === endParts.year) {
+    return `Du ${startParts.day} au ${endParts.day} ${endParts.month}`;
+  }
+
+  return `Du ${startParts.day} ${startParts.month} au ${endParts.day} ${endParts.month}`;
+}
+
+function parisDayMonthParts(date: Date): {
+  day: string;
+  month: string;
+  year: string;
+} {
+  const parts = new Intl.DateTimeFormat("fr-FR", {
+    timeZone: "Europe/Paris",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).formatToParts(date);
+
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const monthRaw = parts.find((part) => part.type === "month")?.value ?? "";
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  return {
+    day,
+    month: normalizeMonthAbbrev(monthRaw),
+    year,
+  };
+}
+
+/** Normalise espaces fines éventuels (fr-FR). */
+function normalizeMonthAbbrev(value: string): string {
+  return value.replace(/\u202f/g, " ").trim();
 }
 
 function computeDistanceKm(event: DetourEvent): number | undefined {
