@@ -1,4 +1,4 @@
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 import { mapOrleansEventToDetourEvent } from "./orleans-event.mapper";
 import type { OrleansApiResponse } from "./orleans-event.types";

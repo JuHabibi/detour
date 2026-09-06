@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 import {
   AI_DETOUR_DEFAULT_LIMIT,
   selectAiDetourHighlights,
-} from "@/domain/select-ai-detour-highlights";
-import type { EventHighlight } from "@/domain/select-detour-highlights";
+} from "@/domain/editorial/select-ai-detour-highlights";
+import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
 import {
   assessHighlightsCached,
   createMemoryAiAssessmentCacheStore,

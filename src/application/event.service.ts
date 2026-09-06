@@ -1,21 +1,21 @@
-import { classifyEventRelevance } from "@/domain/classify-event-relevance";
+import { classifyEventRelevance } from "@/domain/events/classify-event-relevance";
 import {
   deduplicateEvents,
   type EventDuplicate,
-} from "@/domain/deduplicate-events";
-import type { DetourEvent } from "@/domain/event";
+} from "@/domain/events/deduplicate-events";
+import type { DetourEvent } from "@/domain/events/event";
 import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
 import { buildAiHighlightShortlist } from "@/domain/build-ai-highlight-shortlist";
-import { filterStillActiveEvents } from "@/domain/is-event-still-active";
+import { filterStillActiveEvents } from "@/domain/events/is-event-still-active";
 import {
   AI_DETOUR_DEFAULT_LIMIT,
   selectAiDetourHighlights,
-} from "@/domain/select-ai-detour-highlights";
+} from "@/domain/editorial/select-ai-detour-highlights";
 import {
   rankDetourHighlightCandidates,
   selectDetourHighlights,
   type EventHighlight,
-} from "@/domain/select-detour-highlights";
+} from "@/domain/editorial/select-detour-highlights";
 import {
   getAiConfig,
   type AiConfig,
@@ -34,7 +34,7 @@ import {
 import {
   selectPlanningEvents,
   type PlanningEvent,
-} from "@/domain/select-planning-events";
+} from "@/domain/editorial/select-planning-events";
 import {
   isIngestingEventSource,
 } from "@/infrastructure/composite-event-source.adapter";

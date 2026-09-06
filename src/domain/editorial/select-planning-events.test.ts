@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
-import type { DetourEvent } from "@/domain/event";
-import { selectPlanningEvents } from "@/domain/select-planning-events";
-import type { EventHighlight } from "@/domain/select-detour-highlights";
+import type { DetourEvent } from "@/domain/events/event";
+import { selectPlanningEvents } from "@/domain/editorial/select-planning-events";
+import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
 
 const NOW = new Date("2026-09-04T12:00:00+02:00");
 

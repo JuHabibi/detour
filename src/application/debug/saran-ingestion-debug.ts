@@ -1,5 +1,5 @@
-import type { EventDuplicate } from "@/domain/deduplicate-events";
-import type { DetourEvent } from "@/domain/event";
+import type { EventDuplicate } from "@/domain/events/deduplicate-events";
+import type { DetourEvent } from "@/domain/events/event";
 import type { SourceAdapterId } from "@/application/ingestion/event-ingestion-result";
 
 export type SaranDuplicateDebug = {

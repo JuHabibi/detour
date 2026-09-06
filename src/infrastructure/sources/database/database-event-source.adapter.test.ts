@@ -3,7 +3,7 @@ import {
   buildIngestionFromDbRows,
   DatabaseEventSourceAdapter,
 } from "@/infrastructure/sources/database/database-event-source.adapter";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 import type { EventWithAdapter } from "@/infrastructure/db/event-row.mapper";
 import { isIngestingEventSource } from "@/infrastructure/composite-event-source.adapter";
 

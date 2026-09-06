@@ -4,13 +4,13 @@ import {
   mapDetourHighlightToEventItem,
   resolveCategoryBadgeLabel,
 } from "@/application/map-detour-event-to-ui";
-import type { DetourEvent } from "@/domain/event";
-import type { EventHighlight } from "@/domain/select-detour-highlights";
+import type { DetourEvent } from "@/domain/events/event";
+import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
 import {
   CITY_CENTER_FALLBACKS,
   ORLEANS_CENTER,
   distanceKmBetween,
-} from "@/domain/geo";
+} from "@/domain/geo/geo";
 
 function baseEvent(
   overrides: Partial<DetourEvent> & Pick<DetourEvent, "id" | "title">,

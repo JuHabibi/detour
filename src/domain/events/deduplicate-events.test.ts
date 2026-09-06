@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { deduplicateEvents } from "@/domain/deduplicate-events";
-import type { DetourEvent } from "@/domain/event";
+import { deduplicateEvents } from "@/domain/events/deduplicate-events";
+import type { DetourEvent } from "@/domain/events/event";
 
 function event(
   partial: Partial<DetourEvent> & Pick<DetourEvent, "id" | "title">,

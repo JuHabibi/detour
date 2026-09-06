@@ -10,7 +10,7 @@ import { HeroFilters } from "@/components/HeroFilters";
 import { UpcomingSection } from "@/components/UpcomingSection";
 import { EventsDebugPanel } from "@/components/EventsDebugPanel";
 import type { EventsDebugMeta } from "@/components/EventsDebugPanel";
-import { isEventInWhenFilter } from "@/domain/when-filter";
+import { isEventInWhenFilter } from "@/domain/time/when-filter";
 import type {
   CategoryId,
   EventItem,

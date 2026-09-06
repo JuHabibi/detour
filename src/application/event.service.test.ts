@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { EventService } from "@/application/event.service";
 import type { AiConfig } from "@/config/ai-config";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-assessment.provider";
 import { createMemoryAiAssessmentCacheStore } from "@/infrastructure/ai/ai-assessment-cache";

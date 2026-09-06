@@ -1,4 +1,4 @@
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 
 /** Identifiant technique d’adapter (interne pipeline/debug). */
 export type SourceAdapterId = string;

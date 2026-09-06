@@ -3,9 +3,9 @@ import {
   buildSaranClassificationAudit,
   buildSaranDuplicateDebug,
 } from "@/application/debug/saran-ingestion-debug";
-import { classifyEventRelevance } from "@/domain/classify-event-relevance";
-import { deduplicateEvents } from "@/domain/deduplicate-events";
-import type { DetourEvent } from "@/domain/event";
+import { classifyEventRelevance } from "@/domain/events/classify-event-relevance";
+import { deduplicateEvents } from "@/domain/events/deduplicate-events";
+import type { DetourEvent } from "@/domain/events/event";
 
 function baseEvent(
   overrides: Partial<DetourEvent> & Pick<DetourEvent, "id" | "title">,

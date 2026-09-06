@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PoolClient } from "pg";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 import {
   EVENT_UPSERT_CHUNK_SIZE,
   deactivateNotSeenSince,

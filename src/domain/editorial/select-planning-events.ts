@@ -1,10 +1,10 @@
 import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 import type {
   EventHighlight,
   HighlightSelectionSource,
-} from "@/domain/select-detour-highlights";
-import { rankDetourHighlightCandidates } from "@/domain/select-detour-highlights";
+} from "@/domain/editorial/select-detour-highlights";
+import { rankDetourHighlightCandidates } from "@/domain/editorial/select-detour-highlights";
 
 const CULTURAL_RELEVANCE = new Set(["culture", "culture_leisure"]);
 const DEFAULT_LIMIT = 4;

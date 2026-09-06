@@ -9,7 +9,7 @@ import {
   wrapWithIngestionCache,
 } from "@/infrastructure/ingestion-cache";
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 
 function stubEvent(id: string): DetourEvent {
   return {

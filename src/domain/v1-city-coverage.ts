@@ -1,4 +1,4 @@
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 
 /** Communes V1 ciblées — labels d’affichage. */
 export const V1_COMMUNES = [

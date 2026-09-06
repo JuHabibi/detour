@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { toAiHighlightEventInput } from "@/domain/ai-highlight-assessment";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 
 /**
  * @deprecated Remplacé par `buildAiAssessmentEventCacheKey`.

@@ -1,5 +1,5 @@
-import type { EventRelevance } from "@/domain/event";
-import type { DetourCategory } from "@/domain/classify-event-category";
+import type { EventRelevance } from "@/domain/events/event";
+import type { DetourCategory } from "@/domain/events/classify-event-category";
 
 export type { DetourCategory };
 

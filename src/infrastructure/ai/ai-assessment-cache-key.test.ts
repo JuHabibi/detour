@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 import {
   AI_ASSESSMENT_DEFAULT_MODEL,
   AI_ASSESSMENT_DEFAULT_TEMPERATURE,

@@ -1,4 +1,4 @@
-import type { DetourEvent, EventRelevance } from "@/domain/event";
+import type { DetourEvent, EventRelevance } from "@/domain/events/event";
 import {
   AMBIGUOUS_CATEGORY_SIGNALS,
   ASSOCIATION_FORUM_TITLE_SIGNALS,
@@ -11,7 +11,7 @@ import {
   SPORT_CATEGORY_SIGNALS,
   STRONG_EXCLUSION_SIGNALS,
   type ClassificationCue,
-} from "@/domain/event-classification-signals";
+} from "@/domain/events/event-classification-signals";
 
 export type EventClassification = {
   relevance: EventRelevance;

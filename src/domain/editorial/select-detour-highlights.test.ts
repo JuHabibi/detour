@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 import {
   HIGHLIGHT_WEIGHTS,
   rankDetourHighlightCandidates,
   selectDetourHighlights,
   type EventHighlight,
-} from "@/domain/select-detour-highlights";
+} from "@/domain/editorial/select-detour-highlights";
 
 function event(
   partial: Partial<DetourEvent> & Pick<DetourEvent, "id" | "title">,

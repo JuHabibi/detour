@@ -23,16 +23,16 @@ import {
   parseAiHighlightAssessments,
   type AiHighlightAssessment,
 } from "../src/domain/ai-highlight-assessment";
-import type { DetourEvent } from "../src/domain/event";
+import type { DetourEvent } from "../src/domain/events/event";
 import {
   hasExplicitLocalRarityReason,
   resolveEditorialBadge,
-} from "../src/domain/resolve-editorial-badge";
+} from "../src/domain/editorial/resolve-editorial-badge";
 import {
   AI_DETOUR_DEFAULT_LIMIT,
   selectAiDetourHighlights,
-} from "../src/domain/select-ai-detour-highlights";
-import type { EventHighlight } from "../src/domain/select-detour-highlights";
+} from "../src/domain/editorial/select-ai-detour-highlights";
+import type { EventHighlight } from "../src/domain/editorial/select-detour-highlights";
 import { OPENAI_HIGHLIGHT_SYSTEM_PROMPT } from "../src/infrastructure/ai/openai-highlight-assessment.provider";
 import type { AiHighlightCorpus } from "./freeze-ai-highlight-corpus.mts";
 

@@ -8,18 +8,18 @@ import { writeFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import { EventService } from "../src/application/event.service";
 import { getAiConfig } from "../src/config/ai-config";
-import { classifyEventRelevance } from "../src/domain/classify-event-relevance";
-import { deduplicateEvents } from "../src/domain/deduplicate-events";
+import { classifyEventRelevance } from "../src/domain/events/classify-event-relevance";
+import { deduplicateEvents } from "../src/domain/events/deduplicate-events";
 import { buildAiHighlightShortlist } from "../src/domain/build-ai-highlight-shortlist";
-import { filterStillActiveEvents } from "../src/domain/is-event-still-active";
+import { filterStillActiveEvents } from "../src/domain/events/is-event-still-active";
 import {
   rankDetourHighlightCandidates,
   selectDetourHighlights,
-} from "../src/domain/select-detour-highlights";
+} from "../src/domain/editorial/select-detour-highlights";
 import {
   AI_DETOUR_DEFAULT_LIMIT,
   selectAiDetourHighlights,
-} from "../src/domain/select-ai-detour-highlights";
+} from "../src/domain/editorial/select-ai-detour-highlights";
 import { createHighlightAssessmentProvider } from "../src/infrastructure/ai/create-highlight-assessment-provider";
 import { createMemoryAiAssessmentCacheStore } from "../src/infrastructure/ai/ai-assessment-cache";
 import { OrleansEventAdapter } from "../src/infrastructure/sources/orleans/orleans-event.adapter";

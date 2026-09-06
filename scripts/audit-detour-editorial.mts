@@ -9,7 +9,7 @@ import { combinedAiScore } from "../src/domain/ai-highlight-assessment";
 import {
   qualifiesAsPassageRare,
   resolveEditorialBadge,
-} from "../src/domain/resolve-editorial-badge";
+} from "../src/domain/editorial/resolve-editorial-badge";
 import { createHighlightAssessmentProvider } from "../src/infrastructure/ai/create-highlight-assessment-provider";
 import { createDetourEventSource } from "../src/infrastructure/create-detour-event-source";
 import { createMemoryAiAssessmentCacheStore } from "../src/infrastructure/ai/ai-assessment-cache";

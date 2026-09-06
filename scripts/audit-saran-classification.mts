@@ -2,7 +2,7 @@
  * Script temporaire — audit classification Saran (180 jours).
  * Usage : npx tsx scripts/audit-saran-classification.mts
  */
-import { classifyEventRelevance } from "../src/domain/classify-event-relevance";
+import { classifyEventRelevance } from "../src/domain/events/classify-event-relevance";
 import { buildSaranClassificationAudit } from "../src/application/debug/saran-ingestion-debug";
 import { SaranEventAdapter } from "../src/infrastructure/sources/saran/saran-event.adapter";
 

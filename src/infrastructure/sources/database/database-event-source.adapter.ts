@@ -2,7 +2,7 @@ import type {
   EventIngestionResult,
   SourceIngestionStatus,
 } from "@/application/ingestion/event-ingestion-result";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 import type { IngestingEventSource } from "@/infrastructure/composite-event-source.adapter";
 import {
   listUpcomingActiveWithAdapter,

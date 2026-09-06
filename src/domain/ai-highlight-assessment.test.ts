@@ -7,7 +7,7 @@ import {
 import { createHighlightAssessmentProvider } from "@/infrastructure/ai/create-highlight-assessment-provider";
 import { NoopHighlightAssessmentProvider } from "@/infrastructure/ai/noop-highlight-assessment.provider";
 import { OpenAiHighlightAssessmentProvider } from "@/infrastructure/ai/openai-highlight-assessment.provider";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 
 function event(id: string, title = "Titre"): DetourEvent {
   return {

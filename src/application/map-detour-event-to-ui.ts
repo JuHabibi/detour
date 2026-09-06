@@ -1,12 +1,12 @@
-import { classifyEventCategory } from "@/domain/classify-event-category";
-import type { DetourEvent } from "@/domain/event";
+import { classifyEventCategory } from "@/domain/events/classify-event-category";
+import type { DetourEvent } from "@/domain/events/event";
 import {
   ORLEANS_CENTER,
   distanceKmBetween,
   resolveEventCoordinates,
-} from "@/domain/geo";
-import { resolveEditorialBadge } from "@/domain/resolve-editorial-badge";
-import type { EventHighlight } from "@/domain/select-detour-highlights";
+} from "@/domain/geo/geo";
+import { resolveEditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
+import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
 import type { EventItem } from "@/data/types";
 
 export function mapDetourEventToEventItem(event: DetourEvent): EventItem {

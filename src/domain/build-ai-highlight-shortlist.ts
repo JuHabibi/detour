@@ -1,4 +1,4 @@
-import type { EventHighlight } from "@/domain/select-detour-highlights";
+import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
 import { AI_HIGHLIGHT_SHORTLIST_SIZE } from "@/domain/ai-highlight-assessment";
 
 /** Top du ranking déterministe toujours inclus en priorité. */

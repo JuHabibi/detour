@@ -18,7 +18,7 @@ import {
   saranIcalMonthsForWindow,
 } from "@/infrastructure/sources/saran/saran-event.adapter";
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 
 const STANDARD_VEVENT = `BEGIN:VCALENDAR
 VERSION:2.0

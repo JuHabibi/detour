@@ -6,7 +6,7 @@ import type {
   AiHighlightSelectionMeta,
   EventHighlight,
   HighlightSlot,
-} from "@/domain/select-detour-highlights";
+} from "@/domain/editorial/select-detour-highlights";
 
 export type AiSlotFormula = AiHighlightSelectionMeta["formula"];
 

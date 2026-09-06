@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   filterStillActiveEvents,
   isEventStillActive,
-} from "@/domain/is-event-still-active";
+} from "@/domain/events/is-event-still-active";
 
 const now = new Date("2026-09-05T12:00:00.000Z");
 

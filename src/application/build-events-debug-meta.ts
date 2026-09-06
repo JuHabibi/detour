@@ -7,8 +7,8 @@ import type {
 } from "@/components/EventsDebugPanel";
 import type { UpcomingEventsResult } from "@/application/event.service";
 import { combinedAiScore } from "@/domain/ai-highlight-assessment";
-import { resolveEditorialBadge } from "@/domain/resolve-editorial-badge";
-import type { EventHighlight } from "@/domain/select-detour-highlights";
+import { resolveEditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
+import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
 import { shortenCacheKey } from "@/infrastructure/ai/ai-assessment-cache-key";
 
 function formatScoresUsed(highlight: EventHighlight): string | undefined {

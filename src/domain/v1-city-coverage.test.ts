@@ -5,7 +5,7 @@ import {
   matchV1Commune,
   normalizeCityKey,
 } from "@/domain/v1-city-coverage";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 
 function event(id: string, city: string | null): DetourEvent {
   return {

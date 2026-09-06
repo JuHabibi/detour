@@ -3,9 +3,9 @@ import { EventService } from "@/application/event.service";
 import type { EventIngestionResult } from "@/application/ingestion/event-ingestion-result";
 import { buildSourceIngestionStats } from "@/application/ingestion/source-ingestion-stats";
 import type { AiConfig } from "@/config/ai-config";
-import { classifyEventRelevance } from "@/domain/classify-event-relevance";
-import { deduplicateEvents } from "@/domain/deduplicate-events";
-import type { DetourEvent } from "@/domain/event";
+import { classifyEventRelevance } from "@/domain/events/classify-event-relevance";
+import { deduplicateEvents } from "@/domain/events/deduplicate-events";
+import type { DetourEvent } from "@/domain/events/event";
 import { CompositeEventSourceAdapter } from "@/infrastructure/composite-event-source.adapter";
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 

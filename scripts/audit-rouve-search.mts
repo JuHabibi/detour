@@ -1,10 +1,10 @@
 import { createDetourEventSource } from "../src/infrastructure/create-detour-event-source";
-import { classifyEventRelevance } from "../src/domain/classify-event-relevance";
-import { deduplicateEvents } from "../src/domain/deduplicate-events";
+import { classifyEventRelevance } from "../src/domain/events/classify-event-relevance";
+import { deduplicateEvents } from "../src/domain/events/deduplicate-events";
 import {
   HIGHLIGHT_WEIGHTS,
   rankDetourHighlightCandidates,
-} from "../src/domain/select-detour-highlights";
+} from "../src/domain/editorial/select-detour-highlights";
 import { AI_HIGHLIGHT_SHORTLIST_SIZE } from "../src/domain/ai-highlight-assessment";
 import { writeFileSync } from "node:fs";
 

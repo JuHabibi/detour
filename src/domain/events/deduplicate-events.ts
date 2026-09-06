@@ -1,4 +1,4 @@
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 
 export type EventDuplicate = {
   keptId: string;

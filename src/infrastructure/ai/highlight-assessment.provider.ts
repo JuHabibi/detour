@@ -1,4 +1,4 @@
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
 import type { AiAssessmentCacheContext } from "@/infrastructure/ai/ai-assessment-cache-key";
 

@@ -9,7 +9,7 @@ import {
   AI_ASSESSMENT_DEFAULT_TEMPERATURE,
   AI_ASSESSMENT_PROMPT_VERSION,
 } from "@/infrastructure/ai/openai-highlight-assessment.provider";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 
 function event(id: string): DetourEvent {
   return {

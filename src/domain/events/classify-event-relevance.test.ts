@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { classifyEventRelevance } from "@/domain/classify-event-relevance";
-import type { DetourEvent } from "@/domain/event";
+import { classifyEventRelevance } from "@/domain/events/classify-event-relevance";
+import type { DetourEvent } from "@/domain/events/event";
 
 function event(
   partial: Partial<DetourEvent> & Pick<DetourEvent, "title">,

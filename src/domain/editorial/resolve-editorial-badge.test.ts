@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   resolveEditorialBadge,
   type EditorialBadgeInput,
-} from "@/domain/resolve-editorial-badge";
+} from "@/domain/editorial/resolve-editorial-badge";
 
 function input(
   overrides: Partial<EditorialBadgeInput> = {},

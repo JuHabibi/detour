@@ -5,9 +5,9 @@ import {
   distanceKmBetween,
   resolveEventCoordinates,
   type GeoPoint,
-} from "@/domain/geo";
+} from "@/domain/geo/geo";
 import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 
 const ORLEANS: GeoPoint = { latitude: 47.9025, longitude: 1.909 };
 const OLIVET: GeoPoint = { latitude: 47.863, longitude: 1.9 };

@@ -3,8 +3,8 @@
  * Usage : npx tsx scripts/audit-candidate-pool.mts
  */
 import { writeFileSync } from "node:fs";
-import { classifyEventRelevance } from "../src/domain/classify-event-relevance";
-import { deduplicateEvents, normalizeText } from "../src/domain/deduplicate-events";
+import { classifyEventRelevance } from "../src/domain/events/classify-event-relevance";
+import { deduplicateEvents, normalizeText } from "../src/domain/events/deduplicate-events";
 import { AI_HIGHLIGHT_SHORTLIST_SIZE } from "../src/domain/ai-highlight-assessment";
 import {
   buildAiHighlightShortlist,
@@ -14,8 +14,8 @@ import {
   HIGHLIGHT_WEIGHTS,
   rankDetourHighlightCandidates,
   type HighlightReason,
-} from "../src/domain/select-detour-highlights";
-import type { DetourEvent } from "../src/domain/event";
+} from "../src/domain/editorial/select-detour-highlights";
+import type { DetourEvent } from "../src/domain/events/event";
 import { createDetourEventSource } from "../src/infrastructure/create-detour-event-source";
 
 const WINDOW_DAYS = 180;

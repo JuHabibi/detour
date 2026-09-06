@@ -3,7 +3,7 @@ import {
   getDateRangeForWhenFilter,
   isDateInRange,
   isEventInWhenFilter,
-} from "@/domain/when-filter";
+} from "@/domain/time/when-filter";
 
 function parisParts(date: Date) {
   const parts = new Intl.DateTimeFormat("en-CA", {

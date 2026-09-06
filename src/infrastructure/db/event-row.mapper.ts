@@ -1,4 +1,4 @@
-import type { DetourEvent } from "@/domain/event";
+import type { DetourEvent } from "@/domain/events/event";
 
 /** Ligne `events` telle que renvoyée par node-postgres. */
 export type EventRow = {
