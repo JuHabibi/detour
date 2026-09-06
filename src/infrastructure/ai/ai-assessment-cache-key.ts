@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { toAiHighlightEventInput } from "@/domain/ai-highlight-assessment";
+import { toAiHighlightEventInput } from "@/infrastructure/ai/highlight-assessment-input";
 import type { DetourEvent } from "@/domain/events/event";
 
 /**

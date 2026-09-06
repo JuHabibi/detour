@@ -11,13 +11,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyEventRelevance } from "../src/domain/events/classify-event-relevance";
 import { deduplicateEvents } from "../src/domain/events/deduplicate-events";
-import { buildAiHighlightShortlist } from "../src/domain/build-ai-highlight-shortlist";
+import { buildAiHighlightShortlist } from "../src/application/ai/build-ai-highlight-shortlist";
 import { filterStillActiveEvents } from "../src/domain/events/is-event-still-active";
 import { rankDetourHighlightCandidates } from "../src/domain/editorial/select-detour-highlights";
 import {
   toAiHighlightEventInput,
   type AiHighlightEventInput,
-} from "../src/domain/ai-highlight-assessment";
+} from "../src/infrastructure/ai/highlight-assessment-input";
 import type { DetourEvent } from "../src/domain/events/event";
 import { createDetourEventSource } from "../src/infrastructure/create-detour-event-source";
 

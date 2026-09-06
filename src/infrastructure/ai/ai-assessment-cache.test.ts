@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
+import type { AiHighlightAssessment } from "@/domain/editorial/highlight-assessment";
 import type { DetourEvent } from "@/domain/events/event";
 import {
   AI_DETOUR_DEFAULT_LIMIT,

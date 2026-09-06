@@ -10,7 +10,7 @@ import { EventService } from "../src/application/event.service";
 import { getAiConfig } from "../src/config/ai-config";
 import { classifyEventRelevance } from "../src/domain/events/classify-event-relevance";
 import { deduplicateEvents } from "../src/domain/events/deduplicate-events";
-import { buildAiHighlightShortlist } from "../src/domain/build-ai-highlight-shortlist";
+import { buildAiHighlightShortlist } from "../src/application/ai/build-ai-highlight-shortlist";
 import { filterStillActiveEvents } from "../src/domain/events/is-event-still-active";
 import {
   rankDetourHighlightCandidates,

@@ -5,7 +5,7 @@
 import { writeFileSync } from "node:fs";
 import { EventService } from "../src/application/event.service";
 import { getAiConfig } from "../src/config/ai-config";
-import { combinedAiScore } from "../src/domain/ai-highlight-assessment";
+import { combinedAiScore } from "../src/domain/editorial/highlight-assessment";
 import {
   qualifiesAsPassageRare,
   resolveEditorialBadge,

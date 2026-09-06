@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   AI_SHORTLIST_DETERMINISTIC_TOP,
   buildAiHighlightShortlist,
-} from "@/domain/build-ai-highlight-shortlist";
+} from "@/application/ai/build-ai-highlight-shortlist";
 import type { DetourEvent } from "@/domain/events/event";
 import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
-import { AI_HIGHLIGHT_SHORTLIST_SIZE } from "@/domain/ai-highlight-assessment";
+import { AI_HIGHLIGHT_SHORTLIST_SIZE } from "@/application/ai/build-ai-highlight-shortlist";
 
 function event(
   id: string,

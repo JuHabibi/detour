@@ -1,7 +1,7 @@
 import {
   combinedAiScore,
   type AiHighlightAssessment,
-} from "@/domain/ai-highlight-assessment";
+} from "@/domain/editorial/highlight-assessment";
 import type {
   AiHighlightSelectionMeta,
   EventHighlight,

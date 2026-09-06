@@ -4,8 +4,8 @@ import {
   type EventDuplicate,
 } from "@/domain/events/deduplicate-events";
 import type { DetourEvent } from "@/domain/events/event";
-import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
-import { buildAiHighlightShortlist } from "@/domain/build-ai-highlight-shortlist";
+import type { AiHighlightAssessment } from "@/domain/editorial/highlight-assessment";
+import { buildAiHighlightShortlist } from "@/application/ai/build-ai-highlight-shortlist";
 import { filterStillActiveEvents } from "@/domain/events/is-event-still-active";
 import {
   AI_DETOUR_DEFAULT_LIMIT,
@@ -55,7 +55,7 @@ import {
 import type {
   AiShortlistBucketStats,
   AiShortlistInclusionReason,
-} from "@/domain/build-ai-highlight-shortlist";
+} from "@/application/ai/build-ai-highlight-shortlist";
 
 export type UpcomingEventsAiMeta = {
   displayMode: AiDisplayMode;

@@ -1,4 +1,4 @@
-import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
+import type { AiHighlightAssessment } from "@/domain/editorial/highlight-assessment";
 import type { DetourEvent } from "@/domain/events/event";
 import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-assessment.provider";
 import {

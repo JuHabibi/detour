@@ -18,11 +18,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
-import {
-  AI_HIGHLIGHT_BATCH_SIZE,
-  parseAiHighlightAssessments,
-  type AiHighlightAssessment,
-} from "../src/domain/ai-highlight-assessment";
+import type { AiHighlightAssessment } from "../src/domain/editorial/highlight-assessment";
 import type { DetourEvent } from "../src/domain/events/event";
 import {
   hasExplicitLocalRarityReason,
@@ -33,7 +29,11 @@ import {
   selectAiDetourHighlights,
 } from "../src/domain/editorial/select-ai-detour-highlights";
 import type { EventHighlight } from "../src/domain/editorial/select-detour-highlights";
-import { OPENAI_HIGHLIGHT_SYSTEM_PROMPT } from "../src/infrastructure/ai/openai-highlight-assessment.provider";
+import { parseAiHighlightAssessments } from "../src/infrastructure/ai/highlight-assessment-parser";
+import {
+  AI_HIGHLIGHT_BATCH_SIZE,
+  OPENAI_HIGHLIGHT_SYSTEM_PROMPT,
+} from "../src/infrastructure/ai/openai-highlight-assessment.provider";
 import type { AiHighlightCorpus } from "./freeze-ai-highlight-corpus.mts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

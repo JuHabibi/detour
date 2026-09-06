@@ -1,12 +1,12 @@
-import {
-  AI_HIGHLIGHT_BATCH_SIZE,
-  parseAiHighlightAssessments,
-  toAiHighlightEventInput,
-  type AiHighlightAssessment,
-} from "@/domain/ai-highlight-assessment";
+import type { AiHighlightAssessment } from "@/domain/editorial/highlight-assessment";
 import type { DetourEvent } from "@/domain/events/event";
 import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-assessment.provider";
 import type { AiAssessmentCacheContext } from "@/infrastructure/ai/ai-assessment-cache-key";
+import { toAiHighlightEventInput } from "@/infrastructure/ai/highlight-assessment-input";
+import { parseAiHighlightAssessments } from "@/infrastructure/ai/highlight-assessment-parser";
+
+/** Taille de batch HTTP OpenAI (séquentiel). */
+export const AI_HIGHLIGHT_BATCH_SIZE = 10;
 
 export type OpenAiHighlightAssessmentConfig = {
   apiKey: string;

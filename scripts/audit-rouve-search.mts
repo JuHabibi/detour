@@ -5,7 +5,7 @@ import {
   HIGHLIGHT_WEIGHTS,
   rankDetourHighlightCandidates,
 } from "../src/domain/editorial/select-detour-highlights";
-import { AI_HIGHLIGHT_SHORTLIST_SIZE } from "../src/domain/ai-highlight-assessment";
+import { AI_HIGHLIGHT_SHORTLIST_SIZE } from "../src/application/ai/build-ai-highlight-shortlist";
 import { writeFileSync } from "node:fs";
 
 async function main() {

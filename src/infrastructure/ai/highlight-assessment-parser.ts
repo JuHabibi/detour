@@ -1,51 +1,4 @@
-import type { DetourEvent } from "@/domain/events/event";
-
-export type AiHighlightAssessment = {
-  eventId: string;
-  appeal: number;
-  missRisk: number;
-  planningNeed: number;
-  localRarity: number;
-  likelyDemand: number;
-  confidence: number;
-  reasons: string[];
-};
-
-/** Payload neutre envoyé à l’IA — sans scores déterministes. */
-export type AiHighlightEventInput = {
-  eventId: string;
-  title: string;
-  description: string | null;
-  category: string | null;
-  genre: string | null;
-  venue: string | null;
-  city: string | null;
-  source: string | null;
-  conditions: string | null;
-  startAt: string;
-  endAt: string | null;
-  hasRegistrationUrl: boolean;
-};
-
-export const AI_HIGHLIGHT_SHORTLIST_SIZE = 60;
-export const AI_HIGHLIGHT_BATCH_SIZE = 10;
-
-export function toAiHighlightEventInput(event: DetourEvent): AiHighlightEventInput {
-  return {
-    eventId: event.id,
-    title: event.title,
-    description: event.description,
-    category: event.category,
-    genre: event.genre,
-    venue: event.venue,
-    city: event.city,
-    source: event.source,
-    conditions: event.conditions,
-    startAt: event.startAt,
-    endAt: event.endAt,
-    hasRegistrationUrl: Boolean(event.registrationUrl),
-  };
-}
+import type { AiHighlightAssessment } from "@/domain/editorial/highlight-assessment";
 
 /**
  * Parse + normalise une réponse JSON brute du provider.
@@ -121,15 +74,4 @@ export function clampScore(value: unknown, min: number, max: number): number {
 
   if (!Number.isFinite(numeric)) return min;
   return Math.min(max, Math.max(min, numeric));
-}
-
-/** Somme debug indicative — ne pilote pas la sélection UI. */
-export function combinedAiScore(assessment: AiHighlightAssessment): number {
-  return (
-    assessment.appeal +
-    assessment.missRisk +
-    assessment.planningNeed +
-    assessment.localRarity +
-    assessment.likelyDemand
-  );
 }

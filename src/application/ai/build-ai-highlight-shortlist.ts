@@ -1,5 +1,6 @@
 import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
-import { AI_HIGHLIGHT_SHORTLIST_SIZE } from "@/domain/ai-highlight-assessment";
+
+export const AI_HIGHLIGHT_SHORTLIST_SIZE = 60;
 
 /** Top du ranking déterministe toujours inclus en priorité. */
 export const AI_SHORTLIST_DETERMINISTIC_TOP = 30;

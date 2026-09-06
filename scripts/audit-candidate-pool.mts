@@ -5,11 +5,11 @@
 import { writeFileSync } from "node:fs";
 import { classifyEventRelevance } from "../src/domain/events/classify-event-relevance";
 import { deduplicateEvents, normalizeText } from "../src/domain/events/deduplicate-events";
-import { AI_HIGHLIGHT_SHORTLIST_SIZE } from "../src/domain/ai-highlight-assessment";
+import { AI_HIGHLIGHT_SHORTLIST_SIZE } from "../src/application/ai/build-ai-highlight-shortlist";
 import {
   buildAiHighlightShortlist,
   type AiShortlistInclusionReason,
-} from "../src/domain/build-ai-highlight-shortlist";
+} from "../src/application/ai/build-ai-highlight-shortlist";
 import {
   HIGHLIGHT_WEIGHTS,
   rankDetourHighlightCandidates,

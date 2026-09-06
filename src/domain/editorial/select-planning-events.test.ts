@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AiHighlightAssessment } from "@/domain/ai-highlight-assessment";
+import type { AiHighlightAssessment } from "@/domain/editorial/highlight-assessment";
 import type { DetourEvent } from "@/domain/events/event";
 import { selectPlanningEvents } from "@/domain/editorial/select-planning-events";
 import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
