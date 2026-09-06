@@ -4,7 +4,7 @@
  */
 import { writeFileSync } from "node:fs";
 import { OrleansEventAdapter } from "../src/infrastructure/sources/orleans/orleans-event.adapter";
-import { buildV1CityCoverageReport } from "../src/domain/v1-city-coverage";
+import { buildV1CityCoverageReport } from "../src/application/debug/v1-city-coverage";
 
 const WINDOW_DAYS = 180;
 

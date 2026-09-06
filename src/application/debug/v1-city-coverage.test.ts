@@ -4,7 +4,7 @@ import {
   coverageLevel,
   matchV1Commune,
   normalizeCityKey,
-} from "@/domain/v1-city-coverage";
+} from "@/application/debug/v1-city-coverage";
 import type { DetourEvent } from "@/domain/events/event";
 
 function event(id: string, city: string | null): DetourEvent {
