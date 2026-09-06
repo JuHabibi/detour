@@ -8,13 +8,12 @@ import {
   createNextAiAssessmentReadThrough,
   invalidateNextAiAssessmentCache,
 } from "@/infrastructure/ai/next-ai-assessment-cache";
-import { createCachedDetourEventSource } from "@/infrastructure/create-detour-event-source";
-import { createNextIngestionReadThrough } from "@/infrastructure/next-ingestion-cache";
+import { createHomeEventSource } from "@/infrastructure/create-detour-event-source";
 
 const UPCOMING_WINDOW_DAYS = 180;
 
 const eventService = new EventService(
-  createCachedDetourEventSource(createNextIngestionReadThrough()),
+  createHomeEventSource(),
   createHighlightAssessmentProvider(),
   {
     aiConfig: getAiConfig(),
