@@ -71,7 +71,7 @@ La désactivation des événements absents suppose que le fetch d’un adapter r
 
 Un adapter ne doit donc jamais retourner silencieusement un corpus partiel. En cas d’échec HTTP, pagination incomplète ou réponse incohérente, le sync doit échouer avant l’écriture / désactivation.
 
-À date, ce contrôle doit encore être renforcé sur la pagination Orléans.
+L’adapter Orléans vérifie la cohérence de `total_count` et refuse une pagination incomplète avant que le moteur de sync puisse effectuer des désactivations.
 
 Fichiers : `src/application/event-sync/*`, `src/infrastructure/create-detour-sync-sources.ts`, `src/infrastructure/db/*`, `src/app/api/cron|internal/event-sync/`.
 

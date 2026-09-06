@@ -1,7 +1,7 @@
 import type { DetourEvent } from "@/domain/events/event";
 import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 import { mapOrleansEventToDetourEvent } from "./orleans-event.mapper";
-import type { OrleansApiResponse } from "./orleans-event.types";
+import type { OrleansApiResponse, OrleansRawEvent } from "./orleans-event.types";
 
 const BASE_URL =
   "https://data.orleans-metropole.fr/api/explore/v2.1/catalog/datasets/agenda-orleans-metropole/records";
@@ -33,14 +33,35 @@ export class OrleansEventAdapter implements EventSourceAdapter {
   }): Promise<DetourEvent[]> {
     const events: DetourEvent[] = [];
     let offset = 0;
-    let totalCount = Number.POSITIVE_INFINITY;
+    let expectedTotalCount: number | null = null;
 
-    while (offset < totalCount) {
+    while (true) {
       const page = await fetchOrleansPage(params.from, params.to, offset);
-      totalCount = page.total_count;
 
-      const results = page.results ?? [];
-      if (results.length === 0) break;
+      if (expectedTotalCount === null) {
+        expectedTotalCount = page.total_count;
+      } else if (page.total_count !== expectedTotalCount) {
+        throw new Error(
+          `Orleans incomplete pagination: total_count changed (${expectedTotalCount} → ${page.total_count})`,
+        );
+      }
+
+      const { results } = page;
+
+      if (offset < expectedTotalCount && results.length === 0) {
+        throw new Error(
+          "Orleans incomplete pagination: empty page before total_count",
+        );
+      }
+
+      if (
+        results.length < PAGE_SIZE &&
+        offset + results.length < expectedTotalCount
+      ) {
+        throw new Error(
+          "Orleans incomplete pagination: short page before total_count",
+        );
+      }
 
       for (const rawEvent of results) {
         const mapped = mapOrleansEventToDetourEvent(rawEvent);
@@ -48,10 +69,17 @@ export class OrleansEventAdapter implements EventSourceAdapter {
       }
 
       offset += results.length;
-      if (results.length < PAGE_SIZE) break;
-    }
 
-    return events;
+      if (offset > expectedTotalCount) {
+        throw new Error(
+          "Orleans incomplete pagination: offset exceeded total_count",
+        );
+      }
+
+      if (offset === expectedTotalCount) {
+        return events;
+      }
+    }
   }
 }
 
@@ -67,7 +95,40 @@ async function fetchOrleansPage(
     throw new Error(`Orleans API error: ${response.status} ${response.statusText}`);
   }
 
-  return (await response.json()) as OrleansApiResponse;
+  let raw: unknown;
+  try {
+    raw = await response.json();
+  } catch {
+    throw new Error("Orleans API error: invalid JSON");
+  }
+
+  return parseOrleansApiResponse(raw);
+}
+
+function parseOrleansApiResponse(raw: unknown): OrleansApiResponse {
+  if (raw === null || typeof raw !== "object") {
+    throw new Error("Orleans API error: invalid response shape");
+  }
+
+  const record = raw as Record<string, unknown>;
+  const totalCount = record.total_count;
+
+  if (
+    typeof totalCount !== "number" ||
+    !Number.isInteger(totalCount) ||
+    totalCount < 0
+  ) {
+    throw new Error("Orleans API error: invalid total_count");
+  }
+
+  if (!Array.isArray(record.results)) {
+    throw new Error("Orleans API error: invalid results");
+  }
+
+  return {
+    total_count: totalCount,
+    results: record.results as OrleansRawEvent[],
+  };
 }
 
 function buildOrleansUrl(from: Date, to: Date, offset: number): string {
