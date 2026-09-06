@@ -1,6 +1,6 @@
 "use client";
 
-import { categories } from "@/data/events";
+import { categories } from "@/config/event-categories";
 import type { CategoryId } from "@/data/types";
 import { cn } from "@/lib/cn";
 

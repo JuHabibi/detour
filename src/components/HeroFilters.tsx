@@ -1,6 +1,6 @@
 "use client";
 
-import { CITY } from "@/data/events";
+import { CITY } from "@/config/city";
 
 export function HeroFilters() {
   return (
