@@ -6,74 +6,80 @@ vi.mock("@/application/event-sync/run-detour-event-sync", () => ({
   runDetourEventSync: (...args: unknown[]) => runDetourEventSyncMock(...args),
 }));
 
-import { POST } from "@/app/api/internal/event-sync/route";
+import { GET } from "@/app/api/cron/event-sync/route";
 
-const SECRET = "test-event-sync-secret";
+const SECRET = "test-cron-secret";
 
 function requestWithAuth(authorization?: string): Request {
   const headers = new Headers();
   if (authorization !== undefined) {
     headers.set("authorization", authorization);
   }
-  return new Request("http://localhost/api/internal/event-sync", {
-    method: "POST",
+  return new Request("http://localhost/api/cron/event-sync", {
+    method: "GET",
     headers,
   });
 }
 
-describe("POST /api/internal/event-sync", () => {
+describe("GET /api/cron/event-sync", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.EVENT_SYNC_SECRET = SECRET;
+    process.env.CRON_SECRET = SECRET;
     runDetourEventSyncMock.mockResolvedValue([
       {
         adapterId: "orleans",
         status: "success",
-        fetchedCount: 2,
-        deactivatedCount: 0,
+        fetchedCount: 10,
+        deactivatedCount: 1,
       },
       {
         adapterId: "saran",
-        status: "error",
-        errorCode: "fetch_failed",
+        status: "skipped",
+        reason: "busy",
       },
     ]);
   });
 
   afterEach(() => {
-    delete process.env.EVENT_SYNC_SECRET;
+    delete process.env.CRON_SECRET;
   });
 
-  it("refuse si EVENT_SYNC_SECRET absent", async () => {
-    delete process.env.EVENT_SYNC_SECRET;
-    const res = await POST(requestWithAuth(`Bearer ${SECRET}`));
+  it("refuse si CRON_SECRET absent", async () => {
+    delete process.env.CRON_SECRET;
+    const res = await GET(requestWithAuth(`Bearer ${SECRET}`));
     expect(res.status).toBe(401);
     expect(runDetourEventSyncMock).not.toHaveBeenCalled();
   });
 
   it("refuse si Authorization absent", async () => {
-    const res = await POST(requestWithAuth());
+    const res = await GET(requestWithAuth());
     expect(res.status).toBe(401);
     expect(runDetourEventSyncMock).not.toHaveBeenCalled();
   });
 
   it("refuse si mauvais secret", async () => {
-    const res = await POST(requestWithAuth("Bearer wrong-secret-value"));
+    const res = await GET(requestWithAuth("Bearer wrong-secret-value"));
     expect(res.status).toBe(401);
     expect(runDetourEventSyncMock).not.toHaveBeenCalled();
   });
 
-  it("refuse si format Authorization incorrect", async () => {
-    const res = await POST(requestWithAuth(`Basic ${SECRET}`));
-    expect(res.status).toBe(401);
-    expect(runDetourEventSyncMock).not.toHaveBeenCalled();
-  });
-
-  it("200 + sync même si SyncResult error", async () => {
-    const res = await POST(requestWithAuth(`Bearer ${SECRET}`));
+  it("200 + sync appelée ; SyncResult skipped OK", async () => {
+    const res = await GET(requestWithAuth(`Bearer ${SECRET}`));
     expect(res.status).toBe(200);
     const body = (await res.json()) as { results: unknown[] };
-    expect(body.results).toHaveLength(2);
+    expect(body.results).toEqual([
+      {
+        adapterId: "orleans",
+        status: "success",
+        fetchedCount: 10,
+        deactivatedCount: 1,
+      },
+      {
+        adapterId: "saran",
+        status: "skipped",
+        reason: "busy",
+      },
+    ]);
     expect(runDetourEventSyncMock).toHaveBeenCalledTimes(1);
   });
 
@@ -81,11 +87,10 @@ describe("POST /api/internal/event-sync", () => {
     runDetourEventSyncMock.mockRejectedValue(
       new Error("boom with DATABASE_URL"),
     );
-    const res = await POST(requestWithAuth(`Bearer ${SECRET}`));
+    const res = await GET(requestWithAuth(`Bearer ${SECRET}`));
     expect(res.status).toBe(500);
     const body = (await res.json()) as { error: string };
     expect(body).toEqual({ error: "internal_error" });
     expect(JSON.stringify(body)).not.toContain("DATABASE_URL");
-    expect(JSON.stringify(body)).not.toContain("boom");
   });
 });

@@ -4,7 +4,7 @@ import { runDetourEventSync } from "@/application/event-sync/run-detour-event-sy
 export const runtime = "nodejs";
 
 function isAuthorized(request: Request): boolean {
-  const secret = process.env.EVENT_SYNC_SECRET?.trim();
+  const secret = process.env.CRON_SECRET?.trim();
   if (!secret) return false;
 
   const header = request.headers.get("authorization");
@@ -21,8 +21,8 @@ function isAuthorized(request: Request): boolean {
   return timingSafeEqual(expected, actual);
 }
 
-/** POST interne — déclenche Orleans puis Saran vers PostgreSQL. */
-export async function POST(request: Request): Promise<Response> {
+/** GET cron Vercel Hobby — sync quotidienne Orleans puis Saran. */
+export async function GET(request: Request): Promise<Response> {
   if (!isAuthorized(request)) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
