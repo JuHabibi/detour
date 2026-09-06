@@ -6,15 +6,6 @@ export type { DetourCategory };
 /** Filtre UI exploration — taxonomy Détour (+ Tout). */
 export type CategoryId = "tout" | DetourCategory;
 
-export type WhenFilter =
-  | "today"
-  | "tomorrow"
-  | "weekend"
-  | "next-week"
-  | "this-month"
-  | "next-month"
-  | "upcoming";
-
 export type RadiusFilter = 5 | 15 | 30 | 50;
 
 export type EventSignal = "discover" | "nearby" | "free" | "intimate";

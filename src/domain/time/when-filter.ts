@@ -1,4 +1,11 @@
-import type { WhenFilter } from "@/data/types";
+export type WhenFilter =
+  | "today"
+  | "tomorrow"
+  | "weekend"
+  | "next-week"
+  | "this-month"
+  | "next-month"
+  | "upcoming";
 
 export type DateRange = {
   from: Date;

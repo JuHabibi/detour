@@ -10,13 +10,11 @@ import { HeroFilters } from "@/components/HeroFilters";
 import { UpcomingSection } from "@/components/UpcomingSection";
 import { EventsDebugPanel } from "@/components/EventsDebugPanel";
 import type { EventsDebugMeta } from "@/components/EventsDebugPanel";
-import { isEventInWhenFilter } from "@/domain/time/when-filter";
-import type {
-  CategoryId,
-  EventItem,
-  RadiusFilter,
-  WhenFilter,
-} from "@/data/types";
+import {
+  isEventInWhenFilter,
+  type WhenFilter,
+} from "@/domain/time/when-filter";
+import type { CategoryId, EventItem, RadiusFilter } from "@/data/types";
 
 const PAGE_SIZE = 12;
 

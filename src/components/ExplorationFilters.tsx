@@ -1,6 +1,7 @@
 "use client";
 
-import type { RadiusFilter, WhenFilter } from "@/data/types";
+import type { WhenFilter } from "@/domain/time/when-filter";
+import type { RadiusFilter } from "@/data/types";
 
 type ExplorationFiltersProps = {
   when: WhenFilter;
