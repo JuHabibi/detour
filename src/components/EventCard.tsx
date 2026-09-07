@@ -546,11 +546,21 @@ function FavoriteButton({
   );
 }
 
-/** registrationUrl prioritaire, sinon fiche source (souvent OpenAgenda). */
-function resolveEventAction(event: EventItem): {
+/** Action carte : pas de « Réserver » si billetterie sold_out*. */
+export function resolveEventAction(event: EventItem): {
   href?: string;
   label: string;
 } {
+  if (
+    event.availabilityStatus === "sold_out" ||
+    event.availabilityStatus === "sold_out_online"
+  ) {
+    if (event.sourceUrl) {
+      return { href: event.sourceUrl, label: "Voir les infos" };
+    }
+    return { label: "Voir les infos" };
+  }
+
   if (event.registrationUrl) {
     return { href: event.registrationUrl, label: "Réserver" };
   }
