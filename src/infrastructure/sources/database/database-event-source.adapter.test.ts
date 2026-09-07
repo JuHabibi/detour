@@ -78,11 +78,16 @@ describe("DatabaseEventSourceAdapter", () => {
 });
 
 describe("buildIngestionFromDbRows", () => {
-  it("ordre preferred orleans puis saran", () => {
+  it("ordre preferred orleans puis saran puis ingre-agenda", () => {
     const ingestion = buildIngestionFromDbRows([
       { event: eventStub("saran:1"), adapterId: "saran" },
+      { event: eventStub("ingre:1"), adapterId: "ingre-agenda" },
       { event: eventStub("oa:1"), adapterId: "orleans" },
     ]);
-    expect(ingestion.adapterOrder).toEqual(["orleans", "saran"]);
+    expect(ingestion.adapterOrder).toEqual([
+      "orleans",
+      "saran",
+      "ingre-agenda",
+    ]);
   });
 });

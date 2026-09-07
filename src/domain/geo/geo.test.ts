@@ -78,6 +78,15 @@ describe("resolveEventCoordinates", () => {
     expect(point).toEqual(CITY_CENTER_FALLBACKS.saran);
   });
 
+  it("Ingré sans coords → centre commune (fallback distance)", () => {
+    const point = resolveEventCoordinates({
+      latitude: null,
+      longitude: null,
+      city: "Ingré",
+    });
+    expect(point).toEqual(CITY_CENTER_FALLBACKS.ingre);
+  });
+
   it("ville inconnue sans coords → null", () => {
     expect(
       resolveEventCoordinates({
