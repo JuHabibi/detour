@@ -59,6 +59,10 @@ export type ExplorerResolvedFilters = {
   temporal: ExplorerTemporalFilter;
   /** Pattern ILIKE (`%…%`) ou null = pas de filtre search. */
   searchPattern: string | null;
+  /** `product_category` exact, ou null = pas de filtre. */
+  productCategory: string | null;
+  /** `city_key` exact, ou null = pas de filtre (inclut city_key NULL). */
+  cityKey: string | null;
 };
 
 function db(client?: DbQueryable): DbQueryable {
@@ -118,6 +122,16 @@ export function buildExplorerFilterSql(filters: ExplorerResolvedFilters): {
       OR COALESCE(e.venue, '') ILIKE $${searchIdx} ESCAPE '\\'
       OR COALESCE(e.description, '') ILIKE $${searchIdx} ESCAPE '\\'
     )`);
+  }
+
+  if (filters.productCategory) {
+    params.push(filters.productCategory);
+    parts.push(`e.product_category = $${params.length}`);
+  }
+
+  if (filters.cityKey) {
+    params.push(filters.cityKey);
+    parts.push(`e.city_key = $${params.length}`);
   }
 
   return {

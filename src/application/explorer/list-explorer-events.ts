@@ -37,15 +37,12 @@ function resolveFilters(
   return {
     temporal,
     searchPattern: normalizeExplorerSearch(query.search),
+    productCategory: query.category ?? null,
+    cityKey: query.city ?? null,
   };
 }
 
-/**
- * Read model Explorer — pagination keyset DB, indépendant d’EventService / Radar.
- *
- * Filtres supportés : when, search, cursor, limit.
- * when → bornes via `getDateRangeForWhenFilter` (Europe/Paris).
- */
+
 export async function listExplorerEvents(
   query: ListExplorerEventsQuery,
   options?: { client?: DbQueryable; now?: Date },

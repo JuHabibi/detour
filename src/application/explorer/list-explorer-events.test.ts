@@ -9,8 +9,23 @@ import {
   EXPLORER_MAX_PAGE_SIZE,
 } from "@/application/explorer/types";
 import { getDateRangeForWhenFilter } from "@/domain/time/when-filter";
-import { buildExplorerFilterSql } from "@/infrastructure/db/explorer-events.repository";
+import {
+  buildExplorerFilterSql,
+  type ExplorerResolvedFilters,
+} from "@/infrastructure/db/explorer-events.repository";
 import type { DbQueryable } from "@/infrastructure/db/postgres";
+
+function filters(
+  overrides: Partial<ExplorerResolvedFilters> &
+    Pick<ExplorerResolvedFilters, "temporal">,
+): ExplorerResolvedFilters {
+  return {
+    searchPattern: null,
+    productCategory: null,
+    cityKey: null,
+    ...overrides,
+  };
+}
 
 function availabilityFields(overrides?: {
   status?: string | null;
@@ -74,10 +89,11 @@ describe("buildExplorerFilterSql", () => {
   it("today : intersection bornée start <= to AND end >= from", () => {
     const now = new Date("2026-09-10T12:00:00+02:00");
     const range = getDateRangeForWhenFilter("today", now);
-    const { whereSql, params } = buildExplorerFilterSql({
-      temporal: { mode: "bounded", from: range.from, to: range.to! },
-      searchPattern: null,
-    });
+    const { whereSql, params } = buildExplorerFilterSql(
+      filters({
+        temporal: { mode: "bounded", from: range.from, to: range.to! },
+      }),
+    );
     expect(whereSql).toContain("e.is_active = true");
     expect(whereSql).toContain("e.start_at <= $2");
     expect(whereSql).toContain("COALESCE(e.end_at, e.start_at) >= $1");
@@ -89,10 +105,11 @@ describe("buildExplorerFilterSql", () => {
   it("weekend : mêmes predicats d’intersection", () => {
     const now = new Date("2026-09-09T11:00:00+02:00");
     const range = getDateRangeForWhenFilter("weekend", now);
-    const { whereSql, params } = buildExplorerFilterSql({
-      temporal: { mode: "bounded", from: range.from, to: range.to! },
-      searchPattern: null,
-    });
+    const { whereSql, params } = buildExplorerFilterSql(
+      filters({
+        temporal: { mode: "bounded", from: range.from, to: range.to! },
+      }),
+    );
     expect(whereSql).toContain("e.start_at <= $2");
     expect(whereSql).toContain("COALESCE(e.end_at, e.start_at) >= $1");
     expect(params[0]).toBe(range.from.toISOString());
@@ -101,10 +118,9 @@ describe("buildExplorerFilterSql", () => {
 
   it("upcoming : end >= now, pas de borne haute", () => {
     const now = new Date("2026-09-10T12:00:00+02:00");
-    const { whereSql, params } = buildExplorerFilterSql({
-      temporal: { mode: "upcoming", now },
-      searchPattern: null,
-    });
+    const { whereSql, params } = buildExplorerFilterSql(
+      filters({ temporal: { mode: "upcoming", now } }),
+    );
     expect(whereSql).toContain("COALESCE(e.end_at, e.start_at) >= $1");
     expect(whereSql).not.toContain("e.start_at <=");
     expect(params).toEqual([now.toISOString()]);
@@ -112,14 +128,42 @@ describe("buildExplorerFilterSql", () => {
 
   it("search ILIKE title/venue/description paramétré", () => {
     const now = new Date("2026-09-10T12:00:00+02:00");
-    const { whereSql, params } = buildExplorerFilterSql({
-      temporal: { mode: "upcoming", now },
-      searchPattern: "%Jazz%",
-    });
+    const { whereSql, params } = buildExplorerFilterSql(
+      filters({
+        temporal: { mode: "upcoming", now },
+        searchPattern: "%Jazz%",
+      }),
+    );
     expect(whereSql).toContain("e.title ILIKE $2 ESCAPE '\\'");
     expect(whereSql).toContain("COALESCE(e.venue, '') ILIKE $2");
     expect(whereSql).toContain("COALESCE(e.description, '') ILIKE $2");
     expect(params).toEqual([now.toISOString(), "%Jazz%"]);
+  });
+
+  it("category → product_category uniquement", () => {
+    const now = new Date("2026-09-10T12:00:00+02:00");
+    const { whereSql, params } = buildExplorerFilterSql(
+      filters({
+        temporal: { mode: "upcoming", now },
+        productCategory: "Musique",
+      }),
+    );
+    expect(whereSql).toContain("e.product_category = $2");
+    expect(whereSql).not.toContain("e.category =");
+    expect(params).toEqual([now.toISOString(), "Musique"]);
+  });
+
+  it("city → city_key uniquement", () => {
+    const now = new Date("2026-09-10T12:00:00+02:00");
+    const { whereSql, params } = buildExplorerFilterSql(
+      filters({
+        temporal: { mode: "upcoming", now },
+        cityKey: "Saran",
+      }),
+    );
+    expect(whereSql).toContain("e.city_key = $2");
+    expect(whereSql).not.toContain("e.city =");
+    expect(params).toEqual([now.toISOString(), "Saran"]);
   });
 });
 
@@ -459,5 +503,232 @@ describe("listExplorerEvents — combinaison when + search + pagination", () => 
     expect(result.events.map((e) => e.id)).toEqual(["jazz-2", "jazz-3"]);
     expect(result.events.map((e) => e.id)).not.toContain("jazz-1");
     expect(result.nextCursor).toBeNull();
+  });
+});
+
+describe("listExplorerEvents — CATEGORY", () => {
+  const now = new Date("2026-09-10T12:00:00+02:00");
+
+  it("filtre product_category", async () => {
+    const { query, client } = mockClient((sql, params) => {
+      if (sql.includes("count(*)")) {
+        expect(sql).toContain("e.product_category = $2");
+        expect(sql).not.toContain("e.category =");
+        expect(params).toEqual([now.toISOString(), "Musique"]);
+        return { rows: [{ count: "2" }] };
+      }
+      return { rows: [dbRow("m1", "2026-11-01T18:00:00.000Z")] };
+    });
+
+    const result = await listExplorerEvents(
+      { when: "upcoming", category: "Musique" },
+      { client, now },
+    );
+    expect(result.totalCount).toBe(2);
+    expect(query).toHaveBeenCalled();
+  });
+
+  it("absence de filtre category", async () => {
+    const { client } = mockClient((sql, params) => {
+      if (sql.includes("count(*)")) {
+        expect(sql).not.toContain("product_category");
+        expect(params).toEqual([now.toISOString()]);
+        return { rows: [{ count: "0" }] };
+      }
+      return { rows: [] };
+    });
+    await listExplorerEvents({ when: "upcoming" }, { client, now });
+    await listExplorerEvents(
+      { when: "upcoming", category: null },
+      { client, now },
+    );
+  });
+
+  it("category + when", async () => {
+    const range = getDateRangeForWhenFilter("today", now);
+    const { client } = mockClient((sql, params) => {
+      if (sql.includes("count(*)")) {
+        expect(sql).toContain("e.start_at <=");
+        expect(sql).toContain("e.product_category = $3");
+        expect(params).toEqual([
+          range.from.toISOString(),
+          range.to!.toISOString(),
+          "Spectacle",
+        ]);
+        return { rows: [{ count: "1" }] };
+      }
+      return { rows: [] };
+    });
+    await listExplorerEvents(
+      { when: "today", category: "Spectacle" },
+      { client, now },
+    );
+  });
+
+  it("category + search + totalCount", async () => {
+    const { client } = mockClient((sql, params) => {
+      if (sql.includes("count(*)")) {
+        expect(sql).toContain("ILIKE");
+        expect(sql).toContain("e.product_category = $3");
+        expect(params).toEqual([now.toISOString(), "%jazz%", "Musique"]);
+        return { rows: [{ count: "5" }] };
+      }
+      return { rows: [] };
+    });
+    const result = await listExplorerEvents(
+      { when: "upcoming", search: "jazz", category: "Musique" },
+      { client, now },
+    );
+    expect(result.totalCount).toBe(5);
+  });
+});
+
+describe("listExplorerEvents — CITY", () => {
+  const now = new Date("2026-09-10T12:00:00+02:00");
+
+  it("filtre city_key canonique", async () => {
+    const { client } = mockClient((sql, params) => {
+      if (sql.includes("count(*)")) {
+        expect(sql).toContain("e.city_key = $2");
+        expect(sql).not.toContain("e.city =");
+        expect(params).toEqual([now.toISOString(), "Orléans"]);
+        return { rows: [{ count: "3" }] };
+      }
+      return { rows: [] };
+    });
+    const result = await listExplorerEvents(
+      { when: "upcoming", city: "Orléans" },
+      { client, now },
+    );
+    expect(result.totalCount).toBe(3);
+  });
+
+  it("absence de filtre city → pas de clause city_key (NULL inclus)", async () => {
+    const { client } = mockClient((sql, params) => {
+      if (sql.includes("count(*)")) {
+        expect(sql).not.toContain("city_key");
+        expect(params).toEqual([now.toISOString()]);
+        return { rows: [{ count: "10" }] };
+      }
+      return { rows: [] };
+    });
+    const result = await listExplorerEvents({ when: "upcoming" }, { client, now });
+    expect(result.totalCount).toBe(10);
+  });
+
+  it("ville sélectionnée → égalité city_key (exclut NULL)", async () => {
+    const { whereSql } = buildExplorerFilterSql(
+      filters({
+        temporal: { mode: "upcoming", now },
+        cityKey: "Saran",
+      }),
+    );
+    expect(whereSql).toContain("e.city_key = $2");
+    expect(whereSql).not.toContain("city_key IS NULL");
+  });
+
+  it("city + when", async () => {
+    const range = getDateRangeForWhenFilter("weekend", now);
+    const { client } = mockClient((sql, params) => {
+      if (sql.includes("count(*)")) {
+        expect(params).toEqual([
+          range.from.toISOString(),
+          range.to!.toISOString(),
+          "Saran",
+        ]);
+        return { rows: [{ count: "2" }] };
+      }
+      return { rows: [] };
+    });
+    const result = await listExplorerEvents(
+      { when: "weekend", city: "Saran" },
+      { client, now },
+    );
+    expect(result.totalCount).toBe(2);
+  });
+
+  it("city + search + totalCount", async () => {
+    const { client } = mockClient((sql, params) => {
+      if (sql.includes("count(*)")) {
+        expect(params).toEqual([now.toISOString(), "%théâtre%", "Olivet"]);
+        return { rows: [{ count: "1" }] };
+      }
+      return { rows: [] };
+    });
+    const result = await listExplorerEvents(
+      { when: "upcoming", search: "théâtre", city: "Olivet" },
+      { client, now },
+    );
+    expect(result.totalCount).toBe(1);
+  });
+});
+
+describe("listExplorerEvents — combinaison complète", () => {
+  it("when + search + category + city + pagination filtrée", async () => {
+    const now = new Date("2026-09-10T12:00:00+02:00");
+    const range = getDateRangeForWhenFilter("weekend", now);
+    const cursor = encodeExplorerCursor({
+      startAt: "2026-09-12T18:00:00.000Z",
+      id: "a",
+    });
+
+    let countSql = "";
+    let pageSql = "";
+    const { client } = mockClient((sql, params) => {
+      if (sql.includes("count(*)")) {
+        countSql = sql;
+        expect(params).toEqual([
+          range.from.toISOString(),
+          range.to!.toISOString(),
+          "%jazz%",
+          "Musique",
+          "Orléans",
+        ]);
+        expect(sql).not.toContain("e.start_at >");
+        return { rows: [{ count: "4" }] };
+      }
+      pageSql = sql;
+      expect(params).toEqual([
+        range.from.toISOString(),
+        range.to!.toISOString(),
+        "%jazz%",
+        "Musique",
+        "Orléans",
+        "2026-09-12T18:00:00.000Z",
+        "a",
+        3,
+      ]);
+      return {
+        rows: [
+          dbRow("b", "2026-09-13T10:00:00.000Z"),
+          dbRow("c", "2026-09-13T12:00:00.000Z"),
+          dbRow("d", "2026-09-13T14:00:00.000Z"),
+        ],
+      };
+    });
+
+    const result = await listExplorerEvents(
+      {
+        when: "weekend",
+        search: "jazz",
+        category: "Musique",
+        city: "Orléans",
+        cursor,
+        limit: 2,
+      },
+      { client, now },
+    );
+
+    expect(countSql).toContain("product_category");
+    expect(countSql).toContain("city_key");
+    expect(countSql).toContain("ILIKE");
+    expect(pageSql).toContain("e.start_at >");
+    expect(result.totalCount).toBe(4);
+    expect(result.events.map((e) => e.id)).toEqual(["b", "c"]);
+    expect(result.events.map((e) => e.id)).not.toContain("a");
+    expect(decodeExplorerCursor(result.nextCursor!)).toEqual({
+      startAt: "2026-09-13T12:00:00.000Z",
+      id: "c",
+    });
   });
 });
