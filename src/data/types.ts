@@ -57,7 +57,7 @@ export type EventItem = {
   upcoming?: boolean;
   signal?: EventSignal;
   /**
-   * Pastille éditoriale « Faites un détour » uniquement.
+   * Pastille éditoriale section radar uniquement.
    * Calculée hors composant (assessment IA + registrationUrl).
    */
   editorialBadge?: EditorialBadge;

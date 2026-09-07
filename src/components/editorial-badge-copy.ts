@@ -1,8 +1,8 @@
 import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 
-/** Sous-titre section « Faites un détour » (inchangé). */
+/** Sous-titre section radar (aligné DetourSection). */
 export const DETOUR_SECTION_SUBTITLE =
-  "Des événements qu’on aurait facilement pu rater.";
+  "Des événements qu’il vaut mieux découvrir aujourd’hui que trop tard.";
 
 /** Micro-ligne éditoriale — radar culturel, sans jargon technique. */
 export const DETOUR_SECTION_EDITORIAL_LINE =

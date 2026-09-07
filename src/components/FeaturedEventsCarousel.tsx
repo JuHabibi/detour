@@ -11,7 +11,7 @@ type FeaturedEventsCarouselProps = {
   onToggleFavorite: (id: string) => void;
 };
 
-/** Carousel horizontal léger — section « Faites un détour » uniquement. */
+/** Carousel horizontal léger — section radar (highlights) uniquement. */
 export function FeaturedEventsCarousel({
   events,
   favorites,
@@ -78,7 +78,7 @@ export function FeaturedEventsCarousel({
         tabIndex={0}
         role="region"
         aria-roledescription="carousel"
-        aria-label="Faites un détour — sélection éditoriale"
+        aria-label="Sur le radar — sélection éditoriale"
         onKeyDown={(event) => {
           if (event.key === "ArrowRight") {
             event.preventDefault();

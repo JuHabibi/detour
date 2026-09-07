@@ -7,7 +7,6 @@ import { EventGrid } from "@/components/EventGrid";
 import { ExplorationFilters } from "@/components/ExplorationFilters";
 import { Header } from "@/components/Header";
 import { HeroFilters } from "@/components/HeroFilters";
-import { UpcomingSection } from "@/components/UpcomingSection";
 import { EventsDebugPanel } from "@/components/EventsDebugPanel";
 import type { EventsDebugMeta } from "@/components/EventsDebugPanel";
 import {
@@ -18,7 +17,7 @@ import type { CategoryId, EventItem, RadiusFilter } from "@/data/types";
 
 const PAGE_SIZE = 12;
 
-const GRID_TITLES: Record<WhenFilter, string> = {
+const GRID_RESULT_TITLES: Record<WhenFilter, string> = {
   today: "Aujourd’hui autour d’Orléans",
   tomorrow: "Demain autour d’Orléans",
   weekend: "Ce week-end autour d’Orléans",
@@ -30,9 +29,12 @@ const GRID_TITLES: Record<WhenFilter, string> = {
 
 type HomePageProps = {
   events: EventItem[];
-  /** Sélection éditoriale « Faites un détour » — indépendante des filtres. */
+  /** Highlights radar — indépendants des filtres d’exploration. */
   highlights: EventItem[];
-  /** Section « À prévoir » — anticipation (>30 jours). */
+  /**
+   * Sélection planning métier — conservée (debug / futurs usages).
+   * Section publique masquée temporairement.
+   */
   planningEvents: EventItem[];
   debugMeta?: EventsDebugMeta;
 };
@@ -63,7 +65,6 @@ export function HomePage({
   }, [debugMeta]);
 
   const displayedHighlights = overrideHighlights ?? highlights;
-  const displayedPlanning = overridePlanning ?? planningEvents;
 
   // Distance absente = pas encore filtrable ; on n’exclut pas l’événement.
   const withinRadius = useMemo(
@@ -122,7 +123,8 @@ export function HomePage({
           onToggleFavorite={toggleFavorite}
         />
         <EventGrid
-          title={GRID_TITLES[when]}
+          title="Explorer les sorties"
+          resultTitle={GRID_RESULT_TITLES[when]}
           toolbar={
             <>
               <ExplorationFilters
@@ -147,11 +149,6 @@ export function HomePage({
               : undefined
           }
         />
-        <UpcomingSection
-          events={displayedPlanning}
-          favorites={favorites}
-          onToggleFavorite={toggleFavorite}
-        />
         <EventsDebugPanel
           events={events}
           meta={liveDebugMeta}
@@ -172,8 +169,8 @@ export function HomePage({
             Détour<span className="text-coral">.</span>
           </p>
           <p className="max-w-md text-sm leading-6 text-sand">
-            Ce que vous auriez pu rater autour de vous. Pas un agenda : une
-            invitation à sortir.
+            Radar culturel local — pour repérer ce qui mérite votre attention,
+            pas pour tout lister.
           </p>
         </div>
       </footer>

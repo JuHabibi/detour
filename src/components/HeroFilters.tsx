@@ -12,12 +12,13 @@ export function HeroFilters() {
 
       <div className="relative mx-auto max-w-[1440px]">
         <h1 className="max-w-3xl font-display text-[2rem] leading-[1.05] tracking-tight text-ink sm:text-[2.75rem] lg:text-[3.4rem]">
-          Ne passez pas à côté de ce qui se passe près de chez vous.
+          Repérez aujourd’hui ce que vous pourriez regretter de découvrir trop
+          tard.
         </h1>
 
         <p className="mt-3 max-w-xl text-sm leading-6 text-cream-dim md:mt-4 md:text-[0.95rem] md:leading-7">
-          Détour, votre radar culturel local pour repérer les événements qui se
-          perdent facilement dans les agendas.
+          Détour, radar culturel local — pour anticiper ce qui mérite votre
+          attention, pas pour tout lister.
         </p>
 
         <div className="mt-5 md:mt-6">

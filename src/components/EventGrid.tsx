@@ -3,7 +3,10 @@ import { EventCard } from "@/components/EventCard";
 import type { EventItem } from "@/data/types";
 
 type EventGridProps = {
+  /** Titre de section (exploration secondaire). */
   title?: string;
+  /** Sous-titre dynamique selon le filtre temporel. */
+  resultTitle?: string;
   toolbar?: ReactNode;
   events: EventItem[];
   /** Total filtré (avant « Voir plus ») — pour le compteur discret. */
@@ -14,7 +17,8 @@ type EventGridProps = {
 };
 
 export function EventGrid({
-  title = "Ce week-end autour d’Orléans",
+  title = "Explorer les sorties",
+  resultTitle,
   toolbar,
   events,
   totalCount,
@@ -34,11 +38,16 @@ export function EventGrid({
         <div className="mb-5 flex items-end justify-between gap-4 md:mb-6">
           <div>
             <p className="text-[11px] uppercase tracking-[0.28em] text-sand">
-              Autour d’Orléans
+              Explorer
             </p>
             <h2 className="mt-2 font-display text-3xl tracking-tight md:text-5xl">
               {title}
             </h2>
+            {resultTitle ? (
+              <p className="mt-2 text-sm leading-6 text-cream-dim md:text-[0.95rem]">
+                {resultTitle}
+              </p>
+            ) : null}
           </div>
           <p className="hidden text-sm text-sand md:block">{countLabel}</p>
         </div>

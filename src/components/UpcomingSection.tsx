@@ -36,14 +36,12 @@ export function UpcomingSection({
     <section id="a-prevoir" className="scroll-mt-24 px-5 py-10 md:px-8 md:py-14 lg:px-12">
       <div className="mx-auto max-w-[1440px]">
         <div className="mb-8 md:mb-10">
-          <p className="text-[11px] uppercase tracking-[0.28em] text-sand">
-            Plus tard
-          </p>
-          <h2 className="mt-2 font-display text-3xl tracking-tight md:text-5xl">
-            À prévoir
+          <h2 className="font-display text-3xl tracking-tight md:text-5xl">
+            À anticiper
           </h2>
           <p className="mt-3 max-w-lg text-sm leading-6 text-cream-dim">
-          Des événements à repérer dès maintenant pour pouvoir s’organiser.
+            Des rendez-vous encore loin dans le calendrier, mais déjà utiles à
+            connaître.
           </p>
         </div>
 

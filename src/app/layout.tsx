@@ -16,9 +16,9 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Détour — Ce qui vaut le détour autour de vous",
+  title: "Détour — Radar culturel local autour d’Orléans",
   description:
-    "Concerts, spectacles, expos et expériences culturelles sélectionnés autour d’Orléans, en Centre-Val de Loire.",
+    "Repérez aujourd’hui ce que vous pourriez regretter de découvrir trop tard — concerts, spectacles et sorties autour d’Orléans.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -20,14 +20,14 @@ export function DetourSection({
       <div className="mx-auto max-w-[1440px] px-5 py-7 md:px-8 md:py-9 lg:px-12">
         <div className="mb-5 md:mb-6">
           <p className="text-[11px] uppercase tracking-[0.28em] text-sand">
-            À REPÉRER
+            Sur le radar
           </p>
           <h2 className="mt-2 font-display text-3xl tracking-tight md:text-[2.75rem]">
-            À voir avant de passer à côté
+            À repérer maintenant
           </h2>
           <p className="mt-2.5 max-w-md text-sm leading-6 text-cream-dim">
-            Des spectacles, concerts et rendez-vous locaux qu’on aurait
-            facilement pu rater.
+            Des événements qu’il vaut mieux découvrir aujourd’hui que trop
+            tard.
           </p>
         </div>
 

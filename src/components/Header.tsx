@@ -25,11 +25,11 @@ export function Header({ favoriteCount }: HeaderProps) {
             aria-label="Sections"
             className="hidden items-center gap-6 text-[13px] tracking-[0.12em] text-sand uppercase md:flex"
           >
+            <a href="#detour" className="rounded-sm transition-colors hover:text-ink">
+              Sur le radar
+            </a>
             <a href="#explorer" className="rounded-sm transition-colors hover:text-ink">
               Explorer
-            </a>
-            <a href="#a-prevoir" className="rounded-sm transition-colors hover:text-ink">
-              À prévoir
             </a>
           </nav>
 
