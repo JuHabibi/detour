@@ -43,7 +43,7 @@ export function ExplorationFilters({
     <div
       role="group"
       aria-label="Filtres d’exploration"
-      className="scrollbar-none flex gap-2 overflow-x-auto pb-1"
+      className="flex shrink-0 flex-wrap items-center gap-2"
     >
       <FilterSelect
         accessibleName="Période"
@@ -83,7 +83,7 @@ function FilterSelect({
       <span className="sr-only">{accessibleName}</span>
       <span
         aria-hidden="true"
-        className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-foam px-4 py-2.5 text-sm text-ink"
+        className="inline-flex h-11 items-center gap-2 rounded-full border border-line bg-foam px-4 text-sm text-ink"
       >
         {visibleLabel}
         <Chevron />

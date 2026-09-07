@@ -171,23 +171,25 @@ export function ExplorerSection({
       title="Explorer les sorties"
       resultTitle={GRID_RESULT_TITLES[when]}
       toolbar={
-        <>
-          <ExplorationFilters
-            when={when}
-            city={city}
-            onWhenChange={setWhen}
-            onCityChange={setCity}
-          />
-          <label className="block">
-            <span className="sr-only">Recherche</span>
-            <input
-              type="search"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Rechercher un événement, un lieu..."
-              className="min-h-11 w-full rounded-full border border-line bg-foam px-4 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-ink/20"
+        <div className="flex flex-col gap-3 md:gap-4">
+          <div className="flex flex-col gap-2 sm:gap-3 lg:flex-row lg:items-center lg:gap-3">
+            <label className="block w-full min-w-0 lg:max-w-[36rem] lg:flex-1">
+              <span className="sr-only">Recherche</span>
+              <input
+                type="search"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Rechercher un événement, un lieu..."
+                className="h-11 w-full rounded-full border border-line bg-foam px-4 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-ink/20"
+              />
+            </label>
+            <ExplorationFilters
+              when={when}
+              city={city}
+              onWhenChange={setWhen}
+              onCityChange={setCity}
             />
-          </label>
+          </div>
           <CategoryFilter category={category} onCategoryChange={setCategory} />
           {loading || loadingMore ? (
             <p className="text-xs text-sand" aria-live="polite">
@@ -206,7 +208,7 @@ export function ExplorerSection({
               </button>
             </p>
           ) : null}
-        </>
+        </div>
       }
       events={events}
       totalCount={totalCount}

@@ -35,8 +35,8 @@ export function EventGrid({
   return (
     <section id="explorer" className="scroll-mt-24 px-5 py-10 md:px-8 md:py-14 lg:px-12">
       <div className="mx-auto max-w-[1440px]">
-        <div className="mb-5 flex items-end justify-between gap-4 md:mb-6">
-          <div>
+        <header className="mb-6 flex items-start justify-between gap-4 md:mb-8">
+          <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-[0.28em] text-sand">
               Explorer
             </p>
@@ -49,10 +49,12 @@ export function EventGrid({
               </p>
             ) : null}
           </div>
-          <p className="hidden text-sm text-sand md:block">{countLabel}</p>
-        </div>
+          <p className="shrink-0 pt-1 text-right text-xs text-sand md:pt-2 md:text-sm">
+            {countLabel}
+          </p>
+        </header>
 
-        {toolbar ? <div className="mb-7 flex flex-col gap-4">{toolbar}</div> : null}
+        {toolbar ? <div className="mb-6 md:mb-8">{toolbar}</div> : null}
 
         {events.length === 0 ? (
           <p className="max-w-lg font-display text-2xl leading-snug text-cream-dim">
@@ -74,7 +76,7 @@ export function EventGrid({
             </div>
 
             {onShowMore ? (
-              <div className="mt-10 flex flex-col items-center gap-3">
+              <div className="mt-10 flex justify-center">
                 <button
                   type="button"
                   onClick={onShowMore}
@@ -82,9 +84,6 @@ export function EventGrid({
                 >
                   Voir plus
                 </button>
-                <p className="text-xs text-sand md:hidden">
-                  {events.length} sur {total}
-                </p>
               </div>
             ) : null}
           </>
