@@ -1,0 +1,279 @@
+{
+  "version": 2,
+  "status": "proposal_pending_human_validation",
+  "description": "Golden set Radar V2 — vérité terrain alignée sur la promesse « regretter de ne pas avoir repéré plus tôt ». Axes séparés : desirability / anticipation / radarLabel. Indépendant du moteur (pas de scores, reasons, slots).",
+  "source": "Audit éditorial aveugle providerInputs (corpus figé ai-highlight-corpus.json) — Sept 2026. Ancien golden v1 conservé dans editorial-golden-set.json.",
+  "promise": "Faire remonter ce qu’on risque de regretter de ne pas avoir repéré plus tôt.",
+  "axes": {
+    "desirability": ["strong", "medium", "weak", "insufficient"],
+    "anticipation": ["strong", "medium", "weak", "insufficient"],
+    "radarLabel": ["MUST", "MAYBE", "NO", "UNJUDGEABLE"]
+  },
+  "rules": {
+    "MUST": "Anticipation convaincante documentée dans la fiche ; désirabilité seule insuffisante.",
+    "MAYBE": "Forte désirabilité sans anticipation forte, ou anticipation moyenne / valeur Radar partielle.",
+    "NO": "Ne ressort pas assez du bruit local au regard de la promesse Radar.",
+    "UNJUDGEABLE": "Données moteur insuffisantes — ne jamais convertir en NO."
+  },
+  "items": [
+    {
+      "eventId": "88113554",
+      "titleMatch": "Saison culturelle : Hadrien avec un H",
+      "desirability": "strong",
+      "anticipation": "strong",
+      "radarLabel": "MUST",
+      "evidence": [
+        "Description : « Première du spectacle après une résidence abraysienne »",
+        "Conditions : « 10 €, sur inscription »",
+        "hasRegistrationUrl: true"
+      ],
+      "note": "MUST confirmé — première + résidence = promesse Radar explicite."
+    },
+    {
+      "eventId": "3621397",
+      "titleMatch": "Duo Zéphyr - 2 concerts dans le cadre de l'enregistrement d'un CD Live",
+      "desirability": "medium",
+      "anticipation": "strong",
+      "radarLabel": "MUST",
+      "evidence": [
+        "Titre : « 2 concerts dans le cadre de l'enregistrement d'un CD Live »",
+        "Conditions : « Gratuit »",
+        "Description : jazz / folk / groove sans étiquettes (matière artistique moyenne)"
+      ],
+      "note": "MUST confirmé — l’enregistrement CD live dans le titre porte l’anticipation."
+    },
+    {
+      "eventId": "81635323",
+      "titleMatch": "CANAILLE, me murmure la lampe à pétrole posée en équilibre sur le crâne de Satie: spectacle sortie de résidence avec Jean-Luc Bayard et Carole Alazard",
+      "desirability": "strong",
+      "anticipation": "strong",
+      "radarLabel": "MUST",
+      "evidence": [
+        "Titre : « spectacle sortie de résidence »",
+        "Description : « Après 1 semaine de travail dans la salle de la MJC… présentation de leur travail »",
+        "Conditions : « Gratuit - Réservation conseillée »"
+      ],
+      "note": "MUST confirmé — sortie de résidence + occurrence de présentation."
+    },
+    {
+      "eventId": "7457473",
+      "titleMatch": "Duo Zéphyr à la résidence sociale \"Les Floréales\"",
+      "desirability": "strong",
+      "anticipation": "strong",
+      "radarLabel": "MUST",
+      "evidence": [
+        "Venue : « Résidence sociale \"Les Floréales\" »",
+        "Description : « Attention : 20 places dispos. »",
+        "Conditions : « Gratuit - Réservation obligatoire »"
+      ],
+      "note": "MUST confirmé — contexte local inhabituel + jauge explicite + réservation obligatoire."
+    },
+    {
+      "eventId": "8993479",
+      "titleMatch": "Loto 3000 - COLLECTIF ÈS",
+      "desirability": "strong",
+      "anticipation": "strong",
+      "radarLabel": "MUST",
+      "evidence": [
+        "Titre peu informatif (« Loto 3000 ») vs forme réelle",
+        "Description : « loto carnavalesque transforme le jeu populaire en performance chorégraphique participative »"
+      ],
+      "note": "MUST confirmé — dispositif inhabituel / titre trompeur."
+    },
+    {
+      "eventId": "75118495",
+      "titleMatch": "Short Message Service - SUZANNE DE BAECQUE, JOAQUIM FOSSI",
+      "desirability": "strong",
+      "anticipation": "strong",
+      "radarLabel": "MUST",
+      "evidence": [
+        "Titre opaque (« Short Message Service »)",
+        "Description : « À partir de vrais messages collectés… spectacle… participatif (gardez votre téléphone allumé !) »"
+      ],
+      "note": "MUST confirmé — valeur cachée derrière le titre + participation."
+    },
+    {
+      "eventId": "71870728",
+      "titleMatch": "Fapy Lafertin Trio invite Adrian Cox",
+      "desirability": "strong",
+      "anticipation": "weak",
+      "radarLabel": "MAYBE",
+      "evidence": [
+        "Description : contribution à la renaissance du style Django Reinhardt ; collaborations nommées (Stéphane Grappelli, Charlie Byrd, Scott Hamilton)",
+        "Category : Musique",
+        "Aucun signal d’enregistrement, création, jauge, format rare ou contrainte propre à cette date"
+      ],
+      "note": "Ancien MUST → MAYBE : désirabilité bio forte, anticipation absente pour CE concert.",
+      "v1Label": "MUST"
+    },
+    {
+      "eventId": "53674244",
+      "titleMatch": "Un endroit partout - NACH",
+      "desirability": "strong",
+      "anticipation": "weak",
+      "radarLabel": "MAYBE",
+      "evidence": [
+        "Description : « Du krump à la danse classique, en passant par le butô… portrait dansé… playlists éclectiques »",
+        "Aucun signal de première, résidence, jauge, participation ou occurrence particulière"
+      ],
+      "note": "Ancien MUST → MAYBE : proposition qui ressort, sans raison de détection précoce.",
+      "v1Label": "MUST"
+    },
+    {
+      "eventId": "40195179",
+      "titleMatch": "Portés de femmes - PROJET.PDF",
+      "desirability": "strong",
+      "anticipation": "weak",
+      "radarLabel": "MAYBE",
+      "evidence": [
+        "Description : « Dix-huit femmes réinventent le porté acrobatique loin des codes traditionnels »",
+        "Titre déjà partiellement informatif (« Portés de femmes »)",
+        "Aucun signal de contrainte, jauge, création datée ou format rare"
+      ],
+      "note": "Ancien MUST → MAYBE : désirabilité acrobatique forte, anticipation faible.",
+      "v1Label": "MUST"
+    },
+    {
+      "eventId": "83900552",
+      "titleMatch": "Simple Sample - ELSA DUMONTEL FEAT. ÈVE BOUCHELOT",
+      "desirability": "strong",
+      "anticipation": "weak",
+      "radarLabel": "MAYBE",
+      "evidence": [
+        "Description : « Deux danseuses… course rythmique… à partir d'une gavotte de Bach »",
+        "Aucun signal d’anticipation (création, jauge, participation, contrainte)"
+      ],
+      "note": "Ajout v2 — même profil que NACH (désirabilité sans anticipation). Absent du golden v1."
+    },
+    {
+      "eventId": "69569603",
+      "eventIds": ["69569603", "44494005"],
+      "titleMatch": "Les règles du jeu",
+      "desirability": "medium",
+      "anticipation": "weak",
+      "radarLabel": "MAYBE",
+      "evidence": [
+        "Description : conte contemporain de Yann Verburgh, poésie / espoir",
+        "Aucun signal de création locale, dispositif caché, jauge ou contrainte d’anticipation",
+        "Deux séances (28/11 et 29/11) = une seule découverte éditoriale (discoveryKey partagé)"
+      ],
+      "note": "MAYBE conservé — une unité éditoriale pour les deux occurrences. v1 avait deux entrées.",
+      "v1Label": "MAYBE"
+    },
+    {
+      "eventId": "29844070",
+      "titleMatch": "Atelier La Clé des sons - LES PETITS DÉBROUILLARDS",
+      "desirability": "medium",
+      "anticipation": "medium",
+      "radarLabel": "MAYBE",
+      "evidence": [
+        "Description : expérience ludique Sonobox / science, son, musique",
+        "Conditions : « Tarifs 5€, sur réservation »",
+        "Category inclut Stage - atelier"
+      ],
+      "note": "Ajout v2 — anticipation moyenne (réservation + atelier), désirabilité moyenne."
+    },
+    {
+      "eventId": "26800001",
+      "titleMatch": "Saison culturelle : Premiers printemps",
+      "desirability": "weak",
+      "anticipation": "medium",
+      "radarLabel": "NO",
+      "evidence": [
+        "Description : théâtre gestuel et musical + compagnie Soleil sous la pluie (peu d’autre matière)",
+        "Conditions : « Gratuit, sur inscription »"
+      ],
+      "note": "Ancien MAYBE → NO : inscription seule ne porte pas une priorité Radar.",
+      "v1Label": "MAYBE"
+    },
+    {
+      "eventId": "59662176",
+      "titleMatch": "LE BOURGEOIS GENTILHOMME - SAISON CULTURELLE 26/27",
+      "desirability": "medium",
+      "anticipation": "weak",
+      "radarLabel": "NO",
+      "evidence": [
+        "Description : « Jean-Paul Rouve n’a qu’un objectif, nous faire rire. »",
+        "Aucun signal de création, dispositif, jauge ou occurrence particulière"
+      ],
+      "note": "Ancien MAYBE → NO : humour / nom d’acteur, pas promesse Radar.",
+      "v1Label": "MAYBE"
+    },
+    {
+      "eventId": "21044548",
+      "titleMatch": "Les Vamps - Voyage à Lourdes",
+      "startAtMatch": "2026-11-27",
+      "desirability": "medium",
+      "anticipation": "weak",
+      "radarLabel": "NO",
+      "evidence": [
+        "Description : Gisèle et Lucienne, voyage organisé à Lourdes, médire de leur entourage",
+        "Aucun signal de création, dispositif caché, jauge, participation ou contrainte"
+      ],
+      "note": "Ajout v2 — cas frontière historique ; NO au regard de la promesse Radar."
+    },
+    {
+      "eventId": "54405837",
+      "titleMatch": "Drache Nationale - COMPAGNIE ANORAKS",
+      "desirability": "medium",
+      "anticipation": "weak",
+      "radarLabel": "NO",
+      "evidence": [
+        "Description : trio de clowns belges, dérision, ambiance festive",
+        "Aucun levier d’anticipation documenté"
+      ],
+      "note": "Ajout v2 — offre locale standard."
+    },
+    {
+      "eventId": "49933566",
+      "titleMatch": "Max et le grand magicien",
+      "desirability": "weak",
+      "anticipation": "weak",
+      "radarLabel": "NO",
+      "evidence": [
+        "Description : « Entrez dans le véritable atelier de magie du Professeur Spank ! »",
+        "Category : Spectacle;Jeune public"
+      ],
+      "note": "Ajout v2 — fiche minimale, hors promesse Radar."
+    },
+    {
+      "eventId": "15211049",
+      "titleMatch": "Les Lectures Partagées",
+      "desirability": "weak",
+      "anticipation": "medium",
+      "radarLabel": "NO",
+      "evidence": [
+        "Description : « Atelier parents/enfants (3 à 7 ans) »",
+        "Conditions : « Gratuit - Inscription obligatoire auprès de la MJC »",
+        "hasRegistrationUrl: false"
+      ],
+      "note": "Ajout v2 — contrainte d’inscription sans matière culturelle Radar."
+    },
+    {
+      "eventId": "96065479",
+      "titleMatch": "À dos de chameau - SAISON CULTURELLE 26/27",
+      "desirability": "insufficient",
+      "anticipation": "insufficient",
+      "radarLabel": "UNJUDGEABLE",
+      "evidence": [
+        "Description tronquée se terminant par « … » : « …vaisseau chameau échappé de l’atelier de la Cie La Machine de Nantes... »",
+        "Category : Spectacle;Musique;Jeune public",
+        "Conditions : « Variable selon spectacle »"
+      ],
+      "note": "Ancien MUST → UNJUDGEABLE : troncature empêche un jugement honnête. Ne pas traiter comme NO.",
+      "v1Label": "MUST"
+    },
+    {
+      "eventId": "2548389",
+      "titleMatch": "La Passerelle - Inavouable",
+      "desirability": "insufficient",
+      "anticipation": "insufficient",
+      "radarLabel": "UNJUDGEABLE",
+      "evidence": [
+        "Description : « Saison culturelle 2026/2027 - Salle Jean Cocteau - 20h30 » uniquement",
+        "Pas de matière artistique ni de signal d’anticipation dans la fiche"
+      ],
+      "note": "Ajout v2 — fiche horaire/salle seulement."
+    }
+  ]
+}

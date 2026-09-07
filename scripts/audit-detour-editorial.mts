@@ -11,11 +11,30 @@ import {
   resolveEditorialBadge,
 } from "../src/domain/editorial/resolve-editorial-badge";
 import { createHighlightAssessmentProvider } from "../src/infrastructure/ai/create-highlight-assessment-provider";
-import { createDetourEventSource } from "../src/infrastructure/create-detour-event-source";
 import { createMemoryAiAssessmentCacheStore } from "../src/infrastructure/ai/ai-assessment-cache";
+import { CompositeEventSourceAdapter } from "../src/infrastructure/composite-event-source.adapter";
+import { OrleansEventAdapter } from "../src/infrastructure/sources/orleans/orleans-event.adapter";
+import { SaranEventAdapter } from "../src/infrastructure/sources/saran/saran-event.adapter";
+import { AI_ASSESSMENT_PROMPT_VERSION } from "../src/infrastructure/ai/openai-highlight-assessment.provider";
 
 const WINDOW_DAYS = 180;
 const TOP_N = 50;
+
+/** Composite live historique V2/V3 — Orléans + Saran uniquement (hors DB / Ingré). */
+function createBenchmarkLiveEventSource() {
+  return new CompositeEventSourceAdapter([
+    {
+      name: "orleans",
+      label: "Orléans / OpenAgenda",
+      adapter: new OrleansEventAdapter(),
+    },
+    {
+      name: "saran",
+      label: "Ville de Saran",
+      adapter: new SaranEventAdapter(),
+    },
+  ]);
+}
 
 function countBy(items: string[]): Record<string, number> {
   const out: Record<string, number> = {};
@@ -33,8 +52,15 @@ async function main() {
   to.setDate(to.getDate() + WINDOW_DAYS);
 
   const aiConfig = getAiConfig();
+  if (AI_ASSESSMENT_PROMPT_VERSION !== "detour-ai-assess-v3.1") {
+    throw new Error(
+      `Expected promptVersion detour-ai-assess-v3.1, got ${AI_ASSESSMENT_PROMPT_VERSION}`,
+    );
+  }
+  console.error(`promptVersion=${AI_ASSESSMENT_PROMPT_VERSION}`);
+
   const service = new EventService(
-    createDetourEventSource(),
+    createBenchmarkLiveEventSource(),
     createHighlightAssessmentProvider(),
     {
       aiConfig: { ...aiConfig, mode: aiConfig.enabled ? "auto" : aiConfig.mode },

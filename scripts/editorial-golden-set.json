@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "description": "Golden set éditorial Détour — jugements humains déjà établis (diagnostic Radar Sept 2026). Labels uniquement MUST | MAYBE | NO. Identifiants stables issus de l’audit candidate-pool.",
+  "source": "Audit éditorial indépendant + diagnostic golden set (MUST sélectionnés / oubliés / sélections contestables).",
+  "items": [
+    {
+      "eventId": "71870728",
+      "titleMatch": "Fapy Lafertin Trio invite Adrian Cox",
+      "label": "MUST",
+      "note": "MUST sélectionné correctement (référence V2)"
+    },
+    {
+      "eventId": "96065479",
+      "titleMatch": "À dos de chameau - SAISON CULTURELLE 26/27",
+      "label": "MUST",
+      "note": "MUST sélectionné correctement (référence V2)"
+    },
+    {
+      "eventId": "3621397",
+      "titleMatch": "Duo Zéphyr - 2 concerts dans le cadre de l'enregistrement d'un CD Live",
+      "label": "MUST",
+      "note": "MUST sélectionné correctement (référence V2)"
+    },
+    {
+      "eventId": "88113554",
+      "titleMatch": "Saison culturelle : Hadrien avec un H",
+      "label": "MUST",
+      "note": "MUST sélectionné correctement (référence V2) — était hors Radar V2"
+    },
+    {
+      "eventId": "7457473",
+      "titleMatch": "Duo Zéphyr à la résidence sociale \"Les Floréales\"",
+      "label": "MUST",
+      "note": "MUST sélectionné correctement (référence V2) — était hors Radar V2"
+    },
+    {
+      "eventId": "81635323",
+      "titleMatch": "CANAILLE, me murmure la lampe à pétrole posée en équilibre sur le crâne de Satie: spectacle sortie de résidence avec Jean-Luc Bayard et Carole Alazard",
+      "label": "MUST",
+      "note": "MUST sélectionné correctement (référence V2)"
+    },
+    {
+      "eventId": "53674244",
+      "titleMatch": "Un endroit partout - NACH",
+      "label": "MUST",
+      "note": "MUST présent dans le pool mais non sélectionné (référence V2)"
+    },
+    {
+      "eventId": "8993479",
+      "titleMatch": "Loto 3000 - COLLECTIF ÈS",
+      "label": "MUST",
+      "note": "MUST présent dans le pool mais non sélectionné (référence V2)"
+    },
+    {
+      "eventId": "75118495",
+      "titleMatch": "Short Message Service - SUZANNE DE BAECQUE, JOAQUIM FOSSI",
+      "label": "MUST",
+      "note": "MUST présent dans le pool mais non sélectionné (référence V2)"
+    },
+    {
+      "eventId": "40195179",
+      "titleMatch": "Portés de femmes - PROJET.PDF",
+      "label": "MUST",
+      "note": "MUST présent dans le pool mais non sélectionné (référence V2)"
+    },
+    {
+      "eventId": "69569603",
+      "titleMatch": "Les règles du jeu",
+      "startAtMatch": "2026-11-28",
+      "label": "MAYBE",
+      "note": "Sélection contestable (séance 1) — quasi-doublon éditorial avec la séance 2"
+    },
+    {
+      "eventId": "44494005",
+      "titleMatch": "Les règles du jeu",
+      "startAtMatch": "2026-11-29",
+      "label": "MAYBE",
+      "note": "Sélection contestable (séance 2)"
+    },
+    {
+      "eventId": "26800001",
+      "titleMatch": "Saison culturelle : Premiers printemps",
+      "label": "MAYBE",
+      "note": "Sélection contestable"
+    },
+    {
+      "eventId": "59662176",
+      "titleMatch": "LE BOURGEOIS GENTILHOMME - SAISON CULTURELLE 26/27",
+      "label": "MAYBE",
+      "note": "Sélection contestable"
+    }
+  ]
+}
