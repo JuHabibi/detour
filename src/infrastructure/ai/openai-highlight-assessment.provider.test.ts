@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { OpenAiHighlightAssessmentProvider } from "@/infrastructure/ai/openai-highlight-assessment.provider";
+import {
+  AI_ASSESSMENT_PROMPT_VERSION,
+  OPENAI_HIGHLIGHT_SYSTEM_PROMPT,
+  OpenAiHighlightAssessmentProvider,
+} from "@/infrastructure/ai/openai-highlight-assessment.provider";
 import type { DetourEvent } from "@/domain/events/event";
 
 function event(id: string, title = "Titre"): DetourEvent {
@@ -23,6 +27,48 @@ function event(id: string, title = "Titre"): DetourEvent {
     relevance: "culture",
   };
 }
+
+describe("AI assessment prompt V3", () => {
+  it("versionne detour-ai-assess-v3", () => {
+    expect(AI_ASSESSMENT_PROMPT_VERSION).toBe("detour-ai-assess-v3");
+  });
+
+  it("schéma JSON inchangé (dimensions + assessments)", () => {
+    expect(OPENAI_HIGHLIGHT_SYSTEM_PROMPT).toContain('"appeal":0');
+    expect(OPENAI_HIGHLIGHT_SYSTEM_PROMPT).toContain('"missRisk":0');
+    expect(OPENAI_HIGHLIGHT_SYSTEM_PROMPT).toContain('"planningNeed":0');
+    expect(OPENAI_HIGHLIGHT_SYSTEM_PROMPT).toContain('"localRarity":0');
+    expect(OPENAI_HIGHLIGHT_SYSTEM_PROMPT).toContain('"likelyDemand":0');
+    expect(OPENAI_HIGHLIGHT_SYSTEM_PROMPT).toContain('"confidence":0');
+    expect(OPENAI_HIGHLIGHT_SYSTEM_PROMPT).toContain('"reasons":');
+    expect(OPENAI_HIGHLIGHT_SYSTEM_PROMPT).toContain('"assessments"');
+    expect(OPENAI_HIGHLIGHT_SYSTEM_PROMPT).not.toContain("discoveryValue");
+  });
+
+  it("interdit les extrapolations non documentées", () => {
+    const prompt = OPENAI_HIGHLIGHT_SYSTEM_PROMPT;
+    expect(prompt).toMatch(/connaissances générales pour combler/i);
+    expect(prompt).toMatch(/petite commune/i);
+    expect(prompt).toMatch(/faible visibilité non documentée/i);
+    expect(prompt).toMatch(/jauge non documentée/i);
+    expect(prompt).toContain("hasRegistrationUrl");
+    expect(prompt).toMatch(/hasRegistrationUrl.*NE SUFFIT PAS/i);
+    expect(prompt).toContain("hasRegistrationUrl ⇒ planningNeed élevé");
+    expect(prompt).toMatch(/demande probable non documentée/i);
+    expect(prompt).not.toMatch(
+      /Tu peux utiliser tes connaissances générales d’entraînement/i,
+    );
+  });
+
+  it("valorise la singularité documentée", () => {
+    const prompt = OPENAI_HIGHLIGHT_SYSTEM_PROMPT;
+    expect(prompt).toMatch(/singularité documentée/i);
+    expect(prompt).toMatch(/sortie de résidence/i);
+    expect(prompt).toMatch(/enregistrement live|CD live/i);
+    expect(prompt).toMatch(/participation du public/i);
+    expect(prompt).toMatch(/première/i);
+  });
+});
 
 describe("OpenAiHighlightAssessmentProvider", () => {
   it("erreur réseau / provider → throw (à catcher côté service)", async () => {
@@ -49,7 +95,7 @@ describe("OpenAiHighlightAssessmentProvider", () => {
     await expect(provider.assess([event("a")])).rejects.toThrow(/500/);
   });
 
-  it("parse le contenu JSON d’un batch réussi", async () => {
+  it("parse le contenu JSON d’un batch réussi + envoie le prompt V3", async () => {
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -66,7 +112,7 @@ describe("OpenAiHighlightAssessmentProvider", () => {
                     localRarity: 2,
                     likelyDemand: 4,
                     confidence: 0.7,
-                    reasons: ["réservation anticipée probable"],
+                    reasons: ["Concerts enregistrés pour un CD live."],
                   },
                 ],
               }),
@@ -87,11 +133,13 @@ describe("OpenAiHighlightAssessmentProvider", () => {
     expect(result[0]?.appeal).toBe(4);
     expect(result[0]?.localRarity).toBe(2);
     expect(result[0]?.likelyDemand).toBe(4);
+    expect(provider.cacheContext.promptVersion).toBe("detour-ai-assess-v3");
     expect(fetchImpl).toHaveBeenCalledTimes(1);
 
     const body = JSON.parse(
       (fetchImpl.mock.calls[0]?.[1] as RequestInit).body as string,
     );
+    expect(body.messages[0].content).toBe(OPENAI_HIGHLIGHT_SYSTEM_PROMPT);
     expect(body.messages[0].content).toContain("localRarity");
     expect(body.messages[0].content).toContain("missRisk");
     expect(body.messages[0].content).not.toContain("discoveryValue");
