@@ -102,15 +102,23 @@ describe("event-row.mapper", () => {
     expect(values[0]).toBe("openagenda:1");
     expect(values[1]).toBe("orleans");
     expect(values[2]).toBe("Concert");
-    expect(values[17]).toBe(marker.toISOString());
+    expect(values[9]).toBe(47.9);
+    expect(values[10]).toBe(1.9);
+    expect(values[17]).toBe("Musique");
+    expect(values[18]).toBe("Orléans");
+    expect(values[19]).toBe(marker.toISOString());
   });
 
   it("SQL upsert : placeholders dynamiques, aucune valeur métier dans le texte", () => {
     const sql = buildUpsertEventsChunkSql(2);
     expect(sql).toContain("$1");
-    expect(sql).toContain("$18");
-    expect(sql).toContain("$19");
-    expect(sql).toContain("$36");
+    expect(sql).toContain("$20");
+    expect(sql).toContain("$21");
+    expect(sql).toContain("$40");
+    expect(sql).toContain("product_category");
+    expect(sql).toContain("city_key");
+    expect(sql).not.toContain("resolved_latitude");
+    expect(sql).not.toContain("geo_resolution");
     expect(sql).toContain("ON CONFLICT (id) DO UPDATE");
     expect(sql).not.toMatch(/openagenda|Orléans|Concert|https?:/);
   });

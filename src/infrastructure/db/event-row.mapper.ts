@@ -1,4 +1,5 @@
 import type { DetourEvent } from "@/domain/events/event";
+import { buildEventNormalizedFields } from "@/application/events/build-event-normalized-fields";
 
 /** Ligne `events` telle que renvoyée par node-postgres. */
 export type EventRow = {
@@ -23,6 +24,8 @@ export type EventRow = {
   created_at: Date;
   updated_at: Date;
   last_seen_at: Date;
+  product_category?: string | null;
+  city_key?: string | null;
 };
 
 export type EventWithAdapter = {
@@ -68,7 +71,7 @@ export function mapEventRowToEventWithAdapter(row: EventRow): EventWithAdapter {
 }
 
 /**
- * Valeurs positionnelles pour un upsert (16 champs event + adapter + last_seen).
+ * Valeurs positionnelles pour un upsert (champs event + normalisés + adapter + last_seen).
  * Ordre aligné sur `buildUpsertEventsChunkSql`.
  */
 export function detourEventToUpsertValues(
@@ -76,6 +79,7 @@ export function detourEventToUpsertValues(
   event: DetourEvent,
   syncMarker: Date,
 ): unknown[] {
+  const normalized = buildEventNormalizedFields(event);
   return [
     event.id,
     adapterId,
@@ -94,13 +98,14 @@ export function detourEventToUpsertValues(
     event.source,
     event.sourceUrl,
     event.registrationUrl,
+    normalized.productCategory,
+    normalized.cityKey,
     syncMarker.toISOString(),
   ];
 }
 
-
-export const UPSERT_EVENT_PARAM_COUNT = 18;
-
+/** 17 champs bruts + 2 normalisés + last_seen = 20. */
+export const UPSERT_EVENT_PARAM_COUNT = 20;
 
 export function buildUpsertEventPlaceholders(rowIndex: number): string {
   const base = rowIndex * UPSERT_EVENT_PARAM_COUNT;
@@ -139,6 +144,8 @@ INSERT INTO events (
   source,
   source_url,
   registration_url,
+  product_category,
+  city_key,
   last_seen_at,
   is_active,
   created_at,
@@ -162,6 +169,8 @@ ON CONFLICT (id) DO UPDATE SET
   source = EXCLUDED.source,
   source_url = EXCLUDED.source_url,
   registration_url = EXCLUDED.registration_url,
+  product_category = EXCLUDED.product_category,
+  city_key = EXCLUDED.city_key,
   last_seen_at = EXCLUDED.last_seen_at,
   is_active = true,
   updated_at = now()

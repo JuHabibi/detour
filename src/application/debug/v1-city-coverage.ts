@@ -1,25 +1,17 @@
 import type { DetourEvent } from "@/domain/events/event";
+import {
+  V1_COMMUNES,
+  matchV1Commune,
+  normalizeCityKey,
+  type V1Commune,
+} from "@/domain/geo/v1-communes";
 
-/** Communes V1 ciblées — labels d’affichage. */
-export const V1_COMMUNES = [
-  "Orléans",
-  "Fleury-les-Aubrais",
-  "Olivet",
-  "Saint-Jean-de-Braye",
-  "Saint-Jean-de-la-Ruelle",
-  "Saint-Jean-le-Blanc",
-  "Saran",
-  "Chécy",
-  "La Chapelle-Saint-Mesmin",
-  "Semoy",
-  "Ingré",
-  "Saint-Pryvé-Saint-Mesmin",
-  "Ormes",
-  "Boigny-sur-Bionne",
-  "Mardié",
-] as const;
-
-export type V1Commune = (typeof V1_COMMUNES)[number];
+export {
+  V1_COMMUNES,
+  matchV1Commune,
+  normalizeCityKey,
+  type V1Commune,
+};
 
 export type CityCoverageLevel = "good" | "weak" | "none";
 
@@ -53,37 +45,6 @@ export type V1CityCoverageReport = {
   /** Villes hors périmètre V1 (top) — info debug. */
   outsideV1Top: Array<{ city: string; events: number }>;
 };
-
-const V1_KEY_TO_LABEL = new Map<string, V1Commune>(
-  V1_COMMUNES.map((label) => [normalizeCityKey(label), label]),
-);
-
-/**
- * Normalisation conservative pour matcher des variantes orthographiques
- * d’une même commune V1 — sans fusionner deux communes distinctes.
- */
-export function normalizeCityKey(raw: string | null | undefined): string {
-  if (!raw) return "";
-
-  let value = raw.normalize("NFD").replace(/\p{M}/gu, "");
-  value = value.toLowerCase();
-  value = value.replace(/['’`]/g, " ");
-  value = value.replace(/[-_/.,;:()]/g, " ");
-  value = value.replace(/\s+/g, " ").trim();
-
-  // Abréviations courantes uniquement (mots entiers).
-  value = value.replace(/\bst\b/g, "saint");
-  value = value.replace(/\bste\b/g, "sainte");
-
-  return value.replace(/\s+/g, " ").trim();
-}
-
-/** Résout une ville brute vers une commune V1, ou null si hors périmètre. */
-export function matchV1Commune(city: string | null | undefined): V1Commune | null {
-  const key = normalizeCityKey(city);
-  if (!key) return null;
-  return V1_KEY_TO_LABEL.get(key) ?? null;
-}
 
 export function coverageLevel(eventCount: number): CityCoverageLevel {
   if (eventCount <= 0) return "none";
