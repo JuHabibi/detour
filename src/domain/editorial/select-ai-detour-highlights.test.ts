@@ -4,6 +4,7 @@ import type { DetourEvent } from "@/domain/events/event";
 import {
   applyLightDiversity,
   buildAiDetourSlotSequence,
+  buildRadarDiscoveryKey,
   easyToMissScore,
   rareLocalScore,
   selectAiDetourHighlights,
@@ -13,6 +14,7 @@ import {
   type AssessedCandidate,
 } from "@/domain/editorial/select-ai-detour-highlights";
 import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
+import { deduplicateEvents } from "@/domain/events/deduplicate-events";
 
 function event(id: string, title = id): DetourEvent {
   return {
@@ -644,6 +646,288 @@ describe("selectAiDetourHighlights", () => {
   });
 });
 
+describe("buildRadarDiscoveryKey", () => {
+  it("regroupe titre spécifique + même venue", () => {
+    const a = event("r1", "Les règles du jeu");
+    a.venue = "Espace Béraire";
+    const b = event("r2", "Les règles du jeu");
+    b.venue = "Espace Béraire";
+    expect(buildRadarDiscoveryKey(a)).toBe(buildRadarDiscoveryKey(b));
+    expect(buildRadarDiscoveryKey(a)).toBe(
+      "les regles du jeu::espace beraire",
+    );
+  });
+
+  it("sépare Duo Zéphyr CD Live et Floréales", () => {
+    const cd = event(
+      "z1",
+      "Duo Zéphyr - 2 concerts dans le cadre de l'enregistrement d'un CD Live",
+    );
+    cd.venue = "Maison des Jeunes et de la Culture d'Olivet (MJC)";
+    const flor = event(
+      "z2",
+      'Duo Zéphyr à la résidence sociale "Les Floréales"',
+    );
+    flor.venue = 'Résidence sociale "Les Floréales"';
+    expect(buildRadarDiscoveryKey(cd)).not.toBe(buildRadarDiscoveryKey(flor));
+  });
+
+  it("titre générique / court → clé singleton par id", () => {
+    const a = event("i1", "Imagine");
+    a.venue = "Salle A";
+    const b = event("i2", "Imagine");
+    b.venue = "Salle A";
+    expect(buildRadarDiscoveryKey(a)).toBe("id:i1");
+    expect(buildRadarDiscoveryKey(b)).toBe("id:i2");
+  });
+});
+
+describe("diversité découverte éditoriale", () => {
+  const strongScores = {
+    appeal: 4,
+    missRisk: 4,
+    planningNeed: 4,
+    localRarity: 4,
+    likelyDemand: 4,
+  } as const;
+
+  it("Les règles du jeu ×2 même venue → max 1 dans le Radar", () => {
+    const s1 = poolItem(
+      "regles-1",
+      "Espace Béraire",
+      "La Chapelle-Saint-Mesmin",
+      strongScores,
+      0,
+      { title: "Les règles du jeu", startAt: "2026-11-28T20:30:00+01:00" },
+    );
+    const s2 = poolItem(
+      "regles-2",
+      "Espace Béraire",
+      "La Chapelle-Saint-Mesmin",
+      strongScores,
+      1,
+      { title: "Les règles du jeu", startAt: "2026-11-29T15:00:00+01:00" },
+    );
+    const other = poolItem(
+      "other",
+      "Autre salle",
+      "Orléans",
+      {
+        appeal: 3,
+        missRisk: 3,
+        planningNeed: 3,
+        localRarity: 3,
+        likelyDemand: 3,
+      },
+      2,
+      { title: "Autre spectacle distinct" },
+    );
+
+    const selected = [
+      selectedHighlight(s1, "worth-planning"),
+      selectedHighlight(s2, "worth-planning"),
+    ];
+    const diversified = applyLightDiversity(selected, [s1, s2, other]);
+    const ids = diversified.map((item) => item.event.id);
+
+    expect(ids).toHaveLength(2);
+    expect(ids).toContain("regles-1");
+    expect(ids).toContain("other");
+    expect(ids).not.toContain("regles-2");
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("même découverte sans saturation venue → toujours max 1", () => {
+    const s1 = poolItem(
+      "regles-1",
+      "Espace Béraire",
+      "La Chapelle-Saint-Mesmin",
+      strongScores,
+      0,
+      { title: "Les règles du jeu", startAt: "2026-11-28T20:30:00+01:00" },
+    );
+    const s2 = poolItem(
+      "regles-2",
+      "Espace Béraire",
+      "La Chapelle-Saint-Mesmin",
+      strongScores,
+      1,
+      { title: "Les règles du jeu", startAt: "2026-11-29T15:00:00+01:00" },
+    );
+
+    const diversified = applyLightDiversity(
+      [
+        selectedHighlight(s1, "worth-planning"),
+        selectedHighlight(s2, "worth-planning"),
+      ],
+      [s1, s2],
+    );
+
+    expect(diversified).toHaveLength(1);
+    expect(diversified[0]?.event.id).toBe("regles-1");
+  });
+
+  it("Duo Zéphyr CD Live vs Floréales → les deux peuvent rester", () => {
+    const cd = poolItem(
+      "zephyr-cd",
+      "Maison des Jeunes et de la Culture d'Olivet (MJC)",
+      "Olivet",
+      strongScores,
+      0,
+      {
+        title:
+          "Duo Zéphyr - 2 concerts dans le cadre de l'enregistrement d'un CD Live",
+      },
+    );
+    const flor = poolItem(
+      "zephyr-flor",
+      'Résidence sociale "Les Floréales"',
+      "Olivet",
+      strongScores,
+      1,
+      { title: 'Duo Zéphyr à la résidence sociale "Les Floréales"' },
+    );
+
+    const diversified = applyLightDiversity(
+      [selectedHighlight(cd, "wildcard"), selectedHighlight(flor, "wildcard")],
+      [cd, flor],
+    );
+
+    expect(diversified.map((item) => item.event.id).sort()).toEqual([
+      "zephyr-cd",
+      "zephyr-flor",
+    ]);
+  });
+
+  it("même titre spécifique, venues différentes → restent distincts", () => {
+    const a = poolItem(
+      "tour-a",
+      "Salle Alpha",
+      "Orléans",
+      strongScores,
+      0,
+      { title: "Les règles du jeu" },
+    );
+    const b = poolItem(
+      "tour-b",
+      "Salle Beta",
+      "Orléans",
+      strongScores,
+      1,
+      { title: "Les règles du jeu" },
+    );
+
+    const diversified = applyLightDiversity(
+      [selectedHighlight(a, "wildcard"), selectedHighlight(b, "wildcard")],
+      [a, b],
+    );
+
+    expect(diversified.map((item) => item.event.id).sort()).toEqual([
+      "tour-a",
+      "tour-b",
+    ]);
+  });
+
+  it("titre générique identique → ne fusionne pas automatiquement", () => {
+    const a = poolItem("img-1", "Espace Béraire", "Chapelle", strongScores, 0, {
+      title: "Imagine",
+    });
+    const b = poolItem("img-2", "Espace Béraire", "Chapelle", strongScores, 1, {
+      title: "Imagine",
+    });
+
+    const diversified = applyLightDiversity(
+      [selectedHighlight(a, "wildcard"), selectedHighlight(b, "wildcard")],
+      [a, b],
+    );
+
+    expect(diversified.map((item) => item.event.id).sort()).toEqual([
+      "img-1",
+      "img-2",
+    ]);
+  });
+
+  it("Explorer / deduplicateEvents : deux séances Règles restent distinctes", () => {
+    const result = deduplicateEvents([
+      {
+        ...event("regles-1", "Les règles du jeu"),
+        venue: "Espace Béraire",
+        city: "La Chapelle-Saint-Mesmin",
+        startAt: "2026-11-28T20:30:00+01:00",
+      },
+      {
+        ...event("regles-2", "Les règles du jeu"),
+        venue: "Espace Béraire",
+        city: "La Chapelle-Saint-Mesmin",
+        startAt: "2026-11-29T15:00:00+01:00",
+      },
+    ]);
+
+    expect(result.events).toHaveLength(2);
+    expect(result.duplicates).toHaveLength(0);
+  });
+
+  it("selectAiDetourHighlights : eventIds uniques et max 1 découverte Règles", () => {
+    const fillers = Array.from({ length: 8 }, (_, i) => {
+      const id = `f${i}`;
+      return {
+        cand: candidate(id, `Spectacle filler numéro ${i} unique`),
+        assess: assessment(id, {
+          appeal: 3,
+          missRisk: 3,
+          planningNeed: 2,
+          localRarity: 2,
+          likelyDemand: 2,
+        }),
+      };
+    });
+
+    const regles1 = {
+      ...candidate("regles-1", "Les règles du jeu"),
+      event: {
+        ...event("regles-1", "Les règles du jeu"),
+        venue: "Espace Béraire",
+        city: "La Chapelle-Saint-Mesmin",
+        startAt: "2026-11-28T20:30:00+01:00",
+      },
+    };
+    const regles2 = {
+      ...candidate("regles-2", "Les règles du jeu"),
+      event: {
+        ...event("regles-2", "Les règles du jeu"),
+        venue: "Espace Béraire",
+        city: "La Chapelle-Saint-Mesmin",
+        startAt: "2026-11-29T15:00:00+01:00",
+      },
+    };
+
+    // Scores élevés sur worth-planning pour forcer les deux séances en pré-diversité
+    const reglesAssess = {
+      appeal: 3,
+      missRisk: 2,
+      planningNeed: 5,
+      localRarity: 2,
+      likelyDemand: 3,
+    };
+
+    const highlights = selectAiDetourHighlights(
+      [regles1, regles2, ...fillers.map((f) => f.cand)],
+      [
+        assessment("regles-1", reglesAssess),
+        assessment("regles-2", reglesAssess),
+        ...fillers.map((f) => f.assess),
+      ],
+      { limit: 10 },
+    );
+
+    const ids = highlights.map((h) => h.event.id);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    const reglesCount = ids.filter((id) => id.startsWith("regles-")).length;
+    expect(reglesCount).toBeLessThanOrEqual(1);
+  });
+});
+
 function poolItem(
   id: string,
   venue: string,
@@ -660,12 +944,18 @@ function poolItem(
     >
   >,
   index: number,
+  extras?: { title?: string; startAt?: string },
 ): AssessedCandidate {
-  const base = candidate(id);
+  const base = candidate(id, extras?.title);
   return {
     candidate: {
       ...base,
-      event: { ...base.event, venue, city },
+      event: {
+        ...base.event,
+        venue,
+        city,
+        ...(extras?.startAt ? { startAt: extras.startAt } : {}),
+      },
     },
     assessment: assessment(id, scores),
     index,
@@ -674,16 +964,19 @@ function poolItem(
 
 function selectedHighlight(
   item: AssessedCandidate,
-  slot: "wildcard",
+  slot: "wildcard" | "worth-planning",
 ): EventHighlight {
-  const score = wildcardSlotScore(item.assessment);
+  const score =
+    slot === "worth-planning"
+      ? worthPlanningScore(item.assessment)
+      : wildcardSlotScore(item.assessment);
   return {
     ...item.candidate,
     score,
     slot,
     selectionSource: "ai",
     aiSelection: {
-      formula: "wildcard",
+      formula: slot === "worth-planning" ? "worth-planning" : "wildcard",
       slotScore: score,
       appeal: item.assessment.appeal,
       missRisk: item.assessment.missRisk,

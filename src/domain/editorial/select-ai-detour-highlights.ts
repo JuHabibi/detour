@@ -7,6 +7,7 @@ import type {
   EventHighlight,
   HighlightSlot,
 } from "@/domain/editorial/select-detour-highlights";
+import type { DetourEvent } from "@/domain/events/event";
 
 export type AiSlotFormula = AiHighlightSelectionMeta["formula"];
 
@@ -16,8 +17,28 @@ export const AI_DETOUR_DEFAULT_LIMIT = 10;
 export const AI_DETOUR_MAX_PER_VENUE = 2;
 /** Garde-fou diversité : max events même ville. */
 export const AI_DETOUR_MAX_PER_CITY = 3;
-/** Tolérance de score pour remplacer un candidat saturant (points de slot). */
+/** Tolérance de score pour remplacer un candidat saturant venue/ville (points de slot). */
 export const AI_DETOUR_DIVERSITY_SCORE_TOLERANCE = 2;
+/** Contrainte ferme : au plus une carte Radar par découverte éditoriale. */
+export const AI_DETOUR_MAX_PER_DISCOVERY = 1;
+/** Titres trop courts → clé singleton (pas de regroupement). */
+export const AI_DETOUR_DISCOVERY_MIN_TITLE_LEN = 12;
+
+/** Titres génériques fréquents — ne jamais regrouper entre événements. */
+const GENERIC_DISCOVERY_TITLES = new Set([
+  "imagine",
+  "odyssee",
+  "concert",
+  "spectacle",
+  "theatre",
+  "exposition",
+  "expo",
+  "festival",
+  "cinema",
+  "cine",
+  "rencontre",
+  "atelier",
+]);
 
 export type AssessedCandidate = {
   candidate: EventHighlight;
@@ -127,8 +148,26 @@ export function scoreForHighlightSlot(
 }
 
 /**
+ * Clé de découverte éditoriale Radar (V1).
+ * Titre spécifique + venue ; sinon singleton par eventId (conservateur).
+ */
+export function buildRadarDiscoveryKey(event: DetourEvent): string {
+  const title = normalizeDiscoveryText(event.title);
+  if (
+    !title ||
+    title.length < AI_DETOUR_DISCOVERY_MIN_TITLE_LEN ||
+    GENERIC_DISCOVERY_TITLES.has(title)
+  ) {
+    return `id:${event.id}`;
+  }
+
+  const venue = normalizeDiscoveryText(event.venue) || "_novenue_";
+  return `${title}::${venue}`;
+}
+
+/**
  * Sélection éditoriale « Faites un détour » pilotée par l’IA.
- * Puis garde-fou diversité venue/ville (souple, tolérance de score).
+ * Puis garde-fou diversité venue/ville (souple) + découverte (ferme).
  */
 export function selectAiDetourHighlights(
   candidates: EventHighlight[],
@@ -204,8 +243,8 @@ export function selectAiDetourHighlights(
 
 /**
  * Évite une sur-représentation venue/ville si une alternative proche existe.
- * Ne remplace jamais un candidat nettement meilleur (écart > tolérance).
- * Garantit un eventId unique dans le résultat (garde si un swap a déjà pris un id plus loin).
+ * Applique aussi la contrainte ferme : max 1 découverte éditoriale.
+ * Garantit un eventId unique dans le résultat.
  */
 export function applyLightDiversity(
   selected: EventHighlight[],
@@ -215,13 +254,22 @@ export function applyLightDiversity(
   const result: EventHighlight[] = [];
 
   for (const item of selected) {
-    // Déjà émis plus tôt (ex. swap diversité) → pas de doublon ; tenter un remplissage.
     if (usedIds.has(item.event.id)) {
-      const filler = pickDiversityAlternative(item, result, pool, usedIds);
+      const filler = pickDiscoveryAlternative(item, result, pool, usedIds);
       if (filler) {
         result.push(filler.highlight);
         usedIds.add(filler.id);
       }
+      continue;
+    }
+
+    if (isDiscoveryAlreadySelected(result, item.event)) {
+      const alternative = pickDiscoveryAlternative(item, result, pool, usedIds);
+      if (alternative) {
+        result.push(alternative.highlight);
+        usedIds.add(alternative.id);
+      }
+      // Contrainte ferme : jamais conserver le doublon éditorial.
       continue;
     }
 
@@ -234,7 +282,7 @@ export function applyLightDiversity(
       continue;
     }
 
-    const alternative = pickDiversityAlternative(item, result, pool, usedIds);
+    const alternative = pickVenueCityAlternative(item, result, pool, usedIds);
     if (alternative) {
       result.push(alternative.highlight);
       usedIds.add(alternative.id);
@@ -248,7 +296,72 @@ export function applyLightDiversity(
   return result;
 }
 
-function pickDiversityAlternative(
+function isDiscoveryAlreadySelected(
+  result: EventHighlight[],
+  event: DetourEvent,
+): boolean {
+  const key = buildRadarDiscoveryKey(event);
+  return result.some(
+    (item) => buildRadarDiscoveryKey(item.event) === key,
+  );
+}
+
+/**
+ * Remplacement ferme pour doublon de découverte : pas de tolérance de score.
+ * Préfère une autre découverte (même un peu moins bien scorée) au doublon.
+ */
+function pickDiscoveryAlternative(
+  item: EventHighlight,
+  result: EventHighlight[],
+  pool: AssessedCandidate[],
+  usedIds: Set<string>,
+): { id: string; highlight: EventHighlight } | undefined {
+  const slot = item.slot ?? "wildcard";
+  const { formula, scoreFn } = scoreConfigForSlot(slot);
+
+  const alternative = [...pool]
+    .filter((candidate) => !usedIds.has(candidate.candidate.event.id))
+    .filter((candidate) => candidate.candidate.event.id !== item.event.id)
+    .filter((candidate) =>
+      meetsAiSlotFloor(slot, candidate.assessment),
+    )
+    .filter(
+      (candidate) =>
+        !isDiscoveryAlreadySelected(result, candidate.candidate.event),
+    )
+    .filter(
+      (candidate) =>
+        !isOverVenueCap(result, candidate.candidate.event.venue),
+    )
+    .filter(
+      (candidate) => !isOverCityCap(result, candidate.candidate.event.city),
+    )
+    .map((candidate) => ({
+      candidate,
+      score: scoreFn(candidate.assessment),
+    }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.candidate.index - b.candidate.index;
+    })[0];
+
+  if (!alternative) return undefined;
+
+  const id = alternative.candidate.candidate.event.id;
+  return {
+    id,
+    highlight: toAiHighlight(
+      alternative.candidate.candidate,
+      alternative.candidate.assessment,
+      slot,
+      formula,
+      alternative.score,
+    ),
+  };
+}
+
+/** Remplacement souple venue/ville (tolérance de score inchangée). */
+function pickVenueCityAlternative(
   item: EventHighlight,
   result: EventHighlight[],
   pool: AssessedCandidate[],
@@ -267,6 +380,9 @@ function pickDiversityAlternative(
     }))
     .filter(({ candidate, score }) => {
       if (score < itemScore - AI_DETOUR_DIVERSITY_SCORE_TOLERANCE) {
+        return false;
+      }
+      if (isDiscoveryAlreadySelected(result, candidate.candidate.event)) {
         return false;
       }
       if (isOverVenueCap(result, candidate.candidate.event.venue)) {
@@ -318,7 +434,7 @@ function isOverCityCap(current: EventHighlight[], city: string | null): boolean 
   return count >= AI_DETOUR_MAX_PER_CITY;
 }
 
-function normalizePlace(value: string | null | undefined): string {
+function normalizeDiscoveryText(value: string | null | undefined): string {
   if (!value?.trim()) return "";
   return value
     .normalize("NFD")
@@ -327,6 +443,10 @@ function normalizePlace(value: string | null | undefined): string {
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function normalizePlace(value: string | null | undefined): string {
+  return normalizeDiscoveryText(value);
 }
 
 function scoreConfigForSlot(slot: HighlightSlot): {
