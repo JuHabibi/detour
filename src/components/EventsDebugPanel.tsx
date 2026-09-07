@@ -40,6 +40,9 @@ export type HighlightDebug = {
   /** Scores IA / formule du slot (debug). */
   scoresUsed?: string;
   editorialBadge?: string | null;
+  availabilityStatus?: string;
+  availabilityProvider?: string | null;
+  availabilityCheckedAt?: string | null;
 };
 
 export type AiHighlightDebug = {
@@ -87,6 +90,14 @@ export type EventsDebugMeta = {
   dedupedCount: number;
   duplicateCount: number;
   scoredCandidatesCount?: number;
+  /** Events exclus du Radar pour sold_out / sold_out_online frais. */
+  excludedFromRadarBecauseSoldOut?: Array<{
+    id: string;
+    title: string;
+    availabilityStatus: string;
+    availabilityProvider: string | null;
+    availabilityCheckedAt: string | null;
+  }>;
   duplicates: EventDuplicateDebug[];
   highlights?: HighlightDebug[];
   highlightCandidates?: HighlightDebug[];
@@ -307,6 +318,7 @@ export function EventsDebugPanel({
             </p>
 
             {meta ? (
+              <>
               <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                 <Stat label="Brut chargé" value={meta.rawCount} />
                 <Stat label="Après dédup" value={meta.dedupedCount} />
@@ -315,7 +327,28 @@ export function EventsDebugPanel({
                   label="Candidats scorés"
                   value={meta.scoredCandidatesCount ?? "—"}
                 />
+                <Stat
+                  label="Exclus Radar (complet)"
+                  value={meta.excludedFromRadarBecauseSoldOut?.length ?? 0}
+                />
               </dl>
+              {meta.excludedFromRadarBecauseSoldOut &&
+              meta.excludedFromRadarBecauseSoldOut.length > 0 ? (
+                <ul className="space-y-1 text-xs text-cream-dim">
+                  {meta.excludedFromRadarBecauseSoldOut.slice(0, 8).map((row) => (
+                    <li key={row.id}>
+                      {row.title.slice(0, 60)} — {row.availabilityStatus}
+                      {row.availabilityProvider
+                        ? ` · ${row.availabilityProvider}`
+                        : ""}
+                      {row.availabilityCheckedAt
+                        ? ` · ${row.availabilityCheckedAt}`
+                        : ""}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              </>
             ) : null}
 
             {meta?.sourceIngestion && meta.sourceIngestion.length > 0 ? (

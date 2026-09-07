@@ -79,10 +79,11 @@ describe("event.repository", () => {
     ]);
 
     const [sql, params] = query.mock.calls[0] as [string, unknown[]];
-    expect(sql).toContain("is_active = true");
-    expect(sql).toContain("start_at < $2");
-    expect(sql).toContain("COALESCE(end_at, start_at) >= $1");
-    expect(sql).toContain("ORDER BY start_at ASC, id ASC");
+    expect(sql).toContain("e.is_active = true");
+    expect(sql).toContain("e.start_at < $2");
+    expect(sql).toContain("COALESCE(e.end_at, e.start_at) >= $1");
+    expect(sql).toContain("LEFT JOIN event_availability");
+    expect(sql).toContain("ORDER BY e.start_at ASC, e.id ASC");
     expect(params).toEqual([from.toISOString(), to.toISOString()]);
     expect(sql).not.toMatch(/Orléans|openagenda/);
   });

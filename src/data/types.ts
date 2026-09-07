@@ -61,4 +61,11 @@ export type EventItem = {
    * Calculée hors composant (assessment IA + registrationUrl).
    */
   editorialBadge?: EditorialBadge;
+  /**
+   * Pastille disponibilité billetterie (Explorer / cartes).
+   * Uniquement sold_out* frais — jamais « Disponible ».
+   */
+  availabilityBadge?: "Complet" | "Complet en ligne";
+  /** Statut dispo résolu (debug / UI). */
+  availabilityStatus?: "available" | "sold_out_online" | "sold_out" | "unknown";
 };

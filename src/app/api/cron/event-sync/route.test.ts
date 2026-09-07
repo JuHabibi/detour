@@ -1,9 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const runDetourEventSyncMock = vi.fn();
+const runDetourAvailabilityEnrichmentMock = vi.fn();
 
 vi.mock("@/application/event-sync/run-detour-event-sync", () => ({
   runDetourEventSync: (...args: unknown[]) => runDetourEventSyncMock(...args),
+}));
+
+vi.mock("@/application/availability/run-detour-availability-enrichment", () => ({
+  runDetourAvailabilityEnrichment: (...args: unknown[]) =>
+    runDetourAvailabilityEnrichmentMock(...args),
 }));
 
 import { GET } from "@/app/api/cron/event-sync/route";
@@ -38,6 +44,9 @@ describe("GET /api/cron/event-sync", () => {
         reason: "busy",
       },
     ]);
+    runDetourAvailabilityEnrichmentMock.mockResolvedValue({
+      mapadoChecy: { matchCount: 0 },
+    });
   });
 
   afterEach(() => {
@@ -66,7 +75,10 @@ describe("GET /api/cron/event-sync", () => {
   it("200 + sync appelée ; SyncResult skipped OK", async () => {
     const res = await GET(requestWithAuth(`Bearer ${SECRET}`));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { results: unknown[] };
+    const body = (await res.json()) as {
+      results: unknown[];
+      availabilityError: null;
+    };
     expect(body.results).toEqual([
       {
         adapterId: "orleans",
@@ -81,6 +93,18 @@ describe("GET /api/cron/event-sync", () => {
       },
     ]);
     expect(runDetourEventSyncMock).toHaveBeenCalledTimes(1);
+    expect(runDetourAvailabilityEnrichmentMock).toHaveBeenCalledTimes(1);
+    expect(body.availabilityError).toBeNull();
+  });
+
+  it("sync OK même si enrichissement disponibilité échoue", async () => {
+    runDetourAvailabilityEnrichmentMock.mockRejectedValue(
+      new Error("mapado down"),
+    );
+    const res = await GET(requestWithAuth(`Bearer ${SECRET}`));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { availabilityError: string | null };
+    expect(body.availabilityError).toBe("mapado down");
   });
 
   it("500 générique si throw inattendu", async () => {

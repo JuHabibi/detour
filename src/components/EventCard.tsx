@@ -202,6 +202,7 @@ export function StandardEventCard(props: CardProps) {
                 {resolveCategoryBadgeLabel(event)}
               </p>
               <EditorialBadgePill label={event.editorialBadge} />
+              <AvailabilityBadgePill label={event.availabilityBadge} />
             </div>
             {onToggleFavorite ? (
               <FavoriteButton
@@ -275,6 +276,7 @@ export function StandardEventCard(props: CardProps) {
           {resolveCategoryBadgeLabel(event)}
         </p>
         <EditorialBadgePill label={event.editorialBadge} />
+              <AvailabilityBadgePill label={event.availabilityBadge} />
         <h3 className="mt-1.5 line-clamp-2 font-display text-[1.4rem] leading-tight tracking-tight">
           {event.title}
         </h3>
@@ -347,6 +349,7 @@ export function TextEventCard({
               {resolveCategoryBadgeLabel(event)}
             </p>
             <EditorialBadgePill label={event.editorialBadge} />
+              <AvailabilityBadgePill label={event.availabilityBadge} />
           </div>
           {onToggleFavorite ? (
             <FavoriteButton
@@ -397,6 +400,29 @@ export function TextEventCard({
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * Pastille disponibilité billetterie — label déjà résolu hors UI.
+ * Uniquement « Complet » / « Complet en ligne ».
+ */
+export function AvailabilityBadgePill({
+  label,
+}: {
+  label?: EventItem["availabilityBadge"];
+}) {
+  if (!label) return null;
+  return (
+    <span
+      className={cn(
+        "mt-1.5 inline-flex max-w-full items-center rounded-md",
+        "border border-ink/15 bg-ink/[0.04] px-2 py-1",
+        "text-[12px] font-medium leading-none tracking-[0.01em] text-ink/80",
+      )}
+    >
+      {label}
+    </span>
   );
 }
 

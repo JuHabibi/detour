@@ -1,5 +1,7 @@
 import type { PoolClient } from "pg";
 import type { DetourEvent } from "@/domain/events/event";
+import { attachAvailabilityToEvent } from "@/domain/events/attach-availability";
+import type { EventAvailabilityRecord } from "@/infrastructure/db/event-availability.repository";
 import {
   buildUpsertEventsChunkSql,
   detourEventToUpsertValues,
@@ -14,33 +16,45 @@ export const EVENT_UPSERT_CHUNK_SIZE = 150;
 
 const LIST_UPCOMING_SQL = `
 SELECT
-  id,
-  adapter_id,
-  title,
-  description,
-  image_url,
-  start_at,
-  end_at,
-  venue,
-  city,
-  latitude,
-  longitude,
-  category,
-  genre,
-  conditions,
-  source,
-  source_url,
-  registration_url,
-  is_active,
-  created_at,
-  updated_at,
-  last_seen_at
-FROM events
-WHERE is_active = true
-  AND start_at < $2
-  AND COALESCE(end_at, start_at) >= $1
-ORDER BY start_at ASC, id ASC
+  e.id,
+  e.adapter_id,
+  e.title,
+  e.description,
+  e.image_url,
+  e.start_at,
+  e.end_at,
+  e.venue,
+  e.city,
+  e.latitude,
+  e.longitude,
+  e.category,
+  e.genre,
+  e.conditions,
+  e.source,
+  e.source_url,
+  e.registration_url,
+  e.is_active,
+  e.created_at,
+  e.updated_at,
+  e.last_seen_at,
+  a.status AS availability_status,
+  a.provider AS availability_provider,
+  a.provider_event_url AS availability_provider_event_url,
+  a.checked_at AS availability_checked_at
+FROM events e
+LEFT JOIN event_availability a ON a.event_id = e.id
+WHERE e.is_active = true
+  AND e.start_at < $2
+  AND COALESCE(e.end_at, e.start_at) >= $1
+ORDER BY e.start_at ASC, e.id ASC
 `.trim();
+
+type EventRowWithAvailability = EventRow & {
+  availability_status: string | null;
+  availability_provider: string | null;
+  availability_provider_event_url: string | null;
+  availability_checked_at: Date | null;
+};
 
 function db(client?: DbQueryable): DbQueryable {
   return client ?? getPool();
@@ -50,18 +64,44 @@ export async function listUpcomingActiveWithAdapter(params: {
   from: Date;
   to: Date;
   client?: DbQueryable;
+  now?: Date;
 }): Promise<EventWithAdapter[]> {
-  const result = await db(params.client).query<EventRow>(LIST_UPCOMING_SQL, [
-    params.from.toISOString(),
-    params.to.toISOString(),
-  ]);
-  return result.rows.map(mapEventRowToEventWithAdapter);
+  const now = params.now ?? new Date();
+  const result = await db(params.client).query<EventRowWithAvailability>(
+    LIST_UPCOMING_SQL,
+    [params.from.toISOString(), params.to.toISOString()],
+  );
+
+  return result.rows.map((row) => {
+    const base = mapEventRowToEventWithAdapter(row);
+    const record = toAvailabilityRecord(row);
+    return {
+      adapterId: base.adapterId,
+      event: attachAvailabilityToEvent(base.event, record, now),
+    };
+  });
+}
+
+function toAvailabilityRecord(
+  row: EventRowWithAvailability,
+): EventAvailabilityRecord | null {
+  if (!row.availability_status || !row.availability_checked_at) {
+    return null;
+  }
+  return {
+    eventId: row.id,
+    status: row.availability_status as EventAvailabilityRecord["status"],
+    provider: row.availability_provider ?? "",
+    providerEventUrl: row.availability_provider_event_url,
+    checkedAt: row.availability_checked_at,
+  };
 }
 
 export async function listUpcomingActive(params: {
   from: Date;
   to: Date;
   client?: DbQueryable;
+  now?: Date;
 }): Promise<DetourEvent[]> {
   const rows = await listUpcomingActiveWithAdapter(params);
   return rows.map((row) => row.event);

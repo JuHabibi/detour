@@ -5,6 +5,7 @@ import {
   distanceKmBetween,
   resolveEventCoordinates,
 } from "@/domain/geo/geo";
+import { resolveAvailabilityBadge } from "@/domain/events/event-availability";
 import { resolveEditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
 import type { EventItem } from "@/data/types";
@@ -12,6 +13,8 @@ import type { EventItem } from "@/data/types";
 export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
   const start = new Date(event.startAt);
   const presentation = resolveDatePresentation(event, start);
+  const availabilityStatus = event.availabilityStatus ?? "unknown";
+  const availabilityBadge = resolveAvailabilityBadge(availabilityStatus);
 
   return {
     id: event.id,
@@ -29,13 +32,15 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
     image: event.imageUrl ?? undefined,
     description: event.description ?? undefined,
     sourceUrl: event.sourceUrl ?? undefined,
-    registrationUrl: event.registrationUrl ?? undefined,
+    registrationUrl: event.bookingUrl ?? event.registrationUrl ?? undefined,
     source: event.source ?? undefined,
     conditions: event.conditions ?? undefined,
     sourceCategory: event.category,
     relevance: event.relevance,
     relevanceReason: event.relevanceReason,
     weekend: isWeekendDay(start),
+    availabilityStatus,
+    availabilityBadge: availabilityBadge ?? undefined,
   };
 }
 

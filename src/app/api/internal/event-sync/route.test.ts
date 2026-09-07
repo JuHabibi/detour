@@ -1,9 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const runDetourEventSyncMock = vi.fn();
+const runDetourAvailabilityEnrichmentMock = vi.fn();
 
 vi.mock("@/application/event-sync/run-detour-event-sync", () => ({
   runDetourEventSync: (...args: unknown[]) => runDetourEventSyncMock(...args),
+}));
+
+vi.mock("@/application/availability/run-detour-availability-enrichment", () => ({
+  runDetourAvailabilityEnrichment: (...args: unknown[]) =>
+    runDetourAvailabilityEnrichmentMock(...args),
 }));
 
 import { POST } from "@/app/api/internal/event-sync/route";
@@ -38,6 +44,9 @@ describe("POST /api/internal/event-sync", () => {
         errorCode: "fetch_failed",
       },
     ]);
+    runDetourAvailabilityEnrichmentMock.mockResolvedValue({
+      mapadoChecy: { matchCount: 0 },
+    });
   });
 
   afterEach(() => {
@@ -75,6 +84,7 @@ describe("POST /api/internal/event-sync", () => {
     const body = (await res.json()) as { results: unknown[] };
     expect(body.results).toHaveLength(2);
     expect(runDetourEventSyncMock).toHaveBeenCalledTimes(1);
+    expect(runDetourAvailabilityEnrichmentMock).toHaveBeenCalledTimes(1);
   });
 
   it("500 générique si throw inattendu", async () => {

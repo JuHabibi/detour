@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { runDetourAvailabilityEnrichment } from "@/application/availability/run-detour-availability-enrichment";
 import { runDetourEventSync } from "@/application/event-sync/run-detour-event-sync";
 
 export const runtime = "nodejs";
@@ -21,7 +22,10 @@ function isAuthorized(request: Request): boolean {
   return timingSafeEqual(expected, actual);
 }
 
-/** GET cron Vercel Hobby — sync quotidienne Orleans puis Saran. */
+/**
+ * GET cron Vercel — sync sources puis enrichissement disponibilité (best-effort isolé).
+ * Une panne Mapado n’échoue pas le sync OpenAgenda.
+ */
 export async function GET(request: Request): Promise<Response> {
   if (!isAuthorized(request)) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
@@ -29,7 +33,17 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     const results = await runDetourEventSync();
-    return Response.json({ results });
+
+    let availability: unknown = null;
+    let availabilityError: string | null = null;
+    try {
+      availability = await runDetourAvailabilityEnrichment();
+    } catch (error) {
+      availabilityError =
+        error instanceof Error ? error.message : "availability_enrichment_failed";
+    }
+
+    return Response.json({ results, availability, availabilityError });
   } catch {
     return Response.json({ error: "internal_error" }, { status: 500 });
   }

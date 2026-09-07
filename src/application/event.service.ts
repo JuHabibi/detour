@@ -7,6 +7,7 @@ import type { DetourEvent } from "@/domain/events/event";
 import type { AiHighlightAssessment } from "@/domain/editorial/highlight-assessment";
 import { buildAiHighlightShortlist } from "@/application/ai/build-ai-highlight-shortlist";
 import { filterStillActiveEvents } from "@/domain/events/is-event-still-active";
+import { isRadarEligibleAvailability } from "@/domain/events/event-availability";
 import {
   AI_DETOUR_DEFAULT_LIMIT,
   selectAiDetourHighlights,
@@ -177,7 +178,11 @@ export class EventService {
     });
 
     const { events, duplicates } = deduplicateEvents(classifiedEvents);
-    const rankedCandidates = rankDetourHighlightCandidates(events);
+    /** Explorer = tous les events ; Radar = exclusion factuelle sold_out*. */
+    const radarEligibleEvents = events.filter((event) =>
+      isRadarEligibleAvailability(event.availabilityStatus),
+    );
+    const rankedCandidates = rankDetourHighlightCandidates(radarEligibleEvents);
     const highlightCandidates = rankedCandidates.slice(0, 20);
     const builtShortlist = buildAiHighlightShortlist(rankedCandidates);
     const aiShortlist = builtShortlist.shortlist;
@@ -211,10 +216,13 @@ export class EventService {
       { limit: AI_DETOUR_DEFAULT_LIMIT },
     );
 
+    const radarFallbackPool = pipeline.events.filter((event) =>
+      isRadarEligibleAvailability(event.availabilityStatus),
+    );
     const highlights =
       aiHighlights.length > 0
         ? aiHighlights
-        : selectDetourHighlights(pipeline.events, {
+        : selectDetourHighlights(radarFallbackPool, {
             limit: AI_DETOUR_DEFAULT_LIMIT,
           }).map(
             (highlight) => ({

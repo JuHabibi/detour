@@ -9,6 +9,7 @@ import type { UpcomingEventsResult } from "@/application/event.service";
 import { buildRadarEditorialAudit } from "@/application/debug/build-radar-editorial-audit";
 import { combinedAiScore } from "@/domain/editorial/highlight-assessment";
 import { resolveEditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
+import { isRadarEligibleAvailability } from "@/domain/events/event-availability";
 import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
 import { shortenCacheKey } from "@/infrastructure/ai/ai-assessment-cache-key";
 
@@ -63,6 +64,9 @@ function toHighlightDebug(
     aiRank: options?.aiRank,
     scoresUsed: formatScoresUsed(highlight),
     editorialBadge: resolveHighlightEditorialBadge(highlight),
+    availabilityStatus: highlight.event.availabilityStatus ?? "unknown",
+    availabilityProvider: highlight.event.availabilityProvider ?? null,
+    availabilityCheckedAt: highlight.event.availabilityCheckedAt ?? null,
   };
 }
 
@@ -166,6 +170,17 @@ export function buildEventsDebugMeta(
     dedupedCount: events.length,
     duplicateCount: duplicates.length,
     scoredCandidatesCount,
+    excludedFromRadarBecauseSoldOut: events
+      .filter(
+        (event) => !isRadarEligibleAvailability(event.availabilityStatus),
+      )
+      .map((event) => ({
+        id: event.id,
+        title: event.title,
+        availabilityStatus: event.availabilityStatus ?? "unknown",
+        availabilityProvider: event.availabilityProvider ?? null,
+        availabilityCheckedAt: event.availabilityCheckedAt ?? null,
+      })),
     duplicates: duplicateDebug,
     highlights: highlights.map((highlight) =>
       toHighlightDebug(highlight, {
