@@ -28,9 +28,9 @@ function event(id: string, title = "Titre"): DetourEvent {
   };
 }
 
-describe("AI assessment prompt V3", () => {
-  it("versionne detour-ai-assess-v3", () => {
-    expect(AI_ASSESSMENT_PROMPT_VERSION).toBe("detour-ai-assess-v3");
+describe("AI assessment prompt V3.1", () => {
+  it("versionne detour-ai-assess-v3.1", () => {
+    expect(AI_ASSESSMENT_PROMPT_VERSION).toBe("detour-ai-assess-v3.1");
   });
 
   it("schéma JSON inchangé (dimensions + assessments)", () => {
@@ -45,7 +45,7 @@ describe("AI assessment prompt V3", () => {
     expect(OPENAI_HIGHLIGHT_SYSTEM_PROMPT).not.toContain("discoveryValue");
   });
 
-  it("interdit les extrapolations non documentées", () => {
+  it("interdit les extrapolations non documentées (garde-fous V3)", () => {
     const prompt = OPENAI_HIGHLIGHT_SYSTEM_PROMPT;
     expect(prompt).toMatch(/connaissances générales pour combler/i);
     expect(prompt).toMatch(/petite commune/i);
@@ -58,15 +58,47 @@ describe("AI assessment prompt V3", () => {
     expect(prompt).not.toMatch(
       /Tu peux utiliser tes connaissances générales d’entraînement/i,
     );
+    expect(prompt).toMatch(/reasons restent|REASONS = faits|Strictement factuelles/i);
+  });
+
+  it("autorise l’inférence éditoriale des scores à partir des faits", () => {
+    const prompt = OPENAI_HIGHLIGHT_SYSTEM_PROMPT;
+    expect(prompt).toMatch(/JUGEMENT ÉDITORIAL/i);
+    expect(prompt).toMatch(/inférer un jugement|inférence éditoriale/i);
+    expect(prompt).toMatch(/SCORES = jugement éditorial/i);
+    expect(prompt).toMatch(/Ne pas exiger une contrainte commerciale pour p>=3/i);
+    expect(prompt).toMatch(/sous-estimée si l’on se contente du titre/i);
   });
 
   it("valorise la singularité documentée", () => {
     const prompt = OPENAI_HIGHLIGHT_SYSTEM_PROMPT;
     expect(prompt).toMatch(/singularité documentée/i);
     expect(prompt).toMatch(/sortie de résidence/i);
-    expect(prompt).toMatch(/enregistrement live|CD live/i);
-    expect(prompt).toMatch(/participation du public/i);
+    expect(prompt).toMatch(/enregistrement live|CD live|album live/i);
+    expect(prompt).toMatch(/participation du public|participation réelle/i);
     expect(prompt).toMatch(/première/i);
+    expect(prompt).toMatch(/résidence sociale/i);
+  });
+
+  it("ne contient aucun nom d’événement de calibration / golden set", () => {
+    const prompt = OPENAI_HIGHLIGHT_SYSTEM_PROMPT;
+    const forbidden = [
+      "Duo Zéphyr",
+      "Loto 3000",
+      "Short Message Service",
+      "Hadrien",
+      "Floréales",
+      "Odyssée",
+      "Fapy",
+      "À dos de chameau",
+      "CANAILLE",
+      "Bourgeois",
+      "NACH",
+      "Portés de femmes",
+    ];
+    for (const name of forbidden) {
+      expect(prompt, `fuite benchmark: ${name}`).not.toContain(name);
+    }
   });
 });
 
@@ -133,7 +165,7 @@ describe("OpenAiHighlightAssessmentProvider", () => {
     expect(result[0]?.appeal).toBe(4);
     expect(result[0]?.localRarity).toBe(2);
     expect(result[0]?.likelyDemand).toBe(4);
-    expect(provider.cacheContext.promptVersion).toBe("detour-ai-assess-v3");
+    expect(provider.cacheContext.promptVersion).toBe("detour-ai-assess-v3.1");
     expect(fetchImpl).toHaveBeenCalledTimes(1);
 
     const body = JSON.parse(
@@ -142,6 +174,7 @@ describe("OpenAiHighlightAssessmentProvider", () => {
     expect(body.messages[0].content).toBe(OPENAI_HIGHLIGHT_SYSTEM_PROMPT);
     expect(body.messages[0].content).toContain("localRarity");
     expect(body.messages[0].content).toContain("missRisk");
+    expect(body.messages[0].content).toContain("JUGEMENT ÉDITORIAL");
     expect(body.messages[0].content).not.toContain("discoveryValue");
   });
 });

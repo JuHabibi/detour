@@ -50,7 +50,7 @@ function mockAssessments(): HighlightAssessmentProvider {
   return {
     cacheContext: {
       model: "gpt-4o-mini",
-      promptVersion: "detour-ai-assess-v3",
+      promptVersion: "detour-ai-assess-v3.1",
       generation: { temperature: 0.2 },
     },
     assess: vi.fn().mockImplementation(async (input: DetourEvent[]) =>
@@ -188,7 +188,7 @@ describe("EventService AI mode + cache", () => {
     const assessor: HighlightAssessmentProvider = {
       cacheContext: {
         model: "gpt-4o-mini",
-        promptVersion: "detour-ai-assess-v3",
+        promptVersion: "detour-ai-assess-v3.1",
         generation: { temperature: 0.2 },
       },
       assess: vi.fn().mockRejectedValue(new Error("provider down")),
