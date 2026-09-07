@@ -14,9 +14,10 @@ import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 const ADAPTER_LABELS: Record<string, string> = {
   orleans: "Orléans / OpenAgenda",
   saran: "Ville de Saran",
+  "ingre-agenda": "Ville d'Ingré (agenda)",
 };
 
-const ADAPTER_ORDER_PREFERRED = ["orleans", "saran"] as const;
+const ADAPTER_ORDER_PREFERRED = ["orleans", "saran", "ingre-agenda"] as const;
 
 export type ListUpcomingActiveWithAdapter = (params: {
   from: Date;

@@ -42,7 +42,7 @@ POST /api/internal/event-sync  (EVENT_SYNC_SECRET)
 runDetourEventSync()
         │
         ▼
-createDetourSyncSources()     → OrleansEventAdapter, SaranEventAdapter
+createDetourSyncSources()     → OrleansEventAdapter, SaranEventAdapter, IngreAgendaEventAdapter
         │
         ▼
 syncEventSources()            → une source après l’autre, erreurs isolées
@@ -72,6 +72,14 @@ La désactivation des événements absents suppose que le fetch d’un adapter r
 Un adapter ne doit donc jamais retourner silencieusement un corpus partiel. En cas d’échec HTTP, pagination incomplète ou réponse incohérente, le sync doit échouer avant l’écriture / désactivation.
 
 L’adapter Orléans vérifie la cohérence de `total_count` et refuse une pagination incomplète avant que le moteur de sync puisse effectuer des désactivations.
+
+L’adapter `ingre-agenda` applique la même logique fail-closed sur le pager Drupal (`pager-last`, pages pleines sauf dernière, HTML inattendu, HTTP non OK).
+
+#### Cas `empty_corpus` (Ingré)
+
+Si un sync `ingre-agenda` a déjà publié des événements actifs (`previousActiveCount > 0`) et qu’un sync ultérieur retourne légitimement `[]` (agenda municipal temporairement vide hors saison), le moteur actuel refuse l’écriture avec `errorCode: empty_corpus` et **conserve** l’ancien corpus actif.
+
+Effet : pas de wipe accidentel, mais des événements « fantômes » peuvent rester actifs jusqu’à un fetch non vide. **Le moteur de sync n’est pas modifié en phase 2A** ; ce contrat sera traité séparément si le cas devient réel en production.
 
 Fichiers : `src/application/event-sync/*`, `src/infrastructure/create-detour-sync-sources.ts`, `src/infrastructure/db/*`, `src/app/api/cron|internal/event-sync/`.
 
@@ -114,7 +122,7 @@ Pipeline `EventService` (détail §5) : ingestion → fraîcheur → classificat
 | `src/infrastructure` | Adapters, factories home/sync, caches d’ingestion. |
 | `src/infrastructure/ai` | Provider OpenAI, DTO, parse, cache assessments. |
 | `src/infrastructure/db` | Pool `pg`, repositories events / source_syncs. |
-| `src/infrastructure/sources` | Orléans, Saran, lecture `database`. |
+| `src/infrastructure/sources` | Orléans, Saran, Ingré agenda, lecture `database`. |
 | `src/components` | UI React (HomePage, cartes, filtres, debug panel). |
 | `src/config` | Flags AI, mode source, catégories, ville. |
 | `src/data` | View models UI (`EventItem`, etc.) — pas de règles métier. |
@@ -184,12 +192,13 @@ Auth sync : Bearer timing-safe (`CRON_SECRET` / `EVENT_SYNC_SECRET`).
 
 Exemple Ingré :
 
-1. Adapter + mapper dans `src/infrastructure/sources/ingre/` → `DetourEvent`
+1. Adapter + mapper dans `src/infrastructure/sources/ingre-agenda/` → `DetourEvent`
 2. Enregistrer dans `createDetourSyncSources()`
-3. Tests mapper / adapter
-4. Sync DB (cron ou POST interne)
-5. Vérifier classif / dédup sur le corpus
-6. **Aucun** changement requis dans `EventService`
+3. Label DB dans `DatabaseEventSourceAdapter` (`ADAPTER_LABELS`)
+4. Tests mapper / adapter (+ fixtures)
+5. Sync DB (cron ou POST interne)
+6. Vérifier classif / dédup sur le corpus
+7. **Aucun** changement requis dans `EventService`
 
 Les nouvelles sources **alimentent la DB**. La home ne doit pas appeler leur API directement (mode `database`).
 

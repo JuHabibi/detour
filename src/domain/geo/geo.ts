@@ -21,6 +21,8 @@ export const ORLEANS_CENTER: GeoPoint = {
 export const CITY_CENTER_FALLBACKS: Record<string, GeoPoint> = {
   // Mairie / hypercentre approximatif de Saran (Loiret)
   saran: { latitude: 47.951, longitude: 1.877 },
+  // Mairie / centre approximatif d'Ingré (Loiret) — fallback distance uniquement
+  ingre: { latitude: 47.9208, longitude: 1.8235 },
 };
 
 const EARTH_RADIUS_KM = 6371;
