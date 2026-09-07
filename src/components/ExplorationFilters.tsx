@@ -1,13 +1,13 @@
 "use client";
 
 import type { WhenFilter } from "@/domain/time/when-filter";
-import type { RadiusFilter } from "@/data/types";
+import { V1_COMMUNES, type V1Commune } from "@/domain/geo/v1-communes";
 
 type ExplorationFiltersProps = {
   when: WhenFilter;
-  radius: RadiusFilter;
+  city: V1Commune | null;
   onWhenChange: (value: WhenFilter) => void;
-  onRadiusChange: (value: RadiusFilter) => void;
+  onCityChange: (value: V1Commune | null) => void;
 };
 
 const whenOptions: { id: WhenFilter; label: string }[] = [
@@ -20,23 +20,24 @@ const whenOptions: { id: WhenFilter; label: string }[] = [
   { id: "upcoming", label: "À venir" },
 ];
 
-const radiusOptions: { id: RadiusFilter; label: string }[] = [
-  { id: 5, label: "5 km" },
-  { id: 15, label: "15 km" },
-  { id: 30, label: "30 km" },
-  { id: 50, label: "50 km" },
+const ALL_CITIES_VALUE = "";
+
+const cityOptions: { id: string; label: string }[] = [
+  { id: ALL_CITIES_VALUE, label: "Toutes les villes" },
+  ...V1_COMMUNES.map((commune) => ({ id: commune, label: commune })),
 ];
 
 export function ExplorationFilters({
   when,
-  radius,
+  city,
   onWhenChange,
-  onRadiusChange,
+  onCityChange,
 }: ExplorationFiltersProps) {
   const whenLabel =
     whenOptions.find((option) => option.id === when)?.label ?? "Ce week-end";
-  const radiusLabel =
-    radiusOptions.find((option) => option.id === radius)?.label ?? "15 km";
+  const cityLabel =
+    cityOptions.find((option) => option.id === (city ?? ALL_CITIES_VALUE))
+      ?.label ?? "Toutes les villes";
 
   return (
     <div
@@ -52,14 +53,13 @@ export function ExplorationFilters({
         onChange={(value) => onWhenChange(value as WhenFilter)}
       />
       <FilterSelect
-        accessibleName="Rayon"
-        visibleLabel={radiusLabel}
-        value={String(radius)}
-        options={radiusOptions.map((option) => ({
-          id: String(option.id),
-          label: option.label,
-        }))}
-        onChange={(value) => onRadiusChange(Number(value) as RadiusFilter)}
+        accessibleName="Ville"
+        visibleLabel={cityLabel}
+        value={city ?? ALL_CITIES_VALUE}
+        options={cityOptions}
+        onChange={(value) =>
+          onCityChange(value === ALL_CITIES_VALUE ? null : (value as V1Commune))
+        }
       />
     </div>
   );
@@ -95,7 +95,7 @@ function FilterSelect({
         aria-label={accessibleName}
       >
         {options.map((option) => (
-          <option key={option.id} value={option.id}>
+          <option key={option.id || "all"} value={option.id}>
             {option.label}
           </option>
         ))}

@@ -56,7 +56,8 @@ export function EventGrid({
 
         {events.length === 0 ? (
           <p className="max-w-lg font-display text-2xl leading-snug text-cream-dim">
-            Rien dans ce rayon pour le moment. Essayez un peu plus loin.
+            Rien pour ces filtres pour le moment. Essayez une autre période ou
+            catégorie.
           </p>
         ) : (
           <>
