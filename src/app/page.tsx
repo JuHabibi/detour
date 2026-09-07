@@ -3,6 +3,7 @@ import { buildEventsDebugMeta } from "@/application/build-events-debug-meta";
 import { mapDetourEventToEventItem, mapDetourHighlightToEventItem } from "@/application/map-detour-event-to-ui";
 import { HomePage } from "@/components/HomePage";
 import { getAiConfig } from "@/config/ai-config";
+import { shouldExposeHomeDebug } from "@/config/home-debug";
 import { createHighlightAssessmentProvider } from "@/infrastructure/ai/create-highlight-assessment-provider";
 import {
   createNextAiAssessmentReadThrough,
@@ -28,6 +29,7 @@ export default async function Page() {
   to.setDate(to.getDate() + UPCOMING_WINDOW_DAYS);
 
   const result = await eventService.getUpcomingEvents({ from, to });
+  const exposeDebug = shouldExposeHomeDebug();
 
   return (
     <HomePage
@@ -38,7 +40,7 @@ export default async function Page() {
       planningEvents={result.planningEvents.map((item) =>
         mapDetourEventToEventItem(item.event),
       )}
-      debugMeta={buildEventsDebugMeta(result)}
+      debugMeta={exposeDebug ? buildEventsDebugMeta(result) : undefined}
     />
   );
 }

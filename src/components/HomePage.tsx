@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { DetourSection } from "@/components/DetourSection";
@@ -7,7 +8,6 @@ import { EventGrid } from "@/components/EventGrid";
 import { ExplorationFilters } from "@/components/ExplorationFilters";
 import { Header } from "@/components/Header";
 import { HeroFilters } from "@/components/HeroFilters";
-import { EventsDebugPanel } from "@/components/EventsDebugPanel";
 import type { EventsDebugMeta } from "@/components/EventsDebugPanel";
 import {
   isEventInWhenFilter,
@@ -16,6 +16,12 @@ import {
 import type { CategoryId, EventItem, RadiusFilter } from "@/data/types";
 
 const PAGE_SIZE = 12;
+
+const HomeDebugSection = dynamic(
+  () =>
+    import("@/components/HomeDebugSection").then((mod) => mod.HomeDebugSection),
+  { ssr: false },
+);
 
 const GRID_RESULT_TITLES: Record<WhenFilter, string> = {
   today: "Aujourd’hui autour d’Orléans",
@@ -36,13 +42,14 @@ type HomePageProps = {
    * Section publique masquée temporairement.
    */
   planningEvents: EventItem[];
+  /** Absent en production — panneau debug non monté. */
   debugMeta?: EventsDebugMeta;
 };
 
 export function HomePage({
   events,
   highlights,
-  planningEvents,
+  planningEvents: _planningEvents,
   debugMeta,
 }: HomePageProps) {
   const [when, setWhen] = useState<WhenFilter>("weekend");
@@ -149,19 +156,21 @@ export function HomePage({
               : undefined
           }
         />
-        <EventsDebugPanel
-          events={events}
-          meta={liveDebugMeta}
-          onManualAiResult={({
-            highlights: nextHighlights,
-            planningEvents: nextPlanning,
-            debugMeta: nextMeta,
-          }) => {
-            setOverrideHighlights(nextHighlights);
-            setOverridePlanning(nextPlanning);
-            setLiveDebugMeta(nextMeta);
-          }}
-        />
+        {liveDebugMeta ? (
+          <HomeDebugSection
+            events={events}
+            meta={liveDebugMeta}
+            onManualAiResult={({
+              highlights: nextHighlights,
+              planningEvents: nextPlanning,
+              debugMeta: nextMeta,
+            }) => {
+              setOverrideHighlights(nextHighlights);
+              setOverridePlanning(nextPlanning);
+              setLiveDebugMeta(nextMeta);
+            }}
+          />
+        ) : null}
       </main>
       <footer className="border-t border-line px-5 py-10 md:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-3 md:flex-row md:items-end md:justify-between">
