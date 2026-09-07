@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { EventItem, EventRelevance } from "@/data/types";
 import { runAiHighlightAssessment } from "@/app/actions/run-ai-assessment";
+import type { RadarEditorialAuditExport } from "@/application/debug/build-radar-editorial-audit";
 
 const DEBUG_LIMIT = 100;
 
@@ -143,6 +144,8 @@ export type EventsDebugMeta = {
     assessedAt: string | null;
     canRunManual: boolean;
   };
+  /** Export audit éditorial du AI candidate pool (faits + engine séparés). */
+  radarEditorialAudit?: RadarEditorialAuditExport;
 };
 
 type EventsDebugPanelProps = {
@@ -172,13 +175,31 @@ export function EventsDebugPanel({
   const [hasRunAi, setHasRunAi] = useState(
     Boolean(initialMeta?.aiAssessments?.length),
   );
+  const [auditCopyState, setAuditCopyState] = useState<
+    "idle" | "copied" | "error"
+  >("idle");
 
   // Sync si la page serveur renvoie un nouveau meta (refresh).
   useEffect(() => {
     setMeta(initialMeta);
     setHasRunAi(Boolean(initialMeta?.aiAssessments?.length));
     setAiError(null);
+    setAuditCopyState("idle");
   }, [initialMeta]);
+
+  async function handleCopyRadarAudit() {
+    const audit = meta?.radarEditorialAudit;
+    if (!audit || audit.events.length === 0) {
+      setAuditCopyState("error");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(audit, null, 2));
+      setAuditCopyState("copied");
+    } catch {
+      setAuditCopyState("error");
+    }
+  }
 
   async function handleRunAi(force: boolean) {
     setAiLoading(true);
@@ -795,17 +816,43 @@ export function EventsDebugPanel({
 
             {meta && meta.aiShortlist && meta.aiShortlist.length > 0 ? (
               <div className="space-y-3">
-                <h3 className="font-display text-lg tracking-tight">
-                  AI candidate pool
-                </h3>
-                <p className="text-sm text-cream-dim">
-                  Union de buckets (max 60) : deterministic-top, planning-top,
-                  booking-top, peripheral-top, future-top.
-                  {meta.aiShortlistBucketSizes
-                    ? ` Buckets bruts : det=${meta.aiShortlistBucketSizes["deterministic-top"]}, plan=${meta.aiShortlistBucketSizes["planning-top"]}, book=${meta.aiShortlistBucketSizes["booking-top"]}, peri=${meta.aiShortlistBucketSizes["peripheral-top"]}, fut=${meta.aiShortlistBucketSizes["future-top"]}.`
-                    : ""}{" "}
-                  Pool final : {meta.aiShortlist.length}.
-                </p>
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <h3 className="font-display text-lg tracking-tight">
+                      AI candidate pool
+                    </h3>
+                    <p className="mt-1 text-sm text-cream-dim">
+                      Union de buckets (max 60) : deterministic-top, planning-top,
+                      booking-top, peripheral-top, future-top.
+                      {meta.aiShortlistBucketSizes
+                        ? ` Buckets bruts : det=${meta.aiShortlistBucketSizes["deterministic-top"]}, plan=${meta.aiShortlistBucketSizes["planning-top"]}, book=${meta.aiShortlistBucketSizes["booking-top"]}, peri=${meta.aiShortlistBucketSizes["peripheral-top"]}, fut=${meta.aiShortlistBucketSizes["future-top"]}.`
+                        : ""}{" "}
+                      Pool final : {meta.aiShortlist.length}.
+                    </p>
+                  </div>
+                  {meta.radarEditorialAudit &&
+                  meta.radarEditorialAudit.events.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleCopyRadarAudit}
+                        className="rounded-full border border-line bg-foam px-3 py-1.5 text-xs text-ink transition-colors hover:border-ink/25"
+                      >
+                        Copier audit JSON
+                      </button>
+                      {auditCopyState === "copied" ? (
+                        <span className="text-xs text-cream-dim">
+                          Copié ({meta.radarEditorialAudit.poolSize})
+                        </span>
+                      ) : null}
+                      {auditCopyState === "error" ? (
+                        <span className="text-xs text-coral">
+                          Copie impossible
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
                 <div className="overflow-x-auto rounded-xl border border-line bg-paper">
                   <table className="min-w-full text-left text-xs">
                     <thead className="border-b border-line bg-foam/60 text-[10px] uppercase tracking-[0.14em] text-sand">

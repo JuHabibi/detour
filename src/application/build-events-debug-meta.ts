@@ -6,6 +6,7 @@ import type {
   PlanningEventDebug,
 } from "@/components/EventsDebugPanel";
 import type { UpcomingEventsResult } from "@/application/event.service";
+import { buildRadarEditorialAudit } from "@/application/debug/build-radar-editorial-audit";
 import { combinedAiScore } from "@/domain/editorial/highlight-assessment";
 import { resolveEditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
@@ -212,5 +213,11 @@ export function buildEventsDebugMeta(
       assessedAt: aiMeta.assessedAt,
       canRunManual: aiMeta.enabled && aiMeta.mode === "manual",
     },
+    radarEditorialAudit: buildRadarEditorialAudit({
+      aiShortlist,
+      aiShortlistInclusion,
+      highlights,
+      aiAssessments,
+    }),
   };
 }
