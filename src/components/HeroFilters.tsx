@@ -32,7 +32,7 @@ export function HeroFilters() {
           className="relative hidden min-h-[24.5rem] w-full overflow-hidden md:block lg:min-h-[27rem]"
         >
           <Image
-            src="/detour-hero.jpg"
+            src="/new-detour-hero.jpg"
             alt=""
             fill
             priority
