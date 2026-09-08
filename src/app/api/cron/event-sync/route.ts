@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { runDetourAvailabilityEnrichment } from "@/application/availability/run-detour-availability-enrichment";
 import { runDetourEventSync } from "@/application/event-sync/run-detour-event-sync";
 
@@ -42,6 +43,8 @@ export async function GET(request: Request): Promise<Response> {
       availabilityError =
         error instanceof Error ? error.message : "availability_enrichment_failed";
     }
+
+    revalidatePath("/");
 
     return Response.json({ results, availability, availabilityError });
   } catch {

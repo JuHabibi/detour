@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const runDetourEventSyncMock = vi.fn();
 const runDetourAvailabilityEnrichmentMock = vi.fn();
+const revalidatePathMock = vi.fn();
+const revalidateTagMock = vi.fn();
+const updateTagMock = vi.fn();
 
 vi.mock("@/application/event-sync/run-detour-event-sync", () => ({
   runDetourEventSync: (...args: unknown[]) => runDetourEventSyncMock(...args),
@@ -10,6 +13,12 @@ vi.mock("@/application/event-sync/run-detour-event-sync", () => ({
 vi.mock("@/application/availability/run-detour-availability-enrichment", () => ({
   runDetourAvailabilityEnrichment: (...args: unknown[]) =>
     runDetourAvailabilityEnrichmentMock(...args),
+}));
+
+vi.mock("next/cache", () => ({
+  revalidatePath: (...args: unknown[]) => revalidatePathMock(...args),
+  revalidateTag: (...args: unknown[]) => revalidateTagMock(...args),
+  updateTag: (...args: unknown[]) => updateTagMock(...args),
 }));
 
 import { GET } from "@/app/api/cron/event-sync/route";
@@ -58,21 +67,24 @@ describe("GET /api/cron/event-sync", () => {
     const res = await GET(requestWithAuth(`Bearer ${SECRET}`));
     expect(res.status).toBe(401);
     expect(runDetourEventSyncMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
   it("refuse si Authorization absent", async () => {
     const res = await GET(requestWithAuth());
     expect(res.status).toBe(401);
     expect(runDetourEventSyncMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
   it("refuse si mauvais secret", async () => {
     const res = await GET(requestWithAuth("Bearer wrong-secret-value"));
     expect(res.status).toBe(401);
     expect(runDetourEventSyncMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
-  it("200 + sync appelée ; SyncResult skipped OK", async () => {
+  it("200 + sync appelée ; SyncResult skipped OK ; revalidatePath(/)", async () => {
     const res = await GET(requestWithAuth(`Bearer ${SECRET}`));
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
@@ -95,9 +107,13 @@ describe("GET /api/cron/event-sync", () => {
     expect(runDetourEventSyncMock).toHaveBeenCalledTimes(1);
     expect(runDetourAvailabilityEnrichmentMock).toHaveBeenCalledTimes(1);
     expect(body.availabilityError).toBeNull();
+    expect(revalidatePathMock).toHaveBeenCalledTimes(1);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(revalidateTagMock).not.toHaveBeenCalled();
+    expect(updateTagMock).not.toHaveBeenCalled();
   });
 
-  it("sync OK même si enrichissement disponibilité échoue", async () => {
+  it("sync OK même si enrichissement disponibilité échoue ; revalidatePath quand même", async () => {
     runDetourAvailabilityEnrichmentMock.mockRejectedValue(
       new Error("mapado down"),
     );
@@ -105,9 +121,13 @@ describe("GET /api/cron/event-sync", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { availabilityError: string | null };
     expect(body.availabilityError).toBe("mapado down");
+    expect(revalidatePathMock).toHaveBeenCalledTimes(1);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(revalidateTagMock).not.toHaveBeenCalled();
+    expect(updateTagMock).not.toHaveBeenCalled();
   });
 
-  it("500 générique si throw inattendu", async () => {
+  it("500 générique si throw inattendu ; pas de revalidatePath", async () => {
     runDetourEventSyncMock.mockRejectedValue(
       new Error("boom with DATABASE_URL"),
     );
@@ -116,5 +136,6 @@ describe("GET /api/cron/event-sync", () => {
     const body = (await res.json()) as { error: string };
     expect(body).toEqual({ error: "internal_error" });
     expect(JSON.stringify(body)).not.toContain("DATABASE_URL");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });
