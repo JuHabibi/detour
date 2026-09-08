@@ -18,6 +18,7 @@ export function mapSaranIcalEventToDetourEvent(
   if (!startAt) return null;
 
   const endAt = raw.dtEnd ? saranDateToIso(raw.dtEnd) : null;
+  const allDay = raw.dtStart.kind === "date";
 
   return {
     id: `saran:${raw.uid}`,
@@ -26,6 +27,7 @@ export function mapSaranIcalEventToDetourEvent(
     imageUrl: null,
     startAt,
     endAt,
+    ...(allDay ? { allDay: true as const } : {}),
     venue: raw.location,
     city: SARAN_CITY,
     latitude: null,

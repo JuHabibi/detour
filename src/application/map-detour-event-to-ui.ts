@@ -27,6 +27,7 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
     dateLabel: presentation.dateLabel,
     startAt: event.startAt,
     endAt: event.endAt,
+    ...(event.allDay ? { allDay: true as const } : {}),
     time: presentation.time,
     distanceKm: computeDistanceKm(event),
     image: event.imageUrl ?? undefined,
@@ -89,7 +90,7 @@ function resolveDatePresentation(
 ): { dateLabel: string; time: string | undefined } {
   const singleDay = {
     dateLabel: formatDateLabel(start),
-    time: formatTime(start),
+    time: event.allDay ? undefined : formatTime(start),
   };
 
   if (!event.endAt) return singleDay;
@@ -100,12 +101,17 @@ function resolveDatePresentation(
   }
   if (end.getTime() < start.getTime()) return singleDay;
 
+  // All-day : endAt exclusif → dernier jour inclusif pour le label civil.
+  const displayEnd = event.allDay
+    ? new Date(end.getTime() - 1)
+    : end;
+
   const startKey = toDateKey(start);
-  const endKey = toDateKey(end);
+  const endKey = toDateKey(displayEnd);
   if (startKey === endKey) return singleDay;
 
   return {
-    dateLabel: formatMultiDayRange(start, end),
+    dateLabel: formatMultiDayRange(start, displayEnd),
     time: undefined,
   };
 }

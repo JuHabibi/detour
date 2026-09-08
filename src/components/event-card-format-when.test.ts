@@ -64,4 +64,19 @@ describe("EventCard formatWhen", () => {
     );
     expect(label).toBe("Du 10 au 27 sept.");
   });
+
+  it("all-day exclusive : utilise dateLabel, ignore endAt brut", () => {
+    const label = formatWhen(
+      baseItem({
+        date: "2026-09-12",
+        dateLabel: "Samedi 12 septembre",
+        startAt: "2026-09-12T00:00:00+02:00",
+        endAt: "2026-09-13T00:00:00+02:00",
+        allDay: true,
+        time: undefined,
+      }),
+    );
+    expect(label).toBe("Samedi 12 septembre");
+    expect(label).not.toMatch(/13/);
+  });
 });

@@ -14,6 +14,11 @@ export type DetourEvent = {
 
   startAt: string;
   endAt: string | null;
+  /**
+   * Événement date-only / journée entière.
+   * Quand true, `endAt` est une borne exclusive (convention RFC 5545 / sources all-day).
+   */
+  allDay?: boolean;
 
   venue: string | null;
   city: string | null;

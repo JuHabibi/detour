@@ -137,6 +137,7 @@ describe("saran ical mapper", () => {
     expect(event?.venue).toBe("Institut des Cent Arpents");
     expect(event?.startAt).toBe("2026-09-05T08:00:00+02:00");
     expect(event?.endAt).toBe("2026-09-05T19:00:00+02:00");
+    expect(event?.allDay).toBeUndefined();
     expect(event?.latitude).toBeNull();
     expect(event?.category).toBeNull();
     expect(event?.registrationUrl).toBeNull();
@@ -147,6 +148,7 @@ describe("saran ical mapper", () => {
     const event = mapSaranIcalEventToDetourEvent(raw!);
     expect(event?.startAt).toBe("2026-09-20T00:00:00+02:00");
     expect(event?.endAt).toBe("2026-09-21T00:00:00+02:00");
+    expect(event?.allDay).toBe(true);
   });
 
   it("filtre from/to par intersection", () => {

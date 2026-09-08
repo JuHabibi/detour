@@ -102,24 +102,38 @@ describe("event-row.mapper", () => {
     expect(values[0]).toBe("openagenda:1");
     expect(values[1]).toBe("orleans");
     expect(values[2]).toBe("Concert");
-    expect(values[9]).toBe(47.9);
-    expect(values[10]).toBe(1.9);
-    expect(values[17]).toBe("Musique");
-    expect(values[18]).toBe("Orléans");
-    expect(values[19]).toBe(marker.toISOString());
+    expect(values[7]).toBe(false);
+    expect(values[10]).toBe(47.9);
+    expect(values[11]).toBe(1.9);
+    expect(values[18]).toBe("Musique");
+    expect(values[19]).toBe("Orléans");
+    expect(values[20]).toBe(marker.toISOString());
   });
 
   it("SQL upsert : placeholders dynamiques, aucune valeur métier dans le texte", () => {
     const sql = buildUpsertEventsChunkSql(2);
     expect(sql).toContain("$1");
-    expect(sql).toContain("$20");
     expect(sql).toContain("$21");
-    expect(sql).toContain("$40");
+    expect(sql).toContain("$22");
+    expect(sql).toContain("$42");
+    expect(sql).toContain("all_day");
     expect(sql).toContain("product_category");
     expect(sql).toContain("city_key");
     expect(sql).not.toContain("resolved_latitude");
     expect(sql).not.toContain("geo_resolution");
     expect(sql).toContain("ON CONFLICT (id) DO UPDATE");
     expect(sql).not.toMatch(/openagenda|Orléans|Concert|https?:/);
+  });
+
+  it("all_day true → DetourEvent.allDay et upsert", () => {
+    const event = mapEventRowToDetourEvent(sampleRow({ all_day: true }));
+    expect(event.allDay).toBe(true);
+
+    const values = detourEventToUpsertValues(
+      "ingre-agenda",
+      sampleEvent({ allDay: true }),
+      new Date("2026-09-06T12:00:00.000Z"),
+    );
+    expect(values[7]).toBe(true);
   });
 });

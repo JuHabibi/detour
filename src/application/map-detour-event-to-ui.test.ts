@@ -321,4 +321,93 @@ describe("mapDetourEventToEventItem — labels multi-jours", () => {
     expect(inverted.time).toBe("20h00");
     expect(inverted.dateLabel).toMatch(/samedi/i);
   });
+
+  it("1. Ingré all-day 12 → 13 exclusive → label = 12 seulement", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "ingre-allday",
+        title: "Ateliers créatifs",
+        startAt: "2026-09-12T00:00:00+02:00",
+        endAt: "2026-09-13T00:00:00+02:00",
+        allDay: true,
+        source: "Ville d'Ingré",
+      }),
+    );
+    expect(item.dateLabel).toMatch(/12/);
+    expect(item.dateLabel).not.toMatch(/13/);
+    expect(item.dateLabel).not.toMatch(/^Du /);
+    expect(item.time).toBeUndefined();
+    expect(item.allDay).toBe(true);
+  });
+
+  it("2. Saran all-day 20 → 21 exclusive → label = 20 seulement", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "saran-allday",
+        title: "Journée",
+        startAt: "2026-09-20T00:00:00+02:00",
+        endAt: "2026-09-21T00:00:00+02:00",
+        allDay: true,
+        source: "Ville de Saran",
+      }),
+    );
+    expect(item.dateLabel).toMatch(/20/);
+    expect(item.dateLabel).not.toMatch(/21/);
+    expect(item.dateLabel).not.toMatch(/^Du /);
+    expect(item.time).toBeUndefined();
+  });
+
+  it("3. all-day multi 12 → 15 exclusive → label final = 14", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "allday-multi",
+        title: "Festival",
+        startAt: "2026-09-12T00:00:00+02:00",
+        endAt: "2026-09-15T00:00:00+02:00",
+        allDay: true,
+      }),
+    );
+    expect(item.dateLabel).toBe("Du 12 au 14 sept.");
+    expect(item.time).toBeUndefined();
+  });
+
+  it("4. timed même jour → inchangé", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "timed-same",
+        title: "Atelier",
+        startAt: "2026-09-12T14:00:00+02:00",
+        endAt: "2026-09-12T18:00:00+02:00",
+      }),
+    );
+    expect(item.dateLabel).toMatch(/samedi/i);
+    expect(item.dateLabel).toMatch(/12/);
+    expect(item.time).toBe("14h00");
+    expect(item.allDay).toBeUndefined();
+  });
+
+  it("5. timed multi-jours → inchangé", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "timed-multi",
+        title: "Expo",
+        startAt: "2026-09-12T20:00:00+02:00",
+        endAt: "2026-09-13T01:00:00+02:00",
+      }),
+    );
+    expect(item.dateLabel).toBe("Du 12 au 13 sept.");
+  });
+
+  it("6. timed fin à 00:00 → NE PAS retirer un jour", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "timed-midnight",
+        title: "Soirée",
+        startAt: "2026-09-12T20:00:00+02:00",
+        endAt: "2026-09-13T00:00:00+02:00",
+      }),
+    );
+    expect(item.dateLabel).toBe("Du 12 au 13 sept.");
+    expect(item.allDay).toBeUndefined();
+  });
 });

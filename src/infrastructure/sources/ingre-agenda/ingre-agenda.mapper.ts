@@ -152,6 +152,7 @@ export function mapIngreAgendaDetailToDetourEvent(
       imageUrl: detail.imageUrl,
       startAt: bounds.startAt,
       endAt: bounds.endAt,
+      ...(detail.allDay ? { allDay: true as const } : {}),
       venue: null,
       city: INGRE_AGENDA_CITY,
       latitude: null,

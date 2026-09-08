@@ -117,7 +117,7 @@ describe("event.repository", () => {
     expect(sql1).not.toMatch(/openagenda:0|orleans/);
     expect(values1[0]).toBe("openagenda:0");
     expect(values1[1]).toBe("orleans");
-    expect(values2).toHaveLength(3 * 20);
+    expect(values2).toHaveLength(3 * 21);
   });
 
   it("deactivateNotSeenSince filtre adapter + marker en params", async () => {

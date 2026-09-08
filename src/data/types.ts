@@ -27,6 +27,10 @@ export type EventItem = {
   startAt?: string;
   /** Instant de fin ISO — pour les événements multi-jours / encore en cours. */
   endAt?: string | null;
+  /**
+   * Journée entière / date-only — `endAt` exclusif pour le calcul du label civil.
+   */
+  allDay?: boolean;
   time?: string;
   /** Absent tant que la distance n’est pas calculée. */
   distanceKm?: number;

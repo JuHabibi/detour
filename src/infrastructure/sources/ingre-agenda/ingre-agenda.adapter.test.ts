@@ -194,6 +194,7 @@ describe("ingre-agenda detail parser + mapper", () => {
     expect(mapped.event.id).toBe("ingre-agenda:3805");
     expect(mapped.event.startAt).toBe("2026-09-05T00:00:00+02:00");
     expect(mapped.event.endAt).toBe("2026-09-07T00:00:00+02:00");
+    expect(mapped.event.allDay).toBe(true);
   });
 
   it("all-day single jour (date-display-single)", () => {
@@ -216,6 +217,7 @@ describe("ingre-agenda detail parser + mapper", () => {
     if (!mapped.ok) return;
     expect(mapped.event.startAt).toBe("2026-09-12T00:00:00+02:00");
     expect(mapped.event.endAt).toBe("2026-09-13T00:00:00+02:00");
+    expect(mapped.event.allDay).toBe(true);
   });
 
   it("programme multi-rdv ambigu (Apacrete)", () => {

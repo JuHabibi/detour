@@ -583,6 +583,10 @@ function formatPrice(price: EventItem["price"]): string | null {
 }
 
 function formatWhen(event: EventItem) {
+  // allDay : dateLabel déjà calculé sur la borne inclusive — ne pas comparer endAt brut.
+  if (event.allDay) {
+    return event.dateLabel;
+  }
   if (isMultiDayCivilParis(event)) {
     return event.dateLabel;
   }

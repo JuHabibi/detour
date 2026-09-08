@@ -23,6 +23,7 @@ SELECT
   e.image_url,
   e.start_at,
   e.end_at,
+  e.all_day,
   e.venue,
   e.city,
   e.latitude,

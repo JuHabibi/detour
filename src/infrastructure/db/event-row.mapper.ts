@@ -10,6 +10,7 @@ export type EventRow = {
   image_url: string | null;
   start_at: Date;
   end_at: Date | null;
+  all_day?: boolean;
   venue: string | null;
   city: string | null;
   latitude: number | null;
@@ -50,6 +51,7 @@ export function mapEventRowToDetourEvent(row: EventRow): DetourEvent {
     imageUrl: row.image_url,
     startAt: toIso(row.start_at),
     endAt: toIsoOrNull(row.end_at),
+    ...(row.all_day ? { allDay: true as const } : {}),
     venue: row.venue,
     city: row.city,
     latitude: row.latitude,
@@ -88,6 +90,7 @@ export function detourEventToUpsertValues(
     event.imageUrl,
     event.startAt,
     event.endAt,
+    Boolean(event.allDay),
     event.venue,
     event.city,
     event.latitude,
@@ -104,8 +107,8 @@ export function detourEventToUpsertValues(
   ];
 }
 
-/** 17 champs bruts + 2 normalisés + last_seen = 20. */
-export const UPSERT_EVENT_PARAM_COUNT = 20;
+/** 17 champs bruts + all_day + 2 normalisés + last_seen = 21. */
+export const UPSERT_EVENT_PARAM_COUNT = 21;
 
 export function buildUpsertEventPlaceholders(rowIndex: number): string {
   const base = rowIndex * UPSERT_EVENT_PARAM_COUNT;
@@ -134,6 +137,7 @@ INSERT INTO events (
   image_url,
   start_at,
   end_at,
+  all_day,
   venue,
   city,
   latitude,
@@ -159,6 +163,7 @@ ON CONFLICT (id) DO UPDATE SET
   image_url = EXCLUDED.image_url,
   start_at = EXCLUDED.start_at,
   end_at = EXCLUDED.end_at,
+  all_day = EXCLUDED.all_day,
   venue = EXCLUDED.venue,
   city = EXCLUDED.city,
   latitude = EXCLUDED.latitude,
