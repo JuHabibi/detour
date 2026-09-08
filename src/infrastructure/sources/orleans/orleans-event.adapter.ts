@@ -141,14 +141,22 @@ function buildOrleansUrl(from: Date, to: Date, offset: number): string {
     select: SELECT_FIELDS,
     order_by: "firstdate_begin asc",
     timezone: "Europe/Paris",
-    where: [
-      `firstdate_begin >= date'${fromLiteral}'`,
-      `firstdate_begin <= date'${toLiteral}'`,
-      `statut_evenement = 'à venir'`,
-    ].join(" AND "),
+    where: buildOrleansWhereClause(fromLiteral, toLiteral),
   });
 
   return `${BASE_URL}?${searchParams.toString()}`;
+}
+
+/** ODS window intersection: start <= to AND ifnull(end, start) >= from. */
+export function buildOrleansWhereClause(
+  fromLiteral: string,
+  toLiteral: string,
+): string {
+  return [
+    `firstdate_begin <= date'${toLiteral}'`,
+    `ifnull(firstdate_end, firstdate_begin) >= date'${fromLiteral}'`,
+    `statut_evenement = 'à venir'`,
+  ].join(" AND ");
 }
 
 function toOdsDateLiteral(date: Date): string {
