@@ -16,18 +16,14 @@ export function DetourSection({
   if (picks.length === 0) return null;
 
   return (
-    <section id="detour" className="scroll-mt-24 bg-mint/20">
-      <div className="mx-auto max-w-[1440px] px-5 py-7 md:px-8 md:py-9 lg:px-12">
-        <div className="mb-5 md:mb-6">
-          <p className="text-[11px] uppercase tracking-[0.28em] text-sand">
-            Sur le radar
-          </p>
-          <h2 className="mt-2 font-display text-3xl tracking-tight md:text-[2.75rem]">
+    <section id="detour" className="radar-grain scroll-mt-20 bg-mint">
+      <div className="mx-auto max-w-[1440px] px-5 pb-7 pt-6 md:px-8 md:pb-10 md:pt-8 lg:px-12 lg:pt-9">
+        <div className="mb-5 md:mb-7">
+          <h2 className="max-w-[14ch] font-display text-[1.85rem] leading-[1.02] tracking-tight text-ink md:text-[2.75rem] lg:text-[3.125rem]">
             À repérer maintenant
           </h2>
-          <p className="mt-2.5 max-w-md text-sm leading-6 text-cream-dim">
-            Des événements qu’il vaut mieux découvrir aujourd’hui que trop
-            tard.
+          <p className="mt-2.5 max-w-md text-sm leading-6 text-ink/70 md:mt-3.5 md:text-[0.95rem]">
+            Sélection Détour — aujourd’hui plutôt que trop tard.
           </p>
         </div>
 

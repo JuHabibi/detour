@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/cn";
+import { CITY } from "@/config/city";
 
 type HeaderProps = {
   favoriteCount: number;
@@ -8,11 +9,11 @@ type HeaderProps = {
 
 export function Header({ favoriteCount }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-4 md:px-8 lg:px-12">
+    <header className="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm">
+      <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-2 md:px-8 md:py-2.5 lg:px-12">
         <a
           href="#top"
-          className="font-display text-[1.65rem] leading-none tracking-tight rounded-sm"
+          className="font-display text-[1.55rem] leading-none tracking-tight"
         >
           Détour
           <span className="text-coral" aria-hidden="true">
@@ -20,40 +21,36 @@ export function Header({ favoriteCount }: HeaderProps) {
           </span>
         </a>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-5 sm:gap-6">
           <nav
             aria-label="Sections"
-            className="hidden items-center gap-6 text-[13px] tracking-[0.12em] text-sand uppercase md:flex"
+            className="hidden items-center gap-6 text-[12px] font-medium uppercase tracking-[0.14em] text-ink md:flex"
           >
-            <a href="#detour" className="rounded-sm transition-colors hover:text-ink">
+            <a href="#detour" className="transition-colors hover:text-sand">
               Sur le radar
             </a>
-            <a href="#explorer" className="rounded-sm transition-colors hover:text-ink">
+            <a href="#explorer" className="transition-colors hover:text-sand">
               Explorer
             </a>
           </nav>
 
-          <button
-            type="button"
-            aria-label="Lieu actuel : Orléans"
-            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-foam px-3 py-2 text-[13px] text-ink transition-colors hover:border-ink/20"
+          <p
+            className="hidden text-[12px] uppercase tracking-[0.12em] text-sand sm:block"
+            aria-label={`Lieu actuel : ${CITY}`}
           >
-            <PinIcon />
-            <span className="hidden sm:inline" aria-hidden="true">
-              Orléans
-            </span>
-          </button>
+            {CITY}
+          </p>
 
           <button
             type="button"
             aria-label={`Mes détours, ${favoriteCount} enregistré${favoriteCount > 1 ? "s" : ""}`}
-            className="relative flex size-11 items-center justify-center rounded-full border border-line bg-foam transition-colors hover:border-ink/20"
+            className="relative flex size-10 items-center justify-center text-ink transition-colors hover:text-coral"
           >
             <HeartIcon filled={favoriteCount > 0} />
             {favoriteCount > 0 ? (
               <span
                 aria-hidden="true"
-                className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-coral text-[10px] font-medium text-ink"
+                className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center bg-coral text-[9px] font-semibold text-ink"
               >
                 {favoriteCount}
               </span>
@@ -62,19 +59,6 @@ export function Header({ favoriteCount }: HeaderProps) {
         </div>
       </div>
     </header>
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M12 21s7-6.2 7-11.2A7 7 0 0 0 5 9.8C5 14.8 12 21 12 21Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-      <circle cx="12" cy="9.8" r="2.2" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
   );
 }
 

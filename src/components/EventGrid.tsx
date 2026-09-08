@@ -33,37 +33,37 @@ export function EventGrid({
       : `${events.length} proposition${events.length > 1 ? "s" : ""}`;
 
   return (
-    <section id="explorer" className="scroll-mt-24 px-5 py-10 md:px-8 md:py-14 lg:px-12">
+    <section
+      id="explorer"
+      className="scroll-mt-20 bg-foam px-5 py-10 md:px-8 md:py-14 lg:px-12"
+    >
       <div className="mx-auto max-w-[1440px]">
-        <header className="mb-6 flex items-start justify-between gap-4 md:mb-8">
+        <header className="mb-6 flex items-end justify-between gap-4 md:mb-8">
           <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-sand">
-              Explorer
-            </p>
-            <h2 className="mt-2 font-display text-3xl tracking-tight md:text-5xl">
+            <h2 className="font-display text-[1.75rem] leading-[1.02] tracking-tight text-ink md:text-[2.5rem] lg:text-[2.75rem]">
               {title}
             </h2>
             {resultTitle ? (
-              <p className="mt-2 text-sm leading-6 text-cream-dim md:text-[0.95rem]">
+              <p className="mt-2.5 max-w-lg text-sm leading-6 text-cream-dim md:mt-3">
                 {resultTitle}
               </p>
             ) : null}
           </div>
-          <p className="shrink-0 pt-1 text-right text-xs text-sand md:pt-2 md:text-sm">
+          <p className="shrink-0 pb-0.5 text-right text-[12px] uppercase tracking-[0.12em] text-sand">
             {countLabel}
           </p>
         </header>
 
-        {toolbar ? <div className="mb-6 md:mb-8">{toolbar}</div> : null}
+        {toolbar ? <div className="mb-7 md:mb-9">{toolbar}</div> : null}
 
         {events.length === 0 ? (
-          <p className="max-w-lg font-display text-2xl leading-snug text-cream-dim">
+          <p className="max-w-lg font-display text-2xl leading-snug text-ink">
             Rien pour ces filtres pour le moment. Essayez une autre période ou
             catégorie.
           </p>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-x-5 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
               {events.map((event, index) => (
                 <EventCard
                   key={event.id}
@@ -71,16 +71,17 @@ export function EventGrid({
                   priority={index < 3}
                   isFavorite={favorites.has(event.id)}
                   onToggleFavorite={onToggleFavorite}
+                  surface="explorer"
                 />
               ))}
             </div>
 
             {onShowMore ? (
-              <div className="mt-10 flex justify-center">
+              <div className="mt-12 flex justify-center">
                 <button
                   type="button"
                   onClick={onShowMore}
-                  className="min-h-11 border-b border-ink/25 px-2 pb-0.5 text-sm text-ink transition-colors hover:border-ink"
+                  className="min-h-11 bg-mint px-5 text-sm font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam"
                 >
                   Voir plus
                 </button>
