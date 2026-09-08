@@ -195,9 +195,12 @@ describe("listExplorerEvents — pagination", () => {
     });
 
     const pageCall = query.mock.calls.find((call) =>
-      String(call[0]).includes("ORDER BY"),
+      String(call[0]).includes("LIMIT"),
     ) as [string, unknown[]] | undefined;
-    expect(pageCall![0]).toContain("ORDER BY e.start_at ASC, e.id ASC");
+    expect(pageCall![0]).toContain("ORDER BY start_at ASC, id ASC");
+    expect(pageCall![0]).toContain("ROW_NUMBER()");
+    expect(pageCall![0]).toContain("PARTITION BY");
+    expect(pageCall![0]).toContain("representatives");
     expect(pageCall![1]).toEqual([now.toISOString(), 3]);
   });
 
@@ -208,8 +211,8 @@ describe("listExplorerEvents — pagination", () => {
     });
     const { query, client } = mockClient((sql, params) => {
       if (sql.includes("count(*)")) return { rows: [{ count: "4" }] };
-      expect(sql).toContain("e.start_at > $2");
-      expect(sql).toContain("e.id > $3");
+      expect(sql).toContain("start_at > $2");
+      expect(sql).toContain("id > $3");
       expect(params[1]).toBe("2026-11-01T18:00:00.000Z");
       expect(params[2]).toBe("b");
       expect(params[3]).toBe(3);
@@ -498,7 +501,8 @@ describe("listExplorerEvents — combinaison when + search + pagination", () => 
     expect(countSql).toContain("ILIKE");
     expect(countSql).not.toContain("e.start_at >");
     expect(pageSql).toContain("ILIKE");
-    expect(pageSql).toContain("e.start_at >");
+    expect(pageSql).toContain("start_at > $");
+    expect(pageSql).toContain("ROW_NUMBER()");
     expect(result.totalCount).toBe(3);
     expect(result.events.map((e) => e.id)).toEqual(["jazz-2", "jazz-3"]);
     expect(result.events.map((e) => e.id)).not.toContain("jazz-1");
@@ -531,7 +535,7 @@ describe("listExplorerEvents — CATEGORY", () => {
   it("absence de filtre category", async () => {
     const { client } = mockClient((sql, params) => {
       if (sql.includes("count(*)")) {
-        expect(sql).not.toContain("product_category");
+        expect(sql).not.toContain("e.product_category =");
         expect(params).toEqual([now.toISOString()]);
         return { rows: [{ count: "0" }] };
       }
@@ -606,7 +610,7 @@ describe("listExplorerEvents — CITY", () => {
   it("absence de filtre city → pas de clause city_key (NULL inclus)", async () => {
     const { client } = mockClient((sql, params) => {
       if (sql.includes("count(*)")) {
-        expect(sql).not.toContain("city_key");
+        expect(sql).not.toContain("e.city_key =");
         expect(params).toEqual([now.toISOString()]);
         return { rows: [{ count: "10" }] };
       }
@@ -722,7 +726,7 @@ describe("listExplorerEvents — combinaison complète", () => {
     expect(countSql).toContain("product_category");
     expect(countSql).toContain("city_key");
     expect(countSql).toContain("ILIKE");
-    expect(pageSql).toContain("e.start_at >");
+    expect(pageSql).toContain("start_at > $");
     expect(result.totalCount).toBe(4);
     expect(result.events.map((e) => e.id)).toEqual(["b", "c"]);
     expect(result.events.map((e) => e.id)).not.toContain("a");
@@ -730,5 +734,103 @@ describe("listExplorerEvents — combinaison complète", () => {
       startAt: "2026-09-13T12:00:00.000Z",
       id: "c",
     });
+  });
+});
+
+describe("listExplorerEvents — dedupe V1 (read model)", () => {
+  const now = new Date("2026-09-10T12:00:00.000Z");
+
+  it("10. totalCount lit les representatives (groupes), pas un count rows brut seul", async () => {
+    const { query, client } = mockClient((sql) => {
+      if (sql.includes("count(*)")) {
+        expect(sql).toContain("FROM representatives");
+        expect(sql).toContain("ROW_NUMBER()");
+        expect(sql).toContain("canonical_title");
+        return { rows: [{ count: "3" }] };
+      }
+      return { rows: [] };
+    });
+
+    const result = await listExplorerEvents(
+      { when: "upcoming" },
+      { client, now },
+    );
+    expect(result.totalCount).toBe(3);
+    expect(query).toHaveBeenCalled();
+  });
+
+  it("11. pagination demande limit+1 sur representatives (pas de shrink post-LIMIT)", async () => {
+    const { query, client } = mockClient((sql) => {
+      if (sql.includes("count(*)")) return { rows: [{ count: "20" }] };
+      return {
+        rows: Array.from({ length: 13 }, (_, i) =>
+          dbRow(`e${i}`, `2026-11-${String(i + 1).padStart(2, "0")}T18:00:00.000Z`),
+        ),
+      };
+    });
+
+    const result = await listExplorerEvents(
+      { when: "upcoming", limit: 12 },
+      { client, now },
+    );
+    expect(result.events).toHaveLength(12);
+    const pageCall = query.mock.calls.find((c) =>
+      String(c[0]).includes("LIMIT"),
+    ) as [string, unknown[]];
+    expect(pageCall[0]).toContain("FROM representatives");
+    expect(pageCall[1].at(-1)).toBe(13);
+    expect(result.nextCursor).not.toBeNull();
+  });
+
+  it("12. cursor page suivante reste sur (start_at, id) representative", async () => {
+    const cursor = encodeExplorerCursor({
+      startAt: "2026-11-01T18:00:00.000Z",
+      id: "kept-b",
+    });
+    const { client } = mockClient((sql, params) => {
+      if (sql.includes("count(*)")) return { rows: [{ count: "5" }] };
+      expect(sql).toContain("start_at > $2");
+      expect(sql).toContain("id > $3");
+      expect(params[1]).toBe("2026-11-01T18:00:00.000Z");
+      expect(params[2]).toBe("kept-b");
+      return {
+        rows: [
+          dbRow("c", "2026-11-02T10:00:00.000Z"),
+          dbRow("d", "2026-11-03T10:00:00.000Z"),
+        ],
+      };
+    });
+
+    const result = await listExplorerEvents(
+      { when: "upcoming", cursor, limit: 2 },
+      { client, now },
+    );
+    expect(result.events.map((e) => e.id)).toEqual(["c", "d"]);
+  });
+
+  it("13. search dans le WHERE filtered (avant grouping)", async () => {
+    const { query, client } = mockClient((sql) => {
+      if (sql.includes("count(*)")) {
+        expect(sql).toMatch(/WITH filtered AS[\s\S]*ILIKE/);
+        expect(sql.indexOf("ILIKE")).toBeLessThan(sql.indexOf("ROW_NUMBER()"));
+        return { rows: [{ count: "1" }] };
+      }
+      expect(sql.indexOf("ILIKE")).toBeLessThan(sql.indexOf("ROW_NUMBER()"));
+      return {
+        rows: [
+          dbRow("wanderer-long", "2026-09-12T18:00:00.000Z", {
+            title: "Instants suspendus : Trio Wanderer",
+          }),
+        ],
+      };
+    });
+
+    const result = await listExplorerEvents(
+      { when: "upcoming", search: "Instants suspendus" },
+      { client, now },
+    );
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]?.title).toContain("Instants suspendus");
+    expect(query).toHaveBeenCalled();
   });
 });
