@@ -17,7 +17,7 @@ export function CategoryFilter({
     <div
       role="group"
       aria-label="Filtrer par catégorie"
-      className="scrollbar-none -mx-5 flex gap-1.5 overflow-x-auto px-5 md:mx-0 md:flex-wrap md:gap-1 md:overflow-visible md:px-0"
+      className="scrollbar-none -mx-5 flex gap-1.5 overflow-x-auto px-5 md:mx-0 md:flex-wrap md:overflow-visible md:px-0"
     >
       {categories.map((item) => {
         const isActive = category === item.id;
@@ -28,10 +28,10 @@ export function CategoryFilter({
             aria-pressed={isActive}
             onClick={() => onCategoryChange(item.id)}
             className={cn(
-              "h-10 shrink-0 rounded-full px-3.5 text-sm transition-colors",
+              "h-9 shrink-0 px-3 text-[13px] transition-colors",
               isActive
-                ? "bg-ink text-paper"
-                : "text-cream-dim hover:text-ink",
+                ? "bg-ink text-foam"
+                : "bg-foam text-cream-dim hover:bg-mint-soft hover:text-ink",
             )}
           >
             {item.label}

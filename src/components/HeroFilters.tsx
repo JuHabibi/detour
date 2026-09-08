@@ -1,58 +1,64 @@
 "use client";
 
+import Image from "next/image";
 import { CITY } from "@/config/city";
 
+/**
+ * Hero éditorial — texte gauche, image pleine jusqu’au bord droit du viewport.
+ */
 export function HeroFilters() {
   return (
-    <section className="relative overflow-hidden px-5 pb-5 pt-7 md:px-8 md:pb-6 md:pt-8 lg:px-12">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-20 top-2 size-[9rem] rounded-full bg-sky/18 md:right-[8%] md:size-[11rem]"
-      />
+    <section className="overflow-hidden bg-paper">
+      <div className="grid w-full md:grid-cols-[minmax(0,1.05fr)_minmax(18rem,0.95fr)] md:items-stretch">
+        <div className="flex flex-col justify-center px-5 pt-7 pb-6 md:px-8 md:py-11 lg:py-12 lg:pl-[max(3rem,calc((100vw-1440px)/2+3rem))] lg:pr-12">
+          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-sand">
+            Radar culturel · {CITY}
+          </p>
 
-      <div className="relative mx-auto max-w-[1440px]">
-        <h1 className="max-w-3xl font-display text-[2rem] leading-[1.05] tracking-tight text-ink sm:text-[2.75rem] lg:text-[3.4rem]">
-          Repérez aujourd’hui ce que vous pourriez regretter de découvrir trop
-          tard.
-        </h1>
+          <h1 className="mt-4 max-w-[16ch] text-left font-display text-[2.1rem] leading-[1.02] tracking-tight text-ink sm:text-[2.55rem] md:mt-5 md:max-w-[15ch] md:text-[3rem] lg:text-[3.5rem]">
+            Repérez aujourd’hui ce que vous pourriez regretter de découvrir trop
+            tard.
+          </h1>
 
-        <p className="mt-3 max-w-xl text-sm leading-6 text-cream-dim md:mt-4 md:text-[0.95rem] md:leading-7">
-          Détour, radar culturel local — pour anticiper ce qui mérite votre
-          attention, pas pour tout lister.
-        </p>
+          <p className="mt-5 max-w-md text-[0.95rem] leading-6 text-cream-dim md:mt-6 md:text-[1rem] md:leading-7">
+            Détour sélectionne ce qui mérite votre attention — pas une liste
+            exhaustive de sorties.
+          </p>
+        </div>
 
-        <div className="mt-5 md:mt-6">
-          <button
-            type="button"
-            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-line bg-foam px-4 py-2.5 text-sm text-ink"
-            aria-label={`Lieu : autour d’${CITY}`}
-          >
-            Autour d’{CITY}
-            <Chevron />
-          </button>
+        {/* Desktop — panneau droit collé au bord viewport */}
+        <div
+          aria-hidden
+          className="relative hidden min-h-[24.5rem] w-full overflow-hidden md:block lg:min-h-[27rem]"
+        >
+          <Image
+            src="/detour-hero.jpg"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 1280px) 48vw, 50vw"
+            className="h-full w-full object-cover object-[70%_40%] contrast-[0.96] saturate-[0.92]"
+          />
+          <div className="absolute inset-0 bg-mint/12 mix-blend-multiply" />
+          <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-paper to-transparent lg:w-24" />
         </div>
       </div>
-    </section>
-  );
-}
 
-function Chevron() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className="text-sand"
-    >
-      <path
-        d="M6 9l6 6 6-6"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+      {/* Mobile — bandeau compact sous le texte */}
+      <div
+        aria-hidden
+        className="relative mx-5 mb-6 h-[9rem] overflow-hidden sm:mx-8 sm:h-[10rem] md:hidden"
+      >
+        <Image
+          src="/detour-hero.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="h-full w-full object-cover object-[62%_36%] contrast-[0.96] saturate-[0.92]"
+        />
+        <div className="absolute inset-0 bg-mint/10 mix-blend-multiply" />
+      </div>
+    </section>
   );
 }

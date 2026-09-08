@@ -18,6 +18,10 @@ type CardProps = {
   layout?: "stack" | "row";
   /** Hiérarchie légère (titre) — pas une carte hero. */
   emphasis?: boolean;
+  /** Numéro éditorial radar (01, 02…) — présentation uniquement. */
+  rank?: number;
+  /** Surface visuelle : radar = affiche ; explorer = corpus. */
+  surface?: "radar" | "explorer";
 };
 
 type EventCardProps = CardProps & {
@@ -32,29 +36,29 @@ const signalLabels: Partial<Record<EventSignal, string>> = {
 };
 
 const pastelByCategory: Record<Exclude<CategoryId, "tout">, string> = {
-  Musique: "bg-coral/12",
-  Spectacle: "bg-lilac/20",
-  Exposition: "bg-sky/20",
-  Atelier: "bg-blush/18",
-  "Jeune public": "bg-sun/20",
-  Rencontre: "bg-mint/25",
-  Visite: "bg-sand/15",
-  "Fête / salon / marché": "bg-sun/15",
-  "Loisirs culturels": "bg-mint/20",
-  Autre: "bg-sand/15",
+  Musique: "bg-mint-soft",
+  Spectacle: "bg-mint-soft",
+  Exposition: "bg-ink-3",
+  Atelier: "bg-mint-soft",
+  "Jeune public": "bg-ink-3",
+  Rencontre: "bg-mint-soft",
+  Visite: "bg-ink-3",
+  "Fête / salon / marché": "bg-mint-soft",
+  "Loisirs culturels": "bg-ink-3",
+  Autre: "bg-ink-3",
 };
 
 const accentByCategory: Record<Exclude<CategoryId, "tout">, string> = {
-  Musique: "bg-coral/35",
-  Spectacle: "bg-lilac/40",
-  Exposition: "bg-sky/40",
-  Atelier: "bg-blush/40",
-  "Jeune public": "bg-sun/40",
-  Rencontre: "bg-mint/45",
-  Visite: "bg-sand/30",
-  "Fête / salon / marché": "bg-sun/35",
-  "Loisirs culturels": "bg-mint/40",
-  Autre: "bg-sand/30",
+  Musique: "bg-mint/25",
+  Spectacle: "bg-mint/25",
+  Exposition: "bg-ink/10",
+  Atelier: "bg-mint/25",
+  "Jeune public": "bg-ink/10",
+  Rencontre: "bg-mint/25",
+  Visite: "bg-ink/10",
+  "Fête / salon / marché": "bg-mint/25",
+  "Loisirs culturels": "bg-ink/10",
+  Autre: "bg-ink/10",
 };
 
 export function EventCard({
@@ -88,7 +92,7 @@ export function FeaturedEventCard({
       )}
     >
       <EventActionLink event={event} />
-      <div className="relative aspect-[4/5] overflow-hidden rounded-[1.35rem] sm:aspect-[16/10] lg:aspect-auto lg:min-h-0 lg:flex-1">
+      <div className="relative aspect-[4/5] overflow-hidden sm:aspect-[16/10] lg:aspect-auto lg:min-h-0 lg:flex-1">
         <Image
           src={event.image}
           alt={resolveEventImageAlt(event)}
@@ -97,14 +101,14 @@ export function FeaturedEventCard({
           sizes="(max-width: 1024px) 100vw, 58vw"
           className="object-cover transition-transform duration-700 ease-out motion-safe:group-hover:scale-[1.03]"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
 
-        <div className="absolute left-4 top-4 z-[2] flex flex-wrap gap-2">
-          <span className="rounded-full bg-paper/92 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-ink">
+        <div className="absolute left-0 top-0 z-[2] flex flex-wrap gap-0">
+          <span className="bg-mint px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink">
             {resolveCategoryBadgeLabel(event)}
           </span>
           {signal ? (
-            <span className="rounded-full bg-coral/90 px-3 py-1 text-[11px] text-ink">
+            <span className="bg-ink px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-foam">
               {signal}
             </span>
           ) : null}
@@ -155,12 +159,14 @@ export function StandardEventCard(props: CardProps) {
     priority = false,
     layout = "stack",
     emphasis = false,
+    rank,
+    surface = "explorer",
   } = props;
   if (!event.image) {
     return (
       <TextEventCard
         {...props}
-        featured={emphasis || layout === "row"}
+        featured={emphasis || layout === "row" || surface === "radar"}
       />
     );
   }
@@ -169,6 +175,11 @@ export function StandardEventCard(props: CardProps) {
   const priceLabel = formatPrice(event.price);
   const whenLabel = formatWhen(event);
   const signal = resolveSignal(event);
+  const isRadar = surface === "radar";
+  const rankLabel =
+    typeof rank === "number"
+      ? String(rank).padStart(2, "0")
+      : null;
 
   if (layout === "row") {
     return (
@@ -179,7 +190,7 @@ export function StandardEventCard(props: CardProps) {
         )}
       >
         <EventActionLink event={event} />
-        <div className="relative w-[38%] max-w-[11.5rem] shrink-0 overflow-hidden rounded-[1.05rem] sm:w-[40%]">
+        <div className="relative w-[38%] max-w-[11.5rem] shrink-0 overflow-hidden sm:w-[40%]">
           <Image
             src={imageSrc}
             alt={resolveEventImageAlt(event)}
@@ -189,16 +200,16 @@ export function StandardEventCard(props: CardProps) {
             className="object-cover transition-transform duration-700 ease-out motion-safe:group-hover:scale-[1.03]"
           />
           {signal ? (
-            <span className="absolute left-2.5 top-2.5 z-[2] rounded-full bg-paper/92 px-2 py-0.5 text-[10px] text-ink">
+            <span className="absolute left-2 top-2 z-[2] bg-ink px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foam">
               {signal}
             </span>
           ) : null}
         </div>
 
-        <div className="relative flex min-w-0 flex-1 flex-col py-0.5 pr-1">
+        <div className="relative flex min-w-0 flex-1 flex-col border-b border-line py-0.5 pr-1 pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-sand">
                 {resolveCategoryBadgeLabel(event)}
               </p>
               <EditorialBadgePill label={event.editorialBadge} />
@@ -239,6 +250,65 @@ export function StandardEventCard(props: CardProps) {
     );
   }
 
+  if (isRadar) {
+    const reason =
+      event.editorialBadge ??
+      resolveSignal(event) ??
+      resolveCategoryBadgeLabel(event);
+
+    return (
+      <article
+        className={cn(
+          "group relative flex h-full flex-col text-ink",
+          resolveEventAction(event).href && "cursor-pointer",
+        )}
+      >
+        <EventActionLink event={event} />
+        <div className="relative aspect-[5/6] overflow-hidden bg-ink/10">
+          <Image
+            src={imageSrc}
+            alt={resolveEventImageAlt(event)}
+            fill
+            priority={priority}
+            sizes="(max-width: 640px) 72vw, (max-width: 1024px) 32vw, 26vw"
+            className="object-cover object-center transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.03]"
+          />
+          {onToggleFavorite ? (
+            <FavoriteButton
+              isFavorite={isFavorite}
+              onClick={() => onToggleFavorite(event.id)}
+              eventTitle={event.title}
+              className="absolute right-2 top-2 z-[2] border-0 bg-foam/90"
+            />
+          ) : null}
+        </div>
+
+        <div className="relative pt-2.5">
+          <div className="flex items-baseline gap-2">
+            {rankLabel ? (
+              <span className="shrink-0 font-display text-[1.35rem] leading-none tracking-tight text-coral md:text-[1.5rem]">
+                {rankLabel}
+              </span>
+            ) : null}
+            <p className="min-w-0 text-[11px] font-medium uppercase tracking-[0.1em] text-ink/75">
+              {reason}
+            </p>
+          </div>
+          {event.availabilityBadge ? (
+            <AvailabilityBadgePill label={event.availabilityBadge} />
+          ) : null}
+          <h3 className="mt-1.5 line-clamp-3 font-display text-[1.25rem] leading-[1.02] tracking-tight text-ink md:text-[1.4rem]">
+            {event.title}
+          </h3>
+          {event.venue ? (
+            <p className="mt-1.5 line-clamp-1 text-sm text-ink/70">{event.venue}</p>
+          ) : null}
+          <p className="mt-0.5 text-sm font-medium text-ink">{whenLabel}</p>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article
       className={cn(
@@ -247,54 +317,40 @@ export function StandardEventCard(props: CardProps) {
       )}
     >
       <EventActionLink event={event} />
-      <div className="relative aspect-[16/10] overflow-hidden rounded-[1.2rem]">
+      <div className="relative aspect-[3/4] overflow-hidden bg-ink-3">
         <Image
           src={imageSrc}
           alt={resolveEventImageAlt(event)}
           fill
           priority={priority}
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"
-          className="object-cover object-center transition-transform duration-700 ease-out motion-safe:group-hover:scale-[1.03]"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          className="object-cover object-center transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.03]"
         />
-        {signal ? (
-          <span className="absolute left-3 top-3 z-[2] rounded-full bg-paper/92 px-2.5 py-1 text-[10px] text-ink">
-            {signal}
-          </span>
-        ) : null}
         {onToggleFavorite ? (
           <FavoriteButton
             isFavorite={isFavorite}
             onClick={() => onToggleFavorite(event.id)}
             eventTitle={event.title}
-            className="absolute right-3 top-3 z-[2]"
+            className="absolute right-2 top-2 z-[2] border-0 bg-foam/90"
           />
         ) : null}
       </div>
 
-        <div className="relative flex flex-1 flex-col px-0.5 pb-1 pt-3">
-        <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
+      <div className="relative flex flex-1 flex-col pt-3.5">
+        <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-sand">
           {resolveCategoryBadgeLabel(event)}
         </p>
         <EditorialBadgePill label={event.editorialBadge} />
-              <AvailabilityBadgePill label={event.availabilityBadge} />
-        <h3 className="mt-1.5 line-clamp-2 font-display text-[1.4rem] leading-tight tracking-tight">
+        <AvailabilityBadgePill label={event.availabilityBadge} />
+        <h3 className="mt-1.5 line-clamp-2 font-display text-[1.45rem] leading-[1.05] tracking-tight text-ink md:text-[1.55rem]">
           {event.title}
         </h3>
         {event.venue ? (
           <p className="mt-2 line-clamp-1 text-sm text-cream-dim">{event.venue}</p>
         ) : null}
-        <div className="mt-1 text-sm">
-          <LocationLine
-            city={event.city}
-            distanceKm={event.distanceKm}
-            cityClassName="text-cream-dim"
-            sepClassName="text-sand"
-            distanceClassName="font-medium text-ink"
-          />
-        </div>
-        <div className="mt-auto flex items-end justify-between gap-3 pt-3 text-sm">
+        <div className="mt-auto space-y-0.5 pt-3.5 text-sm">
           <p className="text-cream-dim">{whenLabel}</p>
-          {priceLabel ? <p className="text-ink">{priceLabel}</p> : null}
+          {priceLabel ? <p className="font-medium text-ink">{priceLabel}</p> : null}
         </div>
       </div>
     </article>
@@ -318,7 +374,7 @@ export function TextEventCard({
   return (
     <article
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-[1.25rem]",
+        "group relative flex h-full flex-col overflow-hidden",
         pastel,
         featured
           ? "min-h-[14.5rem] md:min-h-[16.5rem] lg:min-h-0"
@@ -330,14 +386,14 @@ export function TextEventCard({
       <div
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute -right-6 -top-8 size-24 rounded-full opacity-70",
+          "pointer-events-none absolute -right-6 -top-8 size-24 opacity-70",
           accent,
         )}
       />
       <div
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute -bottom-10 -left-4 size-20 rotate-12 rounded-[1.1rem] opacity-50",
+          "pointer-events-none absolute -bottom-10 -left-4 size-20 rotate-12 opacity-50",
           accent,
         )}
       />
@@ -345,7 +401,7 @@ export function TextEventCard({
       <div className="relative flex flex-1 flex-col p-5 md:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-sand">
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-sand">
               {resolveCategoryBadgeLabel(event)}
             </p>
             <EditorialBadgePill label={event.editorialBadge} />
@@ -362,7 +418,7 @@ export function TextEventCard({
         </div>
 
         {signal ? (
-          <p className="mt-3 text-[12px] italic text-cream-dim">{signal}</p>
+          <p className="mt-3 text-[12px] font-medium uppercase tracking-[0.1em] text-sand">{signal}</p>
         ) : null}
 
         <h3
@@ -416,9 +472,8 @@ export function AvailabilityBadgePill({
   return (
     <span
       className={cn(
-        "mt-1.5 inline-flex max-w-full items-center rounded-md",
-        "border border-ink/15 bg-ink/[0.04] px-2 py-1",
-        "text-[12px] font-medium leading-none tracking-[0.01em] text-ink/80",
+        "mt-1 inline-flex max-w-full items-center",
+        "text-[11px] font-semibold uppercase tracking-[0.06em] text-coral",
       )}
     >
       {label}
@@ -428,9 +483,15 @@ export function AvailabilityBadgePill({
 
 /**
  * Pastille éditoriale — label déjà résolu hors UI.
- * Même traitement visuel pour les 4 badges ; micro-explication au survol / focus.
+ * Variante B : cartouche rectangulaire (plus pill).
  */
-export function EditorialBadgePill({ label }: { label?: EditorialBadge }) {
+export function EditorialBadgePill({
+  label,
+  tone = "default",
+}: {
+  label?: EditorialBadge;
+  tone?: "default" | "radar";
+}) {
   const tooltipId = useId();
   if (!label) return null;
 
@@ -441,11 +502,13 @@ export function EditorialBadgePill({ label }: { label?: EditorialBadge }) {
       <button
         type="button"
         className={cn(
-          "inline-flex max-w-full items-center gap-1.5 rounded-md",
-          "border border-ink/12 bg-ink/[0.035] px-2 py-1",
-          "text-left text-[12px] font-medium leading-none tracking-[0.01em] text-ink/75",
-          "transition-colors hover:border-ink/20 hover:bg-ink/[0.055] hover:text-ink/90",
+          "inline-flex max-w-full items-center gap-2",
+          "border px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-[0.08em]",
+          "transition-colors",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
+          tone === "radar"
+            ? "border-transparent bg-transparent px-0 py-0.5 text-ink underline decoration-mint decoration-2 underline-offset-4"
+            : "border-transparent bg-transparent px-0 py-0.5 text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral",
         )}
         aria-describedby={tooltipId}
         onClick={(event) => {
@@ -456,7 +519,7 @@ export function EditorialBadgePill({ label }: { label?: EditorialBadge }) {
         <span className="truncate">{label}</span>
         <span
           aria-hidden
-          className="flex size-3.5 shrink-0 items-center justify-center rounded-full border border-ink/20 text-[8px] font-semibold leading-none text-ink/45"
+          className="flex size-3.5 shrink-0 items-center justify-center text-[8px] font-semibold leading-none text-sand"
         >
           i
         </span>
@@ -466,7 +529,7 @@ export function EditorialBadgePill({ label }: { label?: EditorialBadge }) {
         role="tooltip"
         className={cn(
           "pointer-events-none absolute left-0 top-[calc(100%+0.4rem)] z-20",
-          "w-max max-w-[15.5rem] rounded-md border border-line bg-paper px-2.5 py-2",
+          "w-max max-w-[15.5rem] border border-line bg-paper px-2.5 py-2",
           "text-[12px] leading-snug text-cream-dim shadow-sm",
           "opacity-0 transition-opacity duration-150",
           "group-hover/edbadge:opacity-100 group-focus-within/edbadge:opacity-100",
@@ -488,7 +551,7 @@ function EventActionLink({ event }: { event: EventItem }) {
       href={action.href}
       target="_blank"
       rel="noopener noreferrer"
-      className="absolute inset-0 z-[1] rounded-[1.2rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      className="absolute inset-0 z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
       aria-label={`${action.label} — « ${event.title} » (nouvel onglet)`}
     />
   );
@@ -529,7 +592,7 @@ function FavoriteButton({
           : `Ajouter « ${eventTitle} » aux favoris`
       }
       className={cn(
-        "flex size-11 items-center justify-center rounded-full bg-paper/90 text-ink backdrop-blur-sm transition-colors hover:bg-paper",
+        "flex size-11 items-center justify-center border border-line bg-paper/95 text-ink transition-colors hover:bg-mint/40",
         className,
       )}
     >

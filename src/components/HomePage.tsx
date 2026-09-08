@@ -103,7 +103,7 @@ export function HomePage({
       </main>
       <footer className="border-t border-line px-5 py-10 md:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <p className="font-display text-3xl">
+          <p className="font-display text-4xl tracking-tight">
             Détour<span className="text-coral">.</span>
           </p>
           <p className="max-w-md text-sm leading-6 text-sand">

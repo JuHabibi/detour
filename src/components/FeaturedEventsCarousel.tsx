@@ -11,7 +11,10 @@ type FeaturedEventsCarouselProps = {
   onToggleFavorite: (id: string) => void;
 };
 
-/** Carousel horizontal léger — section radar (highlights) uniquement. */
+/** Largeur unique pour toutes les affiches Radar (−~8 % vs 28 % lg précédent). */
+const RADAR_POSTER_WIDTH = "w-[72%] sm:w-[40%] md:w-[32%] lg:w-[26%]";
+
+/** Carousel horizontal — sélection Radar (affiches uniformes). */
 export function FeaturedEventsCarousel({
   events,
   favorites,
@@ -54,7 +57,7 @@ export function FeaturedEventsCarousel({
   function scrollByPage(direction: -1 | 1) {
     const node = scrollerRef.current;
     if (!node) return;
-    const amount = Math.max(node.clientWidth * 0.85, 240);
+    const amount = Math.max(node.clientWidth * 0.85, 260);
     const prefersReduced =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -71,7 +74,7 @@ export function FeaturedEventsCarousel({
       <div
         ref={scrollerRef}
         className={cn(
-          "flex gap-4 overflow-x-auto pb-1",
+          "flex items-start gap-3 overflow-x-auto md:gap-4",
           "snap-x snap-mandatory scroll-smooth motion-reduce:scroll-auto",
           "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
         )}
@@ -92,16 +95,15 @@ export function FeaturedEventsCarousel({
         {events.map((event, index) => (
           <div
             key={event.id}
-            className={cn(
-              "shrink-0 snap-start",
-              "w-[82%] sm:w-[48%] md:w-[47%] lg:w-[32%] xl:w-[24%]",
-            )}
+            className={cn("shrink-0 snap-start", RADAR_POSTER_WIDTH)}
           >
             <StandardEventCard
               event={event}
               priority={index < 2}
               isFavorite={favorites.has(event.id)}
               onToggleFavorite={onToggleFavorite}
+              rank={index + 1}
+              surface="radar"
             />
           </div>
         ))}
@@ -130,7 +132,6 @@ function CarouselArrow({
   disabled: boolean;
   onClick: () => void;
 }) {
-  // Non rendu = non focusable quand inutilisable.
   if (disabled) return null;
 
   const isPrev = direction === "prev";
@@ -141,14 +142,13 @@ function CarouselArrow({
       aria-label={isPrev ? "Événements précédents" : "Événements suivants"}
       onClick={onClick}
       className={cn(
-        "absolute top-[38%] z-10 hidden size-11 -translate-y-1/2 items-center justify-center",
-        "rounded-full border border-line bg-paper/95 text-ink shadow-sm",
-        "transition hover:bg-foam",
+        "absolute top-[28%] z-10 hidden size-9 -translate-y-1/2 items-center justify-center",
+        "bg-ink text-foam transition hover:bg-coral hover:text-ink",
         "md:flex",
         isPrev ? "left-0 -translate-x-1/3" : "right-0 translate-x-1/3",
       )}
     >
-      <span aria-hidden className="text-lg leading-none">
+      <span aria-hidden className="text-base leading-none">
         {isPrev ? "‹" : "›"}
       </span>
     </button>

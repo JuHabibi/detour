@@ -249,16 +249,16 @@ export function ExplorerSection({
       title="Explorer les sorties"
       resultTitle={GRID_RESULT_TITLES[when]}
       toolbar={
-        <div className="flex flex-col gap-3 md:gap-4">
-          <div className="flex flex-col gap-2 sm:gap-3 lg:flex-row lg:items-center lg:gap-3">
-            <label className="block w-full min-w-0 lg:max-w-[36rem] lg:flex-1">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+            <label className="block w-full min-w-0 sm:max-w-md sm:flex-1 lg:max-w-[28rem]">
               <span className="sr-only">Recherche</span>
               <input
                 type="search"
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Rechercher un événement, un lieu..."
-                className="h-11 w-full rounded-full border border-line bg-foam px-4 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-ink/20"
+                className="h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint"
               />
             </label>
             <ExplorationFilters
@@ -270,12 +270,12 @@ export function ExplorerSection({
           </div>
           <CategoryFilter category={category} onCategoryChange={setCategory} />
           {loading || loadingMore ? (
-            <p className="text-xs text-sand" aria-live="polite">
+            <p className="text-sm text-sand" aria-live="polite">
               {loadingMore ? "Chargement…" : "Mise à jour…"}
             </p>
           ) : null}
           {error ? (
-            <p className="text-xs text-coral" role="alert">
+            <p className="text-sm text-coral" role="alert">
               {error}{" "}
               <button
                 type="button"

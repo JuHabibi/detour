@@ -83,12 +83,11 @@ function FilterSelect({
       <span className="sr-only">{accessibleName}</span>
       <span
         aria-hidden="true"
-        className="inline-flex h-11 items-center gap-2 rounded-full border border-line bg-foam px-4 text-sm text-ink"
+        className="inline-flex h-11 items-center gap-2 border border-line bg-foam px-4 text-sm text-ink"
       >
         {visibleLabel}
         <Chevron />
-      </span>
-      <select
+      </span>      <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="absolute inset-0 cursor-pointer opacity-0"

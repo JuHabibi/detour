@@ -1,32 +1,36 @@
 @import "tailwindcss";
 
+/**
+ * Itération narrative — caractère sans empiler les effets.
+ * Vert Détour historique ; coral ponctuel ; texture réservée au Radar.
+ */
 @theme inline {
-  --color-paper: #f6f2ea;
+  --color-paper: #f7f3eb;
   --color-foam: #fffcf7;
-  --color-ink: #171717;
+  --color-ink: #111111;
   --color-ink-2: #fffcf7;
-  --color-ink-3: #eee9e0;
+  --color-ink-3: #ebe6dc;
   --color-cream: #fffcf7;
-  --color-cream-dim: #5f5c57;
-  /* Assombri pour ~4.5:1 sur paper (AA texte secondaire). */
-  --color-sand: #615e58;
-  --color-line: rgb(23 23 23 / 10%);
+  --color-cream-dim: #3f3c37;
+  --color-sand: #55524c;
+  --color-line: rgb(17 17 17 / 10%);
   --color-terracotta: #f06b4f;
   --color-coral: #f06b4f;
   --color-sun: #e8c85a;
   --color-sky: #8fc4e4;
   --color-blush: #e49aab;
   --color-mint: #97c9ab;
+  --color-mint-soft: #c5dfd1;
   --color-lilac: #b0a4d8;
   --color-peach: #e2b16a;
-  --color-gold: #5f5c57;
+  --color-gold: #3f3c37;
   --font-sans: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
 }
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 5.5rem;
+  scroll-padding-top: 4.5rem;
   color-scheme: light;
 }
 
@@ -37,19 +41,30 @@ body {
 }
 
 ::selection {
-  background: var(--color-coral);
+  background: var(--color-mint);
   color: var(--color-ink);
 }
 
-body::before {
+/* Grain UNIQUEMENT sur Radar — matière print contemporaine, quasi imperceptible */
+.radar-grain {
+  position: relative;
+  isolation: isolate;
+}
+
+.radar-grain::before {
   content: "";
-  position: fixed;
+  position: absolute;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
-  z-index: 1;
   opacity: 0.045;
   mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+.radar-grain > * {
+  position: relative;
+  z-index: 1;
 }
 
 .scrollbar-none {
@@ -64,7 +79,7 @@ body::before {
 @keyframes rise-in {
   from {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -73,10 +88,9 @@ body::before {
 }
 
 .animate-rise {
-  animation: rise-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: rise-in 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Focus visible global — ne jamais supprimer sans remplacement. */
 :focus {
   outline: none;
 }
