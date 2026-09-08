@@ -19,6 +19,66 @@ import type { WhenFilter } from "@/domain/time/when-filter";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
+/** Message sobré si la Server Action rejette (réseau / transport). */
+export const EXPLORER_LOAD_FALLBACK_ERROR =
+  "Impossible de charger les sorties.";
+
+export type ExplorerListSnapshot = {
+  events: EventItem[];
+  totalCount: number;
+  nextCursor: string | null;
+  error: string | null;
+};
+
+/** Remplacement page 1 à partir d’un résultat action (ok ou ok:false). */
+export function explorerPageOneSnapshotFromResult(
+  result: LoadExplorerEventsResult,
+): ExplorerListSnapshot {
+  if (!result.ok) {
+    return {
+      events: [],
+      totalCount: 0,
+      nextCursor: null,
+      error: result.error,
+    };
+  }
+  return {
+    events: result.events,
+    totalCount: result.totalCount,
+    nextCursor: result.nextCursor,
+    error: null,
+  };
+}
+
+/** Remplacement page 1 après rejet de promesse. */
+export function explorerPageOneSnapshotFromRejection(): ExplorerListSnapshot {
+  return {
+    events: [],
+    totalCount: 0,
+    nextCursor: null,
+    error: EXPLORER_LOAD_FALLBACK_ERROR,
+  };
+}
+
+/** Message d’erreur append — les cartes / cursor restent chez l’appelant. */
+export function explorerAppendErrorMessage(
+  result: LoadExplorerEventsResult | null,
+): string {
+  if (result && !result.ok) return result.error;
+  return EXPLORER_LOAD_FALLBACK_ERROR;
+}
+
+/**
+ * Appliquer une réponse page 1 seulement si la requête n’est pas stale.
+ * Le flag loading se clear uniquement pour la requête courante.
+ */
+export function shouldCommitExplorerPageOne(
+  requestSeq: number,
+  latestSeq: number,
+): boolean {
+  return !isStaleExplorerRequest(requestSeq, latestSeq);
+}
+
 const GRID_RESULT_TITLES: Record<WhenFilter, string> = {
   today: "Aujourd’hui autour d’Orléans",
   tomorrow: "Demain autour d’Orléans",
@@ -91,28 +151,32 @@ export function ExplorerSection({
     setError(null);
 
     void (async () => {
-      const result = await load({
-        when,
-        search: debouncedSearch || undefined,
-        category: categoryIdToExplorerFilter(category),
-        city: cityToExplorerFilter(city),
-        cursor: null,
-      });
-      if (isStaleExplorerRequest(seq, requestSeq.current)) return;
-      applyReplace(result);
-      setLoading(false);
+      try {
+        const result = await load({
+          when,
+          search: debouncedSearch || undefined,
+          category: categoryIdToExplorerFilter(category),
+          city: cityToExplorerFilter(city),
+          cursor: null,
+        });
+        if (!shouldCommitExplorerPageOne(seq, requestSeq.current)) return;
+        applyListSnapshot(explorerPageOneSnapshotFromResult(result));
+      } catch {
+        if (!shouldCommitExplorerPageOne(seq, requestSeq.current)) return;
+        applyListSnapshot(explorerPageOneSnapshotFromRejection());
+      } finally {
+        if (shouldCommitExplorerPageOne(seq, requestSeq.current)) {
+          setLoading(false);
+        }
+      }
     })();
   }, [when, category, city, debouncedSearch, load]);
 
-  function applyReplace(result: LoadExplorerEventsResult) {
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setEvents(result.events);
-    setTotalCount(result.totalCount);
-    setNextCursor(result.nextCursor);
-    setError(null);
+  function applyListSnapshot(snapshot: ExplorerListSnapshot) {
+    setEvents(snapshot.events);
+    setTotalCount(snapshot.totalCount);
+    setNextCursor(snapshot.nextCursor);
+    setError(snapshot.error);
   }
 
   async function reloadPageOne() {
@@ -120,48 +184,62 @@ export function ExplorerSection({
     const { when: w, category: c, city: ci, search: s } = filtersRef.current;
     setLoading(true);
     setError(null);
-    const result = await load({
-      when: w,
-      search: s || undefined,
-      category: categoryIdToExplorerFilter(c),
-      city: cityToExplorerFilter(ci),
-      cursor: null,
-    });
-    if (isStaleExplorerRequest(seq, requestSeq.current)) return;
-    applyReplace(result);
-    setLoading(false);
+    try {
+      const result = await load({
+        when: w,
+        search: s || undefined,
+        category: categoryIdToExplorerFilter(c),
+        city: cityToExplorerFilter(ci),
+        cursor: null,
+      });
+      if (!shouldCommitExplorerPageOne(seq, requestSeq.current)) return;
+      applyListSnapshot(explorerPageOneSnapshotFromResult(result));
+    } catch {
+      if (!shouldCommitExplorerPageOne(seq, requestSeq.current)) return;
+      applyListSnapshot(explorerPageOneSnapshotFromRejection());
+    } finally {
+      if (shouldCommitExplorerPageOne(seq, requestSeq.current)) {
+        setLoading(false);
+      }
+    }
   }
 
   async function handleShowMore() {
     if (!nextCursor || loading || loadingMore) return;
     const seq = ++requestSeq.current;
+    const cursor = nextCursor;
     const { when: w, category: c, city: ci, search: s } = filtersRef.current;
     setLoadingMore(true);
     setError(null);
 
-    const result = await load({
-      when: w,
-      search: s || undefined,
-      category: categoryIdToExplorerFilter(c),
-      city: cityToExplorerFilter(ci),
-      cursor: nextCursor,
-    });
+    try {
+      const result = await load({
+        when: w,
+        search: s || undefined,
+        category: categoryIdToExplorerFilter(c),
+        city: cityToExplorerFilter(ci),
+        cursor,
+      });
 
-    if (isStaleExplorerRequest(seq, requestSeq.current)) {
+      if (isStaleExplorerRequest(seq, requestSeq.current)) return;
+
+      if (!result.ok) {
+        setError(explorerAppendErrorMessage(result));
+        return;
+      }
+
+      setEvents((current) => [...current, ...result.events]);
+      setTotalCount(result.totalCount);
+      setNextCursor(result.nextCursor);
+      setError(null);
+    } catch {
+      if (isStaleExplorerRequest(seq, requestSeq.current)) return;
+      setError(explorerAppendErrorMessage(null));
+    } finally {
+      // Toujours sortir de loadingMore : une requête append terminée
+      // (même stale après un nouveau filtre) ne doit pas bloquer l’UI.
       setLoadingMore(false);
-      return;
     }
-
-    if (!result.ok) {
-      setError(result.error);
-      setLoadingMore(false);
-      return;
-    }
-
-    setEvents((current) => [...current, ...result.events]);
-    setTotalCount(result.totalCount);
-    setNextCursor(result.nextCursor);
-    setLoadingMore(false);
   }
 
   const canShowMore = Boolean(nextCursor) && !loading && !loadingMore;
