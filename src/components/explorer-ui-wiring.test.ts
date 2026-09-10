@@ -23,12 +23,12 @@ describe("Explorer UI wiring", () => {
 
   it("page serveur charge Explorer via listExplorerEvents, pas result.events pour la grille", () => {
     const source = readFileSync(
-      path.join(__dirname, "../app/page.tsx"),
+      path.join(__dirname, "../app/_server/load-home-page.ts"),
       "utf8",
     );
     expect(source).toContain("listExplorerEvents");
     expect(source).toContain('when: "weekend"');
-    expect(source).toContain("explorer={{");
+    expect(source).toContain("explorer:");
     expect(source).toContain("debugEvents");
     expect(source).not.toMatch(/events=\{result\.events/);
   });

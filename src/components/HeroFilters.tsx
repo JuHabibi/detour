@@ -4,7 +4,7 @@ import Image from "next/image";
 import { CITY } from "@/config/city";
 
 /**
- * Hero éditorial — texte gauche, image pleine jusqu’au bord droit du viewport.
+ * Hero éditorial — texte gauche, image droite, contenu contenu dans le hero.
  */
 export function HeroFilters() {
   return (
@@ -26,7 +26,6 @@ export function HeroFilters() {
           </p>
         </div>
 
-        {/* Desktop — panneau droit collé au bord viewport */}
         <div
           aria-hidden
           className="relative hidden min-h-[24.5rem] w-full overflow-hidden md:block lg:min-h-[27rem]"
@@ -36,15 +35,14 @@ export function HeroFilters() {
             alt=""
             fill
             priority
-            sizes="(max-width: 1280px) 48vw, 50vw"
-            className="h-full w-full object-cover object-[70%_40%] contrast-[0.96] saturate-[0.92]"
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-cover object-[68%_22%] contrast-[0.96] saturate-[0.92]"
           />
           <div className="absolute inset-0 bg-mint/12 mix-blend-multiply" />
           <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-paper to-transparent lg:w-24" />
         </div>
       </div>
 
-      {/* Mobile — bandeau compact sous le texte */}
       <div
         aria-hidden
         className="relative mx-5 mb-6 h-[9rem] overflow-hidden sm:mx-8 sm:h-[10rem] md:hidden"
@@ -54,8 +52,8 @@ export function HeroFilters() {
           alt=""
           fill
           priority
-          sizes="100vw"
-          className="h-full w-full object-cover object-[62%_36%] contrast-[0.96] saturate-[0.92]"
+          sizes="(max-width: 768px) 100vw, 50vw"
+          className="object-cover object-[62%_20%] contrast-[0.96] saturate-[0.92]"
         />
         <div className="absolute inset-0 bg-mint/10 mix-blend-multiply" />
       </div>

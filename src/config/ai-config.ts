@@ -3,20 +3,12 @@ export type AiMode = "manual" | "auto";
 export type AiDisplayMode = AiMode | "disabled";
 
 export type AiConfig = {
-  /** Une clé API est disponible côté serveur. */
+
   enabled: boolean;
-  /** Comportement effectif (manual | auto), même si disabled. */
   mode: AiMode;
-  /** Valeur affichée debug : manual | auto | disabled. */
   displayMode: AiDisplayMode;
 };
 
-/**
- * Config IA centralisée — seule source de lecture des env liées au mode.
- *
- * Priorité DETOUR_AI_MODE si défini.
- * Sinon : production → auto ; preview Vercel / development → manual.
- */
 export function getAiConfig(
   env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env,
 ): AiConfig {

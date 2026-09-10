@@ -2,7 +2,7 @@
 
 /**
  * Itération narrative — caractère sans empiler les effets.
- * Vert Détour historique ; coral ponctuel ; texture réservée au Radar.
+ * Vert Détour historique ; coral ponctuel.
  */
 @theme inline {
   --color-paper: #f7f3eb;
@@ -43,28 +43,6 @@ body {
 ::selection {
   background: var(--color-mint);
   color: var(--color-ink);
-}
-
-/* Grain UNIQUEMENT sur Radar — matière print contemporaine, quasi imperceptible */
-.radar-grain {
-  position: relative;
-  isolation: isolate;
-}
-
-.radar-grain::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.045;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-}
-
-.radar-grain > * {
-  position: relative;
-  z-index: 1;
 }
 
 .scrollbar-none {
