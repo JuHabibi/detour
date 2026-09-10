@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { DetourSection } from "@/components/DetourSection";
 import {
   ExplorerSection,
@@ -52,12 +52,14 @@ export function HomePage({
     null,
   );
   const [liveDebugMeta, setLiveDebugMeta] = useState(debugMeta);
+  const [prevDebugMeta, setPrevDebugMeta] = useState(debugMeta);
 
-  useEffect(() => {
+  if (debugMeta !== prevDebugMeta) {
+    setPrevDebugMeta(debugMeta);
     setLiveDebugMeta(debugMeta);
     setOverrideHighlights(null);
     setOverridePlanning(null);
-  }, [debugMeta]);
+  }
 
   const displayedHighlights = overrideHighlights ?? highlights;
 

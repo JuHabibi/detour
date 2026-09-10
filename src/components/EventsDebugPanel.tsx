@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { EventItem, EventRelevance } from "@/data/types";
 import { runAiHighlightAssessment } from "@/app/actions/run-ai-assessment";
 import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
@@ -45,14 +45,15 @@ export function EventsDebugPanel({
   const [auditCopyState, setAuditCopyState] = useState<
     "idle" | "copied" | "error"
   >("idle");
+  const [prevInitialMeta, setPrevInitialMeta] = useState(initialMeta);
 
-  // Sync si la page serveur renvoie un nouveau meta (refresh).
-  useEffect(() => {
+  if (initialMeta !== prevInitialMeta) {
+    setPrevInitialMeta(initialMeta);
     setMeta(initialMeta);
     setHasRunAi(Boolean(initialMeta?.aiAssessments?.length));
     setAiError(null);
     setAuditCopyState("idle");
-  }, [initialMeta]);
+  }
 
   async function handleCopyRadarAudit() {
     const audit = meta?.radarEditorialAudit;
