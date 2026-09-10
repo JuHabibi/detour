@@ -430,7 +430,14 @@ describe("Source ingestion stats", () => {
       },
     ]);
 
-    const result = await new EventService(composite, undefined, {
+    const result = await new EventService(composite, {
+      cacheContext: {
+        model: "noop",
+        promptVersion: "noop",
+        generation: { temperature: 0 },
+      },
+      assess: async () => [],
+    }, {
       aiConfig: disabledAi,
     }).getUpcomingEvents({
       from: new Date("2026-09-01"),

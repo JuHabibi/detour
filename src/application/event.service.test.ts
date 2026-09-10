@@ -3,7 +3,7 @@ import { EventService } from "@/application/event.service";
 import type { AiConfig } from "@/config/ai-config";
 import type { DetourEvent } from "@/domain/events/event";
 import type { EventSource } from "@/application/ports/event-source";
-import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-assessment.provider";
+import type { HighlightAssessmentProvider } from "@/application/ports/highlight-assessment";
 import { createMemoryAiAssessmentCacheStore } from "@/infrastructure/ai/ai-assessment-cache";
 
 function event(id: string, title?: string): DetourEvent {

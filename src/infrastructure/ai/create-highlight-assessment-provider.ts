@@ -1,4 +1,4 @@
-import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-assessment.provider";
+import type { HighlightAssessmentProvider } from "@/application/ports/highlight-assessment";
 import { NoopHighlightAssessmentProvider } from "@/infrastructure/ai/noop-highlight-assessment.provider";
 import { OpenAiHighlightAssessmentProvider } from "@/infrastructure/ai/openai-highlight-assessment.provider";
 

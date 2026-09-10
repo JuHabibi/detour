@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
+import type {
+  AiAssessmentCacheContext,
+  AiAssessmentGenerationConfig,
+} from "@/application/ports/highlight-assessment";
 import { toAiHighlightEventInput } from "@/infrastructure/ai/highlight-assessment-input";
 import type { DetourEvent } from "@/domain/events/event";
+
+export type { AiAssessmentCacheContext, AiAssessmentGenerationConfig };
 
 /**
  * @deprecated Remplacé par `buildAiAssessmentEventCacheKey`.
@@ -50,18 +56,6 @@ export function buildAiAssessmentCacheKey(events: DetourEvent[]): string {
     .update(JSON.stringify(fingerprint))
     .digest("hex");
 }
-
-/** Config de génération incluse dans la clé per-event. */
-export type AiAssessmentGenerationConfig = {
-  temperature: number;
-};
-
-/** Identité de cache partagée provider ↔ couche cache. */
-export type AiAssessmentCacheContext = {
-  model: string;
-  promptVersion: string;
-  generation: AiAssessmentGenerationConfig;
-};
 
 export type AiAssessmentEventCacheKeyParams = {
   event: DetourEvent;

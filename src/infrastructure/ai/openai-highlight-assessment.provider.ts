@@ -1,7 +1,9 @@
 import type { AiHighlightAssessment } from "@/domain/editorial/highlight-assessment";
+import type {
+  AiAssessmentCacheContext,
+  HighlightAssessmentProvider,
+} from "@/application/ports/highlight-assessment";
 import type { DetourEvent } from "@/domain/events/event";
-import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-assessment.provider";
-import type { AiAssessmentCacheContext } from "@/infrastructure/ai/ai-assessment-cache-key";
 import { toAiHighlightEventInput } from "@/infrastructure/ai/highlight-assessment-input";
 import { parseAiHighlightAssessments } from "@/infrastructure/ai/highlight-assessment-parser";
 

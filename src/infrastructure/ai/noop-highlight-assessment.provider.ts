@@ -1,6 +1,6 @@
 import type { AiHighlightAssessment } from "@/domain/editorial/highlight-assessment";
 import type { DetourEvent } from "@/domain/events/event";
-import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-assessment.provider";
+import type { HighlightAssessmentProvider } from "@/application/ports/highlight-assessment";
 import {
   AI_ASSESSMENT_DEFAULT_MODEL,
   AI_ASSESSMENT_DEFAULT_TEMPERATURE,

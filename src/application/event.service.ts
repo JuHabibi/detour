@@ -22,8 +22,7 @@ import {
   type AiConfig,
   type AiDisplayMode,
 } from "@/config/ai-config";
-import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-assessment.provider";
-import { NoopHighlightAssessmentProvider } from "@/infrastructure/ai/noop-highlight-assessment.provider";
+import type { HighlightAssessmentProvider } from "@/application/ports/highlight-assessment";
 import {
   assessHighlightsCached,
   type AiAssessmentCacheEntry,
@@ -111,7 +110,7 @@ export class EventService {
 
   constructor(
     private readonly source: EventSource,
-    private readonly highlightAssessor: HighlightAssessmentProvider = new NoopHighlightAssessmentProvider(),
+    private readonly highlightAssessor: HighlightAssessmentProvider,
     options: EventServiceOptions = {},
   ) {
     this.aiConfig = options.aiConfig ?? getAiConfig();
