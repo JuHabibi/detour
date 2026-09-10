@@ -57,7 +57,7 @@ export function EventGrid({
         {toolbar ? <div className="mb-7 md:mb-9">{toolbar}</div> : null}
 
         {events.length === 0 ? (
-          <p className="max-w-lg font-display text-2xl leading-snug text-ink">
+          <p className="max-w-lg font-editorial text-2xl leading-snug text-ink">
             Rien pour ces filtres pour le moment. Essayez une autre période ou
             catégorie.
           </p>

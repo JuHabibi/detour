@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Sora } from "next/font/google";
+import { Instrument_Serif, Newsreader, Sora } from "next/font/google";
 import "./globals.css";
 
 const sora = Sora({
@@ -8,9 +8,17 @@ const sora = Sora({
   display: "swap",
 });
 
-const fraunces = Fraunces({
+const newsreader = Newsreader({
   subsets: ["latin"],
-  variable: "--font-fraunces",
+  variable: "--font-newsreader",
+  display: "swap",
+  style: ["normal", "italic"],
+});
+
+const instrumentSerif = Instrument_Serif({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-instrument-serif",
   display: "swap",
   style: ["normal", "italic"],
 });
@@ -25,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="fr"
-      className={`${sora.variable} ${fraunces.variable} h-full antialiased`}
+      className={`${sora.variable} ${newsreader.variable} ${instrumentSerif.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-paper font-sans text-ink">{children}</body>
     </html>

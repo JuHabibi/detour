@@ -154,7 +154,7 @@ export function EventsDebugPanel({
             <p className="text-[11px] uppercase tracking-[0.22em] text-sand">
               Temporaire
             </p>
-            <h2 className="mt-1 font-display text-xl tracking-tight">
+            <h2 className="mt-1 font-editorial text-xl tracking-tight">
               Debug données Orléans
             </h2>
           </div>
@@ -210,7 +210,7 @@ export function EventsDebugPanel({
 
             {meta?.sourceIngestion && meta.sourceIngestion.length > 0 ? (
               <div className="space-y-3">
-                <h3 className="font-display text-lg tracking-tight">
+                <h3 className="font-editorial text-lg tracking-tight">
                   Source ingestion
                 </h3>
                 <p className="text-sm text-cream-dim">
@@ -273,7 +273,7 @@ export function EventsDebugPanel({
 
             {meta?.saranDuplicates && meta.saranDuplicates.length > 0 ? (
               <div className="space-y-3">
-                <h3 className="font-display text-lg tracking-tight">
+                <h3 className="font-editorial text-lg tracking-tight">
                   Saran duplicates
                 </h3>
                 <div className="overflow-x-auto rounded-xl border border-line bg-paper">
@@ -326,7 +326,7 @@ export function EventsDebugPanel({
             {meta?.saranClassificationAudit &&
             meta.saranClassificationAudit.total > 0 ? (
               <div className="space-y-3">
-                <h3 className="font-display text-lg tracking-tight">
+                <h3 className="font-editorial text-lg tracking-tight">
                   Saran classification audit
                 </h3>
                 <p className="text-sm text-cream-dim">
@@ -414,7 +414,7 @@ export function EventsDebugPanel({
 
             {meta?.aiRuntime ? (
               <div className="space-y-3 rounded-xl border border-line bg-paper p-4">
-                <h3 className="font-display text-lg tracking-tight">
+                <h3 className="font-editorial text-lg tracking-tight">
                   AI runtime
                 </h3>
                 <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
@@ -511,7 +511,7 @@ export function EventsDebugPanel({
 
             {meta && meta.highlights && meta.highlights.length > 0 ? (
               <div className="space-y-3">
-                <h3 className="font-display text-lg tracking-tight">
+                <h3 className="font-editorial text-lg tracking-tight">
                   Highlights « Faites un détour »
                 </h3>
                 <div className="overflow-x-auto rounded-xl border border-line bg-paper">
@@ -586,7 +586,7 @@ export function EventsDebugPanel({
             meta.highlightCandidates &&
             meta.highlightCandidates.length > 0 ? (
               <div className="space-y-3">
-                <h3 className="font-display text-lg tracking-tight">
+                <h3 className="font-editorial text-lg tracking-tight">
                   Top scored candidates (20)
                 </h3>
                 <div className="overflow-x-auto rounded-xl border border-line bg-paper">
@@ -639,7 +639,7 @@ export function EventsDebugPanel({
 
             {meta && meta.planningEvents && meta.planningEvents.length > 0 ? (
               <div className="space-y-3">
-                <h3 className="font-display text-lg tracking-tight">
+                <h3 className="font-editorial text-lg tracking-tight">
                   Planning events
                 </h3>
                 <p className="text-sm text-cream-dim">
@@ -708,7 +708,7 @@ export function EventsDebugPanel({
               <div className="space-y-3">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
-                    <h3 className="font-display text-lg tracking-tight">
+                    <h3 className="font-editorial text-lg tracking-tight">
                       AI candidate pool
                     </h3>
                     <p className="mt-1 text-sm text-cream-dim">
@@ -789,7 +789,7 @@ export function EventsDebugPanel({
 
             {meta && meta.aiAssessments && meta.aiAssessments.length > 0 ? (
               <div className="space-y-3">
-                <h3 className="font-display text-lg tracking-tight">
+                <h3 className="font-editorial text-lg tracking-tight">
                   AI highlight assessment
                 </h3>
                 <p className="text-sm text-cream-dim">
@@ -870,7 +870,7 @@ export function EventsDebugPanel({
 
             {meta && meta.duplicates.length > 0 ? (
               <div className="space-y-3">
-                <h3 className="font-display text-lg tracking-tight">
+                <h3 className="font-editorial text-lg tracking-tight">
                   Doublons détectés
                 </h3>
                 <div className="overflow-x-auto rounded-xl border border-line bg-paper">

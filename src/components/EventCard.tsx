@@ -286,7 +286,7 @@ export function StandardEventCard(props: CardProps) {
         <div className="relative pt-2.5">
           <div className="flex items-baseline gap-2">
             {rankLabel ? (
-              <span className="shrink-0 font-display text-[1.35rem] leading-none tracking-tight text-coral md:text-[1.5rem]">
+              <span className="shrink-0 font-editorial text-[1.35rem] leading-none tracking-tight text-coral md:text-[1.5rem]">
                 {rankLabel}
               </span>
             ) : null}

@@ -98,7 +98,7 @@ function UpcomingRow({
         <p className="text-[11px] uppercase tracking-[0.22em] text-sand">
           {month}
         </p>
-        <p className="mt-1 font-display text-4xl leading-none tracking-tight md:text-5xl">
+        <p className="mt-1 font-editorial text-4xl leading-none tracking-tight md:text-5xl">
           {day}
         </p>
         {showYear ? (

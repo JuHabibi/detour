@@ -25,7 +25,8 @@
   --color-peach: #e2b16a;
   --color-gold: #3f3c37;
   --font-sans: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-editorial: var(--font-instrument-serif), ui-serif, Georgia, serif;
 }
 
 html {
