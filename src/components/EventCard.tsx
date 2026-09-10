@@ -7,6 +7,7 @@ import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui"
 import { getEditorialBadgeExplanation } from "@/components/editorial-badge-copy";
 import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 import type { CategoryId, EventItem, EventSignal } from "@/data/types";
+import { captureProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
 
 type CardProps = {
@@ -77,8 +78,19 @@ export function FeaturedEventCard({
   isFavorite = false,
   onToggleFavorite,
   priority = false,
+  surface = "explorer",
 }: CardProps) {
-  if (!event.image) return <TextEventCard event={event} isFavorite={isFavorite} onToggleFavorite={onToggleFavorite} featured />;
+  if (!event.image) {
+    return (
+      <TextEventCard
+        event={event}
+        isFavorite={isFavorite}
+        onToggleFavorite={onToggleFavorite}
+        featured
+        surface={surface}
+      />
+    );
+  }
 
   const priceLabel = formatPrice(event.price);
   const whenLabel = formatWhen(event);
@@ -91,7 +103,7 @@ export function FeaturedEventCard({
         resolveEventAction(event).href && "cursor-pointer",
       )}
     >
-      <EventActionLink event={event} />
+      <EventActionLink event={event} surface={surface} />
       <div className="relative aspect-[4/5] overflow-hidden sm:aspect-[16/10] lg:aspect-auto lg:min-h-0 lg:flex-1">
         <Image
           src={event.image}
@@ -189,7 +201,7 @@ export function StandardEventCard(props: CardProps) {
           resolveEventAction(event).href && "cursor-pointer",
         )}
       >
-        <EventActionLink event={event} />
+        <EventActionLink event={event} surface={surface} />
         <div className="relative w-[38%] max-w-[11.5rem] shrink-0 overflow-hidden sm:w-[40%]">
           <Image
             src={imageSrc}
@@ -263,7 +275,7 @@ export function StandardEventCard(props: CardProps) {
           resolveEventAction(event).href && "cursor-pointer",
         )}
       >
-        <EventActionLink event={event} />
+        <EventActionLink event={event} surface={surface} />
         <div className="relative aspect-[5/6] overflow-hidden bg-ink/10">
           <Image
             src={imageSrc}
@@ -316,7 +328,7 @@ export function StandardEventCard(props: CardProps) {
         resolveEventAction(event).href && "cursor-pointer",
       )}
     >
-      <EventActionLink event={event} />
+      <EventActionLink event={event} surface={surface} />
       <div className="relative aspect-[3/4] overflow-hidden bg-ink-3">
         <Image
           src={imageSrc}
@@ -371,6 +383,7 @@ export function TextEventCard({
   isFavorite = false,
   onToggleFavorite,
   featured = false,
+  surface = "explorer",
 }: CardProps & { featured?: boolean }) {
   const priceLabel = formatPrice(event.price);
   const whenLabel = formatWhen(event);
@@ -391,7 +404,7 @@ export function TextEventCard({
         resolveEventAction(event).href && "cursor-pointer",
       )}
     >
-      <EventActionLink event={event} />
+      <EventActionLink event={event} surface={surface} />
       <div
         aria-hidden="true"
         className={cn(
@@ -551,7 +564,13 @@ export function EditorialBadgePill({
   );
 }
 
-function EventActionLink({ event }: { event: EventItem }) {
+function EventActionLink({
+  event,
+  surface = "explorer",
+}: {
+  event: EventItem;
+  surface?: "radar" | "explorer";
+}) {
   const action = resolveEventAction(event);
   if (!action.href) return null;
 
@@ -562,6 +581,20 @@ function EventActionLink({ event }: { event: EventItem }) {
       rel="noopener noreferrer"
       className="absolute inset-0 z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
       aria-label={`${action.label} — « ${event.title} » (nouvel onglet)`}
+      onClick={() => {
+        const properties = {
+          event_id: event.id,
+          city: event.city,
+          category: event.category,
+          source: event.source ?? null,
+          section: surface,
+        };
+        if (surface === "radar") {
+          captureProductEvent("radar_event_opened", properties);
+        } else {
+          captureProductEvent("explorer_event_opened", properties);
+        }
+      }}
     />
   );
 }

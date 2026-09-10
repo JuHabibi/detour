@@ -16,6 +16,7 @@ import { ExplorationFilters } from "@/components/ExplorationFilters";
 import type { CategoryId, EventItem } from "@/data/types";
 import type { V1Commune } from "@/domain/geo/v1-communes";
 import type { WhenFilter } from "@/domain/time/when-filter";
+import { captureProductEvent } from "@/lib/analytics";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -125,6 +126,8 @@ export function ExplorerSection({
 
   const requestSeq = useRef(0);
   const skipNextFilterFetch = useRef(true);
+  const skipNextSearchTrack = useRef(true);
+  const lastTrackedSearch = useRef("");
   const filtersRef = useRef({ when, category, city, search: debouncedSearch });
   filtersRef.current = {
     when,
@@ -135,7 +138,19 @@ export function ExplorerSection({
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
-      setDebouncedSearch(searchInput.trim());
+      const next = searchInput.trim();
+      setDebouncedSearch(next);
+      if (skipNextSearchTrack.current) {
+        skipNextSearchTrack.current = false;
+        lastTrackedSearch.current = next;
+        return;
+      }
+      if (next === lastTrackedSearch.current) return;
+      lastTrackedSearch.current = next;
+      captureProductEvent("filter_changed", {
+        filter_name: "search",
+        filter_value: next,
+      });
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
   }, [searchInput]);
@@ -244,6 +259,34 @@ export function ExplorerSection({
 
   const canShowMore = Boolean(nextCursor) && !loading && !loadingMore;
 
+  function trackFilterChanged(
+    filterName: "when" | "city" | "category",
+    filterValue: string,
+  ) {
+    captureProductEvent("filter_changed", {
+      filter_name: filterName,
+      filter_value: filterValue,
+    });
+  }
+
+  function handleWhenChange(value: WhenFilter) {
+    if (value === when) return;
+    trackFilterChanged("when", value);
+    setWhen(value);
+  }
+
+  function handleCityChange(value: V1Commune | null) {
+    if (value === city) return;
+    trackFilterChanged("city", value ?? "all");
+    setCity(value);
+  }
+
+  function handleCategoryChange(value: CategoryId) {
+    if (value === category) return;
+    trackFilterChanged("category", value);
+    setCategory(value);
+  }
+
   return (
     <EventGrid
       title="Explorer les sorties"
@@ -264,11 +307,14 @@ export function ExplorerSection({
             <ExplorationFilters
               when={when}
               city={city}
-              onWhenChange={setWhen}
-              onCityChange={setCity}
+              onWhenChange={handleWhenChange}
+              onCityChange={handleCityChange}
             />
           </div>
-          <CategoryFilter category={category} onCategoryChange={setCategory} />
+          <CategoryFilter
+            category={category}
+            onCategoryChange={handleCategoryChange}
+          />
           {loading || loadingMore ? (
             <p className="text-sm text-sand" aria-live="polite">
               {loadingMore ? "Chargement…" : "Mise à jour…"}
