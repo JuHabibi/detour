@@ -1,12 +1,13 @@
+import type { UpcomingEventsResult } from "@/application/event.service";
+import { buildRadarEditorialAudit } from "@/application/debug/build-radar-editorial-audit";
 import type {
   AiHighlightDebug,
   EventDuplicateDebug,
   EventsDebugMeta,
   HighlightDebug,
   PlanningEventDebug,
-} from "@/components/EventsDebugPanel";
-import type { UpcomingEventsResult } from "@/application/event.service";
-import { buildRadarEditorialAudit } from "@/application/debug/build-radar-editorial-audit";
+} from "@/application/debug/events-debug-meta";
+
 import { combinedAiScore } from "@/domain/editorial/highlight-assessment";
 import { resolveEditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 import { isRadarEligibleAvailability } from "@/domain/events/event-availability";

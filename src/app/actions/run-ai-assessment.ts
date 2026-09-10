@@ -3,7 +3,7 @@
 import { EventService } from "@/application/event.service";
 import { buildEventsDebugMeta } from "@/application/build-events-debug-meta";
 import { mapDetourEventToEventItem, mapDetourHighlightToEventItem } from "@/application/map-detour-event-to-ui";
-import type { EventsDebugMeta } from "@/components/EventsDebugPanel";
+import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
 import { getAiConfig } from "@/config/ai-config";
 import type { EventItem } from "@/data/types";
 import { createHighlightAssessmentProvider } from "@/infrastructure/ai/create-highlight-assessment-provider";

@@ -9,7 +9,7 @@ import {
 } from "@/components/ExplorerSection";
 import { Header } from "@/components/Header";
 import { HeroFilters } from "@/components/HeroFilters";
-import type { EventsDebugMeta } from "@/components/EventsDebugPanel";
+import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
 import type { EventItem } from "@/data/types";
 
 const HomeDebugSection = dynamic(

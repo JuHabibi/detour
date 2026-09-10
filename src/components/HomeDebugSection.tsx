@@ -1,7 +1,7 @@
 "use client";
 
 import { EventsDebugPanel } from "@/components/EventsDebugPanel";
-import type { EventsDebugMeta } from "@/components/EventsDebugPanel";
+import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
 import type { EventItem } from "@/data/types";
 
 type HomeDebugSectionProps = {
