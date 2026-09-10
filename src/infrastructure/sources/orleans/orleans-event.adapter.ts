@@ -1,5 +1,5 @@
 import type { DetourEvent } from "@/domain/events/event";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import type { EventSource } from "@/application/ports/event-source";
 import { mapOrleansEventToDetourEvent } from "./orleans-event.mapper";
 import type { OrleansApiResponse, OrleansRawEvent } from "./orleans-event.types";
 
@@ -26,7 +26,7 @@ const SELECT_FIELDS = [
 
 const PAGE_SIZE = 100;
 
-export class OrleansEventAdapter implements EventSourceAdapter {
+export class OrleansEventAdapter implements EventSource {
   async fetchUpcomingEvents(params: {
     from: Date;
     to: Date;

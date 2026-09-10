@@ -8,7 +8,7 @@ import {
   serializeIngestionResult,
   wrapWithIngestionCache,
 } from "@/infrastructure/ingestion-cache";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import type { EventSource } from "@/application/ports/event-source";
 import type { DetourEvent } from "@/domain/events/event";
 
 function stubEvent(id: string): DetourEvent {
@@ -97,7 +97,7 @@ describe("wrapWithIngestionCache", () => {
   it("warm hit ne compute pas", async () => {
     const stats = { hits: 0, misses: 0 };
     const fetchUpcomingEvents = vi.fn(async () => [stubEvent("a")]);
-    const inner: EventSourceAdapter = { fetchUpcomingEvents };
+    const inner: EventSource = { fetchUpcomingEvents };
     const cached = wrapWithIngestionCache(
       inner,
       createMemoryIngestionReadThrough({ stats }),

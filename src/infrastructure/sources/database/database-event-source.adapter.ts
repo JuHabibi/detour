@@ -2,13 +2,15 @@ import type {
   EventIngestionResult,
   SourceIngestionStatus,
 } from "@/application/ingestion/event-ingestion-result";
+import type {
+  EventSource,
+  IngestingEventSource,
+} from "@/application/ports/event-source";
 import type { DetourEvent } from "@/domain/events/event";
-import type { IngestingEventSource } from "@/infrastructure/composite-event-source.adapter";
 import {
   listUpcomingActiveWithAdapter,
 } from "@/infrastructure/db/event.repository";
 import type { EventWithAdapter } from "@/infrastructure/db/event-row.mapper";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 
 /** Labels alignés sur createDetourEventSource / composite home. */
 const ADAPTER_LABELS: Record<string, string> = {
@@ -29,7 +31,7 @@ export type ListUpcomingActiveWithAdapter = (params: {
  * statusByAdapter="ok" = lecture DB courante OK (pas la santé sync externe).
  */
 export class DatabaseEventSourceAdapter
-  implements EventSourceAdapter, IngestingEventSource
+  implements EventSource, IngestingEventSource
 {
   constructor(
     private readonly listUpcoming: ListUpcomingActiveWithAdapter = listUpcomingActiveWithAdapter,

@@ -22,7 +22,6 @@ import {
   type AiConfig,
   type AiDisplayMode,
 } from "@/config/ai-config";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-assessment.provider";
 import { NoopHighlightAssessmentProvider } from "@/infrastructure/ai/noop-highlight-assessment.provider";
 import {
@@ -38,7 +37,8 @@ import {
 } from "@/domain/editorial/select-planning-events";
 import {
   isIngestingEventSource,
-} from "@/infrastructure/composite-event-source.adapter";
+  type EventSource,
+} from "@/application/ports/event-source";
 import {
   buildSaranClassificationAudit,
   buildSaranDuplicateDebug,
@@ -110,7 +110,7 @@ export class EventService {
   private readonly onForceInvalidate?: EventServiceOptions["onForceInvalidate"];
 
   constructor(
-    private readonly source: EventSourceAdapter,
+    private readonly source: EventSource,
     private readonly highlightAssessor: HighlightAssessmentProvider = new NoopHighlightAssessmentProvider(),
     options: EventServiceOptions = {},
   ) {
@@ -271,7 +271,7 @@ export class EventService {
         mode: this.aiConfig.mode,
         enabled: this.aiConfig.enabled,
         source: assessed?.source ?? "fallback",
-        cacheKey: assessed?.cacheKey ?? null,
+        cacheKey: assessed?.cacheKey ?? null, 
         cacheHits: assessed?.cacheHits ?? 0,
         cacheMisses: assessed?.cacheMisses ?? 0,
         assessedAt: assessed?.assessedAt ?? null,

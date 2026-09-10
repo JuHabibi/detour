@@ -5,7 +5,7 @@ import {
 } from "@/infrastructure/sources/database/database-event-source.adapter";
 import type { DetourEvent } from "@/domain/events/event";
 import type { EventWithAdapter } from "@/infrastructure/db/event-row.mapper";
-import { isIngestingEventSource } from "@/infrastructure/composite-event-source.adapter";
+import { isIngestingEventSource } from "@/application/ports/event-source";
 
 function eventStub(id: string): DetourEvent {
   return {

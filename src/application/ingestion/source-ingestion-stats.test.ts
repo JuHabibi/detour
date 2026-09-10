@@ -7,7 +7,7 @@ import { classifyEventRelevance } from "@/domain/events/classify-event-relevance
 import { deduplicateEvents } from "@/domain/events/deduplicate-events";
 import type { DetourEvent } from "@/domain/events/event";
 import { CompositeEventSourceAdapter } from "@/infrastructure/composite-event-source.adapter";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import type { EventSource } from "@/application/ports/event-source";
 
 const disabledAi: AiConfig = {
   enabled: false,
@@ -50,7 +50,7 @@ function classifyAll(events: DetourEvent[]): DetourEvent[] {
 
 describe("Source ingestion stats", () => {
   it("agrège 2 sources avec provenance adapterId", async () => {
-    const orleans: EventSourceAdapter = {
+    const orleans: EventSource = {
       fetchUpcomingEvents: async () => [
         baseEvent({
           id: "oa-1",
@@ -68,7 +68,7 @@ describe("Source ingestion stats", () => {
         }),
       ],
     };
-    const saran: EventSourceAdapter = {
+    const saran: EventSource = {
       fetchUpcomingEvents: async () => [
         baseEvent({
           id: "saran:1",
@@ -287,12 +287,12 @@ describe("Source ingestion stats", () => {
 
   it("source en échec → rawCount 0, stats présentes", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const ok: EventSourceAdapter = {
+    const ok: EventSource = {
       fetchUpcomingEvents: async () => [
         baseEvent({ id: "oa-1", title: "Concert jazz", city: "Orléans" }),
       ],
     };
-    const failing: EventSourceAdapter = {
+    const failing: EventSource = {
       fetchUpcomingEvents: async () => {
         throw new Error("ical down");
       },

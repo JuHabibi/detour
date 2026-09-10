@@ -3,11 +3,11 @@ import {
   type EventIngestionResult,
 } from "@/application/ingestion/event-ingestion-result";
 import type { DetourEvent } from "@/domain/events/event";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
 import {
   isIngestingEventSource,
+  type EventSource,
   type IngestingEventSource,
-} from "@/infrastructure/composite-event-source.adapter";
+} from "@/application/ports/event-source";
 
 /** TTL ingestion : 1 h — bucket + revalidate Next alignés. */
 export const INGESTION_CACHE_TTL_SECONDS = 60 * 60;
@@ -144,9 +144,9 @@ export function createMemoryIngestionReadThrough(options?: {
  * partagent une seule Promise (pas de cache supplémentaire ; multi-instance hors scope).
  */
 export function wrapWithIngestionCache(
-  inner: EventSourceAdapter,
+  inner: EventSource,
   readThrough: IngestionReadThrough,
-): EventSourceAdapter & IngestingEventSource {
+): EventSource & IngestingEventSource {
   const ingestInner = async (params: {
     from: Date;
     to: Date;
@@ -167,7 +167,7 @@ export function wrapWithIngestionCache(
 
   const inflight = new Map<string, Promise<SerializableIngestionResult>>();
 
-  const cached: EventSourceAdapter & IngestingEventSource = {
+  const cached: EventSource & IngestingEventSource = {
     async ingestUpcomingEvents(params) {
       const window = resolveIngestionCacheWindow(params.from, params.to);
 

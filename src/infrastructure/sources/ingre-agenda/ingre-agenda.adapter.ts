@@ -1,5 +1,5 @@
 import type { DetourEvent } from "@/domain/events/event";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import type { EventSource } from "@/application/ports/event-source";
 import {
   absoluteIngreUrl,
   parseIngreAgendaDetail,
@@ -45,8 +45,8 @@ type ResolvedIngreAgendaConfig = {
   detailConcurrency: number;
 };
 
-/** Façade EventSourceAdapter — logique dans `collectIngreAgendaEvents`. */
-export class IngreAgendaEventAdapter implements EventSourceAdapter {
+/** Façade EventSource — logique dans `collectIngreAgendaEvents`. */
+export class IngreAgendaEventAdapter implements EventSource {
   constructor(private readonly config: IngreAgendaAdapterConfig = {}) {}
 
   async fetchUpcomingEvents(params: {

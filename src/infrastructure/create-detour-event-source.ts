@@ -1,5 +1,5 @@
 import { resolveDetourEventSourceMode } from "@/config/event-source-config";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import type { EventSource } from "@/application/ports/event-source";
 import { CompositeEventSourceAdapter } from "@/infrastructure/composite-event-source.adapter";
 import {
   wrapWithIngestionCache,
@@ -11,7 +11,7 @@ import { OrleansEventAdapter } from "@/infrastructure/sources/orleans/orleans-ev
 import { SaranEventAdapter } from "@/infrastructure/sources/saran/saran-event.adapter";
 
 /** Source agrégée brute — sans cache (tests adapters / scripts de mesure bruts). */
-export function createDetourEventSource(): EventSourceAdapter {
+export function createDetourEventSource(): EventSource {
   return new CompositeEventSourceAdapter([
     {
       name: "orleans",
@@ -32,7 +32,7 @@ export function createDetourEventSource(): EventSourceAdapter {
  */
 export function createCachedDetourEventSource(
   readThrough: IngestionReadThrough,
-): EventSourceAdapter {
+): EventSource {
   return wrapWithIngestionCache(createDetourEventSource(), readThrough);
 }
 
@@ -41,7 +41,7 @@ export function createCachedDetourEventSource(
  * Mode database : lecture PG uniquement (pas de composite/cache live).
  * Mode live : construit le chemin cached seulement après résolution du flag.
  */
-export function createHomeEventSource(): EventSourceAdapter {
+export function createHomeEventSource(): EventSource {
   const mode = resolveDetourEventSourceMode();
   if (mode === "database") {
     return new DatabaseEventSourceAdapter();

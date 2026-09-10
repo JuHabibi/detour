@@ -1,5 +1,8 @@
 import type { DetourEvent } from "@/domain/events/event";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import type {
+  EventSource,
+  IngestingEventSource,
+} from "@/application/ports/event-source";
 import type {
   EventIngestionResult,
   SourceIngestionStatus,
@@ -10,14 +13,7 @@ export type NamedEventSource = {
   name: string;
   /** Libellé debug : Orléans / OpenAgenda, Ville de Saran… */
   label: string;
-  adapter: EventSourceAdapter;
-};
-
-export type IngestingEventSource = {
-  ingestUpcomingEvents(params: {
-    from: Date;
-    to: Date;
-  }): Promise<EventIngestionResult>;
+  adapter: EventSource;
 };
 
 /**
@@ -25,7 +21,7 @@ export type IngestingEventSource = {
  * Une source en erreur n’interrompt pas les autres (status=error, rawCount=0).
  */
 export class CompositeEventSourceAdapter
-  implements EventSourceAdapter, IngestingEventSource
+  implements EventSource, IngestingEventSource
 {
   constructor(private readonly sources: NamedEventSource[]) {}
 
@@ -92,12 +88,4 @@ export class CompositeEventSourceAdapter
       adapterOrder,
     };
   }
-}
-
-export function isIngestingEventSource(
-  source: EventSourceAdapter | IngestingEventSource,
-): source is IngestingEventSource {
-  return (
-    typeof (source as IngestingEventSource).ingestUpcomingEvents === "function"
-  );
 }

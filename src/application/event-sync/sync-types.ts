@@ -1,10 +1,10 @@
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import type { EventSource } from "@/application/ports/event-source";
 
 export const SYNC_LEASE_TTL_MS = 20 * 60 * 1000;
 
 export type SyncSource = {
   adapterId: string;
-  adapter: EventSourceAdapter;
+  adapter: EventSource;
 };
 
 export type SyncErrorCode =
@@ -40,7 +40,7 @@ export type SyncResult =
 
 export type SyncEventSourceParams = {
   adapterId: string;
-  adapter: EventSourceAdapter;
+  adapter: EventSource;
   from: Date;
   to: Date;
   /** Horloge injectable — défaut `() => new Date()`. */

@@ -17,7 +17,7 @@ import {
   buildSaranIcalUrl,
   saranIcalMonthsForWindow,
 } from "@/infrastructure/sources/saran/saran-event.adapter";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import type { EventSource } from "@/application/ports/event-source";
 import type { DetourEvent } from "@/domain/events/event";
 
 const STANDARD_VEVENT = `BEGIN:VCALENDAR
@@ -312,12 +312,12 @@ describe("SaranEventAdapter", () => {
 
 describe("CompositeEventSourceAdapter", () => {
   it("agrège Orleans + Saran (mocks)", async () => {
-    const orleans: EventSourceAdapter = {
+    const orleans: EventSource = {
       fetchUpcomingEvents: async () => [
         eventStub("orleans-1", "Agenda Orléans"),
       ],
     };
-    const saran: EventSourceAdapter = {
+    const saran: EventSource = {
       fetchUpcomingEvents: async () => [
         eventStub("saran:1", SARAN_SOURCE_NAME),
       ],
@@ -338,10 +338,10 @@ describe("CompositeEventSourceAdapter", () => {
 
   it("continue si une source échoue", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const ok: EventSourceAdapter = {
+    const ok: EventSource = {
       fetchUpcomingEvents: async () => [eventStub("ok", "OK")],
     };
-    const failing: EventSourceAdapter = {
+    const failing: EventSource = {
       fetchUpcomingEvents: async () => {
         throw new Error("down");
       },

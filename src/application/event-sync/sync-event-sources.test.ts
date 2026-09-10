@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import type { EventSource } from "@/application/ports/event-source";
 import type { SyncResult } from "@/application/event-sync/sync-types";
 
 const syncEventSource = vi.fn();
@@ -20,10 +20,10 @@ describe("syncEventSources", () => {
   });
 
   it("MULTI : Orléans error n’empêche pas Saran", async () => {
-    const orleans: EventSourceAdapter = {
+    const orleans: EventSource = {
       fetchUpcomingEvents: vi.fn(),
     };
-    const saran: EventSourceAdapter = {
+    const saran: EventSource = {
       fetchUpcomingEvents: vi.fn(),
     };
 

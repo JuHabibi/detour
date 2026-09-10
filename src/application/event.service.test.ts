@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { EventService } from "@/application/event.service";
 import type { AiConfig } from "@/config/ai-config";
 import type { DetourEvent } from "@/domain/events/event";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import type { EventSource } from "@/application/ports/event-source";
 import type { HighlightAssessmentProvider } from "@/infrastructure/ai/highlight-assessment.provider";
 import { createMemoryAiAssessmentCacheStore } from "@/infrastructure/ai/ai-assessment-cache";
 
@@ -109,7 +109,7 @@ function mockAssessments(): HighlightAssessmentProvider {
 describe("EventService AI mode + cache", () => {
   it("manual mode → aucun appel IA automatique", async () => {
     const assessor = mockAssessments();
-    const source: EventSourceAdapter = {
+    const source: EventSource = {
       fetchUpcomingEvents: async () => [event("a"), event("b")],
     };
 
@@ -136,7 +136,7 @@ describe("EventService AI mode + cache", () => {
       event("plan", "À noter tôt"),
       event("wild", "Wildcard culturel"),
     ];
-    const source: EventSourceAdapter = {
+    const source: EventSource = {
       fetchUpcomingEvents: async () => events,
     };
     const assessor = mockAssessments();
@@ -161,7 +161,7 @@ describe("EventService AI mode + cache", () => {
 
   it("auto mode sans clé (disabled) → fallback déterministe, 0 appel", async () => {
     const assessor = mockAssessments();
-    const source: EventSourceAdapter = {
+    const source: EventSource = {
       fetchUpcomingEvents: async () => [event("a"), event("b")],
     };
 
@@ -182,7 +182,7 @@ describe("EventService AI mode + cache", () => {
   });
 
   it("erreur provider → fallback déterministe", async () => {
-    const source: EventSourceAdapter = {
+    const source: EventSource = {
       fetchUpcomingEvents: async () => [event("a"), event("b")],
     };
     const assessor: HighlightAssessmentProvider = {
@@ -213,7 +213,7 @@ describe("EventService AI mode + cache", () => {
   });
 
   it("cache hit → aucun nouvel appel provider", async () => {
-    const source: EventSourceAdapter = {
+    const source: EventSource = {
       fetchUpcomingEvents: async () => [event("a"), event("b")],
     };
     const assessor = mockAssessments();
@@ -237,7 +237,7 @@ describe("EventService AI mode + cache", () => {
 
   it("event ajouté → nouvel appel uniquement pour le miss", async () => {
     let payload = [event("a"), event("b")];
-    const source: EventSourceAdapter = {
+    const source: EventSource = {
       fetchUpcomingEvents: async () => payload,
     };
     const assessor = mockAssessments();
@@ -265,7 +265,7 @@ describe("EventService AI mode + cache", () => {
   });
 
   it("force refresh / re-run → nouvel appel provider", async () => {
-    const source: EventSourceAdapter = {
+    const source: EventSource = {
       fetchUpcomingEvents: async () => [event("a"), event("b")],
     };
     const assessor = mockAssessments();

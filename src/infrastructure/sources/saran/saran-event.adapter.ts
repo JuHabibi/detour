@@ -1,5 +1,5 @@
 import type { DetourEvent } from "@/domain/events/event";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import type { EventSource } from "@/application/ports/event-source";
 import {
   mapSaranIcalEventToDetourEvent,
   saranEventIntersectsWindow,
@@ -76,7 +76,7 @@ export function saranIcalMonthsForWindow(from: Date, to: Date): string[] {
   return months;
 }
 
-export class SaranEventAdapter implements EventSourceAdapter {
+export class SaranEventAdapter implements EventSource {
   private readonly icalUrl: string | null;
   private readonly fetchImpl: typeof fetch;
 

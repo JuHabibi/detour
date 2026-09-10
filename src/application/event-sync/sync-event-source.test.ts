@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetourEvent } from "@/domain/events/event";
-import type { EventSourceAdapter } from "@/infrastructure/event-source.adapter";
+import type { EventSource } from "@/application/ports/event-source";
 import type { PoolClient } from "pg";
 
 const ensureSourceRow = vi.fn();
@@ -62,8 +62,8 @@ function eventStub(id: string): DetourEvent {
 }
 
 function mockAdapter(
-  impl: EventSourceAdapter["fetchUpcomingEvents"],
-): EventSourceAdapter {
+  impl: EventSource["fetchUpcomingEvents"],
+): EventSource {
   return { fetchUpcomingEvents: vi.fn(impl) };
 }
 
