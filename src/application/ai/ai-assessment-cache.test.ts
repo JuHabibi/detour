@@ -11,7 +11,7 @@ import {
   createMemoryAiAssessmentCacheStore,
   type AiAssessmentCacheContext,
   type AiAssessmentCacheEntry,
-} from "@/infrastructure/ai/ai-assessment-cache";
+} from "@/application/ai/ai-assessment-cache";
 import {
   AI_ASSESSMENT_DEFAULT_MODEL,
   AI_ASSESSMENT_DEFAULT_TEMPERATURE,
@@ -401,7 +401,7 @@ describe("assessHighlightsCached per-event", () => {
 
   it("readThrough : seuls les vrais misses Next partent au provider", async () => {
     const { buildAiAssessmentEventCacheKey } = await import(
-      "@/infrastructure/ai/ai-assessment-cache-key"
+      "@/application/ai/ai-assessment-cache-key"
     );
 
     const assess = vi.fn(async (events: DetourEvent[]) =>

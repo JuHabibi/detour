@@ -21,7 +21,7 @@ import {
   selectAiDetourHighlights,
 } from "../src/domain/editorial/select-ai-detour-highlights";
 import { createHighlightAssessmentProvider } from "../src/infrastructure/ai/create-highlight-assessment-provider";
-import { createMemoryAiAssessmentCacheStore } from "../src/infrastructure/ai/ai-assessment-cache";
+import { createMemoryAiAssessmentCacheStore } from "../src/application/ai/ai-assessment-cache";
 import { OrleansEventAdapter } from "../src/infrastructure/sources/orleans/orleans-event.adapter";
 import { SaranEventAdapter } from "../src/infrastructure/sources/saran/saran-event.adapter";
 import {

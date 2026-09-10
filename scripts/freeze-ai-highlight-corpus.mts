@@ -17,7 +17,7 @@ import { rankDetourHighlightCandidates } from "../src/domain/editorial/select-de
 import {
   toAiHighlightEventInput,
   type AiHighlightEventInput,
-} from "../src/infrastructure/ai/highlight-assessment-input";
+} from "../src/application/ai/highlight-assessment-input";
 import type { DetourEvent } from "../src/domain/events/event";
 import { createDetourEventSource } from "../src/infrastructure/create-detour-event-source";
 

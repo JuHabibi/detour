@@ -5,7 +5,7 @@ import {
   AI_ASSESSMENT_DEFAULT_TEMPERATURE,
   AI_ASSESSMENT_PROMPT_VERSION,
 } from "@/infrastructure/ai/openai-highlight-assessment.provider";
-import { buildAiAssessmentEventCacheKey } from "@/infrastructure/ai/ai-assessment-cache-key";
+import { buildAiAssessmentEventCacheKey } from "@/application/ai/ai-assessment-cache-key";
 
 function event(partial?: Partial<DetourEvent>): DetourEvent {
   return {

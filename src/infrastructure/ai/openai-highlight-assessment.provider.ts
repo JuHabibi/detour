@@ -4,7 +4,7 @@ import type {
   HighlightAssessmentProvider,
 } from "@/application/ports/highlight-assessment";
 import type { DetourEvent } from "@/domain/events/event";
-import { toAiHighlightEventInput } from "@/infrastructure/ai/highlight-assessment-input";
+import { toAiHighlightEventInput } from "@/application/ai/highlight-assessment-input";
 import { parseAiHighlightAssessments } from "@/infrastructure/ai/highlight-assessment-parser";
 
 /** Taille de batch HTTP OpenAI (séquentiel). */

@@ -3,7 +3,7 @@ import { getAiConfig } from "@/config/ai-config";
 import {
   assessHighlightsCached,
   createMemoryAiAssessmentCacheStore,
-} from "@/infrastructure/ai/ai-assessment-cache";
+} from "@/application/ai/ai-assessment-cache";
 import {
   AI_ASSESSMENT_DEFAULT_MODEL,
   AI_ASSESSMENT_DEFAULT_TEMPERATURE,

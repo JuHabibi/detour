@@ -2,7 +2,7 @@ import { updateTag, unstable_cache } from "next/cache";
 import {
   AI_ASSESSMENT_CACHE_TTL_SECONDS,
   type AiAssessmentCacheEntry,
-} from "@/infrastructure/ai/ai-assessment-cache";
+} from "@/application/ai/ai-assessment-cache";
 
 export function createNextAiAssessmentReadThrough(): (
   cacheKey: string,

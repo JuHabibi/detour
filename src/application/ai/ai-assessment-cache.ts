@@ -3,11 +3,11 @@ import type { DetourEvent } from "@/domain/events/event";
 import {
   buildAiAssessmentEventCacheKey,
   type AiAssessmentCacheContext,
-} from "@/infrastructure/ai/ai-assessment-cache-key";
+} from "@/application/ai/ai-assessment-cache-key";
 
 export type { AiAssessmentCacheContext };
 
-/** TTL POC : 6 heures. */
+/** TTL : 6 heures. */
 export const AI_ASSESSMENT_CACHE_TTL_SECONDS = 6 * 60 * 60;
 export const AI_ASSESSMENT_CACHE_TTL_MS = AI_ASSESSMENT_CACHE_TTL_SECONDS * 1000;
 

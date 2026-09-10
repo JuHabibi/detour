@@ -4,7 +4,7 @@ import type { AiConfig } from "@/config/ai-config";
 import type { DetourEvent } from "@/domain/events/event";
 import type { EventSource } from "@/application/ports/event-source";
 import type { HighlightAssessmentProvider } from "@/application/ports/highlight-assessment";
-import { createMemoryAiAssessmentCacheStore } from "@/infrastructure/ai/ai-assessment-cache";
+import { createMemoryAiAssessmentCacheStore } from "@/application/ai/ai-assessment-cache";
 
 function event(id: string, title?: string): DetourEvent {
   return {

@@ -12,7 +12,7 @@ import { combinedAiScore } from "@/domain/editorial/highlight-assessment";
 import { resolveEditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 import { isRadarEligibleAvailability } from "@/domain/events/event-availability";
 import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
-import { shortenCacheKey } from "@/infrastructure/ai/ai-assessment-cache-key";
+import { shortenCacheKey } from "@/application/ai/ai-assessment-cache-key";
 
 function formatScoresUsed(highlight: EventHighlight): string | undefined {
   const ai = highlight.aiSelection;

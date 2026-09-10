@@ -3,7 +3,7 @@ import type {
   AiAssessmentCacheContext,
   AiAssessmentGenerationConfig,
 } from "@/application/ports/highlight-assessment";
-import { toAiHighlightEventInput } from "@/infrastructure/ai/highlight-assessment-input";
+import { toAiHighlightEventInput } from "@/application/ai/highlight-assessment-input";
 import type { DetourEvent } from "@/domain/events/event";
 
 export type { AiAssessmentCacheContext, AiAssessmentGenerationConfig };

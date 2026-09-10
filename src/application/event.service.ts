@@ -29,7 +29,7 @@ import {
   type AiAssessmentCacheSource,
   type AiAssessmentCacheStore,
   type AssessHighlightsCachedResult,
-} from "@/infrastructure/ai/ai-assessment-cache";
+} from "@/application/ai/ai-assessment-cache";
 import {
   selectPlanningEvents,
   type PlanningEvent,
