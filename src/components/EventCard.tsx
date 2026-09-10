@@ -348,6 +348,15 @@ export function StandardEventCard(props: CardProps) {
         {event.venue ? (
           <p className="mt-2 line-clamp-1 text-sm text-cream-dim">{event.venue}</p>
         ) : null}
+        <div className="mt-1 text-sm">
+          <LocationLine
+            city={event.city}
+            distanceKm={event.distanceKm}
+            cityClassName="text-cream-dim"
+            sepClassName="text-sand"
+            distanceClassName="font-medium text-ink"
+          />
+        </div>
         <div className="mt-auto space-y-0.5 pt-3.5 text-sm">
           <p className="text-cream-dim">{whenLabel}</p>
           {priceLabel ? <p className="font-medium text-ink">{priceLabel}</p> : null}
