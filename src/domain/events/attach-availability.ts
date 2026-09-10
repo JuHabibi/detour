@@ -1,9 +1,11 @@
-import type { EventAvailabilityStatus } from "@/domain/events/event-availability";
+import type {
+  EventAvailabilityRecord,
+  EventAvailabilityStatus,
+} from "@/domain/events/event-availability";
 import {
   resolveFreshAvailabilityStatus,
 } from "@/domain/events/event-availability";
 import type { DetourEvent } from "@/domain/events/event";
-import type { EventAvailabilityRecord } from "@/infrastructure/db/event-availability.repository";
 
 /** Attache la disponibilité fraîche (et deep-link) sur un DetourEvent. */
 export function attachAvailabilityToEvent(

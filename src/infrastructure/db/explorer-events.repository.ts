@@ -1,6 +1,6 @@
 import type { DetourEvent } from "@/domain/events/event";
 import { attachAvailabilityToEvent } from "@/domain/events/attach-availability";
-import type { EventAvailabilityRecord } from "@/infrastructure/db/event-availability.repository";
+import type { EventAvailabilityRecord } from "@/domain/events/event-availability";
 import {
   mapEventRowToDetourEvent,
   type EventRow,

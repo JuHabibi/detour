@@ -5,6 +5,18 @@ export type EventAvailabilityStatus =
   | "sold_out"
   | "unknown";
 
+/**
+ * Snapshot métier de disponibilité pour un événement.
+ * Indépendant du stockage SQL / provider concret.
+ */
+export type EventAvailabilityRecord = {
+  eventId: string;
+  status: EventAvailabilityStatus;
+  provider: string;
+  providerEventUrl: string | null;
+  checkedAt: Date;
+};
+
 /** Fraîcheur max d’un statut persistant avant de le traiter comme inconnu. */
 export const EVENT_AVAILABILITY_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 

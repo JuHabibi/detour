@@ -1,4 +1,5 @@
 import type {
+  EventAvailabilityRecord,
   EventAvailabilityStatus,
 } from "@/domain/events/event-availability";
 import { getPool, type DbQueryable } from "@/infrastructure/db/postgres";
@@ -9,14 +10,6 @@ export type EventAvailabilityRow = {
   provider: string;
   provider_event_url: string | null;
   checked_at: Date;
-};
-
-export type EventAvailabilityRecord = {
-  eventId: string;
-  status: EventAvailabilityStatus;
-  provider: string;
-  providerEventUrl: string | null;
-  checkedAt: Date;
 };
 
 function db(client?: DbQueryable): DbQueryable {
