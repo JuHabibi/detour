@@ -109,7 +109,7 @@ export function HomePage({
             Détour<span className="text-coral">.</span>
           </p>
           <p className="max-w-md text-sm leading-6 text-sand">
-            Radar culturel local — pour repérer ce qui mérite votre attention,
+            Radar culturel local, pour repérer ce qui mérite votre attention,
             pas pour tout lister.
           </p>
         </div>

@@ -21,7 +21,7 @@ export function HeroFilters() {
           </h1>
 
           <p className="mt-5 max-w-md text-[0.95rem] leading-6 text-cream-dim md:mt-6 md:text-[1rem] md:leading-7">
-            Détour sélectionne ce qui mérite votre attention — pas une liste
+            Détour sélectionne ce qui mérite votre attention, pas une liste
             exhaustive de sorties.
           </p>
         </div>
