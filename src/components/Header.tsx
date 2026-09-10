@@ -10,10 +10,10 @@ type HeaderProps = {
 export function Header({ favoriteCount }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-2 md:px-8 md:py-2.5 lg:px-12">
+      <div className="mx-auto flex max-w-[var(--detour-shell-max)] items-center justify-between gap-4 px-5 py-2 md:px-8 md:py-2.5 lg:px-12 2xl:px-14 min-[1920px]:px-16">
         <a
           href="#top"
-          className="font-display text-[1.55rem] leading-none tracking-tight"
+          className="font-display text-[1.55rem] leading-none tracking-tight 2xl:text-[1.7rem]"
         >
           Détour
           <span className="text-coral" aria-hidden="true">

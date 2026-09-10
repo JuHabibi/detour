@@ -147,8 +147,8 @@ export function EventsDebugPanel({
   }, [events.length, filtered.length, sample]);
 
   return (
-    <section className="border-t border-dashed border-line bg-foam/40 px-5 py-8 md:px-8 lg:px-12">
-      <div className="mx-auto max-w-[1440px]">
+    <section className="border-t border-dashed border-line bg-foam/40 px-5 py-8 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">
+      <div className="mx-auto max-w-[var(--detour-shell-max)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] uppercase tracking-[0.22em] text-sand">

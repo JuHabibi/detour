@@ -33,8 +33,8 @@ export function UpcomingSection({
   if (events.length === 0) return null;
 
   return (
-    <section id="a-prevoir" className="scroll-mt-24 px-5 py-10 md:px-8 md:py-14 lg:px-12">
-      <div className="mx-auto max-w-[1440px]">
+    <section id="a-prevoir" className="scroll-mt-24 px-5 py-10 md:px-8 md:py-14 lg:px-12 2xl:px-14 min-[1920px]:px-16">
+      <div className="mx-auto max-w-[var(--detour-shell-max)]">
         <div className="mb-8 md:mb-10">
           <h2 className="font-display text-3xl tracking-tight md:text-5xl">
             À anticiper

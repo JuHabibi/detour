@@ -29,6 +29,26 @@
   --font-editorial: var(--font-instrument-serif), ui-serif, Georgia, serif;
 }
 
+/**
+ * Largeur de composition éditoriale.
+ * ≤1535px : inchangé (1440). Puis montée progressive sur grands écrans.
+ */
+:root {
+  --detour-shell-max: 1440px;
+}
+
+@media (min-width: 1536px) {
+  :root {
+    --detour-shell-max: 1520px;
+  }
+}
+
+@media (min-width: 1920px) {
+  :root {
+    --detour-shell-max: 1600px;
+  }
+}
+
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 4.5rem;

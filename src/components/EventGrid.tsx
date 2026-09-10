@@ -35,12 +35,12 @@ export function EventGrid({
   return (
     <section
       id="explorer"
-      className="scroll-mt-20 bg-foam px-5 py-10 md:px-8 md:py-14 lg:px-12"
+      className="scroll-mt-20 bg-foam px-5 py-10 md:px-8 md:py-14 lg:px-12 2xl:px-14 min-[1920px]:px-16"
     >
-      <div className="mx-auto max-w-[1440px]">
+      <div className="mx-auto max-w-[var(--detour-shell-max)]">
         <header className="mb-6 flex items-end justify-between gap-4 md:mb-8">
           <div className="min-w-0">
-            <h2 className="font-display text-[1.75rem] leading-[1.02] tracking-tight text-ink md:text-[2.5rem] lg:text-[2.75rem]">
+            <h2 className="font-display text-[1.75rem] leading-[1.02] tracking-tight text-ink md:text-[2.5rem] lg:text-[2.75rem] 2xl:text-[3rem]">
               {title}
             </h2>
             {resultTitle ? (
@@ -63,7 +63,7 @@ export function EventGrid({
           </p>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-x-5 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-x-5 gap-y-12 sm:grid-cols-2 lg:grid-cols-4 2xl:gap-x-6">
               {events.map((event, index) => (
                 <EventCard
                   key={event.id}

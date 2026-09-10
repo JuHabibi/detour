@@ -12,7 +12,8 @@ type FeaturedEventsCarouselProps = {
 };
 
 /** Largeur unique pour toutes les affiches Radar (−~8 % vs 28 % lg précédent). */
-const RADAR_POSTER_WIDTH = "w-[72%] sm:w-[40%] md:w-[32%] lg:w-[26%]";
+const RADAR_POSTER_WIDTH =
+  "w-[72%] sm:w-[40%] md:w-[32%] lg:w-[26%] 2xl:w-[24%] min-[1920px]:w-[22%]";
 
 /** Carousel horizontal — sélection Radar (affiches uniformes). */
 export function FeaturedEventsCarousel({
