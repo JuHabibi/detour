@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "www.univ-orleans.fr",
       },
+      {
+        protocol: "https",
+        hostname: "www.billetweb.fr",
+      },
     ],
   },
 };
