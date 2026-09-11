@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   categoryIdToExplorerFilter,
   cityToExplorerFilter,
-  isStaleExplorerRequest,
   parseExplorerPublicInput,
 } from "@/application/explorer/explorer-public-query";
 import { V1_COMMUNES } from "@/domain/geo/v1-communes";
@@ -80,12 +79,5 @@ describe("parseExplorerPublicInput", () => {
     if (!parsed.ok) return;
     expect(parsed.query.category).toBeUndefined();
     expect(parsed.query.city).toBeUndefined();
-  });
-});
-
-describe("isStaleExplorerRequest", () => {
-  it("ignore une réponse obsolète", () => {
-    expect(isStaleExplorerRequest(1, 2)).toBe(true);
-    expect(isStaleExplorerRequest(2, 2)).toBe(false);
   });
 });

@@ -8,7 +8,6 @@ import {
 import {
   categoryIdToExplorerFilter,
   cityToExplorerFilter,
-  isStaleExplorerRequest,
 } from "@/application/explorer/explorer-public-query";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { EventGrid } from "@/components/EventGrid";
@@ -19,8 +18,6 @@ import type { WhenFilter } from "@/domain/time/when-filter";
 import { captureProductEvent } from "@/lib/analytics";
 
 const SEARCH_DEBOUNCE_MS = 300;
-
-/** Message sobré si la Server Action rejette (réseau / transport). */
 export const EXPLORER_LOAD_FALLBACK_ERROR =
   "Impossible de charger les sorties.";
 
@@ -30,6 +27,22 @@ export type ExplorerListSnapshot = {
   nextCursor: string | null;
   error: string | null;
 };
+
+type FilterStamp = {
+  when: WhenFilter;
+  category: CategoryId;
+  city: V1Commune | null;
+  search: string;
+};
+
+function sameFilters(a: FilterStamp, b: FilterStamp): boolean {
+  return (
+    a.when === b.when &&
+    a.category === b.category &&
+    a.city === b.city &&
+    a.search === b.search
+  );
+}
 
 export function explorerPageOneSnapshotFromResult(
   result: LoadExplorerEventsResult,
@@ -50,7 +63,6 @@ export function explorerPageOneSnapshotFromResult(
   };
 }
 
-
 export function explorerPageOneSnapshotFromRejection(): ExplorerListSnapshot {
   return {
     events: [],
@@ -60,20 +72,11 @@ export function explorerPageOneSnapshotFromRejection(): ExplorerListSnapshot {
   };
 }
 
-
 export function explorerAppendErrorMessage(
   result: LoadExplorerEventsResult | null,
 ): string {
   if (result && !result.ok) return result.error;
   return EXPLORER_LOAD_FALLBACK_ERROR;
-}
-
-
-export function shouldCommitExplorerPageOne(
-  requestSeq: number,
-  latestSeq: number,
-): boolean {
-  return !isStaleExplorerRequest(requestSeq, latestSeq);
 }
 
 const GRID_RESULT_TITLES: Record<WhenFilter, string> = {
@@ -96,6 +99,7 @@ type ExplorerSectionProps = {
   initial: ExplorerInitialPage;
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
+  /** Injectable pour tests — défaut : server action. */
   load?: typeof loadExplorerEvents;
 };
 
@@ -119,17 +123,21 @@ export function ExplorerSection({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const requestSeq = useRef(0);
   const skipNextSearchTrack = useRef(true);
   const lastTrackedSearch = useRef("");
 
-  const committedFilters = useRef({
+  const committedFilters = useRef<FilterStamp>({
     when,
     category,
     city,
     search: debouncedSearch,
   });
-  const filtersRef = useRef({ when, category, city, search: debouncedSearch });
+  const filtersRef = useRef<FilterStamp>({
+    when,
+    category,
+    city,
+    search: debouncedSearch,
+  });
   filtersRef.current = {
     when,
     category,
@@ -157,22 +165,16 @@ export function ExplorerSection({
   }, [searchInput]);
 
   useEffect(() => {
-    const prev = committedFilters.current;
-    const unchanged =
-      prev.when === when &&
-      prev.category === category &&
-      prev.city === city &&
-      prev.search === debouncedSearch;
-    if (unchanged) return;
-
-    committedFilters.current = {
+    const next: FilterStamp = {
       when,
       category,
       city,
       search: debouncedSearch,
     };
+    if (sameFilters(committedFilters.current, next)) return;
+    committedFilters.current = next;
 
-    const seq = ++requestSeq.current;
+    let ignore = false;
     setLoading(true);
     setError(null);
 
@@ -185,17 +187,19 @@ export function ExplorerSection({
           city: cityToExplorerFilter(city),
           cursor: null,
         });
-        if (!shouldCommitExplorerPageOne(seq, requestSeq.current)) return;
+        if (ignore) return;
         applyListSnapshot(explorerPageOneSnapshotFromResult(result));
       } catch {
-        if (!shouldCommitExplorerPageOne(seq, requestSeq.current)) return;
+        if (ignore) return;
         applyListSnapshot(explorerPageOneSnapshotFromRejection());
       } finally {
-        if (shouldCommitExplorerPageOne(seq, requestSeq.current)) {
-          setLoading(false);
-        }
+        if (!ignore) setLoading(false);
       }
     })();
+
+    return () => {
+      ignore = true;
+    };
   }, [when, category, city, debouncedSearch, load]);
 
   function applyListSnapshot(snapshot: ExplorerListSnapshot) {
@@ -206,48 +210,43 @@ export function ExplorerSection({
   }
 
   async function reloadPageOne() {
-    const seq = ++requestSeq.current;
-    const { when: w, category: c, city: ci, search: s } = filtersRef.current;
+    const stamp = filtersRef.current;
     setLoading(true);
     setError(null);
     try {
       const result = await load({
-        when: w,
-        search: s || undefined,
-        category: categoryIdToExplorerFilter(c),
-        city: cityToExplorerFilter(ci),
+        when: stamp.when,
+        search: stamp.search || undefined,
+        category: categoryIdToExplorerFilter(stamp.category),
+        city: cityToExplorerFilter(stamp.city),
         cursor: null,
       });
-      if (!shouldCommitExplorerPageOne(seq, requestSeq.current)) return;
+      if (!sameFilters(filtersRef.current, stamp)) return;
       applyListSnapshot(explorerPageOneSnapshotFromResult(result));
     } catch {
-      if (!shouldCommitExplorerPageOne(seq, requestSeq.current)) return;
+      if (!sameFilters(filtersRef.current, stamp)) return;
       applyListSnapshot(explorerPageOneSnapshotFromRejection());
     } finally {
-      if (shouldCommitExplorerPageOne(seq, requestSeq.current)) {
-        setLoading(false);
-      }
+      if (sameFilters(filtersRef.current, stamp)) setLoading(false);
     }
   }
 
   async function handleShowMore() {
     if (!nextCursor || loading || loadingMore) return;
-    const seq = ++requestSeq.current;
     const cursor = nextCursor;
-    const { when: w, category: c, city: ci, search: s } = filtersRef.current;
+    const stamp = filtersRef.current;
     setLoadingMore(true);
     setError(null);
 
     try {
       const result = await load({
-        when: w,
-        search: s || undefined,
-        category: categoryIdToExplorerFilter(c),
-        city: cityToExplorerFilter(ci),
+        when: stamp.when,
+        search: stamp.search || undefined,
+        category: categoryIdToExplorerFilter(stamp.category),
+        city: cityToExplorerFilter(stamp.city),
         cursor,
       });
-
-      if (isStaleExplorerRequest(seq, requestSeq.current)) return;
+      if (!sameFilters(filtersRef.current, stamp)) return;
 
       if (!result.ok) {
         setError(explorerAppendErrorMessage(result));
@@ -259,7 +258,7 @@ export function ExplorerSection({
       setNextCursor(result.nextCursor);
       setError(null);
     } catch {
-      if (isStaleExplorerRequest(seq, requestSeq.current)) return;
+      if (!sameFilters(filtersRef.current, stamp)) return;
       setError(explorerAppendErrorMessage(null));
     } finally {
       setLoadingMore(false);

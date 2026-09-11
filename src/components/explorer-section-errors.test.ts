@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { LoadExplorerEventsResult } from "@/app/actions/load-explorer-events";
-import { isStaleExplorerRequest } from "@/application/explorer/explorer-public-query";
 import type { EventItem } from "@/data/types";
 import {
   EXPLORER_LOAD_FALLBACK_ERROR,
   explorerAppendErrorMessage,
   explorerPageOneSnapshotFromRejection,
   explorerPageOneSnapshotFromResult,
-  shouldCommitExplorerPageOne,
 } from "@/components/ExplorerSection";
 
 function eventItem(id: string, title: string): EventItem {
@@ -94,11 +92,5 @@ describe("ExplorerSection error snapshots (sans RTL)", () => {
 
   it("6. Voir plus Promise reject → fallback, cartes à conserver côté appelant", () => {
     expect(explorerAppendErrorMessage(null)).toBe(EXPLORER_LOAD_FALLBACK_ERROR);
-  });
-
-  it("7. requête stale → ne commit pas page 1 / ne clear pas loading d’une plus récente", () => {
-    expect(isStaleExplorerRequest(1, 2)).toBe(true);
-    expect(shouldCommitExplorerPageOne(1, 2)).toBe(false);
-    expect(shouldCommitExplorerPageOne(2, 2)).toBe(true);
   });
 });

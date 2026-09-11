@@ -95,10 +95,3 @@ export function parseExplorerPublicInput(
     },
   };
 }
-
-export function isStaleExplorerRequest(
-  requestSeq: number,
-  latestSeq: number,
-): boolean {
-  return requestSeq !== latestSeq;
-}
