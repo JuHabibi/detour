@@ -43,6 +43,11 @@ const eslintConfig = defineConfig([
                 "Domain must not import components/. Keep UI outside domain/.",
             },
             {
+              group: ["@/features", "@/features/*", "@/features/**"],
+              message:
+                "Domain must not import features/. Keep UI outside domain/.",
+            },
+            {
               group: [
                 "@/infrastructure",
                 "@/infrastructure/*",
@@ -76,6 +81,11 @@ const eslintConfig = defineConfig([
               message:
                 "Application must not import components/. UI depends on application, not the reverse.",
             },
+            {
+              group: ["@/features", "@/features/*", "@/features/**"],
+              message:
+                "Application must not import features/. UI depends on application, not the reverse.",
+            },
           ],
         },
       ],
@@ -98,6 +108,11 @@ const eslintConfig = defineConfig([
                 "Application must not import components/. UI depends on application, not the reverse.",
             },
             {
+              group: ["@/features", "@/features/*", "@/features/**"],
+              message:
+                "Application must not import features/. UI depends on application, not the reverse.",
+            },
+            {
               group: [
                 "@/infrastructure",
                 "@/infrastructure/*",
@@ -112,9 +127,9 @@ const eslintConfig = defineConfig([
     },
   },
 
-  // Components : pas d’infrastructure (composition / loaders / application).
+  // Components (layout global) + features UI : pas d’infrastructure.
   {
-    files: ["src/components/**/*.{ts,tsx}"],
+    files: ["src/components/**/*.{ts,tsx}", "src/features/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -127,7 +142,7 @@ const eslintConfig = defineConfig([
                 "@/infrastructure/**",
               ],
               message:
-                "Components must not import infrastructure/. Use app loaders/actions and application contracts.",
+                "UI (components/features) must not import infrastructure/. Use app loaders/actions and application contracts.",
             },
           ],
         },

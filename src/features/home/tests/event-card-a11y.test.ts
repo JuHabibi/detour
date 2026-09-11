@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { resolveEventImageAlt } from "@/components/EventCard";
-import { getEditorialBadgeExplanation } from "@/components/editorial-badge-copy";
+import { resolveEventImageAlt } from "@/features/home/components/EventCard";
+import { getEditorialBadgeExplanation } from "@/features/home/editorial-badge-copy";
 
 describe("resolveEventImageAlt", () => {
   it("alt vide si pas d’imageAlt distinct (évite double annonce du titre)", () => {

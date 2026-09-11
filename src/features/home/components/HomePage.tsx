@@ -2,19 +2,19 @@
 
 import dynamic from "next/dynamic";
 import { useState } from "react";
-import { DetourSection } from "@/components/DetourSection";
+import { DetourSection } from "@/features/home/components/DetourSection";
 import {
   ExplorerSection,
   type ExplorerInitialPage,
-} from "@/components/ExplorerSection";
-import { Header } from "@/components/Header";
-import { HeroFilters } from "@/components/HeroFilters";
+} from "@/features/home/components/ExplorerSection";
+import { Header } from "@/components/layout/Header";
+import { HeroFilters } from "@/features/home/components/HeroFilters";
 import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
 import type { EventItem } from "@/data/types";
 
 const HomeDebugSection = dynamic(
   () =>
-    import("@/components/HomeDebugSection").then((mod) => mod.HomeDebugSection),
+    import("@/features/home/debug/HomeDebugSection").then((mod) => mod.HomeDebugSection),
   { ssr: false },
 );
 

@@ -1,4 +1,4 @@
-import { FeaturedEventsCarousel } from "@/components/FeaturedEventsCarousel";
+import { FeaturedEventsCarousel } from "@/features/home/components/FeaturedEventsCarousel";
 import type { EventItem } from "@/data/types";
 
 type DetourSectionProps = {

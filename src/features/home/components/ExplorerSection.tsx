@@ -2,13 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { loadExplorerEvents } from "@/app/actions/load-explorer-events";
-import { CategoryFilter } from "@/components/CategoryFilter";
-import { EventGrid } from "@/components/EventGrid";
-import { ExplorationFilters } from "@/components/ExplorationFilters";
+import { CategoryFilter } from "@/features/home/components/CategoryFilter";
+import { EventGrid } from "@/features/home/components/EventGrid";
+import { ExplorationFilters } from "@/features/home/components/ExplorationFilters";
 import {
   useExplorerEvents,
   type ExplorerInitialPage,
-} from "@/components/useExplorerEvents";
+} from "@/features/home/hooks/useExplorerEvents";
 import type { CategoryId } from "@/data/types";
 import type { V1Commune } from "@/domain/geo/v1-communes";
 import type { WhenFilter } from "@/domain/time/when-filter";

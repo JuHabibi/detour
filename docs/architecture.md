@@ -133,7 +133,8 @@ Tableau descriptif du **code actuel** (pas la convention cible). Pour les règle
 | `src/infrastructure/ai` | Provider OpenAI, DTO, parse, cache assessments. |
 | `src/infrastructure/db` | Pool `pg`, repositories events / source_syncs / explorer / availability. |
 | `src/infrastructure/sources` | Orléans, Saran, Ingré agenda, lecture `database`. |
-| `src/components` | UI React (HomePage, cartes, filtres, debug panel). |
+| `src/components` | Shell UI global uniquement (ex. `layout/Header`). Petit par design. |
+| `src/features` | UI organisée par feature produit (`home`, …) — composants, hooks, debug, tests. |
 | `src/config` | Flags AI, mode source, catégories, ville. |
 | `src/data` | View models UI (`EventItem`, etc.) — **pas** de règles métier (nom historique, voir §11). |
 | `src/lib` | Utilitaires UI (`cn`). |
@@ -230,7 +231,8 @@ Les nouvelles sources **alimentent la DB**. La home ne doit pas appeler leur API
 | Schéma / SQL | `infrastructure/db/` + `db/migrations/` |
 | Source spécifique | `infrastructure/sources/<source>/` |
 | Chargement home | `app/_server/load-home-page.ts` |
-| UI | `components/` |
+| UI home | `features/home/` |
+| Shell layout | `components/layout/` |
 
 ## 11. Dette / écarts code actuel ↔ conventions
 
@@ -255,6 +257,8 @@ Ce sont des **écarts au modèle cible** (§13). Ils **ne constituent pas** des 
 |---------|------|
 | `src/app/page.tsx` | Point d’entrée home minimal |
 | `src/app/_server/load-home-page.ts` | Page loader : fenêtre 180j, EventService, Explorer, mapping, debug |
+| `src/features/home/components/HomePage.tsx` | Composition UI home (Radar, Explorer, shell) |
+| `src/features/home/hooks/useExplorerEvents.ts` | Orchestration async Explorer (client) |
 | `src/app/actions/load-explorer-events.ts` | Server action Explorer (filtres + pagination) |
 | `src/application/event.service.ts` | Orchestrateur métier / IA |
 | `src/application/event-sync/run-detour-event-sync.ts` | Entrée sync Detour |
@@ -284,9 +288,11 @@ Ces règles guident **toute évolution future**. Elles décrivent la direction ;
 ### 13.2 Direction des dépendances
 
 ```
-components ──► data / config / domain (fonctions pures utiles au rendu)
+features/<feature> ──► data / config / domain (fonctions pures utiles au rendu)
+     │                  (+ application en lecture limitée aujourd’hui — pas de use cases depuis le rendu)
+components/layout ──► idem (shell global)
      │
-app (composition root) ──► application + infrastructure + components
+app (composition root) ──► application + infrastructure + features + components
      │
 application ──► domain
      │            ▲
@@ -296,11 +302,12 @@ infrastructure ───┘  (implémente les contrats du cœur)
 
 | Couche | Peut dépendre de | Ne dépend jamais de |
 |--------|------------------|---------------------|
-| **domain** | (stdlib / types purs) | `app`, `components`, `infrastructure`, Next |
-| **application** | `domain` ; ports du cœur ; (pragmatiquement aujourd’hui : infra — à réduire via ports §13.4) | `components`, React/Next runtime dans les use cases |
-| **infrastructure** | `domain`, `application` (contrats / types d’orchestration) | `components` |
-| **app** | `application`, `infrastructure`, `components`, `config` | — (composition root) |
-| **components** | types / view-models UI (`data`), config d’affichage, **fonctions métier pures** du domain lorsqu’elles sont réellement utiles au rendu | **`infrastructure`** ; **use cases** application (pas d’appel direct) |
+| **domain** | (stdlib / types purs) | `app`, `components`, `features`, `infrastructure`, Next |
+| **application** | `domain` ; ports du cœur ; (pragmatiquement aujourd’hui : infra — à réduire via ports §13.4) | `components`, `features`, React/Next runtime dans les use cases |
+| **infrastructure** | `domain`, `application` (contrats / types d’orchestration) | `components`, `features` |
+| **app** | `application`, `infrastructure`, `features`, `components`, `config` | — (composition root) |
+| **features** | types / view-models UI (`data`), config d’affichage, **fonctions métier pures** du domain lorsqu’elles sont réellement utiles au rendu ; `components/layout` pour le shell | **`infrastructure`** ; **use cases** application (pas d’appel direct) ; **internals d’une autre feature** |
+| **components** (layout) | idem features (shell uniquement) | **`infrastructure`** ; use cases application ; internals `features/*` |
 
 **Important — `infrastructure → application/domain` n’est pas une violation.**  
 C’est une dépendance **vers l’intérieur** : l’infra implémente ou consomme des contrats du cœur. Ne pas la traiter comme une inversion à « corriger ».
@@ -376,3 +383,54 @@ infrastructure/            → wiring sources / providers par territoire
 - introduire alors un **scope territoire explicite** ;
 - revoir en conséquence events / source_syncs / Explorer / Radar / availability ;
 - **zéro** duplication du produit (un monolithe, N configs / wirings).
+
+### 13.7 Organisation front — feature-first
+
+Le front UI suit une convention **feature-first**. La logique métier reste dans `domain` / `application` / `infrastructure` ; `features/` ne contient que de la présentation et de l’orchestration UI locale.
+
+#### Structure cible
+
+```
+src/
+├── app/                         → routes, actions, page loaders (composition)
+├── features/
+│   └── <feature>/
+│       ├── components/          → UI propre à la feature
+│       ├── hooks/               → hooks propres à la feature
+│       ├── debug/               → panneaux / outils debug de la feature
+│       └── tests/               → tests UI / wiring de la feature
+├── components/
+│   └── layout/                  → shell global uniquement (Header, …)
+├── lib/                         → utilitaires techniques transverses
+├── application/                 → use cases / mapping / orchestration métier
+├── domain/                      → métier pur (aucun React)
+└── infrastructure/              → adapters / DB / providers / externe
+```
+
+#### Règles
+
+| Emplacement | Contenu |
+|-------------|---------|
+| `features/<feature>/components` | Composants spécifiques à une feature (ex. `ExplorerSection`, `EventCard` tant qu’ils ne servent que la home) |
+| `features/<feature>/hooks` | Hooks spécifiques (ex. `useExplorerEvents`) — **pas** mélangés dans `components/` |
+| `features/<feature>/debug` | Debug UI de la feature (ex. `EventsDebugPanel`) |
+| `features/<feature>/tests` | Tests UI / intégration de la feature |
+| `components/layout` | Shell global partagé (navigation, chrome) |
+
+**Local first, promote when reused.**  
+Un composant reste dans sa feature tant qu’il n’a **pas** au moins **deux consommateurs réels dans des features différentes**. Pas de dossier `shared` anticipé.
+
+**Pas d’import direct entre internals de features.**  
+`features/a` ne doit pas importer `features/b/components/...`. Si un partage devient nécessaire : signaler le besoin, puis **promouvoir** seulement si le double usage est réel (layout global ou extraction justifiée) — ne pas créer de shared prématuré.
+
+**Distinction des couches :**
+
+| Zone | Rôle |
+|------|------|
+| `features` / `components` | UI React, interaction, copy de présentation |
+| `application` | Use cases, mapping vers view-models, orchestration métier |
+| `domain` | Règles métier pures, aucun React |
+| `infrastructure` | Adapters, DB, IA providers, sources externes |
+| `lib` | Utils techniques transverses (`cn`, analytics client minimal, …) |
+
+Le **copy / wording de présentation** (ex. explications de pastilles éditoriales) reste dans la feature, pas dans `domain`.

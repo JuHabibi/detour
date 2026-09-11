@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatWhen } from "@/components/EventCard";
+import { formatWhen } from "@/features/home/components/EventCard";
 import type { EventItem } from "@/data/types";
 
 function baseItem(overrides: Partial<EventItem> = {}): EventItem {

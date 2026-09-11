@@ -1,5 +1,5 @@
 import { loadHomePage } from "@/app/_server/load-home-page";
-import { HomePage } from "@/components/HomePage";
+import { HomePage } from "@/features/home/components/HomePage";
 
 export default async function Page() {
   const props = await loadHomePage();
