@@ -1,83 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  loadExplorerEvents,
-  type LoadExplorerEventsResult,
-} from "@/app/actions/load-explorer-events";
-import {
-  categoryIdToExplorerFilter,
-  cityToExplorerFilter,
-} from "@/application/explorer/explorer-public-query";
+import { loadExplorerEvents } from "@/app/actions/load-explorer-events";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { EventGrid } from "@/components/EventGrid";
 import { ExplorationFilters } from "@/components/ExplorationFilters";
-import type { CategoryId, EventItem } from "@/data/types";
+import {
+  useExplorerEvents,
+  type ExplorerInitialPage,
+} from "@/components/useExplorerEvents";
+import type { CategoryId } from "@/data/types";
 import type { V1Commune } from "@/domain/geo/v1-communes";
 import type { WhenFilter } from "@/domain/time/when-filter";
 import { captureProductEvent } from "@/lib/analytics";
 
+export type { ExplorerInitialPage };
+
 const SEARCH_DEBOUNCE_MS = 300;
-export const EXPLORER_LOAD_FALLBACK_ERROR =
-  "Impossible de charger les sorties.";
-
-export type ExplorerListSnapshot = {
-  events: EventItem[];
-  totalCount: number;
-  nextCursor: string | null;
-  error: string | null;
-};
-
-type FilterStamp = {
-  when: WhenFilter;
-  category: CategoryId;
-  city: V1Commune | null;
-  search: string;
-};
-
-function sameFilters(a: FilterStamp, b: FilterStamp): boolean {
-  return (
-    a.when === b.when &&
-    a.category === b.category &&
-    a.city === b.city &&
-    a.search === b.search
-  );
-}
-
-export function explorerPageOneSnapshotFromResult(
-  result: LoadExplorerEventsResult,
-): ExplorerListSnapshot {
-  if (!result.ok) {
-    return {
-      events: [],
-      totalCount: 0,
-      nextCursor: null,
-      error: result.error,
-    };
-  }
-  return {
-    events: result.events,
-    totalCount: result.totalCount,
-    nextCursor: result.nextCursor,
-    error: null,
-  };
-}
-
-export function explorerPageOneSnapshotFromRejection(): ExplorerListSnapshot {
-  return {
-    events: [],
-    totalCount: 0,
-    nextCursor: null,
-    error: EXPLORER_LOAD_FALLBACK_ERROR,
-  };
-}
-
-export function explorerAppendErrorMessage(
-  result: LoadExplorerEventsResult | null,
-): string {
-  if (result && !result.ok) return result.error;
-  return EXPLORER_LOAD_FALLBACK_ERROR;
-}
 
 const GRID_RESULT_TITLES: Record<WhenFilter, string> = {
   today: "Aujourd’hui autour d’Orléans",
@@ -87,12 +26,6 @@ const GRID_RESULT_TITLES: Record<WhenFilter, string> = {
   "this-month": "Ce mois-ci autour d’Orléans",
   "next-month": "Mois prochain autour d’Orléans",
   upcoming: "À venir autour d’Orléans",
-};
-
-export type ExplorerInitialPage = {
-  events: EventItem[];
-  totalCount: number;
-  nextCursor: string | null;
 };
 
 type ExplorerSectionProps = {
@@ -115,35 +48,8 @@ export function ExplorerSection({
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const [events, setEvents] = useState(initial.events);
-  const [totalCount, setTotalCount] = useState(initial.totalCount);
-  const [nextCursor, setNextCursor] = useState(initial.nextCursor);
-
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const skipNextSearchTrack = useRef(true);
   const lastTrackedSearch = useRef("");
-
-  const committedFilters = useRef<FilterStamp>({
-    when,
-    category,
-    city,
-    search: debouncedSearch,
-  });
-  const filtersRef = useRef<FilterStamp>({
-    when,
-    category,
-    city,
-    search: debouncedSearch,
-  });
-  filtersRef.current = {
-    when,
-    category,
-    city,
-    search: debouncedSearch,
-  };
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -164,106 +70,23 @@ export function ExplorerSection({
     return () => window.clearTimeout(handle);
   }, [searchInput]);
 
-  useEffect(() => {
-    const next: FilterStamp = {
-      when,
-      category,
-      city,
-      search: debouncedSearch,
-    };
-    if (sameFilters(committedFilters.current, next)) return;
-    committedFilters.current = next;
-
-    let ignore = false;
-    setLoading(true);
-    setError(null);
-
-    void (async () => {
-      try {
-        const result = await load({
-          when,
-          search: debouncedSearch || undefined,
-          category: categoryIdToExplorerFilter(category),
-          city: cityToExplorerFilter(city),
-          cursor: null,
-        });
-        if (ignore) return;
-        applyListSnapshot(explorerPageOneSnapshotFromResult(result));
-      } catch {
-        if (ignore) return;
-        applyListSnapshot(explorerPageOneSnapshotFromRejection());
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    })();
-
-    return () => {
-      ignore = true;
-    };
-  }, [when, category, city, debouncedSearch, load]);
-
-  function applyListSnapshot(snapshot: ExplorerListSnapshot) {
-    setEvents(snapshot.events);
-    setTotalCount(snapshot.totalCount);
-    setNextCursor(snapshot.nextCursor);
-    setError(snapshot.error);
-  }
-
-  async function reloadPageOne() {
-    const stamp = filtersRef.current;
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await load({
-        when: stamp.when,
-        search: stamp.search || undefined,
-        category: categoryIdToExplorerFilter(stamp.category),
-        city: cityToExplorerFilter(stamp.city),
-        cursor: null,
-      });
-      if (!sameFilters(filtersRef.current, stamp)) return;
-      applyListSnapshot(explorerPageOneSnapshotFromResult(result));
-    } catch {
-      if (!sameFilters(filtersRef.current, stamp)) return;
-      applyListSnapshot(explorerPageOneSnapshotFromRejection());
-    } finally {
-      if (sameFilters(filtersRef.current, stamp)) setLoading(false);
-    }
-  }
-
-  async function handleShowMore() {
-    if (!nextCursor || loading || loadingMore) return;
-    const cursor = nextCursor;
-    const stamp = filtersRef.current;
-    setLoadingMore(true);
-    setError(null);
-
-    try {
-      const result = await load({
-        when: stamp.when,
-        search: stamp.search || undefined,
-        category: categoryIdToExplorerFilter(stamp.category),
-        city: cityToExplorerFilter(stamp.city),
-        cursor,
-      });
-      if (!sameFilters(filtersRef.current, stamp)) return;
-
-      if (!result.ok) {
-        setError(explorerAppendErrorMessage(result));
-        return;
-      }
-
-      setEvents((current) => [...current, ...result.events]);
-      setTotalCount(result.totalCount);
-      setNextCursor(result.nextCursor);
-      setError(null);
-    } catch {
-      if (!sameFilters(filtersRef.current, stamp)) return;
-      setError(explorerAppendErrorMessage(null));
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+  const {
+    events,
+    totalCount,
+    nextCursor,
+    loading,
+    loadingMore,
+    error,
+    reload,
+    loadMore,
+  } = useExplorerEvents({
+    initial,
+    when,
+    category,
+    city,
+    search: debouncedSearch,
+    load,
+  });
 
   const canShowMore = Boolean(nextCursor) && !loading && !loadingMore;
 
@@ -336,7 +159,7 @@ export function ExplorerSection({
               <button
                 type="button"
                 className="underline"
-                onClick={() => void reloadPageOne()}
+                onClick={() => void reload()}
               >
                 Réessayer
               </button>
@@ -348,7 +171,7 @@ export function ExplorerSection({
       totalCount={totalCount}
       favorites={favorites}
       onToggleFavorite={onToggleFavorite}
-      onShowMore={canShowMore ? () => void handleShowMore() : undefined}
+      onShowMore={canShowMore ? () => void loadMore() : undefined}
     />
   );
 }

@@ -6,7 +6,7 @@ import {
   explorerAppendErrorMessage,
   explorerPageOneSnapshotFromRejection,
   explorerPageOneSnapshotFromResult,
-} from "@/components/ExplorerSection";
+} from "@/components/useExplorerEvents";
 
 function eventItem(id: string, title: string): EventItem {
   return {
