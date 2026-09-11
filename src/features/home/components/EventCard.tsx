@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useId } from "react";
 import { formatDistanceKm } from "@/application/format-distance";
 import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
+import { resolveCategoryBadgeTone } from "@/features/home/category-badge-style";
 import { getEditorialBadgeExplanation } from "@/features/home/editorial-badge-copy";
 import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 import type { CategoryId, EventItem, EventSignal } from "@/data/types";
@@ -15,13 +16,9 @@ type CardProps = {
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
   priority?: boolean;
-  /** row = image + texte côte à côte (section éditoriale). */
   layout?: "stack" | "row";
-  /** Hiérarchie légère (titre) — pas une carte hero. */
   emphasis?: boolean;
-  /** Numéro éditorial radar (01, 02…) — présentation uniquement. */
   rank?: number;
-  /** Surface visuelle : radar = affiche ; explorer = corpus. */
   surface?: "radar" | "explorer";
 };
 
@@ -61,6 +58,27 @@ const accentByCategory: Record<Exclude<CategoryId, "tout">, string> = {
   "Loisirs culturels": "bg-ink/10",
   Autre: "bg-ink/10",
 };
+
+function CategoryBadge({
+  event,
+  className,
+}: {
+  event: Pick<EventItem, "category" | "genre" | "sourceCategory">;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-block max-w-full truncate px-1.5 py-0.5",
+        "text-[11px] font-medium uppercase tracking-[0.12em]",
+        resolveCategoryBadgeTone(event.category),
+        className,
+      )}
+    >
+      {resolveCategoryBadgeLabel(event)}
+    </span>
+  );
+}
 
 export function EventCard({
   variant = "standard",
@@ -116,9 +134,10 @@ export function FeaturedEventCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
 
         <div className="absolute left-0 top-0 z-[2] flex flex-wrap gap-0">
-          <span className="bg-mint px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink">
-            {resolveCategoryBadgeLabel(event)}
-          </span>
+          <CategoryBadge
+            event={event}
+            className="px-3 py-1.5 font-semibold tracking-[0.14em]"
+          />
           {signal ? (
             <span className="bg-ink px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-foam">
               {signal}
@@ -221,9 +240,10 @@ export function StandardEventCard(props: CardProps) {
         <div className="relative flex min-w-0 flex-1 flex-col border-b border-line py-0.5 pr-1 pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-sand">
-                {resolveCategoryBadgeLabel(event)}
-              </p>
+              <CategoryBadge
+                event={event}
+                className="tracking-[0.16em]"
+              />
               <EditorialBadgePill label={event.editorialBadge} />
               <AvailabilityBadgePill label={event.availabilityBadge} />
             </div>
@@ -263,11 +283,6 @@ export function StandardEventCard(props: CardProps) {
   }
 
   if (isRadar) {
-    const reason =
-      event.editorialBadge ??
-      resolveSignal(event) ??
-      resolveCategoryBadgeLabel(event);
-
     return (
       <article
         className={cn(
@@ -295,27 +310,53 @@ export function StandardEventCard(props: CardProps) {
           ) : null}
         </div>
 
-        <div className="relative pt-2.5">
-          <div className="flex items-baseline gap-2">
+        <div className="relative flex shrink-0 flex-col bg-foam px-3 pb-3.5 pt-3 md:px-3.5 md:pb-4 md:pt-3.5">
+          {/* Zone rang + signaux : hauteur fixe, pas de wrap */}
+          <div className="flex h-8 shrink-0 items-center gap-x-2 overflow-hidden">
             {rankLabel ? (
               <span className="shrink-0 font-editorial text-[1.35rem] leading-none tracking-tight text-coral md:text-[1.5rem]">
                 {rankLabel}
               </span>
             ) : null}
-            <p className="min-w-0 text-[11px] font-medium uppercase tracking-[0.1em] text-ink/75">
-              {reason}
-            </p>
+            <EditorialBadgePill label={event.editorialBadge} tone="radar" />
+            {event.availabilityBadge ? (
+              <span
+                className={cn(
+                  "inline-flex min-w-0 shrink items-center truncate border border-coral/25 bg-paper px-2 py-1",
+                  "text-[11px] font-semibold uppercase tracking-[0.08em] text-coral",
+                )}
+              >
+                {event.availabilityBadge}
+              </span>
+            ) : null}
           </div>
-          {event.availabilityBadge ? (
-            <AvailabilityBadgePill label={event.availabilityBadge} />
-          ) : null}
-          <h3 className="mt-1.5 line-clamp-3 font-display text-[1.25rem] leading-[1.02] tracking-tight text-ink md:text-[1.4rem]">
+
+          {/* Zone catégorie : une ligne */}
+          <div className="mt-2 flex h-6 shrink-0 items-center">
+            <CategoryBadge
+              event={event}
+              className="px-2 py-1 tracking-[0.1em]"
+            />
+          </div>
+
+          {/* Zone titre : toujours l’espace de 2 lignes (line-clamp-2) */}
+          <h3
+            className={cn(
+              "mt-2.5 line-clamp-2 font-display font-semibold tracking-tight text-ink",
+              "min-h-[calc(1.35rem*1.08*2)] text-[1.35rem] leading-[1.08]",
+              "md:min-h-[calc(1.5rem*1.08*2)] md:text-[1.5rem]",
+            )}
+          >
             {event.title}
           </h3>
-          {event.venue ? (
-            <p className="mt-1.5 line-clamp-1 text-sm text-ink/70">{event.venue}</p>
-          ) : null}
-          <p className="mt-0.5 text-sm font-medium text-ink">{whenLabel}</p>
+
+          {/* Zone meta : hauteur fixe, collée en bas du bloc */}
+          <div className="mt-2.5 flex h-[2.5rem] shrink-0 flex-col justify-end gap-0.5 text-sm">
+            <p className="line-clamp-1 text-cream-dim">
+              {event.venue?.trim() ? event.venue : "\u00a0"}
+            </p>
+            <p className="line-clamp-1 text-sand">{whenLabel}</p>
+          </div>
         </div>
       </article>
     );
@@ -349,9 +390,7 @@ export function StandardEventCard(props: CardProps) {
       </div>
 
       <div className="relative flex flex-1 flex-col pt-3.5">
-        <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-sand">
-          {resolveCategoryBadgeLabel(event)}
-        </p>
+        <CategoryBadge event={event} />
         <EditorialBadgePill label={event.editorialBadge} />
         <AvailabilityBadgePill label={event.availabilityBadge} />
         <h3 className="mt-1.5 line-clamp-2 font-display text-[1.45rem] leading-[1.05] tracking-tight text-ink md:text-[1.55rem]">
@@ -423,9 +462,10 @@ export function TextEventCard({
       <div className="relative flex flex-1 flex-col p-5 md:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-sand">
-              {resolveCategoryBadgeLabel(event)}
-            </p>
+            <CategoryBadge
+              event={event}
+              className="tracking-[0.16em]"
+            />
             <EditorialBadgePill label={event.editorialBadge} />
               <AvailabilityBadgePill label={event.availabilityBadge} />
           </div>
@@ -520,17 +560,22 @@ export function EditorialBadgePill({
   const explanation = getEditorialBadgeExplanation(label);
 
   return (
-    <span className="group/edbadge relative z-[2] mt-1.5 inline-flex max-w-full">
+    <span
+      className={cn(
+        "group/edbadge relative z-[2] inline-flex min-w-0 max-w-full",
+        tone !== "radar" && "mt-1.5",
+      )}
+    >
       <button
         type="button"
         className={cn(
-          "inline-flex max-w-full items-center gap-2",
-          "border px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-[0.08em]",
+          "inline-flex max-w-full items-center gap-1.5",
+          "text-left text-[11px] font-semibold uppercase tracking-[0.08em]",
           "transition-colors",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
           tone === "radar"
-            ? "border-transparent bg-transparent px-0 py-0.5 text-ink underline decoration-mint decoration-2 underline-offset-4"
-            : "border-transparent bg-transparent px-0 py-0.5 text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral",
+            ? "min-w-0 border border-ink/10 bg-paper px-2 py-1 text-coral"
+            : "border border-transparent bg-transparent px-0 py-0.5 text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral",
         )}
         aria-describedby={tooltipId}
         onClick={(event) => {
@@ -541,7 +586,10 @@ export function EditorialBadgePill({
         <span className="truncate">{label}</span>
         <span
           aria-hidden
-          className="flex size-3.5 shrink-0 items-center justify-center text-[8px] font-semibold leading-none text-sand"
+          className={cn(
+            "flex size-3.5 shrink-0 items-center justify-center text-[8px] font-semibold leading-none",
+            tone === "radar" ? "text-coral/70" : "text-sand",
+          )}
         >
           i
         </span>

@@ -75,7 +75,7 @@ export function FeaturedEventsCarousel({
       <div
         ref={scrollerRef}
         className={cn(
-          "flex items-start gap-3 overflow-x-auto md:gap-4",
+          "flex items-stretch gap-3 overflow-x-auto md:gap-4",
           "snap-x snap-mandatory scroll-smooth motion-reduce:scroll-auto",
           "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
         )}
@@ -96,7 +96,7 @@ export function FeaturedEventsCarousel({
         {events.map((event, index) => (
           <div
             key={event.id}
-            className={cn("shrink-0 snap-start", RADAR_POSTER_WIDTH)}
+            className={cn("flex h-full shrink-0 snap-start flex-col", RADAR_POSTER_WIDTH)}
           >
             <StandardEventCard
               event={event}

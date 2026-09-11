@@ -17,12 +17,17 @@
   --color-terracotta: #f06b4f;
   --color-coral: #f06b4f;
   --color-sun: #e8c85a;
+  --color-sun-soft: #f5efd4;
   --color-sky: #8fc4e4;
+  --color-sky-soft: #ddeff7;
   --color-blush: #e49aab;
+  --color-blush-soft: #f5e4e9;
   --color-mint: #97c9ab;
   --color-mint-soft: #c5dfd1;
   --color-lilac: #b0a4d8;
+  --color-lilac-soft: #e8e3f4;
   --color-peach: #e2b16a;
+  --color-peach-soft: #f6ead9;
   --color-gold: #3f3c37;
   --font-sans: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
