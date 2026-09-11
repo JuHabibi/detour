@@ -43,20 +43,20 @@ export function HeroFilters() {
         </div>
       </div>
 
-      <div
-        aria-hidden
-        className="relative mx-5 mb-6 h-[9rem] overflow-hidden sm:mx-8 sm:h-[10rem] md:hidden"
-      >
-        <Image
-          src="/detour-hero.jpg"
-          alt=""
-          fill
-          priority
-          sizes="(max-width: 768px) 100vw, 50vw"
-          className="object-cover object-[62%_20%] contrast-[0.96] saturate-[0.92]"
-        />
-        <div className="absolute inset-0 bg-mint/10 mix-blend-multiply" />
-      </div>
+        <div
+          aria-hidden
+          className="relative mx-5 mb-6 h-[9rem] overflow-hidden sm:mx-8 sm:h-[10rem] md:hidden"
+        >
+          <Image
+            src="/detour-hero.jpg"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-cover object-[62%_20%] contrast-[0.96] saturate-[0.92]"
+          />
+          <div className="absolute inset-0 bg-mint/10 mix-blend-multiply" />
+        </div>
     </section>
   );
 }

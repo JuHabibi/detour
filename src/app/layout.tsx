@@ -6,13 +6,19 @@ const sora = Sora({
   subsets: ["latin"],
   variable: "--font-sora",
   display: "swap",
+  adjustFontFallback: true,
+  // Poids réellement utilisés (UI) — évite de charger toute l’axe variable.
+  weight: ["400", "500", "600"],
 });
 
 const newsreader = Newsreader({
   subsets: ["latin"],
   variable: "--font-newsreader",
   display: "swap",
-  style: ["normal", "italic"],
+  adjustFontFallback: true,
+  // Pas d’italic dans l’UI actuelle — réduit fichiers + fenêtre de swap CLS.
+  style: ["normal"],
+  weight: ["400", "500", "600"],
 });
 
 const instrumentSerif = Instrument_Serif({
@@ -20,7 +26,8 @@ const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
   variable: "--font-instrument-serif",
   display: "swap",
-  style: ["normal", "italic"],
+  adjustFontFallback: true,
+  style: ["normal"],
 });
 
 export const metadata: Metadata = {

@@ -31,7 +31,6 @@ export type ExplorerListSnapshot = {
   error: string | null;
 };
 
-/** Remplacement page 1 à partir d’un résultat action (ok ou ok:false). */
 export function explorerPageOneSnapshotFromResult(
   result: LoadExplorerEventsResult,
 ): ExplorerListSnapshot {
@@ -51,7 +50,7 @@ export function explorerPageOneSnapshotFromResult(
   };
 }
 
-/** Remplacement page 1 après rejet de promesse. */
+
 export function explorerPageOneSnapshotFromRejection(): ExplorerListSnapshot {
   return {
     events: [],
@@ -61,7 +60,7 @@ export function explorerPageOneSnapshotFromRejection(): ExplorerListSnapshot {
   };
 }
 
-/** Message d’erreur append — les cartes / cursor restent chez l’appelant. */
+
 export function explorerAppendErrorMessage(
   result: LoadExplorerEventsResult | null,
 ): string {
@@ -69,10 +68,7 @@ export function explorerAppendErrorMessage(
   return EXPLORER_LOAD_FALLBACK_ERROR;
 }
 
-/**
- * Appliquer une réponse page 1 seulement si la requête n’est pas stale.
- * Le flag loading se clear uniquement pour la requête courante.
- */
+
 export function shouldCommitExplorerPageOne(
   requestSeq: number,
   latestSeq: number,
@@ -100,7 +96,6 @@ type ExplorerSectionProps = {
   initial: ExplorerInitialPage;
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
-  /** Injectable pour tests — défaut : server action. */
   load?: typeof loadExplorerEvents;
 };
 
@@ -125,9 +120,15 @@ export function ExplorerSection({
   const [error, setError] = useState<string | null>(null);
 
   const requestSeq = useRef(0);
-  const skipNextFilterFetch = useRef(true);
   const skipNextSearchTrack = useRef(true);
   const lastTrackedSearch = useRef("");
+
+  const committedFilters = useRef({
+    when,
+    category,
+    city,
+    search: debouncedSearch,
+  });
   const filtersRef = useRef({ when, category, city, search: debouncedSearch });
   filtersRef.current = {
     when,
@@ -156,10 +157,20 @@ export function ExplorerSection({
   }, [searchInput]);
 
   useEffect(() => {
-    if (skipNextFilterFetch.current) {
-      skipNextFilterFetch.current = false;
-      return;
-    }
+    const prev = committedFilters.current;
+    const unchanged =
+      prev.when === when &&
+      prev.category === category &&
+      prev.city === city &&
+      prev.search === debouncedSearch;
+    if (unchanged) return;
+
+    committedFilters.current = {
+      when,
+      category,
+      city,
+      search: debouncedSearch,
+    };
 
     const seq = ++requestSeq.current;
     setLoading(true);
@@ -251,8 +262,6 @@ export function ExplorerSection({
       if (isStaleExplorerRequest(seq, requestSeq.current)) return;
       setError(explorerAppendErrorMessage(null));
     } finally {
-      // Toujours sortir de loadingMore : une requête append terminée
-      // (même stale après un nouveau filtre) ne doit pas bloquer l’UI.
       setLoadingMore(false);
     }
   }
@@ -315,11 +324,13 @@ export function ExplorerSection({
             category={category}
             onCategoryChange={handleCategoryChange}
           />
-          {loading || loadingMore ? (
-            <p className="text-sm text-sand" aria-live="polite">
-              {loadingMore ? "Chargement…" : "Mise à jour…"}
-            </p>
-          ) : null}
+          <p
+            className="min-h-5 text-sm text-sand"
+            aria-live="polite"
+            aria-hidden={!(loading || loadingMore)}
+          >
+            {loadingMore ? "Chargement…" : loading ? "Mise à jour…" : "\u00a0"}
+          </p>
           {error ? (
             <p className="text-sm text-coral" role="alert">
               {error}{" "}

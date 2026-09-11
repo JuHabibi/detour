@@ -53,6 +53,8 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: 4.5rem;
   color-scheme: light;
+  /* Évite le décalage horizontal quand la scrollbar apparaît après le 1er paint. */
+  scrollbar-gutter: stable;
 }
 
 body {
