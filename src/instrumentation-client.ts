@@ -3,10 +3,14 @@ import posthog from "posthog-js";
 /**
  * Instrumentation client Next (composition root navigateur).
  * Init PostHog minimale — pas d’événements métier Détour ici.
- * @see docs
- * @see node_modules
+ * Désactivé en développement local (évite de polluer la prod).
+ * @see docs/architecture.md §13 — app = composition ; métier hors analytics
+ * @see node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/instrumentation-client.md
  */
-const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim();
+const isProd = process.env.NODE_ENV === "production";
+const posthogKey = isProd
+  ? process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim()
+  : undefined;
 const posthogHost =
   process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || "https://eu.i.posthog.com";
 
