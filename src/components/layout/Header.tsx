@@ -1,37 +1,51 @@
 "use client";
 
+import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { CITY } from "@/config/city";
 
 type HeaderProps = {
   favoriteCount: number;
+  /** Lien logo — `#top` sur la home, `/` ailleurs. */
+  homeHref?: string;
+  /** Entrée Account (maquette). */
+  accountHref?: string;
+  accountLabel?: string;
 };
 
-export function Header({ favoriteCount }: HeaderProps) {
+export function Header({
+  favoriteCount,
+  homeHref = "#top",
+  accountHref = "/account",
+  accountLabel = "Se connecter",
+}: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm">
       <div className="mx-auto flex max-w-[var(--detour-shell-max)] items-center justify-between gap-4 px-5 py-2 md:px-8 md:py-2.5 lg:px-12 2xl:px-14 min-[1920px]:px-16">
-        <a
-          href="#top"
+        <Link
+          href={homeHref}
           className="font-display text-[1.55rem] leading-none tracking-tight 2xl:text-[1.7rem]"
         >
           Détour
           <span className="text-coral" aria-hidden="true">
             .
           </span>
-        </a>
+        </Link>
 
-        <div className="flex items-center gap-5 sm:gap-6">
+        <div className="flex items-center gap-4 sm:gap-5 md:gap-6">
           <nav
             aria-label="Sections"
             className="hidden items-center gap-6 text-[12px] font-medium uppercase tracking-[0.14em] text-ink md:flex"
           >
-            <a href="#detour" className="transition-colors hover:text-sand">
+            <Link href="/#detour" className="transition-colors hover:text-sand">
               Sur le radar
-            </a>
-            <a href="#explorer" className="transition-colors hover:text-sand">
+            </Link>
+            <Link
+              href="/#explorer"
+              className="transition-colors hover:text-sand"
+            >
               Explorer
-            </a>
+            </Link>
           </nav>
 
           <p
@@ -40,6 +54,13 @@ export function Header({ favoriteCount }: HeaderProps) {
           >
             {CITY}
           </p>
+
+          <Link
+            href={accountHref}
+            className="text-[12px] font-medium uppercase tracking-[0.14em] text-ink transition-colors hover:text-sand"
+          >
+            {accountLabel}
+          </Link>
 
           <button
             type="button"
