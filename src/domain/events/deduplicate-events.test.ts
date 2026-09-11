@@ -222,4 +222,38 @@ describe("deduplicateEvents", () => {
     expect(result.events).toHaveLength(2);
     expect(result.duplicates).toHaveLength(0);
   });
+
+  it("rapproche un doublon cross-source même lieu/heure/titre (OpenAgenda ↔ autre source)", () => {
+    // Cas représentatif d’un événement republished (ex. historique Le Bouillon) :
+    // la dédup reste générique — aucun branchement sur l’adapterId.
+    const result = deduplicateEvents([
+      event({
+        id: "openagenda:999001",
+        title: "Mona Guba + Imparfait",
+        startAt: "2026-09-17T20:30:00Z",
+        venue: "Le Bouillon",
+        city: "Orléans",
+        source: "Agenda de sorties dans la métropole orléanaise",
+        registrationUrl: "https://www.billetweb.fr/mona-guba-imparfait",
+      }),
+      event({
+        id: "bouillon:18149",
+        title: "Mona Guba + Imparfait",
+        startAt: "2026-09-17T20:30:00Z",
+        venue: "Le Bouillon",
+        city: "Orléans",
+        source: "Université d'Orléans / Le Bouillon",
+        registrationUrl: "https://www.billetweb.fr/mona-guba-imparfait",
+        description: "Concert Campus en Fête",
+        imageUrl: "https://www.univ-orleans.fr/upload/public/mano_guba.png",
+      }),
+    ]);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.duplicates).toHaveLength(1);
+    expect(["same-time-place-similar-title", "same-registration-url"]).toContain(
+      result.duplicates[0].reason,
+    );
+    expect(result.events[0].id).toBe("bouillon:18149");
+  });
 });
