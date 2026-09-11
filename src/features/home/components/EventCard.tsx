@@ -240,10 +240,7 @@ export function StandardEventCard(props: CardProps) {
         <div className="relative flex min-w-0 flex-1 flex-col border-b border-line py-0.5 pr-1 pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <CategoryBadge
-                event={event}
-                className="tracking-[0.16em]"
-              />
+              <CategoryBadge event={event} className="px-2 py-1" />
               <EditorialBadgePill label={event.editorialBadge} />
               <AvailabilityBadgePill label={event.availabilityBadge} />
             </div>
@@ -256,7 +253,7 @@ export function StandardEventCard(props: CardProps) {
               />
             ) : null}
           </div>
-          <h3 className="mt-1 font-display text-[1.35rem] leading-tight sm:text-[1.45rem]">
+          <h3 className="mt-1 line-clamp-2 font-display text-[1.25rem] font-semibold leading-[1.08] tracking-tight sm:text-[1.35rem]">
             {event.title}
           </h3>
           {event.venue ? (
@@ -264,7 +261,7 @@ export function StandardEventCard(props: CardProps) {
               {event.venue}
             </p>
           ) : null}
-          <div className="mt-1 text-sm">
+          <div className="mt-0.5 text-sm">
             <LocationLine
               city={event.city}
               distanceKm={event.distanceKm}
@@ -274,7 +271,7 @@ export function StandardEventCard(props: CardProps) {
             />
           </div>
           <div className="mt-auto flex items-end justify-between gap-3 pt-2 text-sm">
-            <p className="text-cream-dim">{whenLabel}</p>
+            <p className="text-[13px] italic text-sand">{whenLabel}</p>
             {priceLabel ? <p className="text-ink">{priceLabel}</p> : null}
           </div>
         </div>
@@ -391,17 +388,19 @@ export function StandardEventCard(props: CardProps) {
         ) : null}
       </div>
 
-      <div className="relative flex flex-1 flex-col pt-3.5">
-        <CategoryBadge event={event} />
+      <div className="relative flex flex-1 flex-col pt-3">
+        <CategoryBadge event={event} className="px-2 py-1" />
         <EditorialBadgePill label={event.editorialBadge} />
         <AvailabilityBadgePill label={event.availabilityBadge} />
-        <h3 className="mt-1.5 line-clamp-2 font-display text-[1.45rem] leading-[1.05] tracking-tight text-ink md:text-[1.55rem]">
+        <h3 className="mt-1.5 line-clamp-2 font-display text-[1.3rem] font-semibold leading-[1.08] tracking-tight text-ink md:text-[1.4rem]">
           {event.title}
         </h3>
         {event.venue ? (
-          <p className="mt-2 line-clamp-1 text-sm text-cream-dim">{event.venue}</p>
+          <p className="mt-1.5 line-clamp-1 text-sm text-cream-dim">
+            {event.venue}
+          </p>
         ) : null}
-        <div className="mt-1 text-sm">
+        <div className="mt-0.5 text-sm">
           <LocationLine
             city={event.city}
             distanceKm={event.distanceKm}
@@ -410,8 +409,8 @@ export function StandardEventCard(props: CardProps) {
             distanceClassName="font-medium text-ink"
           />
         </div>
-        <div className="mt-auto space-y-0.5 pt-3.5 text-sm">
-          <p className="text-cream-dim">{whenLabel}</p>
+        <div className="mt-auto space-y-0.5 pt-3 text-sm">
+          <p className="text-[13px] italic text-sand">{whenLabel}</p>
           {priceLabel ? <p className="font-medium text-ink">{priceLabel}</p> : null}
         </div>
       </div>
@@ -433,6 +432,7 @@ export function TextEventCard({
     event.category === "tout" ? "Autre" : event.category;
   const pastel = pastelByCategory[categoryKey];
   const accent = accentByCategory[categoryKey];
+  const isExplorer = surface === "explorer";
 
   return (
     <article
@@ -466,10 +466,10 @@ export function TextEventCard({
           <div className="min-w-0">
             <CategoryBadge
               event={event}
-              className="tracking-[0.16em]"
+              className={isExplorer ? "px-2 py-1" : "tracking-[0.16em]"}
             />
             <EditorialBadgePill label={event.editorialBadge} />
-              <AvailabilityBadgePill label={event.availabilityBadge} />
+            <AvailabilityBadgePill label={event.availabilityBadge} />
           </div>
           {onToggleFavorite ? (
             <FavoriteButton
@@ -482,29 +482,41 @@ export function TextEventCard({
         </div>
 
         {signal ? (
-          <p className="mt-3 text-[12px] font-medium uppercase tracking-[0.1em] text-sand">{signal}</p>
+          <p className="mt-2.5 text-[12px] font-medium uppercase tracking-[0.1em] text-sand">
+            {signal}
+          </p>
         ) : null}
 
         <h3
           className={cn(
-            "mt-3 font-display leading-[1.05] tracking-tight",
-            featured
-              ? "text-[1.85rem] md:text-[2.2rem]"
-              : "text-[1.55rem] md:text-[1.7rem]",
+            "mt-2.5 font-display tracking-tight",
+            isExplorer
+              ? cn(
+                  "font-semibold leading-[1.08]",
+                  featured
+                    ? "text-[1.65rem] md:text-[1.85rem]"
+                    : "line-clamp-3 text-[1.4rem] md:text-[1.5rem]",
+                )
+              : cn(
+                  "leading-[1.05]",
+                  featured
+                    ? "text-[1.85rem] md:text-[2.2rem]"
+                    : "text-[1.55rem] md:text-[1.7rem]",
+                ),
           )}
         >
           {event.title}
         </h3>
 
         {event.description ? (
-          <p className="mt-3 line-clamp-2 text-sm leading-6 text-cream-dim">
+          <p className="mt-2.5 line-clamp-2 text-sm leading-6 text-cream-dim">
             {event.description}
           </p>
         ) : null}
 
-        <div className="mt-auto space-y-2 pt-6 text-sm">
+        <div className="mt-auto space-y-1.5 pt-5 text-sm">
           {event.venue ? (
-            <p className="text-cream-dim">{event.venue}</p>
+            <p className="line-clamp-1 text-cream-dim">{event.venue}</p>
           ) : null}
           <LocationLine
             city={event.city}
@@ -513,8 +525,16 @@ export function TextEventCard({
             sepClassName="text-sand"
             distanceClassName="font-medium text-ink"
           />
-          <div className="flex items-end justify-between gap-3 pt-1">
-            <p className="text-cream-dim">{whenLabel}</p>
+          <div className="flex items-end justify-between gap-3 pt-0.5">
+            <p
+              className={cn(
+                isExplorer
+                  ? "text-[13px] italic text-sand"
+                  : "text-cream-dim",
+              )}
+            >
+              {whenLabel}
+            </p>
             {priceLabel ? <p className="text-ink">{priceLabel}</p> : null}
           </div>
         </div>
