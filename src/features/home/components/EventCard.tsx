@@ -355,7 +355,9 @@ export function StandardEventCard(props: CardProps) {
             <p className="line-clamp-1 text-cream-dim">
               {event.venue?.trim() ? event.venue : "\u00a0"}
             </p>
-            <p className="line-clamp-1 text-sand">{whenLabel}</p>
+            <p className="line-clamp-1 text-[13px] italic text-sand">
+              {whenLabel}
+            </p>
           </div>
         </div>
       </article>
