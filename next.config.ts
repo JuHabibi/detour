@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "img.openagenda.com",
       },
+      {
+        protocol: "https",
+        hostname: "www.univ-orleans.fr",
+      },
     ],
   },
 };
