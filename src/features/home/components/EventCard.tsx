@@ -574,7 +574,7 @@ export function EditorialBadgePill({
           "transition-colors",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
           tone === "radar"
-            ? "min-w-0 border border-ink/10 bg-paper px-2 py-1 text-coral"
+            ? "min-w-0 border-0 bg-transparent p-0 font-medium tracking-[0.12em] text-sand"
             : "border border-transparent bg-transparent px-0 py-0.5 text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral",
         )}
         aria-describedby={tooltipId}
@@ -588,7 +588,7 @@ export function EditorialBadgePill({
           aria-hidden
           className={cn(
             "flex size-3.5 shrink-0 items-center justify-center text-[8px] font-semibold leading-none",
-            tone === "radar" ? "text-coral/70" : "text-sand",
+            tone === "radar" ? "text-sand/60" : "text-sand",
           )}
         >
           i
