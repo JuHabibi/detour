@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
 
 const fieldClassName =
   "mt-2 h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint";
@@ -20,7 +21,7 @@ export function AccountSignup() {
   }
 
   return (
-    <div className="max-w-md">
+    <AccountAuthLayout variant="signup">
       <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-sand">
         Création de compte
       </p>
@@ -99,6 +100,6 @@ export function AccountSignup() {
       <p className="mt-4 text-[12px] leading-5 text-sand">
         Maquette — aucune authentification réelle.
       </p>
-    </div>
+    </AccountAuthLayout>
   );
 }
