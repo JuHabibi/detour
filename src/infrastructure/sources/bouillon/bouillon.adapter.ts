@@ -13,6 +13,7 @@ import {
   bouillonEventIntersectsWindow,
   mapBouillonDetailToDetourEvent,
 } from "./bouillon.mapper";
+import { enrichBouillonDetailImage } from "./bouillon.image";
 import type {
   BouillonCollectStats,
   BouillonExclusion,
@@ -86,10 +87,11 @@ export async function collectBouillonEvents(
         absoluteBouillonUrl(item.path),
         resolved,
       );
-      return parseBouillonDetail(html, {
+      const detail = parseBouillonDetail(html, {
         fallbackPath: item.path,
         category: item.category,
       });
+      return enrichBouillonDetailImage(detail, resolved);
     },
   );
 

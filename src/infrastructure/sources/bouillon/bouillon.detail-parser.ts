@@ -10,6 +10,8 @@ const TIME_RE = /<time\b[^>]*datetime="([^"]+)"[^>]*>/gi;
 const IMAGE_FIELD_RE =
   /field--name-field-univ-media-image[\s\S]*?<img\b([^>]+)>/i;
 const IMG_SRC_RE = /\bsrc="([^"]+)"/i;
+const IMG_WIDTH_RE = /\bwidth="(\d+)"/i;
+const IMG_HEIGHT_RE = /\bheight="(\d+)"/i;
 const BODY_RE =
   /field--name-body\s+field--type-text-with-summary[\s\S]*?field--item">([\s\S]*?)<\/div>\s*<\/div>/i;
 const BILLETWEB_RE =
@@ -70,13 +72,17 @@ export function parseBouillonDetail(
     ? decodeHtmlEntities(stripTags(bodyMatch[1]!)).trim() || null
     : null;
 
+  const image = extractUniversityImage(html);
+
   return {
     nid,
     title,
     path,
     canonicalUrl,
     bodyText,
-    imageUrl: extractImageUrl(html),
+    imageUrl: image.url,
+    imageWidth: image.width,
+    imageHeight: image.height,
     startAt,
     endAt,
     ...extractCoordinates(html),
@@ -118,13 +124,32 @@ function extractTimes(html: string): string[] {
   return times;
 }
 
-function extractImageUrl(html: string): string | null {
+function extractUniversityImage(html: string): {
+  url: string | null;
+  width: number | null;
+  height: number | null;
+} {
   const field = IMAGE_FIELD_RE.exec(html)?.[1];
-  const src = field ? IMG_SRC_RE.exec(field)?.[1] : null;
-  if (!src) return null;
-  const decoded = decodeHtmlEntities(src).trim();
-  if (!decoded) return null;
-  return absoluteBouillonUrl(decoded.split("?")[0]!);
+  if (!field) {
+    return { url: null, width: null, height: null };
+  }
+
+  const src = IMG_SRC_RE.exec(field)?.[1];
+  const decoded = src ? decodeHtmlEntities(src).trim() : "";
+  const url = decoded
+    ? absoluteBouillonUrl(decoded.split("?")[0]!)
+    : null;
+
+  const widthRaw = IMG_WIDTH_RE.exec(field)?.[1];
+  const heightRaw = IMG_HEIGHT_RE.exec(field)?.[1];
+  const width = widthRaw ? Number.parseInt(widthRaw, 10) : Number.NaN;
+  const height = heightRaw ? Number.parseInt(heightRaw, 10) : Number.NaN;
+
+  return {
+    url,
+    width: Number.isFinite(width) && width > 0 ? width : null,
+    height: Number.isFinite(height) && height > 0 ? height : null,
+  };
 }
 
 function extractRegistrationUrl(html: string): string | null {

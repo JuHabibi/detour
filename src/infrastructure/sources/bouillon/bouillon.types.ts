@@ -20,6 +20,9 @@ export type BouillonDetail = {
   canonicalUrl: string;
   bodyText: string | null;
   imageUrl: string | null;
+  /** Dimensions HTML de l’image Université si présentes sur la fiche. */
+  imageWidth: number | null;
+  imageHeight: number | null;
   startAt: string;
   endAt: string | null;
   latitude: number | null;
