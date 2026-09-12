@@ -6,11 +6,17 @@ import {
   normalizeReusableLicense,
   searchExactWikidataEntities,
   lookupWikimediaImageForCandidates,
+  hasCompatibleWikidataP31,
+  licenseRequiresCredit,
+  fetchCommonsImageAttribution,
+  WIKIDATA_API,
+  COMMONS_API,
 } from "./bouillon.wikimedia";
 import type { DetourEvent } from "@/domain/events/event";
-import { WIKIDATA_API, COMMONS_API } from "./bouillon.wikimedia";
 
-function eventStub(partial: Partial<DetourEvent> & Pick<DetourEvent, "id" | "title">): DetourEvent {
+function eventStub(
+  partial: Partial<DetourEvent> & Pick<DetourEvent, "id" | "title">,
+): DetourEvent {
   return {
     id: partial.id,
     title: partial.title,
@@ -39,6 +45,54 @@ function jsonResponse(data: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function p31(id: string) {
+  return {
+    mainsnak: {
+      datavalue: { value: { id } },
+    },
+  };
+}
+
+function p18(filename: string) {
+  return {
+    mainsnak: {
+      datavalue: { value: filename },
+    },
+  };
+}
+
+function commonsPage(params: {
+  license: string;
+  artist?: string;
+  credit?: string;
+  attribution?: string;
+}) {
+  const extmetadata: Record<string, { value: string }> = {
+    LicenseShortName: { value: params.license },
+  };
+  if (params.artist) extmetadata.Artist = { value: params.artist };
+  if (params.credit) extmetadata.Credit = { value: params.credit };
+  if (params.attribution) extmetadata.Attribution = { value: params.attribution };
+
+  return {
+    query: {
+      pages: {
+        "1": {
+          imageinfo: [
+            {
+              url: "https://upload.wikimedia.org/wikipedia/commons/x.jpg",
+              thumburl:
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/x.jpg/1280px-x.jpg",
+              descriptionurl: "https://commons.wikimedia.org/wiki/File:X.jpg",
+              extmetadata,
+            },
+          ],
+        },
+      },
+    },
+  };
 }
 
 describe("extractBouillonTitleCandidates", () => {
@@ -75,6 +129,28 @@ describe("normalizeReusableLicense", () => {
   });
 });
 
+describe("hasCompatibleWikidataP31", () => {
+  it("accepte humain / groupe musical / film", () => {
+    expect(hasCompatibleWikidataP31(["Q5"])).toBe(true);
+    expect(hasCompatibleWikidataP31(["Q215380"])).toBe(true);
+    expect(hasCompatibleWikidataP31(["Q11424"])).toBe(true);
+  });
+
+  it("rejette type hors allowlist ou vide", () => {
+    expect(hasCompatibleWikidataP31(["Q6256"])).toBe(false); // country
+    expect(hasCompatibleWikidataP31([])).toBe(false);
+  });
+});
+
+describe("licenseRequiresCredit", () => {
+  it("CC BY / CC BY-SA → obligatoire ; CC0 / PD → optionnel", () => {
+    expect(licenseRequiresCredit("CC BY 4.0")).toBe(true);
+    expect(licenseRequiresCredit("CC BY-SA 4.0")).toBe(true);
+    expect(licenseRequiresCredit("CC0")).toBe(false);
+    expect(licenseRequiresCredit("Public Domain")).toBe(false);
+  });
+});
+
 describe("resolveBouillonCategoryFallback", () => {
   it("cinéma → slug cinema + path générique tant que l’asset n’existe pas", () => {
     const fallback = resolveBouillonCategoryFallback({
@@ -91,6 +167,164 @@ describe("resolveBouillonCategoryFallback", () => {
         category: "Spectacle / Concert",
       }).slug,
     ).toBe("concert");
+  });
+});
+
+describe("wikimedia P31 + crédit", () => {
+  it("exact match + type musical valide → accepté", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("wbsearchentities")) {
+        return jsonResponse({
+          search: [{ id: "Q1", label: "Imparfait", aliases: [] }],
+        });
+      }
+      if (url.includes("wbgetentities")) {
+        return jsonResponse({
+          entities: {
+            Q1: {
+              claims: {
+                P31: [p31("Q215380")],
+                P18: [p18("Imparfait.jpg")],
+              },
+            },
+          },
+        });
+      }
+      if (url.startsWith(COMMONS_API)) {
+        return jsonResponse(
+          commonsPage({ license: "CC BY-SA 4.0", artist: "Photo Club" }),
+        );
+      }
+      return jsonResponse({}, 404);
+    });
+
+    const hit = await lookupWikimediaImageForCandidates(["Imparfait"], {
+      fetchImpl,
+      httpTimeoutMs: 5_000,
+    });
+    expect(hit?.entityId).toBe("Q1");
+    expect(hit?.imageLicense).toBe("CC BY-SA 4.0");
+    expect(hit?.imageCredit).toBe("Photo Club");
+  });
+
+  it("exact match + mauvais type → rejeté", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("wbsearchentities")) {
+        return jsonResponse({
+          search: [{ id: "Q1", label: "Orléans", aliases: [] }],
+        });
+      }
+      if (url.includes("wbgetentities")) {
+        return jsonResponse({
+          entities: {
+            Q1: {
+              claims: {
+                P31: [p31("Q515")], // city
+                P18: [p18("Orleans.jpg")],
+              },
+            },
+          },
+        });
+      }
+      return jsonResponse(commonsPage({ license: "CC0", artist: "X" }));
+    });
+
+    const hit = await lookupWikimediaImageForCandidates(["Orléans"], {
+      fetchImpl,
+      httpTimeoutMs: 5_000,
+    });
+    expect(hit).toBeNull();
+  });
+
+  it("exact match sans type exploitable → rejeté", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("wbsearchentities")) {
+        return jsonResponse({
+          search: [{ id: "Q1", label: "Mona Guba", aliases: [] }],
+        });
+      }
+      if (url.includes("wbgetentities")) {
+        return jsonResponse({
+          entities: {
+            Q1: {
+              claims: {
+                P18: [p18("Mona.jpg")],
+                // pas de P31
+              },
+            },
+          },
+        });
+      }
+      return jsonResponse(commonsPage({ license: "CC0" }));
+    });
+
+    const hit = await lookupWikimediaImageForCandidates(["Mona Guba"], {
+      fetchImpl,
+      httpTimeoutMs: 5_000,
+    });
+    expect(hit).toBeNull();
+  });
+
+  it("CC BY-SA + auteur présent → accepté", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(commonsPage({ license: "CC BY-SA 4.0", artist: "Jane Doe" })),
+    );
+    const meta = await fetchCommonsImageAttribution("File:X.jpg", {
+      fetchImpl,
+      httpTimeoutMs: 5_000,
+    });
+    expect(meta?.imageLicense).toBe("CC BY-SA 4.0");
+    expect(meta?.imageCredit).toBe("Jane Doe");
+  });
+
+  it("CC BY + crédit présent → accepté", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(commonsPage({ license: "CC BY 4.0", credit: "Studio Z" })),
+    );
+    const meta = await fetchCommonsImageAttribution("File:X.jpg", {
+      fetchImpl,
+      httpTimeoutMs: 5_000,
+    });
+    expect(meta?.imageLicense).toBe("CC BY 4.0");
+    expect(meta?.imageCredit).toBe("Studio Z");
+  });
+
+  it("CC BY-SA sans crédit → rejeté", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(commonsPage({ license: "CC BY-SA 4.0" })),
+    );
+    const meta = await fetchCommonsImageAttribution("File:X.jpg", {
+      fetchImpl,
+      httpTimeoutMs: 5_000,
+    });
+    expect(meta).toBeNull();
+  });
+
+  it("CC0 sans crédit → accepté", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(commonsPage({ license: "CC0" })),
+    );
+    const meta = await fetchCommonsImageAttribution("File:X.jpg", {
+      fetchImpl,
+      httpTimeoutMs: 5_000,
+    });
+    expect(meta?.imageLicense).toBe("CC0");
+    expect(meta?.imageCredit).toBeNull();
+  });
+
+  it("Public Domain sans crédit → accepté", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(commonsPage({ license: "Public domain" })),
+    );
+    const meta = await fetchCommonsImageAttribution("File:X.jpg", {
+      fetchImpl,
+      httpTimeoutMs: 5_000,
+    });
+    expect(meta?.imageLicense).toBe("Public Domain");
+    expect(meta?.imageCredit).toBeNull();
   });
 });
 
@@ -111,40 +345,20 @@ describe("wikimedia matching + enrichBouillonEventImage", () => {
           entities: {
             Q1: {
               claims: {
-                P18: [
-                  {
-                    mainsnak: {
-                      datavalue: { value: "Mona_Guba.jpg" },
-                    },
-                  },
-                ],
+                P31: [p31("Q5")],
+                P18: [p18("Mona_Guba.jpg")],
               },
             },
           },
         });
       }
       if (url.startsWith(COMMONS_API)) {
-        return jsonResponse({
-          query: {
-            pages: {
-              "1": {
-                imageinfo: [
-                  {
-                    url: "https://upload.wikimedia.org/wikipedia/commons/m/mona.jpg",
-                    thumburl:
-                      "https://upload.wikimedia.org/wikipedia/commons/thumb/m/mona.jpg/1280px-mona.jpg",
-                    descriptionurl:
-                      "https://commons.wikimedia.org/wiki/File:Mona_Guba.jpg",
-                    extmetadata: {
-                      LicenseShortName: { value: "CC BY-SA 4.0" },
-                      Artist: { value: "<a href=\"https://example.com\">Jane Doe</a>" },
-                    },
-                  },
-                ],
-              },
-            },
-          },
-        });
+        return jsonResponse(
+          commonsPage({
+            license: "CC BY-SA 4.0",
+            artist: '<a href="https://example.com">Jane Doe</a>',
+          }),
+        );
       }
       return jsonResponse({}, 404);
     });
@@ -169,7 +383,7 @@ describe("wikimedia matching + enrichBouillonEventImage", () => {
     expect(enriched.imageLicense).toBe("CC BY-SA 4.0");
     expect(enriched.imageCredit).toBe("Jane Doe");
     expect(enriched.imageSourceUrl).toBe(
-      "https://commons.wikimedia.org/wiki/File:Mona_Guba.jpg",
+      "https://commons.wikimedia.org/wiki/File:X.jpg",
     );
     expect(enriched.title).toBe("Mona Guba + Imparfait");
     expect(enriched.venue).toBe("Le Bouillon");
@@ -225,32 +439,17 @@ describe("wikimedia matching + enrichBouillonEventImage", () => {
           entities: {
             Q1: {
               claims: {
-                P18: [{ mainsnak: { datavalue: { value: "Copycat.jpg" } } }],
+                P31: [p31("Q5")],
+                P18: [p18("Copycat.jpg")],
               },
             },
           },
         });
       }
       if (url.startsWith(COMMONS_API)) {
-        return jsonResponse({
-          query: {
-            pages: {
-              "1": {
-                imageinfo: [
-                  {
-                    url: "https://upload.wikimedia.org/wikipedia/commons/c.jpg",
-                    descriptionurl:
-                      "https://commons.wikimedia.org/wiki/File:Copycat.jpg",
-                    extmetadata: {
-                      LicenseShortName: { value: "CC BY-NC 4.0" },
-                      Artist: { value: "Someone" },
-                    },
-                  },
-                ],
-              },
-            },
-          },
-        });
+        return jsonResponse(
+          commonsPage({ license: "CC BY-NC 4.0", artist: "Someone" }),
+        );
       }
       return jsonResponse({}, 404);
     });

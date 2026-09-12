@@ -3,6 +3,25 @@ import { normalizeCandidate } from "./bouillon.title-candidates";
 export const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
 export const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
 
+/**
+ * P31 acceptés (instance of) — liste courte, pas d’inférence de sous-classes.
+ * Hors liste / P31 absent → reject (pas de guess).
+ */
+export const ACCEPTED_WIKIDATA_P31_IDS = new Set([
+  "Q5", // human
+  "Q215380", // musical group
+  "Q105756498", // musical ensemble
+  "Q5741069", // rock band
+  "Q2088357", // musical ensemble
+  "Q11424", // film
+  "Q24862", // short film
+  "Q25379", // play
+  "Q1344", // opera
+  "Q2743", // musical
+  "Q476928", // dramatico-musical work
+  "Q2188189", // musical work
+]);
+
 export type WikimediaFetch = (
   input: string | URL,
   init?: RequestInit,
@@ -20,7 +39,6 @@ export type WikimediaImageHit = {
 export type WikimediaLookupConfig = {
   fetchImpl: WikimediaFetch;
   httpTimeoutMs: number;
-  /** Cache process-local entityId → hit|null pour éviter les refetch dans un sync. */
   entityCache?: Map<string, WikimediaImageHit | null>;
 };
 
@@ -28,6 +46,23 @@ type WikidataSearchResult = {
   id: string;
   label: string;
   aliases?: string[];
+};
+
+type WikidataEntityClaims = {
+  claims?: {
+    P18?: Array<{
+      mainsnak?: {
+        datavalue?: { value?: string };
+      };
+    }>;
+    P31?: Array<{
+      mainsnak?: {
+        datavalue?: {
+          value?: { id?: string };
+        };
+      };
+    }>;
+  };
 };
 
 /**
@@ -62,7 +97,18 @@ export async function lookupWikimediaImageForCandidate(
     return cache.get(entityId) ?? null;
   }
 
-  const fileTitle = await fetchEntityImageFileTitle(entityId, config);
+  const entity = await fetchEntityClaims(entityId, config);
+  if (!entity) {
+    cache?.set(entityId, null);
+    return null;
+  }
+
+  if (!hasCompatibleWikidataP31(extractInstanceOfIds(entity))) {
+    cache?.set(entityId, null);
+    return null;
+  }
+
+  const fileTitle = extractImageFileTitle(entity);
   if (!fileTitle) {
     cache?.set(entityId, null);
     return null;
@@ -104,6 +150,18 @@ export async function searchExactWikidataEntities(
   });
 }
 
+/** True si au moins un P31 est dans la allowlist explicite. */
+export function hasCompatibleWikidataP31(instanceOfIds: string[]): boolean {
+  if (instanceOfIds.length === 0) return false;
+  return instanceOfIds.some((id) => ACCEPTED_WIKIDATA_P31_IDS.has(id));
+}
+
+/** CC BY / CC BY-SA exigent un crédit ; CC0 / Public Domain non. */
+export function licenseRequiresCredit(license: string): boolean {
+  const normalized = license.trim().toUpperCase();
+  return normalized.startsWith("CC BY");
+}
+
 async function wbSearchEntities(
   search: string,
   language: string,
@@ -136,10 +194,10 @@ async function wbSearchEntities(
     }));
 }
 
-async function fetchEntityImageFileTitle(
+async function fetchEntityClaims(
   entityId: string,
   config: WikimediaLookupConfig,
-): Promise<string | null> {
+): Promise<WikidataEntityClaims | null> {
   const url = new URL(WIKIDATA_API);
   url.searchParams.set("action", "wbgetentities");
   url.searchParams.set("ids", entityId);
@@ -148,22 +206,24 @@ async function fetchEntityImageFileTitle(
   url.searchParams.set("origin", "*");
 
   const json = (await fetchJson(url, config)) as {
-    entities?: Record<
-      string,
-      {
-        claims?: {
-          P18?: Array<{
-            mainsnak?: {
-              datavalue?: { value?: string };
-            };
-          }>;
-        };
-      }
-    >;
+    entities?: Record<string, WikidataEntityClaims | undefined>;
   };
 
-  const filename =
-    json.entities?.[entityId]?.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
+  return json.entities?.[entityId] ?? null;
+}
+
+export function extractInstanceOfIds(entity: WikidataEntityClaims): string[] {
+  const claims = entity.claims?.P31 ?? [];
+  const ids: string[] = [];
+  for (const claim of claims) {
+    const id = claim.mainsnak?.datavalue?.value?.id;
+    if (typeof id === "string" && id.trim()) ids.push(id.trim());
+  }
+  return ids;
+}
+
+function extractImageFileTitle(entity: WikidataEntityClaims): string | null {
+  const filename = entity.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
   if (typeof filename !== "string" || !filename.trim()) return null;
   return filename.startsWith("File:") ? filename : `File:${filename}`;
 }
@@ -221,6 +281,10 @@ export async function fetchCommonsImageAttribution(
         info.extmetadata?.Attribution?.value ??
         "",
     ).trim() || null;
+
+  if (licenseRequiresCredit(license) && !credit) {
+    return null;
+  }
 
   return {
     imageUrl,
