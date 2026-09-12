@@ -6,6 +6,7 @@ export const NEXT_IMAGE_REMOTE_HOSTS = [
   "images.unsplash.com",
   "img.openagenda.com",
   "upload.wikimedia.org",
+  "api.openverse.org",
 ] as const;
 
 const REMOTE_HOST_SET = new Set<string>(NEXT_IMAGE_REMOTE_HOSTS);

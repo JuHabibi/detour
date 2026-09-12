@@ -14,6 +14,7 @@ import {
   mapBouillonDetailToDetourEvent,
 } from "./bouillon.mapper";
 import { enrichBouillonEventImage } from "./bouillon.image";
+import type { OpenverseImageHit } from "./bouillon.openverse";
 import type { WikimediaImageHit } from "./bouillon.wikimedia";
 import type {
   BouillonCollectStats,
@@ -95,6 +96,7 @@ export async function collectBouillonEvents(
   );
 
   const entityCache = new Map<string, WikimediaImageHit | null>();
+  const openverseCandidateCache = new Map<string, OpenverseImageHit | null>();
   const published: DetourEvent[] = [];
 
   for (const detail of details) {
@@ -126,6 +128,7 @@ export async function collectBouillonEvents(
         fetchImpl: resolved.fetchImpl,
         httpTimeoutMs: resolved.httpTimeoutMs,
         entityCache,
+        openverseCandidateCache,
       }),
   );
 

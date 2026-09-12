@@ -12,6 +12,13 @@ import {
   WIKIDATA_API,
   COMMONS_API,
 } from "./bouillon.wikimedia";
+import {
+  isClearExactMatch,
+  mapOpenverseResultToHit,
+  normalizeOpenverseLicense,
+  OPENVERSE_IMAGES_API,
+  lookupOpenverseImageForCandidates,
+} from "./bouillon.openverse";
 import type { DetourEvent } from "@/domain/events/event";
 
 function eventStub(
@@ -481,5 +488,229 @@ describe("wikimedia matching + enrichBouillonEventImage", () => {
     );
     expect(enriched.imageUrl).toBe("/images/fallbacks/culture.svg");
     expect(enriched.imageLicense).toBeNull();
+  });
+
+  it("hit Wikimedia → Openverse non appelé", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.startsWith(WIKIDATA_API) && url.includes("wbsearchentities")) {
+        return jsonResponse({
+          search: [{ id: "Q1", label: "Mona Guba", aliases: [] }],
+        });
+      }
+      if (url.startsWith(WIKIDATA_API) && url.includes("wbgetentities")) {
+        return jsonResponse({
+          entities: {
+            Q1: {
+              claims: {
+                P31: [p31("Q5")],
+                P18: [p18("Mona_Guba.jpg")],
+              },
+            },
+          },
+        });
+      }
+      if (url.startsWith(COMMONS_API)) {
+        return jsonResponse(
+          commonsPage({ license: "CC0", artist: "Jane Doe" }),
+        );
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const enriched = await enrichBouillonEventImage(
+      eventStub({ id: "bouillon:wm", title: "Mona Guba" }),
+      { fetchImpl, httpTimeoutMs: 5_000 },
+    );
+
+    expect(enriched.imageUrl).toContain("upload.wikimedia.org");
+    expect(
+      fetchImpl.mock.calls.some(([input]) =>
+        String(input).startsWith(OPENVERSE_IMAGES_API),
+      ),
+    ).toBe(false);
+  });
+});
+
+function openverseHit(partial: Record<string, unknown> = {}) {
+  return {
+    id: "ov1",
+    title: "Imparfait",
+    creator: "Photo Club",
+    license: "by-sa",
+    license_version: "4.0",
+    thumbnail: "https://api.openverse.org/v1/images/abc/thumb/",
+    url: "https://cdn.example.org/full.jpg",
+    foreign_landing_url: "https://example.org/work/imparfait",
+    tags: [{ name: "jazz" }],
+    ...partial,
+  };
+}
+
+describe("normalizeOpenverseLicense", () => {
+  it("accepte cc0 / pdm / by / by-sa", () => {
+    expect(normalizeOpenverseLicense("cc0")).toBe("CC0");
+    expect(normalizeOpenverseLicense("pdm")).toBe("Public Domain");
+    expect(normalizeOpenverseLicense("by", "4.0")).toBe("CC BY 4.0");
+    expect(normalizeOpenverseLicense("by-sa", "4.0")).toBe("CC BY-SA 4.0");
+  });
+
+  it("refuse NC / ND", () => {
+    expect(normalizeOpenverseLicense("by-nc")).toBeNull();
+    expect(normalizeOpenverseLicense("by-nd")).toBeNull();
+    expect(normalizeOpenverseLicense("by-nc-sa")).toBeNull();
+  });
+});
+
+describe("Openverse matching + mapping", () => {
+  it("exact match titre / créateur / tag", () => {
+    expect(isClearExactMatch("Imparfait", openverseHit())).toBe(true);
+    expect(
+      isClearExactMatch("Photo Club", openverseHit({ title: "Autre" })),
+    ).toBe(true);
+    expect(
+      isClearExactMatch("jazz", openverseHit({ title: "Autre", creator: "X" })),
+    ).toBe(true);
+    expect(isClearExactMatch("Imparfaits", openverseHit())).toBe(false);
+  });
+
+  it("map → thumbnail full_size, pas url d’origine", () => {
+    const hit = mapOpenverseResultToHit(openverseHit());
+    expect(hit?.imageUrl).toBe(
+      "https://api.openverse.org/v1/images/abc/thumb/?full_size=true",
+    );
+    expect(hit?.imageUrl).not.toContain("cdn.example.org");
+    expect(hit?.imageLicense).toBe("CC BY-SA 4.0");
+    expect(hit?.imageCredit).toBe("Photo Club");
+    expect(hit?.imageSourceUrl).toBe("https://example.org/work/imparfait");
+  });
+
+  it("BY-SA sans creator → rejeté", () => {
+    expect(
+      mapOpenverseResultToHit(openverseHit({ creator: null })),
+    ).toBeNull();
+  });
+
+  it("cc0 sans creator → accepté", () => {
+    const hit = mapOpenverseResultToHit(
+      openverseHit({ license: "cc0", license_version: null, creator: null }),
+    );
+    expect(hit?.imageLicense).toBe("CC0");
+    expect(hit?.imageCredit).toBeNull();
+  });
+});
+
+describe("Openverse dans enrichBouillonEventImage", () => {
+  it("Wikimedia miss + 1 hit Openverse clair → image Openverse", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.startsWith(WIKIDATA_API)) {
+        return jsonResponse({ search: [] });
+      }
+      if (url.startsWith(OPENVERSE_IMAGES_API)) {
+        return jsonResponse({ results: [openverseHit()] });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    const enriched = await enrichBouillonEventImage(
+      eventStub({ id: "bouillon:ov1", title: "Imparfait" }),
+      { fetchImpl, httpTimeoutMs: 5_000 },
+    );
+
+    expect(enriched.imageUrl).toContain("api.openverse.org");
+    expect(enriched.imageUrl).toContain("full_size=true");
+    expect(enriched.imageLicense).toBe("CC BY-SA 4.0");
+    expect(enriched.imageCredit).toBe("Photo Club");
+    expect(enriched.imageSourceUrl).toBe("https://example.org/work/imparfait");
+  });
+
+  it("plusieurs hits exact → fallback", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.startsWith(WIKIDATA_API)) return jsonResponse({ search: [] });
+      if (url.startsWith(OPENVERSE_IMAGES_API)) {
+        return jsonResponse({
+          results: [
+            openverseHit({ id: "a" }),
+            openverseHit({ id: "b", creator: "Other" }),
+          ],
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    const enriched = await enrichBouillonEventImage(
+      eventStub({ id: "bouillon:ov2", title: "Imparfait" }),
+      { fetchImpl, httpTimeoutMs: 5_000 },
+    );
+    expect(enriched.imageUrl).toBe("/images/fallbacks/culture.svg");
+  });
+
+  it("licence Openverse incompatible après revalidation → fallback", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.startsWith(WIKIDATA_API)) return jsonResponse({ search: [] });
+      if (url.startsWith(OPENVERSE_IMAGES_API)) {
+        return jsonResponse({
+          results: [openverseHit({ license: "by-nc", creator: "X" })],
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    const hit = await lookupOpenverseImageForCandidates(["Imparfait"], {
+      fetchImpl,
+      httpTimeoutMs: 5_000,
+    });
+    expect(hit).toBeNull();
+
+    const enriched = await enrichBouillonEventImage(
+      eventStub({ id: "bouillon:ov3", title: "Imparfait" }),
+      { fetchImpl, httpTimeoutMs: 5_000 },
+    );
+    expect(enriched.imageUrl).toBe("/images/fallbacks/culture.svg");
+  });
+
+  it("erreur réseau Openverse → fallback", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.startsWith(WIKIDATA_API)) return jsonResponse({ search: [] });
+      if (url.startsWith(OPENVERSE_IMAGES_API)) {
+        throw new Error("openverse down");
+      }
+      return jsonResponse({}, 404);
+    });
+
+    const enriched = await enrichBouillonEventImage(
+      eventStub({ id: "bouillon:ov4", title: "Imparfait" }),
+      { fetchImpl, httpTimeoutMs: 5_000 },
+    );
+    expect(enriched.imageUrl).toBe("/images/fallbacks/culture.svg");
+  });
+
+  it("cache candidat Openverse évite un second fetch", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.startsWith(OPENVERSE_IMAGES_API)) {
+        return jsonResponse({ results: [openverseHit()] });
+      }
+      return jsonResponse({ search: [] });
+    });
+    const openverseCandidateCache = new Map();
+
+    await enrichBouillonEventImage(
+      eventStub({ id: "bouillon:ov5a", title: "Imparfait" }),
+      { fetchImpl, httpTimeoutMs: 5_000, openverseCandidateCache },
+    );
+    await enrichBouillonEventImage(
+      eventStub({ id: "bouillon:ov5b", title: "Imparfait" }),
+      { fetchImpl, httpTimeoutMs: 5_000, openverseCandidateCache },
+    );
+
+    const openverseCalls = fetchImpl.mock.calls.filter(([input]) =>
+      String(input).startsWith(OPENVERSE_IMAGES_API),
+    );
+    expect(openverseCalls).toHaveLength(1);
   });
 });
