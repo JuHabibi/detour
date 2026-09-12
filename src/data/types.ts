@@ -38,6 +38,12 @@ export type EventItem = {
   price?: number | "free";
   image?: string;
   imageAlt?: string;
+  /** Crédit / auteur de l’image (affichage attribution CC). */
+  imageCredit?: string;
+  /** Licence courte normalisée (ex. CC BY-SA 4.0, CC0, Public Domain). */
+  imageLicense?: string;
+  /** URL de la fiche source de l’image (ex. Commons). */
+  imageSourceUrl?: string;
   description?: string;
   /** Lien source (ex. fiche OpenAgenda). Absent si inconnu. */
   sourceUrl?: string;

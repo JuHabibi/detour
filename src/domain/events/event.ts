@@ -11,6 +11,14 @@ export type DetourEvent = {
   title: string;
   description: string | null;
   imageUrl: string | null;
+  /**
+   * Attribution image (Commons, etc.) — générique, pas lié à une source.
+   * Absents / null si non applicables (fallback local, source sans licence).
+   */
+  imageCredit?: string | null;
+  imageLicense?: string | null;
+  /** Page source de l’image (ex. fiche fichier Wikimedia Commons). */
+  imageSourceUrl?: string | null;
 
   startAt: string;
   endAt: string | null;

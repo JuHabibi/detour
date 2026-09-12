@@ -13,7 +13,8 @@ import {
   bouillonEventIntersectsWindow,
   mapBouillonDetailToDetourEvent,
 } from "./bouillon.mapper";
-import { enrichBouillonDetailImage } from "./bouillon.image";
+import { enrichBouillonEventImage } from "./bouillon.image";
+import type { WikimediaImageHit } from "./bouillon.wikimedia";
 import type {
   BouillonCollectStats,
   BouillonExclusion,
@@ -77,7 +78,6 @@ export async function collectBouillonEvents(
   const resolved = resolveBouillonConfig(config);
   const listItems = await fetchAllBouillonListItems(resolved);
   const exclusions: BouillonExclusion[] = [];
-  const events: DetourEvent[] = [];
 
   const details = await mapPool(
     listItems,
@@ -87,13 +87,15 @@ export async function collectBouillonEvents(
         absoluteBouillonUrl(item.path),
         resolved,
       );
-      const detail = parseBouillonDetail(html, {
+      return parseBouillonDetail(html, {
         fallbackPath: item.path,
         category: item.category,
       });
-      return enrichBouillonDetailImage(detail, resolved);
     },
   );
+
+  const entityCache = new Map<string, WikimediaImageHit | null>();
+  const published: DetourEvent[] = [];
 
   for (const detail of details) {
     const mapped = mapBouillonDetailToDetourEvent(detail);
@@ -113,8 +115,19 @@ export async function collectBouillonEvents(
       continue;
     }
 
-    events.push(mapped.event);
+    published.push(mapped.event);
   }
+
+  const events = await mapPool(
+    published,
+    resolved.detailConcurrency,
+    (event) =>
+      enrichBouillonEventImage(event, {
+        fetchImpl: resolved.fetchImpl,
+        httpTimeoutMs: resolved.httpTimeoutMs,
+        entityCache,
+      }),
+  );
 
   return {
     events,

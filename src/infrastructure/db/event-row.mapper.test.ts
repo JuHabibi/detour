@@ -15,6 +15,9 @@ function sampleEvent(overrides: Partial<DetourEvent> = {}): DetourEvent {
     title: "Concert",
     description: "Desc",
     imageUrl: "https://example.com/a.jpg",
+    imageCredit: null,
+    imageLicense: null,
+    imageSourceUrl: null,
     startAt: "2026-11-12T19:00:00.000Z",
     endAt: "2026-11-12T21:00:00.000Z",
     venue: "CO'Met",
@@ -97,26 +100,40 @@ describe("event-row.mapper", () => {
 
   it("DetourEvent → valeurs upsert ordonnées (pas d’interpolation SQL)", () => {
     const marker = new Date("2026-09-06T12:00:00.000Z");
-    const values = detourEventToUpsertValues("orleans", sampleEvent(), marker);
+    const values = detourEventToUpsertValues(
+      "orleans",
+      sampleEvent({
+        imageCredit: "Alice",
+        imageLicense: "CC BY-SA 4.0",
+        imageSourceUrl: "https://commons.wikimedia.org/wiki/File:Example.jpg",
+      }),
+      marker,
+    );
     expect(values).toHaveLength(UPSERT_EVENT_PARAM_COUNT);
     expect(values[0]).toBe("openagenda:1");
     expect(values[1]).toBe("orleans");
     expect(values[2]).toBe("Concert");
-    expect(values[7]).toBe(false);
-    expect(values[10]).toBe(47.9);
-    expect(values[11]).toBe(1.9);
-    expect(values[18]).toBe("Musique");
-    expect(values[19]).toBe("Orléans");
-    expect(values[20]).toBe(marker.toISOString());
+    expect(values[5]).toBe("Alice");
+    expect(values[6]).toBe("CC BY-SA 4.0");
+    expect(values[7]).toBe("https://commons.wikimedia.org/wiki/File:Example.jpg");
+    expect(values[10]).toBe(false);
+    expect(values[13]).toBe(47.9);
+    expect(values[14]).toBe(1.9);
+    expect(values[21]).toBe("Musique");
+    expect(values[22]).toBe("Orléans");
+    expect(values[23]).toBe(marker.toISOString());
   });
 
   it("SQL upsert : placeholders dynamiques, aucune valeur métier dans le texte", () => {
     const sql = buildUpsertEventsChunkSql(2);
     expect(sql).toContain("$1");
-    expect(sql).toContain("$21");
-    expect(sql).toContain("$22");
-    expect(sql).toContain("$42");
+    expect(sql).toContain("$24");
+    expect(sql).toContain("$25");
+    expect(sql).toContain("$48");
     expect(sql).toContain("all_day");
+    expect(sql).toContain("image_credit");
+    expect(sql).toContain("image_license");
+    expect(sql).toContain("image_source_url");
     expect(sql).toContain("product_category");
     expect(sql).toContain("city_key");
     expect(sql).not.toContain("resolved_latitude");
@@ -134,6 +151,21 @@ describe("event-row.mapper", () => {
       sampleEvent({ allDay: true }),
       new Date("2026-09-06T12:00:00.000Z"),
     );
-    expect(values[7]).toBe(true);
+    expect(values[10]).toBe(true);
+  });
+
+  it("row attribution → DetourEvent + EventItem-ready fields", () => {
+    const event = mapEventRowToDetourEvent(
+      sampleRow({
+        image_credit: "Bob",
+        image_license: "CC BY 4.0",
+        image_source_url: "https://commons.wikimedia.org/wiki/File:X.jpg",
+      }),
+    );
+    expect(event.imageCredit).toBe("Bob");
+    expect(event.imageLicense).toBe("CC BY 4.0");
+    expect(event.imageSourceUrl).toBe(
+      "https://commons.wikimedia.org/wiki/File:X.jpg",
+    );
   });
 });

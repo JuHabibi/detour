@@ -1,253 +1,286 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import { parseBouillonDetail } from "./bouillon.detail-parser";
+import { enrichBouillonEventImage } from "./bouillon.image";
+import { resolveBouillonCategoryFallback } from "./bouillon.category-fallback";
+import { extractBouillonTitleCandidates } from "./bouillon.title-candidates";
 import {
-  BOUILLON_BANNER_ASPECT_RATIO_THRESHOLD,
-  enrichBouillonDetailImage,
-  isBannerLikeUniversityImage,
-  parseBilletwebEventImageUrl,
-  shouldEnrichBouillonImageFromBilletweb,
-} from "./bouillon.image";
-import { mapBouillonDetailToDetourEvent } from "./bouillon.mapper";
-import type { BouillonDetail } from "./bouillon.types";
+  normalizeReusableLicense,
+  searchExactWikidataEntities,
+  lookupWikimediaImageForCandidates,
+} from "./bouillon.wikimedia";
+import type { DetourEvent } from "@/domain/events/event";
+import { WIKIDATA_API, COMMONS_API } from "./bouillon.wikimedia";
 
-const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
-
-function fixture(name: string): string {
-  return readFileSync(join(FIXTURES, name), "utf8");
-}
-
-function detailStub(
-  partial: Partial<BouillonDetail> & Pick<BouillonDetail, "nid" | "title">,
-): BouillonDetail {
+function eventStub(partial: Partial<DetourEvent> & Pick<DetourEvent, "id" | "title">): DetourEvent {
   return {
-    nid: partial.nid,
+    id: partial.id,
     title: partial.title,
-    path: partial.path ?? `/fr/culture/agenda-actualites/${partial.nid}`,
-    canonicalUrl:
-      partial.canonicalUrl ??
-      `https://www.univ-orleans.fr/fr/culture/agenda-actualites/${partial.nid}`,
-    bodyText: partial.bodyText ?? "Description",
+    description: partial.description ?? null,
     imageUrl: partial.imageUrl ?? null,
-    imageWidth: partial.imageWidth ?? null,
-    imageHeight: partial.imageHeight ?? null,
+    imageCredit: partial.imageCredit ?? null,
+    imageLicense: partial.imageLicense ?? null,
+    imageSourceUrl: partial.imageSourceUrl ?? null,
     startAt: partial.startAt ?? "2026-09-17T20:30:00Z",
-    endAt: partial.endAt ?? "2026-09-17T23:30:00Z",
-    latitude: partial.latitude ?? 47.84,
-    longitude: partial.longitude ?? 1.93,
-    registrationUrl: partial.registrationUrl ?? null,
+    endAt: partial.endAt ?? null,
+    venue: partial.venue ?? "Le Bouillon",
+    city: partial.city ?? "Orléans",
+    latitude: partial.latitude ?? null,
+    longitude: partial.longitude ?? null,
     category: partial.category ?? "Spectacle / Concert",
+    genre: partial.genre ?? null,
+    conditions: partial.conditions ?? null,
+    source: partial.source ?? "Université d'Orléans / Le Bouillon",
+    sourceUrl: partial.sourceUrl ?? null,
+    registrationUrl: partial.registrationUrl ?? null,
   };
 }
 
-describe("bouillon university banner heuristic", () => {
-  it(`ratio > ${BOUILLON_BANNER_ASPECT_RATIO_THRESHOLD} → banner-like`, () => {
-    expect(
-      isBannerLikeUniversityImage({
-        imageUrl: "https://www.univ-orleans.fr/upload/public/x.png",
-        imageWidth: 2800,
-        imageHeight: 654,
-      }),
-    ).toBe(true);
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+describe("extractBouillonTitleCandidates", () => {
+  it("split multi-artistes Mona Guba + Imparfait", () => {
+    expect(extractBouillonTitleCandidates("Mona Guba + Imparfait")).toEqual([
+      "Mona Guba",
+      "Imparfait",
+    ]);
   });
 
-  it("photo portrait / 16:9 → pas banner-like", () => {
+  it("extrait l’œuvre entre guillemets", () => {
     expect(
-      isBannerLikeUniversityImage({
-        imageUrl: "https://www.univ-orleans.fr/upload/public/x.png",
-        imageWidth: 1600,
-        imageHeight: 900,
-      }),
-    ).toBe(false);
-    expect(
-      isBannerLikeUniversityImage({
-        imageUrl: "https://www.univ-orleans.fr/upload/public/x.png",
-        imageWidth: 800,
-        imageHeight: 1000,
-      }),
-    ).toBe(false);
-  });
-
-  it("sans dimensions fiables → pas banner-like (pas d’enrichissement)", () => {
-    expect(
-      isBannerLikeUniversityImage({
-        imageUrl: "https://www.univ-orleans.fr/upload/public/x.png",
-        imageWidth: null,
-        imageHeight: null,
-      }),
-    ).toBe(false);
-    expect(
-      shouldEnrichBouillonImageFromBilletweb(
-        detailStub({
-          nid: "1",
-          title: "X",
-          imageUrl: "https://www.univ-orleans.fr/x.png",
-          imageWidth: null,
-          imageHeight: null,
-          registrationUrl: "https://www.billetweb.fr/x",
-        }),
+      extractBouillonTitleCandidates(
+        '"Jesus Christ Superstar" de Norman Jewison',
       ),
-    ).toBe(false);
+    ).toEqual(["Jesus Christ Superstar"]);
   });
 });
 
-describe("parseBilletwebEventImageUrl", () => {
-  it("extrait l’image Event (pas le thumb page) depuis Mona", () => {
-    const url = parseBilletwebEventImageUrl(fixture("billetweb-mona.html"));
-    expect(url).toBe("https://www.billetweb.fr/files/event/150/1425665.jpg");
+describe("normalizeReusableLicense", () => {
+  it("accepte CC0 / PD / CC BY / CC BY-SA", () => {
+    expect(normalizeReusableLicense("CC0")).toBe("CC0");
+    expect(normalizeReusableLicense("Public domain")).toBe("Public Domain");
+    expect(normalizeReusableLicense("CC BY 4.0")).toBe("CC BY 4.0");
+    expect(normalizeReusableLicense("CC BY-SA 4.0")).toBe("CC BY-SA 4.0");
   });
 
-  it("extrait l’image Event depuis Jesus", () => {
-    const url = parseBilletwebEventImageUrl(fixture("billetweb-jesus.html"));
-    expect(url).toBe("https://www.billetweb.fr/files/event/150/1428377.jpg");
+  it("refuse NC / ND / fair use / absente", () => {
+    expect(normalizeReusableLicense("CC BY-NC 4.0")).toBeNull();
+    expect(normalizeReusableLicense("CC BY-ND 3.0")).toBeNull();
+    expect(normalizeReusableLicense("Fair use")).toBeNull();
+    expect(normalizeReusableLicense(null)).toBeNull();
+    expect(normalizeReusableLicense("")).toBeNull();
+  });
+});
+
+describe("resolveBouillonCategoryFallback", () => {
+  it("cinéma → slug cinema + path générique tant que l’asset n’existe pas", () => {
+    const fallback = resolveBouillonCategoryFallback({
+      category: "Cinéma",
+      title: "Film",
+    });
+    expect(fallback.slug).toBe("cinema");
+    expect(fallback.imageUrl).toBe("/images/fallbacks/culture.svg");
   });
 
-  it("sans image event exploitable → null", () => {
+  it("concert → slug concert", () => {
     expect(
-      parseBilletwebEventImageUrl(fixture("billetweb-no-event-image.html")),
-    ).toBeNull();
+      resolveBouillonCategoryFallback({
+        category: "Spectacle / Concert",
+      }).slug,
+    ).toBe("concert");
   });
 });
 
-describe("enrichBouillonDetailImage", () => {
-  it("image Université normale → Billetweb non fetché", async () => {
-    const fetchImpl = vi.fn();
-    const detail = detailStub({
-      nid: "10",
-      title: "Concert normal",
-      imageUrl: "https://www.univ-orleans.fr/upload/public/normal.png",
-      imageWidth: 800,
-      imageHeight: 1000,
-      registrationUrl: "https://www.billetweb.fr/concert-normal",
+describe("wikimedia matching + enrichBouillonEventImage", () => {
+  it("artiste avec image Commons réutilisable → image + crédit + licence + source", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.startsWith(WIKIDATA_API) && url.includes("wbsearchentities")) {
+        return jsonResponse({
+          search: [
+            { id: "Q1", label: "Mona Guba", aliases: [] },
+            { id: "Q99", label: "Mona Guba (autre)", aliases: [] },
+          ],
+        });
+      }
+      if (url.startsWith(WIKIDATA_API) && url.includes("wbgetentities")) {
+        return jsonResponse({
+          entities: {
+            Q1: {
+              claims: {
+                P18: [
+                  {
+                    mainsnak: {
+                      datavalue: { value: "Mona_Guba.jpg" },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        });
+      }
+      if (url.startsWith(COMMONS_API)) {
+        return jsonResponse({
+          query: {
+            pages: {
+              "1": {
+                imageinfo: [
+                  {
+                    url: "https://upload.wikimedia.org/wikipedia/commons/m/mona.jpg",
+                    thumburl:
+                      "https://upload.wikimedia.org/wikipedia/commons/thumb/m/mona.jpg/1280px-mona.jpg",
+                    descriptionurl:
+                      "https://commons.wikimedia.org/wiki/File:Mona_Guba.jpg",
+                    extmetadata: {
+                      LicenseShortName: { value: "CC BY-SA 4.0" },
+                      Artist: { value: "<a href=\"https://example.com\">Jane Doe</a>" },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        });
+      }
+      return jsonResponse({}, 404);
     });
 
-    const enriched = await enrichBouillonDetailImage(detail, {
+    const exact = await searchExactWikidataEntities("Mona Guba", {
       fetchImpl,
       httpTimeoutMs: 5_000,
     });
+    expect(exact).toHaveLength(1);
+    expect(exact[0]?.id).toBe("Q1");
 
-    expect(fetchImpl).not.toHaveBeenCalled();
-    expect(enriched.imageUrl).toBe(detail.imageUrl);
-  });
-
-  it("image banner-like + Billetweb → meilleure image retenue", async () => {
-    const univUrl = "https://www.univ-orleans.fr/upload/public/banner.png";
-    const fetchImpl = vi.fn(async () => {
-      return new Response(fixture("billetweb-mona.html"), { status: 200 });
-    });
-
-    const detail = detailStub({
-      nid: "18149",
-      title: "Mona Guba + Imparfait",
-      imageUrl: univUrl,
-      imageWidth: 2800,
-      imageHeight: 654,
-      registrationUrl: "https://www.billetweb.fr/mona-guba-imparfait",
-      bodyText: "corps",
-      category: "Spectacle / Concert",
-    });
-
-    const enriched = await enrichBouillonDetailImage(detail, {
-      fetchImpl,
-      httpTimeoutMs: 5_000,
-    });
-
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(fetchImpl).toHaveBeenCalledWith(
-      expect.stringContaining("mona-guba-imparfait"),
-      expect.objectContaining({
-        headers: expect.any(Object),
+    const enriched = await enrichBouillonEventImage(
+      eventStub({
+        id: "bouillon:1",
+        title: "Mona Guba + Imparfait",
+        category: "Spectacle / Concert",
       }),
-    );
-    expect(enriched.imageUrl).toBe(
-      "https://www.billetweb.fr/files/event/150/1425665.jpg",
+      { fetchImpl, httpTimeoutMs: 5_000 },
     );
 
-    const before = mapBouillonDetailToDetourEvent(detail);
-    const after = mapBouillonDetailToDetourEvent(enriched);
-    expect(before.ok && after.ok).toBe(true);
-    if (!before.ok || !after.ok) return;
-
-    expect(after.event.imageUrl).toBe(enriched.imageUrl);
-    expect(after.event).toEqual({
-      ...before.event,
-      imageUrl: enriched.imageUrl,
-    });
+    expect(enriched.imageUrl).toContain("upload.wikimedia.org");
+    expect(enriched.imageLicense).toBe("CC BY-SA 4.0");
+    expect(enriched.imageCredit).toBe("Jane Doe");
+    expect(enriched.imageSourceUrl).toBe(
+      "https://commons.wikimedia.org/wiki/File:Mona_Guba.jpg",
+    );
+    expect(enriched.title).toBe("Mona Guba + Imparfait");
+    expect(enriched.venue).toBe("Le Bouillon");
   });
 
-  it("Billetweb indisponible → fallback image Université", async () => {
-    const univUrl = "https://www.univ-orleans.fr/upload/public/banner.png";
-    const fetchImpl = vi.fn(async () => new Response("nope", { status: 503 }));
-    const detail = detailStub({
-      nid: "2",
-      title: "Banner",
-      imageUrl: univUrl,
-      imageWidth: 2800,
-      imageHeight: 654,
-      registrationUrl: "https://www.billetweb.fr/x",
+  it("artiste introuvable → fallback catégorie", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ search: [] }));
+    const enriched = await enrichBouillonEventImage(
+      eventStub({
+        id: "bouillon:2",
+        title: "Groupe Inconnu XYZ",
+        category: "Spectacle / Concert",
+      }),
+      { fetchImpl, httpTimeoutMs: 5_000 },
+    );
+    expect(enriched.imageUrl).toBe("/images/fallbacks/culture.svg");
+    expect(enriched.imageCredit).toBeNull();
+    expect(enriched.imageLicense).toBeNull();
+    expect(enriched.imageSourceUrl).toBeNull();
+  });
+
+  it("résultat ambigu (plusieurs exact match) → fallback catégorie", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("wbsearchentities")) {
+        return jsonResponse({
+          search: [
+            { id: "Q1", label: "Imparfait", aliases: [] },
+            { id: "Q2", label: "Imparfait", aliases: ["Imparfait"] },
+          ],
+        });
+      }
+      return jsonResponse({ search: [] });
     });
 
-    const enriched = await enrichBouillonDetailImage(detail, {
+    const enriched = await enrichBouillonEventImage(
+      eventStub({ id: "bouillon:3", title: "Imparfait" }),
+      { fetchImpl, httpTimeoutMs: 5_000 },
+    );
+    expect(enriched.imageUrl).toBe("/images/fallbacks/culture.svg");
+  });
+
+  it("licence non compatible → fallback catégorie", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("wbsearchentities")) {
+        return jsonResponse({
+          search: [{ id: "Q1", label: "Copycat", aliases: [] }],
+        });
+      }
+      if (url.includes("wbgetentities")) {
+        return jsonResponse({
+          entities: {
+            Q1: {
+              claims: {
+                P18: [{ mainsnak: { datavalue: { value: "Copycat.jpg" } } }],
+              },
+            },
+          },
+        });
+      }
+      if (url.startsWith(COMMONS_API)) {
+        return jsonResponse({
+          query: {
+            pages: {
+              "1": {
+                imageinfo: [
+                  {
+                    url: "https://upload.wikimedia.org/wikipedia/commons/c.jpg",
+                    descriptionurl:
+                      "https://commons.wikimedia.org/wiki/File:Copycat.jpg",
+                    extmetadata: {
+                      LicenseShortName: { value: "CC BY-NC 4.0" },
+                      Artist: { value: "Someone" },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    const hit = await lookupWikimediaImageForCandidates(["Copycat"], {
       fetchImpl,
       httpTimeoutMs: 5_000,
     });
+    expect(hit).toBeNull();
 
-    expect(enriched.imageUrl).toBe(univUrl);
-  });
-
-  it("Billetweb sans image exploitable → fallback image Université", async () => {
-    const univUrl = "https://www.univ-orleans.fr/upload/public/banner.png";
-    const fetchImpl = vi.fn(
-      async () =>
-        new Response(fixture("billetweb-no-event-image.html"), { status: 200 }),
+    const enriched = await enrichBouillonEventImage(
+      eventStub({ id: "bouillon:4", title: "Copycat" }),
+      { fetchImpl, httpTimeoutMs: 5_000 },
     );
-    const detail = detailStub({
-      nid: "3",
-      title: "Banner",
-      imageUrl: univUrl,
-      imageWidth: 2800,
-      imageHeight: 654,
-      registrationUrl: "https://www.billetweb.fr/x",
-    });
-
-    const enriched = await enrichBouillonDetailImage(detail, {
-      fetchImpl,
-      httpTimeoutMs: 5_000,
-    });
-
-    expect(enriched.imageUrl).toBe(univUrl);
+    expect(enriched.imageUrl).toBe("/images/fallbacks/culture.svg");
   });
 
-  it("timeout / erreur réseau → ne fait pas échouer, fallback Université", async () => {
-    const univUrl = "https://www.univ-orleans.fr/upload/public/banner.png";
+  it("erreur réseau Wikimedia → fallback catégorie", async () => {
     const fetchImpl = vi.fn(async () => {
-      throw new Error("timeout");
+      throw new Error("network down");
     });
-    const detail = detailStub({
-      nid: "4",
-      title: "Banner",
-      imageUrl: univUrl,
-      imageWidth: 2800,
-      imageHeight: 654,
-      registrationUrl: "https://www.billetweb.fr/x",
-    });
-
-    await expect(
-      enrichBouillonDetailImage(detail, { fetchImpl, httpTimeoutMs: 5_000 }),
-    ).resolves.toMatchObject({ imageUrl: univUrl });
-  });
-});
-
-describe("detail parser expose les dimensions Université", () => {
-  it("Mona : 2800×654 banner-like", () => {
-    const detail = parseBouillonDetail(fixture("detail-mona.html"), {
-      category: "Spectacle / Concert",
-    });
-    expect(detail.imageWidth).toBe(2800);
-    expect(detail.imageHeight).toBe(654);
-    expect(isBannerLikeUniversityImage(detail)).toBe(true);
-    expect(shouldEnrichBouillonImageFromBilletweb(detail)).toBe(true);
+    const enriched = await enrichBouillonEventImage(
+      eventStub({
+        id: "bouillon:5",
+        title: "Mona Guba",
+        category: "Cinéma",
+      }),
+      { fetchImpl, httpTimeoutMs: 5_000 },
+    );
+    expect(enriched.imageUrl).toBe("/images/fallbacks/culture.svg");
+    expect(enriched.imageLicense).toBeNull();
   });
 });

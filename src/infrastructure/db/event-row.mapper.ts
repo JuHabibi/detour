@@ -8,6 +8,9 @@ export type EventRow = {
   title: string;
   description: string | null;
   image_url: string | null;
+  image_credit?: string | null;
+  image_license?: string | null;
+  image_source_url?: string | null;
   start_at: Date;
   end_at: Date | null;
   all_day?: boolean;
@@ -42,6 +45,12 @@ function toIsoOrNull(value: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
 
+function emptyToNull(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 /** DB row → domaine (sans adapter_id sur DetourEvent). */
 export function mapEventRowToDetourEvent(row: EventRow): DetourEvent {
   return {
@@ -49,6 +58,9 @@ export function mapEventRowToDetourEvent(row: EventRow): DetourEvent {
     title: row.title,
     description: row.description,
     imageUrl: row.image_url,
+    imageCredit: emptyToNull(row.image_credit),
+    imageLicense: emptyToNull(row.image_license),
+    imageSourceUrl: emptyToNull(row.image_source_url),
     startAt: toIso(row.start_at),
     endAt: toIsoOrNull(row.end_at),
     ...(row.all_day ? { allDay: true as const } : {}),
@@ -88,6 +100,9 @@ export function detourEventToUpsertValues(
     event.title,
     event.description,
     event.imageUrl,
+    emptyToNull(event.imageCredit),
+    emptyToNull(event.imageLicense),
+    emptyToNull(event.imageSourceUrl),
     event.startAt,
     event.endAt,
     Boolean(event.allDay),
@@ -107,8 +122,8 @@ export function detourEventToUpsertValues(
   ];
 }
 
-/** 17 champs bruts + all_day + 2 normalisés + last_seen = 21. */
-export const UPSERT_EVENT_PARAM_COUNT = 21;
+/** 18 champs bruts (+ attribution) + all_day + 2 normalisés + last_seen = 24. */
+export const UPSERT_EVENT_PARAM_COUNT = 24;
 
 export function buildUpsertEventPlaceholders(rowIndex: number): string {
   const base = rowIndex * UPSERT_EVENT_PARAM_COUNT;
@@ -135,6 +150,9 @@ INSERT INTO events (
   title,
   description,
   image_url,
+  image_credit,
+  image_license,
+  image_source_url,
   start_at,
   end_at,
   all_day,
@@ -161,6 +179,9 @@ ON CONFLICT (id) DO UPDATE SET
   title = EXCLUDED.title,
   description = EXCLUDED.description,
   image_url = EXCLUDED.image_url,
+  image_credit = EXCLUDED.image_credit,
+  image_license = EXCLUDED.image_license,
+  image_source_url = EXCLUDED.image_source_url,
   start_at = EXCLUDED.start_at,
   end_at = EXCLUDED.end_at,
   all_day = EXCLUDED.all_day,

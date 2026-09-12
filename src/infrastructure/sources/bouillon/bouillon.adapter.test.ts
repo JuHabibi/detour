@@ -74,7 +74,6 @@ describe("bouillon detail parser + mapper", () => {
     expect(detail.title).toContain("Mona Guba");
     expect(detail.startAt).toBe("2026-09-17T20:30:00Z");
     expect(detail.endAt).toBe("2026-09-17T23:30:00Z");
-    expect(detail.imageUrl).toContain("/upload/public/");
     expect(detail.registrationUrl).toBe(
       "https://www.billetweb.fr/mona-guba-imparfait",
     );
@@ -85,6 +84,10 @@ describe("bouillon detail parser + mapper", () => {
     expect(mapped.ok).toBe(true);
     if (!mapped.ok) return;
     expect(mapped.event.id).toBe("bouillon:18149");
+    expect(mapped.event.imageUrl).toBeNull();
+    expect(mapped.event.imageCredit).toBeNull();
+    expect(mapped.event.imageLicense).toBeNull();
+    expect(mapped.event.imageSourceUrl).toBeNull();
     expect(mapped.event.source).toBe("Université d'Orléans / Le Bouillon");
     expect(mapped.event.city).toBe("Orléans");
     expect(mapped.event.venue).toBe("Le Bouillon");
@@ -142,6 +145,16 @@ describe("bouillon adapter pagination + window", () => {
 
     const fetchImpl = vi.fn(async (input: string | URL) => {
       const url = String(input);
+      if (
+        url.includes("wikidata.org") ||
+        url.includes("wikimedia.org") ||
+        url.includes("commons.wikimedia.org")
+      ) {
+        return new Response(JSON.stringify({ search: [], query: { pages: {} } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
       if (url.includes("agenda-actualites") && !url.match(/agenda-actualites\/[^/?]+/)) {
         if (url.includes("page=1")) {
           return new Response(list1, { status: 200 });

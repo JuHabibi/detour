@@ -49,15 +49,42 @@ describe("mapDetourEventToEventItem — catégorie UI", () => {
     expect(item.relevance).toBe("out_of_scope");
   });
 
-  it("culture → taxonomy normale", () => {
+  it("propage imageCredit / imageLicense / imageSourceUrl vers EventItem", () => {
     const item = mapDetourEventToEventItem(
       baseEvent({
-        id: "c1",
-        title: "Concert jazz",
-        relevance: "culture",
+        id: "img-attr",
+        title: "Concert",
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/x.jpg",
+        imageCredit: "Jane Doe",
+        imageLicense: "CC BY-SA 4.0",
+        imageSourceUrl: "https://commons.wikimedia.org/wiki/File:X.jpg",
       }),
     );
-    expect(item.category).toBe("Musique");
+    expect(item.image).toBe(
+      "https://upload.wikimedia.org/wikipedia/commons/x.jpg",
+    );
+    expect(item.imageCredit).toBe("Jane Doe");
+    expect(item.imageLicense).toBe("CC BY-SA 4.0");
+    expect(item.imageSourceUrl).toBe(
+      "https://commons.wikimedia.org/wiki/File:X.jpg",
+    );
+  });
+
+  it("rejette une ancienne URL Billetweb → fallback local sans attribution", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "billetweb-stale",
+        title: "Concert",
+        imageUrl: "https://www.billetweb.fr/files/event/150/1437112.jpg",
+        imageCredit: "should-not-leak",
+        imageLicense: "CC BY",
+        imageSourceUrl: "https://www.billetweb.fr/x",
+      }),
+    );
+    expect(item.image).toBe("/images/fallbacks/culture.svg");
+    expect(item.imageCredit).toBeUndefined();
+    expect(item.imageLicense).toBeUndefined();
+    expect(item.imageSourceUrl).toBeUndefined();
   });
 
   it("culture_leisure → taxonomy normale", () => {
