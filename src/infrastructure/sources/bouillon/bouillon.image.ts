@@ -1,5 +1,11 @@
 import type { DetourEvent } from "@/domain/events/event";
 import { resolveBouillonCategoryFallback } from "./bouillon.category-fallback";
+import {
+  logBouillonImageDebug,
+  shouldDebugBouillonImage,
+  type BouillonImageCandidateDebug,
+  type BouillonImageDebugReason,
+} from "./bouillon.image-debug";
 import { extractBouillonTitleCandidates } from "./bouillon.title-candidates";
 import {
   lookupWikimediaImageForCandidates,
@@ -23,29 +29,60 @@ export async function enrichBouillonEventImage(
   config: BouillonImageEnrichConfig,
 ): Promise<DetourEvent> {
   const candidates = extractBouillonTitleCandidates(event.title);
+  const debug = shouldDebugBouillonImage(event.title);
+  const debugTraces: BouillonImageCandidateDebug[] | undefined = debug
+    ? []
+    : undefined;
+
+  let wikimedia: WikimediaImageHit | null = null;
+  let lookupError = false;
 
   try {
-    const wikimedia = await lookupWikimediaImageForCandidates(
-      candidates,
-      config,
-    );
-    if (wikimedia) {
-      return {
-        ...event,
-        imageUrl: wikimedia.imageUrl,
-        imageCredit: wikimedia.imageCredit,
-        imageLicense: wikimedia.imageLicense,
-        imageSourceUrl: wikimedia.imageSourceUrl,
-      };
-    }
+    wikimedia = await lookupWikimediaImageForCandidates(candidates, {
+      ...config,
+      eventCategory: event.category,
+      debugTraces,
+    });
   } catch {
+    lookupError = true;
     // best-effort → fallback
+  }
+
+  if (wikimedia) {
+    if (debug) {
+      logBouillonImageDebug({
+        title: event.title,
+        candidates,
+        candidateTraces: debugTraces ?? [],
+        result: "wikimedia",
+        reason: "accepted",
+        imageUrl: wikimedia.imageUrl,
+      });
+    }
+    return {
+      ...event,
+      imageUrl: wikimedia.imageUrl,
+      imageCredit: wikimedia.imageCredit,
+      imageLicense: wikimedia.imageLicense,
+      imageSourceUrl: wikimedia.imageSourceUrl,
+    };
   }
 
   const fallback = resolveBouillonCategoryFallback({
     category: event.category,
     title: event.title,
   });
+
+  if (debug) {
+    logBouillonImageDebug({
+      title: event.title,
+      candidates,
+      candidateTraces: debugTraces ?? [],
+      result: "fallback",
+      reason: resolveFallbackReason(candidates, debugTraces, lookupError),
+      imageUrl: fallback.imageUrl,
+    });
+  }
 
   return {
     ...event,
@@ -54,4 +91,16 @@ export async function enrichBouillonEventImage(
     imageLicense: null,
     imageSourceUrl: null,
   };
+}
+
+function resolveFallbackReason(
+  candidates: string[],
+  traces: BouillonImageCandidateDebug[] | undefined,
+  lookupError: boolean,
+): BouillonImageDebugReason {
+  if (lookupError) return "lookup_error";
+  if (candidates.length === 0) return "no_candidate";
+  if (!traces || traces.length === 0) return "all_candidates_rejected";
+  // Dernier candidat = étape la plus avancée souvent ; sinon première raison.
+  return traces[traces.length - 1]?.reason ?? "all_candidates_rejected";
 }

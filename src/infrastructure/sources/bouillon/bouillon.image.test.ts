@@ -110,6 +110,21 @@ describe("extractBouillonTitleCandidates", () => {
       ),
     ).toEqual(["Jesus Christ Superstar"]);
   });
+
+  it("extrait le nom après avec en priorité", () => {
+    expect(
+      extractBouillonTitleCandidates("Apéro-concert avec Lucas Santtana"),
+    ).toEqual([
+      "Lucas Santtana",
+      "Apéro-concert avec Lucas Santtana",
+    ]);
+  });
+
+  it("extrait le nom après with en priorité", () => {
+    expect(
+      extractBouillonTitleCandidates("Live with Jane Doe"),
+    ).toEqual(["Jane Doe", "Live with Jane Doe"]);
+  });
 });
 
 describe("normalizeReusableLicense", () => {
@@ -416,11 +431,155 @@ describe("wikimedia matching + enrichBouillonEventImage", () => {
           ],
         });
       }
+      if (url.includes("wbgetentities")) {
+        return jsonResponse({
+          entities: {
+            Q1: { claims: { P31: [p31("Q5")], P18: [p18("A.jpg")] } },
+            Q2: { claims: { P31: [p31("Q5")], P18: [p18("B.jpg")] } },
+          },
+        });
+      }
       return jsonResponse({ search: [] });
     });
 
     const enriched = await enrichBouillonEventImage(
       eventStub({ id: "bouillon:3", title: "Imparfait" }),
+      { fetchImpl, httpTimeoutMs: 5_000 },
+    );
+    expect(enriched.imageUrl).toBe("/images/fallbacks/culture.svg");
+  });
+
+  it("plusieurs exact match + un seul P31 compatible → accepté", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("wbsearchentities")) {
+        return jsonResponse({
+          search: [
+            { id: "Q1", label: "The Thing", aliases: [] },
+            { id: "Q2", label: "The Thing", aliases: [] },
+            { id: "Q3", label: "The Thing", aliases: [] },
+          ],
+        });
+      }
+      if (url.includes("wbgetentities")) {
+        return jsonResponse({
+          entities: {
+            Q1: { claims: { P31: [p31("Q515")] } }, // city — hors allowlist
+            Q2: {
+              claims: {
+                P31: [p31("Q11424")],
+                P18: [p18("The_Thing.jpg")],
+              },
+            },
+            Q3: { claims: { P31: [p31("Q1656682")] } }, // event
+          },
+        });
+      }
+      if (url.startsWith(COMMONS_API)) {
+        return jsonResponse(
+          commonsPage({ license: "CC BY-SA 4.0", artist: "Poster Archive" }),
+        );
+      }
+      return jsonResponse({}, 404);
+    });
+
+    const hit = await lookupWikimediaImageForCandidates(["The Thing"], {
+      fetchImpl,
+      httpTimeoutMs: 5_000,
+    });
+    expect(hit?.entityId).toBe("Q2");
+    expect(hit?.imageLicense).toBe("CC BY-SA 4.0");
+    expect(hit?.imageCredit).toBe("Poster Archive");
+  });
+
+  it("Cinéma : film + personne après P31 → garde le film", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("wbsearchentities")) {
+        return jsonResponse({
+          search: [
+            { id: "Qfilm", label: "Navalny", aliases: [] },
+            { id: "Qperson", label: "Navalny", aliases: [] },
+          ],
+        });
+      }
+      if (url.includes("wbgetentities")) {
+        return jsonResponse({
+          entities: {
+            Qfilm: {
+              claims: {
+                P31: [p31("Q11424")],
+                P18: [p18("Navalny.jpg")],
+              },
+            },
+            Qperson: {
+              claims: {
+                P31: [p31("Q5")],
+                P18: [p18("Person.jpg")],
+              },
+            },
+          },
+        });
+      }
+      if (url.startsWith(COMMONS_API)) {
+        return jsonResponse(
+          commonsPage({ license: "CC BY 4.0", artist: "Doc Crew" }),
+        );
+      }
+      return jsonResponse({}, 404);
+    });
+
+    const enriched = await enrichBouillonEventImage(
+      eventStub({
+        id: "bouillon:navalny",
+        title: '"Navalny" de Daniel Roher',
+        category: "Cinéma",
+      }),
+      { fetchImpl, httpTimeoutMs: 5_000 },
+    );
+    expect(enriched.imageUrl).toContain("upload.wikimedia.org");
+    expect(enriched.imageLicense).toBe("CC BY 4.0");
+    expect(enriched.imageCredit).toBe("Doc Crew");
+  });
+
+  it("Cinéma : plusieurs films après filtre → fallback", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("wbsearchentities")) {
+        return jsonResponse({
+          search: [
+            { id: "Qa", label: "The Thing", aliases: [] },
+            { id: "Qb", label: "The Thing", aliases: [] },
+          ],
+        });
+      }
+      if (url.includes("wbgetentities")) {
+        return jsonResponse({
+          entities: {
+            Qa: {
+              claims: {
+                P31: [p31("Q11424")],
+                P18: [p18("A.jpg")],
+              },
+            },
+            Qb: {
+              claims: {
+                P31: [p31("Q11424")],
+                P18: [p18("B.jpg")],
+              },
+            },
+          },
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    const enriched = await enrichBouillonEventImage(
+      eventStub({
+        id: "bouillon:thing",
+        title: '"The Thing" de John Carpenter',
+        category: "Cinéma",
+      }),
       { fetchImpl, httpTimeoutMs: 5_000 },
     );
     expect(enriched.imageUrl).toBe("/images/fallbacks/culture.svg");

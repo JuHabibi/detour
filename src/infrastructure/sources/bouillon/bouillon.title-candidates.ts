@@ -1,6 +1,6 @@
 /**
  * Heuristique simple : candidats artiste/œuvre depuis un titre Bouillon.
- * Pas de NLP — split explicite + titres entre guillemets.
+ * Pas de NLP — split explicite + titres entre guillemets + nom après avec/with.
  */
 export function extractBouillonTitleCandidates(title: string): string[] {
   const trimmed = title.trim();
@@ -18,6 +18,11 @@ export function extractBouillonTitleCandidates(title: string): string[] {
       pushUnique(candidates, fromQuotes);
       continue;
     }
+
+    const guest = extractAvecGuest(segment);
+    if (guest) {
+      pushUnique(candidates, guest);
+    }
     pushUnique(candidates, stripOuterQuotes(segment));
   }
 
@@ -31,6 +36,14 @@ function extractQuotedWork(segment: string): string | null {
     ) ?? /^[«"“](.+?)[»"”]\s*$/u.exec(segment);
   if (!match) return null;
   return stripOuterQuotes(match[1]!).trim() || null;
+}
+
+/** « Apéro-concert avec Lucas Santtana » → Lucas Santtana (prioritaire). */
+function extractAvecGuest(segment: string): string | null {
+  const match = /\b(?:avec|with)\s+(.+)$/iu.exec(segment);
+  if (!match) return null;
+  const name = stripOuterQuotes(match[1]!).trim();
+  return name.length >= 2 ? name : null;
 }
 
 function stripOuterQuotes(value: string): string {
