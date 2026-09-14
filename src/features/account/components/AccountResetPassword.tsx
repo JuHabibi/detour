@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { resetPasswordWithToken } from "@/app/actions/account-auth";
+import { authClient } from "@/features/account/auth-client";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
 
 const fieldClassName =
@@ -38,12 +38,12 @@ export function AccountResetPassword() {
 
     setPending(true);
     try {
-      const result = await resetPasswordWithToken({
+      const result = await authClient.resetPassword({
         newPassword: password,
         token,
       });
-      if (!result.ok) {
-        setError(result.error);
+      if (result.error) {
+        setError("Impossible de réinitialiser le mot de passe. Réessayez.");
         return;
       }
       router.push("/account/login");

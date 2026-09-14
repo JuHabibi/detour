@@ -3,11 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { signInWithEmail } from "@/app/actions/account-auth";
+import { authClient } from "@/features/account/auth-client";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
 
 const fieldClassName =
   "mt-2 h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint";
+
+const AUTH_ERROR_MESSAGE =
+  "Impossible de se connecter. Vérifiez votre email et votre mot de passe.";
+
+const showForgotPassword = process.env.NODE_ENV !== "production";
 
 export function AccountLogin() {
   const router = useRouter();
@@ -21,20 +26,18 @@ export function AccountLogin() {
     setError(null);
     setPending(true);
     try {
-      const result = await signInWithEmail({
+      const result = await authClient.signIn.email({
         email: email.trim(),
         password,
       });
-      if (!result.ok) {
-        setError(result.error);
+      if (result.error) {
+        setError(AUTH_ERROR_MESSAGE);
         return;
       }
       router.push("/account");
       router.refresh();
     } catch {
-      setError(
-        "Impossible de se connecter. Vérifiez votre email et votre mot de passe.",
-      );
+      setError(AUTH_ERROR_MESSAGE);
     } finally {
       setPending(false);
     }
@@ -86,14 +89,16 @@ export function AccountLogin() {
           />
         </label>
 
-        <div className="flex justify-end">
-          <Link
-            href="/account/forgot-password"
-            className="text-[12px] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-ink"
-          >
-            Mot de passe oublié ?
-          </Link>
-        </div>
+        {showForgotPassword ? (
+          <div className="flex justify-end">
+            <Link
+              href="/account/forgot-password"
+              className="text-[12px] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-ink"
+            >
+              Mot de passe oublié ?
+            </Link>
+          </div>
+        ) : null}
 
         {error ? (
           <p className="text-sm text-coral" role="alert">

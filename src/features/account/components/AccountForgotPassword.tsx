@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { requestPasswordReset } from "@/app/actions/account-auth";
+import { authClient } from "@/features/account/auth-client";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
 
 const fieldClassName =
@@ -19,12 +19,14 @@ export function AccountForgotPassword() {
     setError(null);
     setPending(true);
     try {
-      const result = await requestPasswordReset({
+      const result = await authClient.requestPasswordReset({
         email: email.trim(),
         redirectTo: `${window.location.origin}/account/reset-password`,
       });
-      if (!result.ok) {
-        setError(result.error);
+      if (result.error) {
+        setError(
+          "Impossible d’envoyer la demande pour le moment. Réessayez plus tard.",
+        );
         return;
       }
       setDone(true);

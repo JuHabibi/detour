@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
+import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import { AccountSignup } from "@/features/account/components/AccountSignup";
 import { AccountShell } from "@/features/account/components/AccountShell";
-import { getAccountAuthState } from "@/infrastructure/auth/get-account-auth-state";
 
 export default async function AccountSignupPage() {
   const auth = await getAccountAuthState();
@@ -10,7 +10,7 @@ export default async function AccountSignupPage() {
   }
 
   return (
-    <AccountShell accountLabel="Créer un compte">
+    <AccountShell>
       <AccountSignup />
     </AccountShell>
   );

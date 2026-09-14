@@ -6,7 +6,6 @@ import type { EventItem } from "@/data/types";
 type AccountAddToAgendaModalProps = {
   event: EventItem;
   onClose: () => void;
-  /** Maquette : pas de génération ICS réelle. */
   onConfirm: () => void;
 };
 
