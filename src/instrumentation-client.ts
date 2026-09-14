@@ -19,19 +19,34 @@ if (posthogKey) {
     posthog.init(posthogKey, {
       api_host: posthogHost,
       defaults: "2026-05-30",
+      // Produit Détour = captures explicites uniquement (voir `captureProductEvent`).
+      autocapture: false,
+      capture_pageview: false,
+      capture_pageleave: false,
+      disable_session_recording: true,
+      disable_surveys: true,
+      disable_surveys_automatic_display: true,
+      disable_product_tours: true,
+      disable_conversations: true,
+      // Pas de flags / surveys / remote config replay — coupe l’appel `/flags/`.
+      advanced_disable_flags: true,
+      rageclick: false,
+      capture_heatmaps: false,
+      // Web vitals / perf network : non utilisés.
+      capture_performance: false,
+      opt_in_site_apps: false,
+      // Évite le `$set` auto « test user » sur localhost (defaults >= 2026-01-30).
+      internal_or_test_user_hostname: null,
     });
   } catch (error) {
     console.error("[detour] PostHog init failed", error);
   }
 }
 
-export function onRouterTransitionStart(url: string): void {
-  if (!posthogKey) return;
-  try {
-    posthog.capture("$pageview", {
-      $current_url: url,
-    });
-  } catch (error) {
-    console.error("[detour] PostHog pageview failed", error);
-  }
+/**
+ * Soft navigations Next — pas de `$pageview` automatique ni explicite.
+ * Les métriques utiles passent par `radar_event_opened` / `explorer_event_opened` / `filter_changed`.
+ */
+export function onRouterTransitionStart(_url: string): void {
+  // no-op (pageviews désactivés volontairement)
 }
