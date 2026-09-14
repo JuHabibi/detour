@@ -4,9 +4,10 @@ import { headers } from "next/headers";
 import type { AccountAuthState } from "@/features/account/account-auth-state";
 import { auth } from "@/infrastructure/auth/auth";
 
-export type { AccountAuthState, AccountAuthUser } from "@/features/account/account-auth-state";
-
-/** Session Better Auth → DTO plat pour la boundary app / features. */
+/**
+ * Session Better Auth (Next headers) → DTO plat pour les pages Account.
+ * Boundary app : compose infrastructure + features DTO.
+ */
 export async function getAccountAuthState(): Promise<AccountAuthState> {
   const session = await auth.api.getSession({
     headers: await headers(),

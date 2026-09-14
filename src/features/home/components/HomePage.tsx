@@ -19,6 +19,8 @@ const HomeDebugSection = dynamic(
 );
 
 type HomePageProps = {
+  /** Label Header Account — déterminé côté serveur (session). */
+  accountLabel: string;
   /** Highlights radar — indépendants des filtres d’exploration. */
   highlights: EventItem[];
   /**
@@ -38,6 +40,7 @@ type HomePageProps = {
 };
 
 export function HomePage({
+  accountLabel,
   highlights,
   planningEvents: _planningEvents,
   explorer,
@@ -74,7 +77,7 @@ export function HomePage({
 
   return (
     <div id="top" className="min-h-screen bg-paper">
-      <Header favoriteCount={favorites.size} />
+      <Header favoriteCount={favorites.size} accountLabel={accountLabel} />
       <main>
         <HeroFilters />
         <DetourSection

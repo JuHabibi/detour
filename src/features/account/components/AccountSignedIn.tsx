@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { signOutAccount } from "@/app/actions/account-auth";
 import type { EventItem } from "@/data/types";
+import { authClient } from "@/features/account/auth-client";
 import { AccountAddToAgendaModal } from "@/features/account/components/AccountAddToAgendaModal";
 import { AccountEmptyFavorites } from "@/features/account/components/AccountEmptyFavorites";
 import { AccountFavoriteCard } from "@/features/account/components/AccountFavoriteCard";
@@ -27,6 +27,7 @@ export function AccountSignedIn({
   const [agendaEvent, setAgendaEvent] = useState<EventItem | null>(null);
   const [agendaNotice, setAgendaNotice] = useState<string | null>(null);
   const [logoutPending, setLogoutPending] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const countLabel = useMemo(() => {
     const n = favorites.length;
@@ -56,10 +57,17 @@ export function AccountSignedIn({
 
   async function handleLogout() {
     setLogoutPending(true);
+    setLogoutError(null);
     try {
-      await signOutAccount();
+      const result = await authClient.signOut();
+      if (result.error) {
+        setLogoutError("Impossible de se déconnecter. Réessayez.");
+        return;
+      }
       router.push("/account");
       router.refresh();
+    } catch {
+      setLogoutError("Impossible de se déconnecter. Réessayez.");
     } finally {
       setLogoutPending(false);
     }
@@ -97,6 +105,11 @@ export function AccountSignedIn({
           >
             {logoutPending ? "Déconnexion…" : "Se déconnecter"}
           </button>
+          {logoutError ? (
+            <p className="mt-2 text-sm text-coral" role="alert">
+              {logoutError}
+            </p>
+          ) : null}
         </div>
       </div>
 

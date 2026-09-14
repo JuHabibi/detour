@@ -13,8 +13,8 @@ vi.mock("@/infrastructure/auth/auth", () => ({
 }));
 
 import { headers } from "next/headers";
+import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import { auth } from "@/infrastructure/auth/auth";
-import { getAccountAuthState } from "@/infrastructure/auth/get-account-auth-state";
 
 describe("getAccountAuthState", () => {
   beforeEach(() => {

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
+import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import { AccountLogin } from "@/features/account/components/AccountLogin";
 import { AccountShell } from "@/features/account/components/AccountShell";
-import { getAccountAuthState } from "@/infrastructure/auth/get-account-auth-state";
 
 export default async function AccountLoginPage() {
   const auth = await getAccountAuthState();
@@ -10,7 +10,7 @@ export default async function AccountLoginPage() {
   }
 
   return (
-    <AccountShell accountLabel="Se connecter">
+    <AccountShell>
       <AccountLogin />
     </AccountShell>
   );

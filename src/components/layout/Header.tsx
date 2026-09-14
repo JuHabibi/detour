@@ -8,7 +8,7 @@ type HeaderProps = {
   favoriteCount: number;
   /** Lien logo — `#top` sur la home, `/` ailleurs. */
   homeHref?: string;
-  /** Entrée Account (maquette). */
+  /** Entrée Account. */
   accountHref?: string;
   accountLabel?: string;
 };

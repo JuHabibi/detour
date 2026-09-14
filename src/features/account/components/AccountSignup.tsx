@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { signUpWithEmail } from "@/app/actions/account-auth";
+import { authClient } from "@/features/account/auth-client";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
 
 const fieldClassName =
   "mt-2 h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint";
+
+const AUTH_ERROR_MESSAGE =
+  "Impossible de créer le compte. Vérifiez vos informations ou réessayez.";
 
 export function AccountSignup() {
   const router = useRouter();
@@ -33,21 +36,19 @@ export function AccountSignup() {
 
     setPending(true);
     try {
-      const result = await signUpWithEmail({
+      const result = await authClient.signUp.email({
         name: name.trim(),
         email: email.trim(),
         password,
       });
-      if (!result.ok) {
-        setError(result.error);
+      if (result.error) {
+        setError(AUTH_ERROR_MESSAGE);
         return;
       }
       router.push("/account");
       router.refresh();
     } catch {
-      setError(
-        "Impossible de créer le compte. Vérifiez vos informations ou réessayez.",
-      );
+      setError(AUTH_ERROR_MESSAGE);
     } finally {
       setPending(false);
     }

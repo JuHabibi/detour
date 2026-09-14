@@ -5,6 +5,7 @@ import {
   mapDetourEventToEventItem,
   mapDetourHighlightToEventItem,
 } from "@/application/map-detour-event-to-ui";
+import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import { getAiConfig } from "@/config/ai-config";
 import { shouldExposeHomeDebug } from "@/config/home-debug";
 import { createHighlightAssessmentProvider } from "@/infrastructure/ai/create-highlight-assessment-provider";
@@ -26,7 +27,7 @@ const eventService = new EventService(
   },
 );
 
-/** Charge les données Home (radar, explorer, debug) pour `page.tsx`. */
+/** Charge les données Home (radar, explorer, debug, label Account) pour `page.tsx`. */
 export async function loadHomePage() {
   const from = new Date();
   const to = new Date(from);
@@ -34,12 +35,15 @@ export async function loadHomePage() {
 
   const exposeDebug = shouldExposeHomeDebug();
 
-  const [result, explorerPage] = await Promise.all([
+  const [result, explorerPage, auth] = await Promise.all([
     eventService.getUpcomingEvents({ from, to }),
     listExplorerEvents({ when: "weekend", limit: 12 }),
+    getAccountAuthState(),
   ]);
 
   return {
+    accountLabel:
+      auth.status === "authenticated" ? "Mon compte" : "Se connecter",
     highlights: result.highlights.map((highlight) =>
       mapDetourHighlightToEventItem(highlight),
     ),
