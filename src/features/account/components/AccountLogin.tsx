@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
+import { signInWithEmail } from "@/app/actions/account-auth";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
 
 const fieldClassName =
@@ -12,11 +13,31 @@ export function AccountLogin() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // Maquette — aucune auth réelle.
-    router.push("/account?state=signed-in");
+    setError(null);
+    setPending(true);
+    try {
+      const result = await signInWithEmail({
+        email: email.trim(),
+        password,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      router.push("/account");
+      router.refresh();
+    } catch {
+      setError(
+        "Impossible de se connecter. Vérifiez votre email et votre mot de passe.",
+      );
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -40,6 +61,7 @@ export function AccountLogin() {
             type="email"
             name="email"
             autoComplete="email"
+            required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="vous@exemple.fr"
@@ -55,6 +77,8 @@ export function AccountLogin() {
             type="password"
             name="password"
             autoComplete="current-password"
+            required
+            minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
@@ -63,34 +87,37 @@ export function AccountLogin() {
         </label>
 
         <div className="flex justify-end">
-          <button
-            type="button"
+          <Link
+            href="/account/forgot-password"
             className="text-[12px] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-ink"
           >
             Mot de passe oublié ?
-          </button>
+          </Link>
         </div>
+
+        {error ? (
+          <p className="text-sm text-coral" role="alert">
+            {error}
+          </p>
+        ) : null}
 
         <button
           type="submit"
-          className="inline-flex min-h-11 w-full items-center justify-center bg-mint px-5 text-sm font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam sm:w-auto"
+          disabled={pending}
+          className="inline-flex min-h-11 w-full items-center justify-center bg-mint px-5 text-sm font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam disabled:opacity-60 sm:w-auto"
         >
-          Se connecter
+          {pending ? "Connexion…" : "Se connecter"}
         </button>
       </form>
 
       <p className="mt-8 text-sm text-cream-dim">
         Pas encore de compte ?{" "}
         <Link
-          href="/account?state=signup"
+          href="/account/signup"
           className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral"
         >
           Créer un compte
         </Link>
-      </p>
-
-      <p className="mt-4 text-[12px] leading-5 text-sand">
-        Maquette — aucune authentification réelle.
       </p>
     </AccountAuthLayout>
   );

@@ -1,10 +1,14 @@
 import Link from "next/link";
 
 type AccountSignedOutProps = {
-  onSignInHref: string;
+  onSignInHref?: string;
+  onSignUpHref?: string;
 };
 
-export function AccountSignedOut({ onSignInHref }: AccountSignedOutProps) {
+export function AccountSignedOut({
+  onSignInHref = "/account/login",
+  onSignUpHref = "/account/signup",
+}: AccountSignedOutProps) {
   return (
     <div className="max-w-xl">
       <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-sand">
@@ -33,16 +37,19 @@ export function AccountSignedOut({ onSignInHref }: AccountSignedOutProps) {
         </li>
       </ul>
 
-      <div className="mt-10 md:mt-12">
+      <div className="mt-10 flex flex-wrap gap-3 md:mt-12">
         <Link
           href={onSignInHref}
           className="inline-flex min-h-11 items-center bg-mint px-5 text-sm font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam"
         >
           Se connecter
         </Link>
-        <p className="mt-4 text-[12px] leading-5 text-sand">
-          Maquette — aucune authentification réelle.
-        </p>
+        <Link
+          href={onSignUpHref}
+          className="inline-flex min-h-11 items-center border border-line px-5 text-sm font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:border-ink"
+        >
+          Créer un compte
+        </Link>
       </div>
     </div>
   );

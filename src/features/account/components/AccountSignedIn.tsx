@@ -1,24 +1,32 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { signOutAccount } from "@/app/actions/account-auth";
 import type { EventItem } from "@/data/types";
 import { AccountAddToAgendaModal } from "@/features/account/components/AccountAddToAgendaModal";
 import { AccountEmptyFavorites } from "@/features/account/components/AccountEmptyFavorites";
 import { AccountFavoriteCard } from "@/features/account/components/AccountFavoriteCard";
-import type { AccountMockUser } from "@/features/account/mock/account-mock";
+
+export type AccountUserView = {
+  name: string;
+  email: string;
+};
 
 type AccountSignedInProps = {
-  user: AccountMockUser;
-  initialFavorites: EventItem[];
+  user: AccountUserView;
+  initialFavorites?: EventItem[];
 };
 
 export function AccountSignedIn({
   user,
-  initialFavorites,
+  initialFavorites = [],
 }: AccountSignedInProps) {
+  const router = useRouter();
   const [favorites, setFavorites] = useState(initialFavorites);
   const [agendaEvent, setAgendaEvent] = useState<EventItem | null>(null);
   const [agendaNotice, setAgendaNotice] = useState<string | null>(null);
+  const [logoutPending, setLogoutPending] = useState(false);
 
   const countLabel = useMemo(() => {
     const n = favorites.length;
@@ -46,6 +54,17 @@ export function AccountSignedIn({
     setAgendaEvent(null);
   }
 
+  async function handleLogout() {
+    setLogoutPending(true);
+    try {
+      await signOutAccount();
+      router.push("/account");
+      router.refresh();
+    } finally {
+      setLogoutPending(false);
+    }
+  }
+
   return (
     <div>
       <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between md:gap-10">
@@ -64,12 +83,20 @@ export function AccountSignedIn({
 
         <div className="shrink-0 md:pb-1 md:text-right">
           <p className="font-display text-lg tracking-tight text-ink">
-            {user.displayName}
+            {user.name}
           </p>
           <p className="mt-1 text-[12px] text-sand">{user.email}</p>
           <p className="mt-3 text-[12px] uppercase tracking-[0.12em] text-sand">
             {countLabel}
           </p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={logoutPending}
+            className="mt-4 text-[12px] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-ink disabled:opacity-60"
+          >
+            {logoutPending ? "Déconnexion…" : "Se déconnecter"}
+          </button>
         </div>
       </div>
 
