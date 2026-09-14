@@ -1,18 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { signUpWithEmail } from "@/app/actions/account-auth";
+import { resetPasswordWithToken } from "@/app/actions/account-auth";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
 
 const fieldClassName =
   "mt-2 h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint";
 
-export function AccountSignup() {
+export function AccountResetPassword() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token")?.trim() || "";
+
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +23,10 @@ export function AccountSignup() {
     event.preventDefault();
     setError(null);
 
+    if (!token) {
+      setError("Lien de réinitialisation invalide ou expiré.");
+      return;
+    }
     if (password !== confirm) {
       setError("Les mots de passe ne correspondent pas.");
       return;
@@ -33,75 +38,39 @@ export function AccountSignup() {
 
     setPending(true);
     try {
-      const result = await signUpWithEmail({
-        name: name.trim(),
-        email: email.trim(),
-        password,
+      const result = await resetPasswordWithToken({
+        newPassword: password,
+        token,
       });
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      router.push("/account");
+      router.push("/account/login");
       router.refresh();
     } catch {
-      setError(
-        "Impossible de créer le compte. Vérifiez vos informations ou réessayez.",
-      );
+      setError("Impossible de réinitialiser le mot de passe. Réessayez.");
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <AccountAuthLayout variant="signup">
+    <AccountAuthLayout variant="login">
       <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-sand">
-        Création de compte
+        Nouveau mot de passe
       </p>
       <h1 className="mt-4 font-display text-[2.1rem] leading-[1.02] tracking-tight text-ink md:mt-5 md:text-[2.75rem] lg:text-[3rem]">
-        Gardez ce qui compte.
+        Choisissez un mot de passe.
       </h1>
       <p className="mt-5 text-sm leading-6 text-cream-dim md:mt-6">
-        Un compte simple pour retrouver vos favoris et les glisser dans votre
-        agenda.
+        Saisissez un nouveau mot de passe pour votre compte Détour.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-10 space-y-5 md:mt-12">
         <label className="block">
           <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand">
-            Nom
-          </span>
-          <input
-            type="text"
-            name="name"
-            autoComplete="name"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Camille R."
-            className={fieldClassName}
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand">
-            Email
-          </span>
-          <input
-            type="email"
-            name="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="vous@exemple.fr"
-            className={fieldClassName}
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand">
-            Mot de passe
+            Nouveau mot de passe
           </span>
           <input
             type="password"
@@ -118,7 +87,7 @@ export function AccountSignup() {
 
         <label className="block">
           <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand">
-            Confirmer le mot de passe
+            Confirmer
           </span>
           <input
             type="password"
@@ -141,20 +110,19 @@ export function AccountSignup() {
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || !token}
           className="inline-flex min-h-11 w-full items-center justify-center bg-mint px-5 text-sm font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam disabled:opacity-60 sm:w-auto"
         >
-          {pending ? "Création…" : "Créer mon compte"}
+          {pending ? "Enregistrement…" : "Enregistrer"}
         </button>
       </form>
 
       <p className="mt-8 text-sm text-cream-dim">
-        Déjà inscrit ?{" "}
         <Link
           href="/account/login"
           className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral"
         >
-          J’ai déjà un compte
+          Retour à la connexion
         </Link>
       </p>
     </AccountAuthLayout>
