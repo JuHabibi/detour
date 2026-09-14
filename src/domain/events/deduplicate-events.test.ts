@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { deduplicateEvents } from "@/domain/events/deduplicate-events";
+import {
+  deduplicateEvents,
+  deduplicateEventsAllPairsForTests,
+} from "@/domain/events/deduplicate-events";
 import type { DetourEvent } from "@/domain/events/event";
 
 function event(
@@ -23,6 +26,30 @@ function event(
     sourceUrl: partial.sourceUrl ?? null,
     registrationUrl: partial.registrationUrl ?? null,
   };
+}
+
+function fingerprint(result: ReturnType<typeof deduplicateEvents>) {
+  return {
+    keptIds: result.events.map((item) => item.id),
+    duplicates: result.duplicates
+      .map((item) => ({
+        keptId: item.keptId,
+        duplicateId: item.duplicateId,
+        reason: item.reason,
+      }))
+      .sort(
+        (a, b) =>
+          a.keptId.localeCompare(b.keptId) ||
+          a.duplicateId.localeCompare(b.duplicateId) ||
+          a.reason.localeCompare(b.reason),
+      ),
+  };
+}
+
+function expectSameDedupResult(events: DetourEvent[]) {
+  expect(fingerprint(deduplicateEvents(events))).toEqual(
+    fingerprint(deduplicateEventsAllPairsForTests(events)),
+  );
 }
 
 describe("deduplicateEvents", () => {
@@ -224,8 +251,6 @@ describe("deduplicateEvents", () => {
   });
 
   it("rapproche un doublon cross-source même lieu/heure/titre (OpenAgenda ↔ autre source)", () => {
-    // Cas représentatif d’un événement republished (ex. historique Le Bouillon) :
-    // la dédup reste générique — aucun branchement sur l’adapterId.
     const result = deduplicateEvents([
       event({
         id: "openagenda:999001",
@@ -255,5 +280,110 @@ describe("deduplicateEvents", () => {
       result.duplicates[0].reason,
     );
     expect(result.events[0].id).toBe("bouillon:18149");
+  });
+
+  it("bucketed et all-pairs donnent les mêmes groupes sur un corpus multi-minutes", () => {
+    const corpus: DetourEvent[] = [
+      event({
+        id: "hop-a",
+        title: "HOP POP HOP",
+        startAt: "2026-09-20T20:00:00+02:00",
+        venue: "Place de Loire",
+      }),
+      event({
+        id: "hop-b",
+        title: "Hop Pop Hop 2026",
+        startAt: "2026-09-20T20:00:00+02:00",
+        venue: "Place de Loire",
+        imageUrl: "https://example.com/img.jpg",
+      }),
+      event({
+        id: "jazz-a",
+        title: "Histoire de la batterie dans le jazz",
+        startAt: "2026-10-11T15:00:00+02:00",
+        venue: "Médiathèque",
+      }),
+      event({
+        id: "jazz-b",
+        title: "Culture jazz - Histoire de la batterie dans le jazz",
+        startAt: "2026-10-11T15:00:00+02:00",
+        venue: "Médiathèque",
+      }),
+      event({
+        id: "zephyr-a",
+        title: "Duo Zéphyr",
+        startAt: "2026-09-10T20:00:00+02:00",
+      }),
+      event({
+        id: "zephyr-b",
+        title: "Duo Zéphyr",
+        startAt: "2026-09-17T20:00:00+02:00",
+      }),
+      event({
+        id: "url-a",
+        title: "HOP POP HOP",
+        startAt: "2026-09-12T10:00:00+02:00",
+        registrationUrl: "https://example.com/reserve",
+      }),
+      event({
+        id: "url-b",
+        title: "Hop Pop Hop 2026",
+        startAt: "2026-09-12T10:00:00+02:00",
+        registrationUrl: "https://example.com/reserve",
+        description: "Détails",
+      }),
+      event({
+        id: "visit-a",
+        title: "Exposition « Le Design coule de source »",
+        startAt: "2026-09-20T14:00:00+02:00",
+        venue: "Muséum",
+      }),
+      event({
+        id: "visit-b",
+        title: "Visites flash / Exposition « Le Design coule de source »",
+        startAt: "2026-09-20T14:00:00+02:00",
+        venue: "Muséum",
+      }),
+      ...Array.from({ length: 40 }, (_, index) =>
+        event({
+          id: `noise-${index}`,
+          title: `Concert noise ${index}`,
+          startAt: `2026-09-${String(10 + (index % 18)).padStart(2, "0")}T${String(10 + (index % 10)).padStart(2, "0")}:00:00+02:00`,
+          venue: `Salle ${index % 5}`,
+        }),
+      ),
+    ];
+
+    expectSameDedupResult(corpus);
+  });
+
+  it("conserve l’ordre chronologique des events conservés", () => {
+    const input = [
+      event({
+        id: "later",
+        title: "Solo plus tard",
+        startAt: "2026-09-20T21:00:00+02:00",
+      }),
+      event({
+        id: "early-dup-a",
+        title: "HOP POP HOP",
+        startAt: "2026-09-12T20:00:00+02:00",
+        venue: "Place de Loire",
+      }),
+      event({
+        id: "early-dup-b",
+        title: "Hop Pop Hop 2026",
+        startAt: "2026-09-12T20:00:00+02:00",
+        venue: "Place de Loire",
+        imageUrl: "https://example.com/x.jpg",
+      }),
+    ];
+
+    const result = deduplicateEvents(input);
+    expect(result.events.map((item) => item.id)).toEqual([
+      "early-dup-b",
+      "later",
+    ]);
+    expectSameDedupResult(input);
   });
 });
