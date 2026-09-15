@@ -28,7 +28,6 @@ import {
   invalidateNextAiAssessmentCache,
 } from "@/infrastructure/ai/next-ai-assessment-cache";
 import { createHomeEventSource } from "@/infrastructure/create-detour-event-source";
-import { homePerfLog } from "@/infrastructure/db/home-perf";
 
 const UPCOMING_WINDOW_DAYS = 180;
 
@@ -208,10 +207,6 @@ export async function getPublicHomeSnapshot(
     explorerPage,
     exposeDebug,
   });
-
-  homePerfLog(
-    `public_home_snapshot_bytes=${measurePublicHomeSnapshotBytes(snapshot)}`,
-  );
 
   return snapshot;
 }
