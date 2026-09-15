@@ -33,6 +33,13 @@ export const auth = betterAuth({
       generateId: "uuid",
     },
   },
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60,
+      strategy: "compact",
+    },
+  },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
