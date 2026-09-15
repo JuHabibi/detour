@@ -7,6 +7,8 @@ import {
 } from "@/domain/editorial/select-ai-detour-highlights";
 import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
 import {
+  AI_ASSESSMENT_CACHE_TTL_MS,
+  AI_ASSESSMENT_CACHE_TTL_SECONDS,
   assessHighlightsCached,
   createMemoryAiAssessmentCacheStore,
   type AiAssessmentCacheContext,
@@ -17,6 +19,13 @@ import {
   AI_ASSESSMENT_DEFAULT_TEMPERATURE,
   AI_ASSESSMENT_PROMPT_VERSION,
 } from "@/infrastructure/ai/openai-highlight-assessment.provider";
+
+describe("AI assessment cache TTL", () => {
+  it("TTL = 7 jours", () => {
+    expect(AI_ASSESSMENT_CACHE_TTL_SECONDS).toBe(7 * 24 * 60 * 60);
+    expect(AI_ASSESSMENT_CACHE_TTL_MS).toBe(7 * 24 * 60 * 60 * 1000);
+  });
+});
 
 function event(id: string, title = `Title ${id}`): DetourEvent {
   return {

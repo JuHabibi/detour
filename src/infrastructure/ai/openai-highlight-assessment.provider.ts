@@ -170,24 +170,12 @@ export class OpenAiHighlightAssessmentProvider
     if (events.length === 0) return [];
 
     const results: AiHighlightAssessment[] = [];
-    const batchCount = Math.ceil(events.length / this.batchSize);
-    const tProvider = Date.now();
-    let batchIndex = 0;
 
     for (let index = 0; index < events.length; index += this.batchSize) {
-      batchIndex += 1;
       const batch = events.slice(index, index + this.batchSize);
-      const tBatch = Date.now();
       const batchResults = await this.assessBatch(batch);
-      console.info(
-        `[home-perf] ai_batch=${batchIndex}/${batchCount} duration=${Date.now() - tBatch}ms size=${batch.length}`,
-      );
       results.push(...batchResults);
     }
-
-    console.info(
-      `[home-perf] ai_batch_count=${batchCount} ai_provider_total_ms=${Date.now() - tProvider} events=${events.length}`,
-    );
 
     return results;
   }

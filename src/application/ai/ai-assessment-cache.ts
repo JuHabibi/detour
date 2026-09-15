@@ -7,8 +7,8 @@ import {
 
 export type { AiAssessmentCacheContext };
 
-/** TTL : 6 heures. */
-export const AI_ASSESSMENT_CACHE_TTL_SECONDS = 6 * 60 * 60;
+/** TTL : 7 jours — couvre le sync quotidien sans forcer un refresh IA chaque matin. */
+export const AI_ASSESSMENT_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const AI_ASSESSMENT_CACHE_TTL_MS = AI_ASSESSMENT_CACHE_TTL_SECONDS * 1000;
 
 /** Une entrée = un assessment pour une clé event. */

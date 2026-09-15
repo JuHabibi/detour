@@ -289,9 +289,8 @@ export class EventService {
     options: { force: boolean },
   ): Promise<AssessHighlightsCachedResult> {
     const events = shortlist.map((item) => item.event);
-    const tTotal = Date.now();
 
-    const result = await assessHighlightsCached({
+    return assessHighlightsCached({
       events,
       force: options.force,
       store: this.cacheStore,
@@ -307,11 +306,5 @@ export class EventService {
         }
       },
     });
-
-    console.info(
-      `[home-perf] ai_assessment_cache_hit=${result.cacheHits} ai_assessment_cache_miss=${result.cacheMisses} ai_total_duration_ms=${Date.now() - tTotal} shortlist=${events.length} source=${result.source}`,
-    );
-
-    return result;
   }
 }

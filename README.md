@@ -34,7 +34,7 @@ Preview : laisser `manual` ou ne pas mettre de clé (évite les coûts IA).
 
 ## Cache IA
 
-- Clé déterministe sur le contenu de la shortlist (6h).
+- Clé déterministe par événement (input IA + model + promptVersion + génération), TTL 7 jours.
 - Couches : Map mémoire (instance) + `unstable_cache` Next (Data Cache).
 - Pas de DB / Redis. Sur Vercel serverless le cache n’est pas une garantie absolue entre cold starts / instances.
 
