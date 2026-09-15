@@ -102,6 +102,20 @@ export type EventServiceOptions = {
   onForceInvalidate?: (cacheKey: string) => void | Promise<void>;
 };
 
+/** Snapshot pipeline avant assessment IA — JSON-serialisable hors Maps ingestion. */
+export type UpcomingEventsPipeline = {
+  ingestion: EventIngestionResult;
+  rawEvents: DetourEvent[];
+  classifiedEvents: DetourEvent[];
+  events: DetourEvent[];
+  duplicates: EventDuplicate[];
+  rankedCandidates: EventHighlight[];
+  highlightCandidates: EventHighlight[];
+  aiShortlist: EventHighlight[];
+  aiShortlistInclusion: Record<string, AiShortlistInclusionReason[]>;
+  aiShortlistBucketSizes: AiShortlistBucketStats;
+};
+
 export class EventService {
   private readonly aiConfig: AiConfig;
   private readonly cacheStore?: AiAssessmentCacheStore;
@@ -119,17 +133,35 @@ export class EventService {
     this.onForceInvalidate = options.onForceInvalidate;
   }
 
-  async getUpcomingEvents(params: {
+  /** Pipeline Home sans assessment IA (pour cache snapshot hors nest). */
+  async buildUpcomingPipeline(params: {
     from: Date;
     to: Date;
-  }): Promise<UpcomingEventsResult> {
-    const pipeline = await this.buildPipeline(params);
+  }): Promise<UpcomingEventsPipeline> {
+    return this.buildPipeline(params);
+  }
+
+  /**
+   * Assessment auto + compose éditorial.
+   * À appeler hors d’un scope `unstable_cache` parent (reads Data Cache IA).
+   */
+  async finalizeUpcomingWithAutoAi(
+    pipeline: UpcomingEventsPipeline,
+  ): Promise<UpcomingEventsResult> {
     const autoAi =
       this.aiConfig.enabled && this.aiConfig.mode === "auto"
         ? await this.assessShortlist(pipeline.aiShortlist, { force: false })
         : null;
 
     return this.composeResult(pipeline, autoAi);
+  }
+
+  async getUpcomingEvents(params: {
+    from: Date;
+    to: Date;
+  }): Promise<UpcomingEventsResult> {
+    const pipeline = await this.buildUpcomingPipeline(params);
+    return this.finalizeUpcomingWithAutoAi(pipeline);
   }
 
   async runManualAiAssessment(params: {
@@ -205,7 +237,7 @@ export class EventService {
   }
 
   private composeResult(
-    pipeline: Awaited<ReturnType<EventService["buildPipeline"]>>,
+    pipeline: UpcomingEventsPipeline,
     assessed: AssessHighlightsCachedResult | null,
   ): UpcomingEventsResult {
     const aiAssessments = assessed?.assessments ?? [];

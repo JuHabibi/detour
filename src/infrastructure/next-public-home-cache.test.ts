@@ -15,10 +15,13 @@ vi.mock("next/cache", () => ({
   unstable_cache,
 }));
 
-const getPublicHomeData = vi.fn();
+const getPublicHomeSnapshot = vi.fn();
+const materializePublicHomeData = vi.fn();
 
 vi.mock("@/application/home/get-public-home-data", () => ({
-  getPublicHomeData: (...args: unknown[]) => getPublicHomeData(...args),
+  getPublicHomeSnapshot: (...args: unknown[]) => getPublicHomeSnapshot(...args),
+  materializePublicHomeData: (...args: unknown[]) =>
+    materializePublicHomeData(...args),
   publicHomeUpcomingWindow: () => ({
     from: new Date("2026-09-15T10:00:00.000Z"),
     to: new Date("2026-03-14T10:00:00.000Z"),
@@ -36,7 +39,12 @@ vi.mock("@/infrastructure/db/home-perf", () => ({
 describe("next-public-home-cache", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getPublicHomeData.mockResolvedValue({
+    getPublicHomeSnapshot.mockResolvedValue({
+      pipeline: { events: [] },
+      explorerPage: { events: [], totalCount: 0, nextCursor: null },
+      exposeDebug: false,
+    });
+    materializePublicHomeData.mockResolvedValue({
       highlights: [],
       planningEvents: [],
       explorer: { events: [], totalCount: 0, nextCursor: null },
@@ -70,12 +78,16 @@ describe("next-public-home-cache", () => {
 
     expect(unstable_cache).toHaveBeenCalledTimes(1);
     const [, keyParts, options] = unstable_cache.mock.calls[0]!;
-    expect(keyParts).toEqual(["detour-public-home", "orleans"]);
+    expect(keyParts).toEqual([
+      "detour-public-home",
+      "orleans",
+      "pre-ai-snapshot",
+    ]);
     expect(options).toMatchObject({
       tags: [PUBLIC_HOME_CACHE_TAG],
     });
-    expect(getPublicHomeData).toHaveBeenCalledTimes(1);
-    const callArg = getPublicHomeData.mock.calls[0]![0] as Record<
+    expect(getPublicHomeSnapshot).toHaveBeenCalledTimes(1);
+    const callArg = getPublicHomeSnapshot.mock.calls[0]![0] as Record<
       string,
       unknown
     >;
@@ -83,5 +95,48 @@ describe("next-public-home-cache", () => {
     expect(callArg).not.toHaveProperty("user");
     expect(callArg).not.toHaveProperty("session");
     expect(callArg).not.toHaveProperty("favoriteEventIds");
+  });
+
+  it("IA matérialisée hors callback unstable_cache (pas d’imbrication)", async () => {
+    const { getCachedPublicHomeData } = await import(
+      "@/infrastructure/next-public-home-cache"
+    );
+
+    const order: string[] = [];
+    getPublicHomeSnapshot.mockImplementation(async () => {
+      order.push("snapshot-inside-cache");
+      return {
+        pipeline: { events: [] },
+        explorerPage: { events: [], totalCount: 0, nextCursor: null },
+        exposeDebug: false,
+      };
+    });
+    materializePublicHomeData.mockImplementation(async () => {
+      order.push("materialize-outside-cache");
+      return {
+        highlights: [],
+        planningEvents: [],
+        explorer: { events: [], totalCount: 0, nextCursor: null },
+      };
+    });
+
+    await getCachedPublicHomeData();
+
+    const cacheCb = unstable_cache.mock.calls[0]![0] as () => Promise<unknown>;
+    // Le callback Home ne doit appeler que le snapshot (pas materialize / pas IA).
+    expect(getPublicHomeSnapshot).toHaveBeenCalled();
+    expect(materializePublicHomeData).toHaveBeenCalledTimes(1);
+    expect(order).toEqual([
+      "snapshot-inside-cache",
+      "materialize-outside-cache",
+    ]);
+
+    // materialize n’est pas invoqué depuis le callback lui-même :
+    // on rejoue le callback isolément après reset des compteurs.
+    getPublicHomeSnapshot.mockClear();
+    materializePublicHomeData.mockClear();
+    await cacheCb();
+    expect(getPublicHomeSnapshot).toHaveBeenCalledTimes(1);
+    expect(materializePublicHomeData).not.toHaveBeenCalled();
   });
 });

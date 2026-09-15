@@ -1,6 +1,7 @@
 import { revalidateTag, unstable_cache } from "next/cache";
 import {
-  getPublicHomeData,
+  getPublicHomeSnapshot,
+  materializePublicHomeData,
   publicHomeUpcomingWindow,
   type PublicHomeData,
 } from "@/application/home/get-public-home-data";
@@ -21,35 +22,41 @@ export const PUBLIC_HOME_CACHE_REVALIDATE_SECONDS = 60 * 60 * 6;
 /**
  * Read model public Home via Data Cache Next (`unstable_cache` + tag).
  * Ne doit jamais recevoir de userId / session / favoris.
+ *
+ * Snapshot (SQL / pipeline / explorer) dans `unstable_cache`.
+ * Assessment IA matérialisé **après**, hors nest — sinon Next bypass
+ * les reads du cache IA per-event (unstable_cache imbriqué).
  */
 export async function getCachedPublicHomeData(): Promise<PublicHomeData> {
   let computeRan = false;
 
-  const cached = unstable_cache(
+  const cachedSnapshot = unstable_cache(
     async () => {
       computeRan = true;
       homePerfLog(
         `public_home_compute territory=${PUBLIC_HOME_TERRITORY_SLUG}`,
       );
       const { from, to } = publicHomeUpcomingWindow();
-      return getPublicHomeData({
+      return getPublicHomeSnapshot({
         from,
         to,
         exposeDebug: shouldExposeHomeDebug(),
       });
     },
-    ["detour-public-home", PUBLIC_HOME_TERRITORY_SLUG],
+    ["detour-public-home", PUBLIC_HOME_TERRITORY_SLUG, "pre-ai-snapshot"],
     {
       tags: [PUBLIC_HOME_CACHE_TAG],
       revalidate: PUBLIC_HOME_CACHE_REVALIDATE_SECONDS,
     },
   );
 
-  const data = await cached();
+  const snapshot = await cachedSnapshot();
   homePerfLog(
     `public_home=${computeRan ? "miss" : "hit"} territory=${PUBLIC_HOME_TERRITORY_SLUG}`,
   );
-  return data;
+
+  // Hors callback unstable_cache parent → reads Data Cache IA effectives.
+  return materializePublicHomeData(snapshot);
 }
 
 /**
