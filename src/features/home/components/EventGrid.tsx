@@ -59,84 +59,40 @@ export function EventGrid({
 
         {toolbar ? <div className="mb-7 md:mb-9">{toolbar}</div> : null}
 
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-10">
-          <div className="min-w-0">
-            {events.length === 0 ? (
-              <p className="max-w-lg font-editorial text-2xl leading-snug text-ink">
-                Rien pour ces filtres pour le moment. Essayez une autre période
-                ou catégorie.
-              </p>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-2 md:gap-y-7 lg:grid-cols-3 lg:gap-x-4 lg:gap-y-8">
-                  {events.map((event, index) => (
-                    <EventCard
-                      key={event.id}
-                      event={event}
-                      priority={index < 3}
-                      isFavorite={favorites.has(event.id)}
-                      onToggleFavorite={onToggleFavorite}
-                      surface="explorer"
-                    />
-                  ))}
-                </div>
+        {events.length === 0 ? (
+          <p className="max-w-lg font-editorial text-2xl leading-snug text-ink">
+            Rien pour ces filtres pour le moment. Essayez une autre période ou
+            catégorie.
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-2 md:gap-y-7 lg:grid-cols-4 lg:gap-y-8">
+              {events.map((event, index) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  priority={index < 3}
+                  isFavorite={favorites.has(event.id)}
+                  onToggleFavorite={onToggleFavorite}
+                  surface="explorer"
+                />
+              ))}
+            </div>
 
-                {onShowMore ? (
-                  <div className="mt-10 flex justify-center md:mt-12">
-                    <button
-                      type="button"
-                      onClick={onShowMore}
-                      className="min-h-11 bg-mint px-5 text-sm font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam"
-                    >
-                      Voir plus
-                    </button>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-
-          <ExplorerEditorialPanel />
-        </div>
+            {onShowMore ? (
+              <div className="mt-10 flex justify-center md:mt-12">
+                <button
+                  type="button"
+                  onClick={onShowMore}
+                  className="min-h-11 bg-mint px-5 text-sm font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam"
+                >
+                  Voir plus
+                </button>
+              </div>
+            ) : null}
+          </>
+        )}
       </div>
     </section>
-  );
-}
-
-/** Panneau statique desktop — différencie Explorer du Radar, sans données. */
-function ExplorerEditorialPanel() {
-  return (
-    <aside className="hidden lg:block" aria-label="À propos d’Explorer">
-      <div className="sticky top-24 flex min-h-[32rem] flex-col overflow-hidden bg-ink px-6 py-10 text-foam">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[url(/textures/radar-grain.jpg)] bg-cover bg-center opacity-[0.18]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-4 -top-4 size-24 bg-mint/30"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-8 -left-4 size-20 rotate-12 bg-coral/25"
-        />
-
-        <div className="relative flex flex-1 flex-col">
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-foam/55">
-            Explorer
-          </p>
-          <p className="mt-5 font-editorial text-[1.75rem] leading-snug">
-            Filtrez. Scannez. Gardez ce qui compte.
-          </p>
-          <p className="mt-5 text-sm leading-6 text-foam/70">
-            Ici, tout le catalogue autour d’Orléans. Le Radar, lui, choisit à
-            votre place.
-          </p>
-          <p className="mt-auto pt-10 text-[11px] uppercase tracking-[0.14em] text-foam/40">
-            Catalogue · Orléans
-          </p>
-        </div>
-      </div>
-    </aside>
   );
 }
