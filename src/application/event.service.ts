@@ -290,7 +290,7 @@ export class EventService {
   ): Promise<AssessHighlightsCachedResult> {
     const events = shortlist.map((item) => item.event);
 
-    return assessHighlightsCached({
+    const result = await assessHighlightsCached({
       events,
       force: options.force,
       store: this.cacheStore,
@@ -306,5 +306,12 @@ export class EventService {
         }
       },
     });
+
+    // Temporaire — validation sync prod (TTL 7j)
+    console.info(
+      `[home-perf] ai_cache_hit=${result.cacheHits} ai_cache_miss=${result.cacheMisses} source=${result.source}`,
+    );
+
+    return result;
   }
 }
