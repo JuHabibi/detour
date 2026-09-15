@@ -23,7 +23,7 @@ export function DetourSection({
             À repérer maintenant
           </h2>
           <p className="mt-2.5 max-w-md text-sm leading-6 text-ink/70 md:mt-3.5 md:text-[0.95rem]">
-            Sélection Détour — aujourd’hui plutôt que trop tard.
+            Sélection Détour, aujourd’hui plutôt que trop tard.
           </p>
         </div>
 
