@@ -369,13 +369,13 @@ export function StandardEventCard(props: CardProps) {
       )}
     >
       <EventActionLink event={event} surface={surface} />
-      <div className="relative aspect-[3/4] w-28 shrink-0 overflow-hidden bg-ink-3 md:w-auto">
+      <div className="relative aspect-[3/4] w-28 shrink-0 overflow-hidden bg-ink-3 md:aspect-[4/5] md:w-auto">
         <Image
           src={imageSrc}
           alt={resolveEventImageAlt(event)}
           fill
           priority={priority}
-          sizes="(max-width: 767px) 7rem, (max-width: 1024px) 50vw, 25vw"
+          sizes="(max-width: 767px) 7rem, (max-width: 1024px) 50vw, 18vw"
           className="object-cover object-center transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.03]"
         />
         {onToggleFavorite ? (
@@ -388,7 +388,7 @@ export function StandardEventCard(props: CardProps) {
         ) : null}
       </div>
 
-      <div className="relative flex min-w-0 flex-1 flex-col py-0.5 md:pt-3">
+      <div className="relative flex min-w-0 flex-1 flex-col py-0.5 md:pt-2.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <CategoryBadge event={event} className="px-2 py-1" />
@@ -406,10 +406,10 @@ export function StandardEventCard(props: CardProps) {
             />
           ) : null}
         </div>
-        <h3 className="mt-1 line-clamp-2 font-display text-[1.15rem] font-semibold leading-[1.08] tracking-tight text-ink md:mt-1.5 md:text-[1.4rem]">
+        <h3 className="mt-1 line-clamp-2 font-display text-[1.15rem] font-semibold leading-[1.08] tracking-tight text-ink md:mt-1 md:text-[1.2rem]">
           {event.title}
         </h3>
-        <div className="mt-auto space-y-0.5 pt-1.5 text-sm md:pt-3">
+        <div className="mt-auto space-y-0.5 pt-1.5 text-sm md:pt-2">
           <p className="line-clamp-1 text-[13px] italic text-sand">
             {whenLabel}
           </p>
