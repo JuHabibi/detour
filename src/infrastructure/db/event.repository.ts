@@ -10,6 +10,7 @@ import {
   type EventWithAdapter,
 } from "@/infrastructure/db/event-row.mapper";
 import { getPool, type DbQueryable } from "@/infrastructure/db/postgres";
+import { homePerfLog, homePerfTimed } from "@/infrastructure/db/home-perf";
 
 /** Taille de chunk upsert — même client pour tous les chunks. */
 export const EVENT_UPSERT_CHUNK_SIZE = 150;
@@ -71,10 +72,13 @@ export async function listUpcomingActiveWithAdapter(params: {
   now?: Date;
 }): Promise<EventWithAdapter[]> {
   const now = params.now ?? new Date();
-  const result = await db(params.client).query<EventRowWithAvailability>(
-    LIST_UPCOMING_SQL,
-    [params.from.toISOString(), params.to.toISOString()],
+  const { value: result, ms } = await homePerfTimed(() =>
+    db(params.client).query<EventRowWithAvailability>(LIST_UPCOMING_SQL, [
+      params.from.toISOString(),
+      params.to.toISOString(),
+    ]),
   );
+  homePerfLog(`db_events_sql=${ms}ms rows=${result.rows.length}`);
 
   return result.rows.map((row) => {
     const base = mapEventRowToEventWithAdapter(row);

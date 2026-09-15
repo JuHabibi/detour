@@ -6,6 +6,7 @@ import {
   type EventRow,
 } from "@/infrastructure/db/event-row.mapper";
 import { getPool, type DbQueryable } from "@/infrastructure/db/postgres";
+import { homePerfLog, homePerfTimed } from "@/infrastructure/db/home-perf";
 
 /**
  * Fold SQL (accents FR courants) — aligné sur foldExplorerText pour le latin1 courant.
@@ -274,14 +275,17 @@ export async function countExplorerEvents(params: {
     params.filters,
   );
   const cte = buildExplorerRepresentativesCte(whereSql);
-  const result = await db(params.client).query<{ count: string }>(
-    `
+  const { value: result, ms } = await homePerfTimed(() =>
+    db(params.client).query<{ count: string }>(
+      `
 ${cte}
 SELECT count(*)::text AS count
 FROM representatives
 `.trim(),
-    filterParams,
+      filterParams,
+    ),
   );
+  homePerfLog(`db_explorer_count_sql=${ms}ms`);
   return Number(result.rows[0]?.count ?? 0);
 }
 
@@ -324,8 +328,9 @@ WHERE (
   sqlParams.push(fetchLimit);
   const limitIdx = sqlParams.length;
 
-  const result = await db(params.client).query<EventRowWithAvailability>(
-    `
+  const { value: result, ms } = await homePerfTimed(() =>
+    db(params.client).query<EventRowWithAvailability>(
+      `
 ${cte}
 SELECT
   id,
@@ -364,8 +369,10 @@ ${keysetSql}
 ORDER BY start_at ASC, id ASC
 LIMIT $${limitIdx}
 `.trim(),
-    sqlParams,
+      sqlParams,
+    ),
   );
+  homePerfLog(`db_explorer_page_sql=${ms}ms rows=${result.rows.length}`);
 
   const rows = result.rows;
   const hasMore = rows.length > params.limit;

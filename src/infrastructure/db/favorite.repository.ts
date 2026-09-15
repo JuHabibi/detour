@@ -6,6 +6,7 @@ import {
   type EventRow,
 } from "@/infrastructure/db/event-row.mapper";
 import { getPool, type DbQueryable } from "@/infrastructure/db/postgres";
+import { homePerfLog, homePerfTimed } from "@/infrastructure/db/home-perf";
 
 function db(client?: DbQueryable): DbQueryable {
   return client ?? getPool();
@@ -49,15 +50,18 @@ export async function listFavoriteEventIdsForUser(
   userId: string,
   client?: DbQueryable,
 ): Promise<string[]> {
-  const result = await db(client).query<{ event_id: string }>(
-    `
+  const { value: result, ms } = await homePerfTimed(() =>
+    db(client).query<{ event_id: string }>(
+      `
 SELECT event_id
 FROM favorites
 WHERE user_id = $1
 ORDER BY created_at DESC, event_id ASC
 `.trim(),
-    [userId],
+      [userId],
+    ),
   );
+  homePerfLog(`db_favorites_sql=${ms}ms rows=${result.rows.length}`);
   return result.rows.map((row) => row.event_id);
 }
 
