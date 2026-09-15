@@ -22,7 +22,6 @@ import {
 } from "@/infrastructure/ai/next-ai-assessment-cache";
 import { createHomeEventSource } from "@/infrastructure/create-detour-event-source";
 import { listFavoriteEventIdsForUser } from "@/infrastructure/db/favorite.repository";
-import { probePoolConnect } from "@/infrastructure/db/postgres";
 
 const UPCOMING_WINDOW_DAYS = 180;
 
@@ -47,9 +46,6 @@ export async function loadHomePage() {
   to.setDate(to.getDate() + UPCOMING_WINDOW_DAYS);
 
   const exposeDebug = shouldExposeHomeDebug();
-
-  // Sonde connexion réelle avant le fan-out (cold Neon / pool).
-  const { ms: dbConnectMs } = await homePerfTimed(() => probePoolConnect());
 
   const eventsP = homePerfTimed(() =>
     eventService.getUpcomingEvents({ from, to }),
@@ -88,7 +84,6 @@ export async function loadHomePage() {
       `req=${reqId}`,
       `processAge=${processAgeBefore}ms`,
       processAgeBefore < 5_000 ? "instance=likely_cold" : "instance=warm",
-      `db_connect=${dbConnectMs}ms`,
       `pool_create=${poolMeta.poolCreateMs ?? "n/a"}ms`,
       `pool_age=${poolMeta.poolAgeMs ?? "n/a"}ms`,
       `events=${eventsTimed.ms}ms`,

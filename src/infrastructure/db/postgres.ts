@@ -39,21 +39,6 @@ export function getPool(): Pool {
   return pool;
 }
 
-/**
- * Mesure acquisition d’une connexion réelle (réveil Neon / cold TCP).
- * Temporaire — home-perf uniquement.
- */
-export async function probePoolConnect(): Promise<number> {
-  const t0 = Date.now();
-  const client = await getPool().connect();
-  try {
-    await client.query("select 1");
-    return Date.now() - t0;
-  } finally {
-    client.release();
-  }
-}
-
 /** Pour tests / shutdown éventuel — ne pas appeler en chemin hot. */
 export async function closePool(): Promise<void> {
   if (!pool) return;
