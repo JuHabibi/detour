@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { removeFavorite } from "@/app/actions/favorites";
 import type { EventItem } from "@/data/types";
 import { authClient } from "@/features/account/auth-client";
 import { AccountAddToAgendaModal } from "@/features/account/components/AccountAddToAgendaModal";
@@ -26,8 +27,10 @@ export function AccountSignedIn({
   const [favorites, setFavorites] = useState(initialFavorites);
   const [agendaEvent, setAgendaEvent] = useState<EventItem | null>(null);
   const [agendaNotice, setAgendaNotice] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const [logoutPending, setLogoutPending] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
   const countLabel = useMemo(() => {
     const n = favorites.length;
@@ -36,9 +39,21 @@ export function AccountSignedIn({
   }, [favorites.length]);
 
   function handleRemove(id: string) {
+    setRemoveError(null);
+    const previous = favorites;
     setFavorites((current) => current.filter((event) => event.id !== id));
     setAgendaNotice(null);
     if (agendaEvent?.id === id) setAgendaEvent(null);
+
+    startTransition(async () => {
+      const result = await removeFavorite(id);
+      if (result.ok) {
+        router.refresh();
+        return;
+      }
+      setFavorites(previous);
+      setRemoveError("Impossible de retirer ce favori. Réessayez.");
+    });
   }
 
   function handleOpenAgenda(id: string) {
@@ -112,6 +127,12 @@ export function AccountSignedIn({
           ) : null}
         </div>
       </div>
+
+      {removeError ? (
+        <p className="mt-6 text-sm text-coral" role="alert">
+          {removeError}
+        </p>
+      ) : null}
 
       {favorites.length === 0 ? (
         <div className="mt-10 md:mt-14">

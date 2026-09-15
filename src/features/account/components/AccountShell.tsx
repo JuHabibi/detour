@@ -4,8 +4,6 @@ type AccountShellProps = {
   children: React.ReactNode;
   accountLabel?: string;
 };
-
-/** Shell commun pages account (login / signup / reset) — pas de redesign. */
 export function AccountShell({
   children,
   accountLabel = "Se connecter",

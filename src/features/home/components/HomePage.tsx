@@ -1,7 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import Link from "next/link";
+import { useState, useTransition } from "react";
+import {
+  addFavorite,
+  removeFavorite,
+} from "@/app/actions/favorites";
 import { DetourSection } from "@/features/home/components/DetourSection";
 import {
   ExplorerSection,
@@ -21,6 +26,10 @@ const HomeDebugSection = dynamic(
 type HomePageProps = {
   /** Label Header Account — déterminé côté serveur (session). */
   accountLabel: string;
+  /** Session connue côté serveur (pour ne pas persister silencieusement hors compte). */
+  isAuthenticated: boolean;
+  /** IDs favoris persistés (vide si non connecté). */
+  favoriteEventIds: string[];
   /** Highlights radar — indépendants des filtres d’exploration. */
   highlights: EventItem[];
   /**
@@ -41,13 +50,20 @@ type HomePageProps = {
 
 export function HomePage({
   accountLabel,
+  isAuthenticated,
+  favoriteEventIds,
   highlights,
   planningEvents: _planningEvents,
   explorer,
   debugEvents,
   debugMeta,
 }: HomePageProps) {
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [favorites, setFavorites] = useState(
+    () => new Set(favoriteEventIds),
+  );
+  const [authPrompt, setAuthPrompt] = useState(false);
+  const [favoriteError, setFavoriteError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
   const [overrideHighlights, setOverrideHighlights] = useState<EventItem[] | null>(
     null,
   );
@@ -67,11 +83,42 @@ export function HomePage({
   const displayedHighlights = overrideHighlights ?? highlights;
 
   function toggleFavorite(id: string) {
+    setFavoriteError(null);
+
+    if (!isAuthenticated) {
+      setAuthPrompt(true);
+      return;
+    }
+
+    const wasFavorite = favorites.has(id);
     setFavorites((current) => {
       const next = new Set(current);
-      if (next.has(id)) next.delete(id);
+      if (wasFavorite) next.delete(id);
       else next.add(id);
       return next;
+    });
+
+    startTransition(async () => {
+      const result = wasFavorite
+        ? await removeFavorite(id)
+        : await addFavorite(id);
+
+      if (result.ok) return;
+
+      setFavorites((current) => {
+        const next = new Set(current);
+        if (wasFavorite) next.add(id);
+        else next.delete(id);
+        return next;
+      });
+
+      if (result.reason === "unauthenticated") {
+        setAuthPrompt(true);
+        return;
+      }
+      setFavoriteError(
+        "Impossible d’enregistrer ce détour. Réessayez.",
+      );
     });
   }
 
@@ -79,6 +126,37 @@ export function HomePage({
     <div id="top" className="min-h-screen bg-paper">
       <Header favoriteCount={favorites.size} accountLabel={accountLabel} />
       <main>
+        {authPrompt || favoriteError ? (
+          <div className="border-b border-line px-5 py-3 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">
+            <div className="mx-auto flex max-w-[var(--detour-shell-max)] flex-wrap items-center justify-between gap-3">
+              {authPrompt ? (
+                <p className="text-sm text-cream-dim">
+                  Connectez-vous pour enregistrer ce détour.{" "}
+                  <Link
+                    href="/account/login"
+                    className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral"
+                  >
+                    Se connecter
+                  </Link>
+                </p>
+              ) : (
+                <p className="text-sm text-coral" role="alert">
+                  {favoriteError}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthPrompt(false);
+                  setFavoriteError(null);
+                }}
+                className="text-[12px] text-sand underline decoration-line underline-offset-4 hover:text-ink"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        ) : null}
         <HeroFilters />
         <DetourSection
           events={displayedHighlights}

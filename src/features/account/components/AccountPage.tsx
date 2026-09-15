@@ -2,18 +2,20 @@ import { Header } from "@/components/layout/Header";
 import type { AccountAuthState } from "@/features/account/account-auth-state";
 import { AccountSignedIn } from "@/features/account/components/AccountSignedIn";
 import { AccountSignedOut } from "@/features/account/components/AccountSignedOut";
+import type { EventItem } from "@/data/types";
 
 type AccountPageProps = {
   auth: AccountAuthState;
+  favorites?: EventItem[];
 };
 
-export function AccountPage({ auth }: AccountPageProps) {
+export function AccountPage({ auth, favorites = [] }: AccountPageProps) {
   const signedIn = auth.status === "authenticated";
 
   return (
     <div className="min-h-screen bg-paper">
       <Header
-        favoriteCount={0}
+        favoriteCount={signedIn ? favorites.length : 0}
         homeHref="/"
         accountHref="/account"
         accountLabel={signedIn ? "Mon compte" : "Se connecter"}
@@ -27,6 +29,7 @@ export function AccountPage({ auth }: AccountPageProps) {
                 name: auth.user.name,
                 email: auth.user.email,
               }}
+              initialFavorites={favorites}
             />
           ) : (
             <AccountSignedOut />
@@ -40,7 +43,7 @@ export function AccountPage({ auth }: AccountPageProps) {
             Détour<span className="text-coral">.</span>
           </p>
           <p className="max-w-md text-sm leading-6 text-sand">
-            Compte Détour — session sécurisée, favoris à venir.
+            Compte Détour — favoris synchronisés sur vos appareils.
           </p>
         </div>
       </footer>

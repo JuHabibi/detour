@@ -14,6 +14,7 @@ import {
   invalidateNextAiAssessmentCache,
 } from "@/infrastructure/ai/next-ai-assessment-cache";
 import { createHomeEventSource } from "@/infrastructure/create-detour-event-source";
+import { listFavoriteEventIdsForUser } from "@/infrastructure/db/favorite.repository";
 
 const UPCOMING_WINDOW_DAYS = 180;
 
@@ -27,7 +28,7 @@ const eventService = new EventService(
   },
 );
 
-/** Charge les données Home (radar, explorer, debug, label Account) pour `page.tsx`. */
+/** Charge les données Home (radar, explorer, debug, label Account, favoris) pour `page.tsx`. */
 export async function loadHomePage() {
   const from = new Date();
   const to = new Date(from);
@@ -41,9 +42,16 @@ export async function loadHomePage() {
     getAccountAuthState(),
   ]);
 
+  const favoriteEventIds =
+    auth.status === "authenticated"
+      ? await listFavoriteEventIdsForUser(auth.user.id)
+      : [];
+
   return {
     accountLabel:
       auth.status === "authenticated" ? "Mon compte" : "Se connecter",
+    isAuthenticated: auth.status === "authenticated",
+    favoriteEventIds,
     highlights: result.highlights.map((highlight) =>
       mapDetourHighlightToEventItem(highlight),
     ),

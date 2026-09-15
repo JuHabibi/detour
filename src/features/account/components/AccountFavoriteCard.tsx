@@ -10,11 +10,6 @@ type AccountFavoriteCardProps = {
   onAddToAgenda?: (id: string) => void;
 };
 
-/**
- * Card favori Account — même hiérarchie visuelle Explorer
- * (catégorie → titre → lieu → date), densité liste.
- * Pas d’import d’EventCard (feature-first).
- */
 export function AccountFavoriteCard({
   event,
   onRemove,

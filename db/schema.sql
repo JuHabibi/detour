@@ -93,6 +93,18 @@ CREATE TABLE public.events (
 
 
 --
+-- Name: favorites; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.favorites (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    event_id text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -192,6 +204,22 @@ ALTER TABLE ONLY public.events
 
 
 --
+-- Name: favorites favorites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.favorites
+    ADD CONSTRAINT favorites_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: favorites favorites_user_id_event_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.favorites
+    ADD CONSTRAINT favorites_user_id_event_id_key UNIQUE (user_id, event_id);
+
+
+--
 -- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -281,6 +309,13 @@ CREATE INDEX events_adapter_last_seen_idx ON public.events USING btree (adapter_
 
 
 --
+-- Name: favorites_user_id_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX favorites_user_id_created_at_idx ON public.favorites USING btree (user_id, created_at DESC);
+
+
+--
 -- Name: session_token_uidx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -325,6 +360,22 @@ ALTER TABLE ONLY public.event_availability
 
 
 --
+-- Name: favorites favorites_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.favorites
+    ADD CONSTRAINT favorites_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE CASCADE;
+
+
+--
+-- Name: favorites favorites_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.favorites
+    ADD CONSTRAINT favorites_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+
+
+--
 -- Name: session session_userId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -349,4 +400,6 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260907220000'),
     ('20260908120000'),
     ('20260912150000'),
-    ('20260914190000');
+    ('20260914190000'),
+    ('20260914220000'),
+    ('20260914223000');
