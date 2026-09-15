@@ -181,7 +181,7 @@ Composition home : `createHighlightAssessmentProvider()` + cache Next (`next-ai-
 
 ## 7. Base de données
 
-Migrations : `db/migrations/` (dbmate). Client : `pg` standard (`infrastructure/db/postgres.ts`) — **pas** de SDK Neon dans le métier ; `DATABASE_URL` (souvent pooled Neon en prod).
+Migrations : `db/migrations/` (dbmate). Client : `pg` standard (`infrastructure/db/postgres.ts`) — **pas** de SDK Neon dans le métier ; `DATABASE_URL` (souvent pooled Neon en prod). SSL : `sslmode=verify-full` dans l’URL (pas de override dans le Pool ; pas de `uselibpqcompat`).
 
 **`events`** : id, adapter_id, champs DetourEvent, `is_active`, `last_seen_at`, timestamps.
 
