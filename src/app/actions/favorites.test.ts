@@ -7,11 +7,13 @@ vi.mock("@/app/_server/get-account-auth-state", () => ({
 vi.mock("@/infrastructure/db/favorite.repository", () => ({
   addFavorite: vi.fn(),
   removeFavorite: vi.fn(),
+  listFavoriteEventIdsForUser: vi.fn(),
 }));
 
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import {
   addFavorite,
+  listMyFavoriteEventIds,
   removeFavorite,
 } from "@/app/actions/favorites";
 import * as favoriteRepository from "@/infrastructure/db/favorite.repository";
@@ -19,6 +21,41 @@ import * as favoriteRepository from "@/infrastructure/db/favorite.repository";
 describe("favorites actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("listMyFavoriteEventIds unauthenticated → pas de repository", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "unauthenticated",
+    });
+
+    await expect(listMyFavoriteEventIds()).resolves.toEqual({
+      ok: false,
+      reason: "unauthenticated",
+    });
+    expect(favoriteRepository.listFavoriteEventIdsForUser).not.toHaveBeenCalled();
+  });
+
+  it("listMyFavoriteEventIds authenticated → IDs scopés session", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: {
+        id: "11111111-1111-4111-8111-111111111111",
+        email: "a@exemple.fr",
+        name: "A",
+      },
+    });
+    vi.mocked(favoriteRepository.listFavoriteEventIdsForUser).mockResolvedValue([
+      "openagenda:1",
+    ]);
+
+    await expect(listMyFavoriteEventIds()).resolves.toEqual({
+      ok: true,
+      eventIds: ["openagenda:1"],
+    });
+    expect(favoriteRepository.listFavoriteEventIdsForUser).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+    );
+    expect(listMyFavoriteEventIds.length).toBe(0);
   });
 
   it("unauthenticated → ne persiste pas et n’appelle pas le repository", async () => {

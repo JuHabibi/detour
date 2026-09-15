@@ -2,9 +2,10 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   addFavorite,
+  listMyFavoriteEventIds,
   removeFavorite,
 } from "@/app/actions/favorites";
 import { DetourSection } from "@/features/home/components/DetourSection";
@@ -14,6 +15,7 @@ import {
 } from "@/features/home/components/ExplorerSection";
 import { Header } from "@/components/layout/Header";
 import { HeroFilters } from "@/features/home/components/HeroFilters";
+import { authClient } from "@/features/account/auth-client";
 import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
 import type { EventItem } from "@/data/types";
 
@@ -23,13 +25,10 @@ const HomeDebugSection = dynamic(
   { ssr: false },
 );
 
+/** Jamais muté — état public initial / anonyme. */
+const EMPTY_FAVORITES: ReadonlySet<string> = new Set();
+
 type HomePageProps = {
-  /** Label Header Account — déterminé côté serveur (session). */
-  accountLabel: string;
-  /** Session connue côté serveur (pour ne pas persister silencieusement hors compte). */
-  isAuthenticated: boolean;
-  /** IDs favoris persistés (vide si non connecté). */
-  favoriteEventIds: string[];
   /** Highlights radar — indépendants des filtres d’exploration. */
   highlights: EventItem[];
   /**
@@ -48,19 +47,24 @@ type HomePageProps = {
   debugMeta?: EventsDebugMeta;
 };
 
+type FavoriteState = {
+  userId: string;
+  ids: Set<string>;
+};
+
 export function HomePage({
-  accountLabel,
-  isAuthenticated,
-  favoriteEventIds,
   highlights,
   planningEvents: _planningEvents,
   explorer,
   debugEvents,
   debugMeta,
 }: HomePageProps) {
-  const [favorites, setFavorites] = useState(
-    () => new Set(favoriteEventIds),
-  );
+  const { data: session, isPending: isSessionPending } = authClient.useSession();
+  const userId = session?.user?.id ?? null;
+  const isAuthenticated = Boolean(userId);
+  const accountLabel = isAuthenticated ? "Mon compte" : "Se connecter";
+
+  const [favoriteState, setFavoriteState] = useState<FavoriteState | null>(null);
   const [authPrompt, setAuthPrompt] = useState(false);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -73,6 +77,23 @@ export function HomePage({
   const [liveDebugMeta, setLiveDebugMeta] = useState(debugMeta);
   const [prevDebugMeta, setPrevDebugMeta] = useState(debugMeta);
 
+  useEffect(() => {
+    if (isSessionPending || !userId) return;
+
+    let cancelled = false;
+    void listMyFavoriteEventIds().then((result) => {
+      if (cancelled) return;
+      setFavoriteState({
+        userId,
+        ids: new Set(result.ok ? result.eventIds : []),
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSessionPending, userId]);
+
   if (debugMeta !== prevDebugMeta) {
     setPrevDebugMeta(debugMeta);
     setLiveDebugMeta(debugMeta);
@@ -80,22 +101,37 @@ export function HomePage({
     setOverridePlanning(null);
   }
 
+  const favorites: ReadonlySet<string> =
+    userId && favoriteState?.userId === userId
+      ? favoriteState.ids
+      : EMPTY_FAVORITES;
+
   const displayedHighlights = overrideHighlights ?? highlights;
+
+  function patchFavorites(mutator: (draft: Set<string>) => void) {
+    if (!userId) return;
+    setFavoriteState((prev) => {
+      const draft =
+        prev?.userId === userId ? new Set(prev.ids) : new Set<string>();
+      mutator(draft);
+      return { userId, ids: draft };
+    });
+  }
 
   function toggleFavorite(id: string) {
     setFavoriteError(null);
 
-    if (!isAuthenticated) {
+    if (isSessionPending) return;
+
+    if (!isAuthenticated || !userId) {
       setAuthPrompt(true);
       return;
     }
 
     const wasFavorite = favorites.has(id);
-    setFavorites((current) => {
-      const next = new Set(current);
-      if (wasFavorite) next.delete(id);
-      else next.add(id);
-      return next;
+    patchFavorites((draft) => {
+      if (wasFavorite) draft.delete(id);
+      else draft.add(id);
     });
 
     startTransition(async () => {
@@ -105,11 +141,9 @@ export function HomePage({
 
       if (result.ok) return;
 
-      setFavorites((current) => {
-        const next = new Set(current);
-        if (wasFavorite) next.add(id);
-        else next.delete(id);
-        return next;
+      patchFavorites((draft) => {
+        if (wasFavorite) draft.add(id);
+        else draft.delete(id);
       });
 
       if (result.reason === "unauthenticated") {
@@ -160,12 +194,12 @@ export function HomePage({
         <HeroFilters />
         <DetourSection
           events={displayedHighlights}
-          favorites={favorites}
+          favorites={favorites as Set<string>}
           onToggleFavorite={toggleFavorite}
         />
         <ExplorerSection
           initial={explorer}
-          favorites={favorites}
+          favorites={favorites as Set<string>}
           onToggleFavorite={toggleFavorite}
         />
         {liveDebugMeta && debugEvents ? (

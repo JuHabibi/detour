@@ -4,6 +4,9 @@ import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { CITY } from "@/config/city";
 
+/** Plus long des deux labels Account — réserve la largeur (anti-CLS). */
+const ACCOUNT_LABEL_WIDTH_SAMPLE = "Se connecter";
+
 type HeaderProps = {
   favoriteCount: number;
   /** Lien logo — `#top` sur la home, `/` ailleurs. */
@@ -57,9 +60,17 @@ export function Header({
 
           <Link
             href={accountHref}
-            className="text-[12px] font-medium uppercase tracking-[0.14em] text-ink transition-colors hover:text-sand"
+            className="inline-grid text-[12px] font-medium uppercase tracking-[0.14em] text-ink transition-colors hover:text-sand"
           >
-            {accountLabel}
+            <span
+              className="invisible col-start-1 row-start-1 whitespace-nowrap"
+              aria-hidden="true"
+            >
+              {ACCOUNT_LABEL_WIDTH_SAMPLE}
+            </span>
+            <span className="col-start-1 row-start-1 whitespace-nowrap text-right">
+              {accountLabel}
+            </span>
           </Link>
 
           <button
@@ -68,14 +79,15 @@ export function Header({
             className="relative flex size-10 items-center justify-center text-ink transition-colors hover:text-coral"
           >
             <HeartIcon filled={favoriteCount > 0} />
-            {favoriteCount > 0 ? (
-              <span
-                aria-hidden="true"
-                className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center bg-coral text-[9px] font-semibold text-ink"
-              >
-                {favoriteCount}
-              </span>
-            ) : null}
+            <span
+              aria-hidden="true"
+              className={cn(
+                "absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center bg-coral text-[9px] font-semibold text-ink",
+                favoriteCount > 0 ? "opacity-100" : "opacity-0",
+              )}
+            >
+              {favoriteCount > 0 ? favoriteCount : 0}
+            </span>
           </button>
         </div>
       </div>

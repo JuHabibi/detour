@@ -1,21 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 const getCachedPublicHomeData = vi.fn();
-const getAccountAuthState = vi.fn();
-const listFavoriteEventIdsForUser = vi.fn();
 
 vi.mock("@/infrastructure/next-public-home-cache", () => ({
   getCachedPublicHomeData: (...args: unknown[]) =>
     getCachedPublicHomeData(...args),
-}));
-
-vi.mock("@/app/_server/get-account-auth-state", () => ({
-  getAccountAuthState: (...args: unknown[]) => getAccountAuthState(...args),
-}));
-
-vi.mock("@/infrastructure/db/favorite.repository", () => ({
-  listFavoriteEventIdsForUser: (...args: unknown[]) =>
-    listFavoriteEventIdsForUser(...args),
 }));
 
 vi.mock("@/infrastructure/db/home-perf", () => ({
@@ -27,19 +18,6 @@ vi.mock("@/infrastructure/db/home-perf", () => ({
     const value = await run();
     return { value, ms: 1 };
   },
-  homePerfWithAuthDbProbe: async <T>(run: () => Promise<T>) => {
-    const value = await run();
-    return {
-      value,
-      dbMs: 0,
-      dbQueries: 0,
-      connectMs: 0,
-      connectCount: 0,
-      sessionRefresh: false,
-    };
-  },
-  homePerfNoteAuthDbQuery: vi.fn(),
-  homePerfNoteAuthDbConnect: vi.fn(),
 }));
 
 describe("loadHomePage", () => {
@@ -52,59 +30,44 @@ describe("loadHomePage", () => {
     });
   });
 
-  it("anonyme : public cache + auth, pas de favoris", async () => {
-    getAccountAuthState.mockResolvedValue({ status: "unauthenticated" });
-
+  it("ne charge que le read model public (pas auth / favoris)", async () => {
     const { loadHomePage } = await import("@/app/_server/load-home-page");
     const result = await loadHomePage();
 
     expect(getCachedPublicHomeData).toHaveBeenCalledTimes(1);
     expect(getCachedPublicHomeData).toHaveBeenCalledWith();
-    expect(listFavoriteEventIdsForUser).not.toHaveBeenCalled();
-    expect(result.isAuthenticated).toBe(false);
-    expect(result.favoriteEventIds).toEqual([]);
-    expect(result.accountLabel).toBe("Se connecter");
-    expect(result.highlights).toEqual([{ id: "h1" }]);
+    expect(result).toEqual({
+      highlights: [{ id: "h1" }],
+      planningEvents: [],
+      explorer: { events: [{ id: "e1" }], totalCount: 1, nextCursor: null },
+      debugEvents: undefined,
+      debugMeta: undefined,
+    });
+    expect(result).not.toHaveProperty("isAuthenticated");
+    expect(result).not.toHaveProperty("favoriteEventIds");
+    expect(result).not.toHaveProperty("accountLabel");
   });
 
-  it("authentifié : favoris scopés user, hors appel cache public", async () => {
-    getAccountAuthState.mockResolvedValue({
-      status: "authenticated",
-      user: { id: "user-a", email: "a@example.com", name: "A" },
-    });
-    listFavoriteEventIdsForUser.mockResolvedValue(["fav-1"]);
-
-    const { loadHomePage } = await import("@/app/_server/load-home-page");
-    const result = await loadHomePage();
-
-    expect(getCachedPublicHomeData).toHaveBeenCalledWith();
-    expect(listFavoriteEventIdsForUser).toHaveBeenCalledWith("user-a");
-    expect(result.favoriteEventIds).toEqual(["fav-1"]);
-    expect(result.accountLabel).toBe("Mon compte");
-    expect(result.isAuthenticated).toBe(true);
-  });
-
-  it("deux users : favoris ne fuient pas dans le cache public", async () => {
-    const { loadHomePage } = await import("@/app/_server/load-home-page");
-
-    getAccountAuthState.mockResolvedValue({
-      status: "authenticated",
-      user: { id: "user-a", email: "a@example.com", name: "A" },
-    });
-    listFavoriteEventIdsForUser.mockResolvedValue(["only-a"]);
-    const a = await loadHomePage();
-
-    getAccountAuthState.mockResolvedValue({
-      status: "authenticated",
-      user: { id: "user-b", email: "b@example.com", name: "B" },
-    });
-    listFavoriteEventIdsForUser.mockResolvedValue(["only-b"]);
-    const b = await loadHomePage();
-
-    expect(a.favoriteEventIds).toEqual(["only-a"]);
-    expect(b.favoriteEventIds).toEqual(["only-b"]);
-    expect(getCachedPublicHomeData.mock.calls.every((c) => c.length === 0)).toBe(
-      true,
+  it("source : aucune dépendance headers / session / favoris", () => {
+    const source = readFileSync(
+      path.join(process.cwd(), "src/app/_server/load-home-page.ts"),
+      "utf8",
     );
+    expect(source).toContain("getCachedPublicHomeData");
+    expect(source).not.toContain("getAccountAuthState");
+    expect(source).not.toContain("listFavoriteEventIdsForUser");
+    expect(source).not.toContain("headers");
+    expect(source).not.toContain("getSession");
+  });
+
+  it("page `/` : revalidate ISR + pas d’auth dans le module page", () => {
+    const source = readFileSync(
+      path.join(process.cwd(), "src/app/page.tsx"),
+      "utf8",
+    );
+    expect(source).toMatch(/export const revalidate = 21600/);
+    expect(source).toContain("loadHomePage");
+    expect(source).not.toContain("getAccountAuthState");
+    expect(source).not.toContain("headers");
   });
 });

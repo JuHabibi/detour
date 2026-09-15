@@ -276,14 +276,14 @@ describe("next-public-home-cache — frontière nest IA", () => {
 });
 
 describe("loadHomePage — frontière public / user", () => {
-  it("orchestre cache public + auth + favoris hors cache", () => {
+  it("orchestre uniquement le cache public (auth/favoris hors loader)", () => {
     const source = readFileSync(
       path.join(process.cwd(), "src/app/_server/load-home-page.ts"),
       "utf8",
     );
     expect(source).toContain("getCachedPublicHomeData");
-    expect(source).toContain("getAccountAuthState");
-    expect(source).toContain("listFavoriteEventIdsForUser");
+    expect(source).not.toContain("getAccountAuthState");
+    expect(source).not.toContain("listFavoriteEventIdsForUser");
     expect(source).not.toContain("getUpcomingEvents");
     expect(source).not.toContain("listExplorerEvents");
   });
