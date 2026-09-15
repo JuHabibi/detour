@@ -2,8 +2,11 @@ import "server-only";
 
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
 import {
+  classifyAuthSqlQuery,
+  extractPgQueryText,
   homePerfLog,
   homePerfMarkPoolCreate,
+  homePerfNoteAuthDbConnect,
   homePerfNoteAuthDbQuery,
   homePerfProcessAgeMs,
 } from "@/infrastructure/db/home-perf";
@@ -43,6 +46,12 @@ function logSafeDatabaseUrlMeta(connectionString: string): void {
   }
 }
 
+function noteAuthQueryFromArgs(args: never[], durationMs: number): void {
+  const sql = extractPgQueryText(args[0]);
+  const kind = sql ? classifyAuthSqlQuery(sql) : "other";
+  homePerfNoteAuthDbQuery(durationMs, kind);
+}
+
 function instrumentQueryForAuthProbe(
   original: (...args: never[]) => unknown,
 ): (...args: never[]) => unknown {
@@ -56,10 +65,10 @@ function instrumentQueryForAuthProbe(
       typeof (result as { then?: unknown }).then === "function"
     ) {
       return Promise.resolve(result).finally(() => {
-        homePerfNoteAuthDbQuery(Date.now() - t0);
+        noteAuthQueryFromArgs(args, Date.now() - t0);
       });
     }
-    homePerfNoteAuthDbQuery(Date.now() - t0);
+    noteAuthQueryFromArgs(args, Date.now() - t0);
     return result;
   };
 }
@@ -87,12 +96,16 @@ function instrumentPool(created: Pool): Pool {
     ) => void,
   ) => {
     if (typeof callback === "function") {
+      const t0 = Date.now();
       return originalConnect((err, client, done) => {
+        homePerfNoteAuthDbConnect(Date.now() - t0);
         if (client) instrumentPoolClient(client);
         callback(err, client, done);
       });
     }
+    const t0 = Date.now();
     return originalConnect().then((client) => {
+      homePerfNoteAuthDbConnect(Date.now() - t0);
       instrumentPoolClient(client);
       return client;
     });

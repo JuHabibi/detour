@@ -20,6 +20,8 @@ export async function getAccountAuthState(): Promise<AccountAuthState> {
     value: sessionTimed,
     dbMs,
     dbQueries,
+    connectMs,
+    sessionRefresh,
   } = await homePerfWithAuthDbProbe(() =>
     homePerfTimed(async () =>
       auth.api.getSession({
@@ -31,6 +33,8 @@ export async function getAccountAuthState(): Promise<AccountAuthState> {
   const session = sessionTimed.value;
   const hit = Boolean(session?.user?.id);
 
+  homePerfLog(`auth_db_connect=${connectMs}ms`);
+  homePerfLog(`auth_session_refresh=${sessionRefresh}`);
   homePerfLog(
     `auth_session=${sessionTimed.ms}ms auth_db=${dbMs}ms auth_db_queries=${dbQueries} hit=${hit}`,
   );
