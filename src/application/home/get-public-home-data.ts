@@ -13,18 +13,32 @@ import {
 import { getAiConfig } from "@/config/ai-config";
 import { shouldExposeHomeDebug } from "@/config/home-debug";
 import type { EventItem } from "@/data/types";
-import type {
-  EventIngestionResult,
-  SourceIngestionStatus,
-} from "@/application/ingestion/event-ingestion-result";
+import type { DetourEvent } from "@/domain/events/event";
+import { isRadarEligibleAvailability } from "@/domain/events/event-availability";
+import {
+  rankDetourHighlightCandidates,
+  type EventHighlight,
+  type HighlightReason,
+} from "@/domain/editorial/select-detour-highlights";
+import { ingestionFromPlainEvents } from "@/application/ingestion/event-ingestion-result";
+import type { AiShortlistBucketStats } from "@/application/ai/build-ai-highlight-shortlist";
 import { createHighlightAssessmentProvider } from "@/infrastructure/ai/create-highlight-assessment-provider";
 import {
   createNextAiAssessmentReadThrough,
   invalidateNextAiAssessmentCache,
 } from "@/infrastructure/ai/next-ai-assessment-cache";
 import { createHomeEventSource } from "@/infrastructure/create-detour-event-source";
+import { homePerfLog } from "@/infrastructure/db/home-perf";
 
 const UPCOMING_WINDOW_DAYS = 180;
+
+const EMPTY_BUCKET_STATS: AiShortlistBucketStats = {
+  "deterministic-top": 0,
+  "planning-top": 0,
+  "booking-top": 0,
+  "peripheral-top": 0,
+  "future-top": 0,
+};
 
 const eventService = new EventService(
   createHomeEventSource(),
@@ -56,62 +70,93 @@ export type GetPublicHomeDataParams = {
   exposeDebug?: boolean;
 };
 
-/** Ingestion JSON-safe pour Data Cache Home (Maps → records). */
-type SerializedIngestion = {
-  events: EventIngestionResult["events"];
-  adapterByEventId: Record<string, string>;
-  rawCountByAdapter: Record<string, number>;
-  statusByAdapter: Record<string, SourceIngestionStatus>;
-  sourceNameByAdapter: Record<string, string>;
-  adapterOrder: string[];
-};
-
-type SerializablePipeline = Omit<UpcomingEventsPipeline, "ingestion"> & {
-  ingestion: SerializedIngestion;
+/** Métadonnées shortlist sans re-embarquer `DetourEvent`. */
+export type PublicHomeAiShortlistRef = {
+  eventId: string;
+  score: number;
+  planningScore: number;
+  reasons: HighlightReason[];
 };
 
 /**
- * Snapshot Home **sans** assessment IA — seul contenu du `unstable_cache` Home.
- * L’IA est matérialisée après, hors scope nesté.
+ * Snapshot Home slim — une seule copie du corpus + refs shortlist.
+ * Destiné au `unstable_cache` public (limite Data Cache 2 Mo).
  */
 export type PublicHomeSnapshot = {
-  pipeline: SerializablePipeline;
+  events: DetourEvent[];
+  aiShortlist: PublicHomeAiShortlistRef[];
   explorerPage: ListExplorerEventsResult;
   exposeDebug: boolean;
 };
 
-function serializeIngestion(
-  ingestion: EventIngestionResult,
-): SerializedIngestion {
+export function measurePublicHomeSnapshotBytes(
+  snapshot: PublicHomeSnapshot,
+): number {
+  return Buffer.byteLength(JSON.stringify(snapshot), "utf8");
+}
+
+export function toPublicHomeSnapshotSlim(params: {
+  events: DetourEvent[];
+  aiShortlist: EventHighlight[];
+  explorerPage: ListExplorerEventsResult;
+  exposeDebug: boolean;
+}): PublicHomeSnapshot {
   return {
-    events: ingestion.events,
-    adapterByEventId: Object.fromEntries(ingestion.adapterByEventId),
-    rawCountByAdapter: Object.fromEntries(ingestion.rawCountByAdapter),
-    statusByAdapter: Object.fromEntries(ingestion.statusByAdapter),
-    sourceNameByAdapter: Object.fromEntries(ingestion.sourceNameByAdapter),
-    adapterOrder: ingestion.adapterOrder,
+    events: params.events,
+    aiShortlist: params.aiShortlist.map((item) => ({
+      eventId: item.event.id,
+      score: item.score,
+      planningScore: item.planningScore,
+      reasons: item.reasons,
+    })),
+    explorerPage: params.explorerPage,
+    exposeDebug: params.exposeDebug,
   };
 }
 
-function revivePipeline(pipeline: SerializablePipeline): UpcomingEventsPipeline {
+/**
+ * Reconstitue le pipeline pour `finalizeUpcomingWithAutoAi`.
+ * Ranking déterministe recalculé ; shortlist via ids + métadonnées.
+ */
+export function reviveUpcomingPipelineFromSlim(
+  snapshot: PublicHomeSnapshot,
+): UpcomingEventsPipeline {
+  const eventsById = new Map(
+    snapshot.events.map((event) => [event.id, event] as const),
+  );
+
+  const aiShortlist: EventHighlight[] = snapshot.aiShortlist.map((ref) => {
+    const event = eventsById.get(ref.eventId);
+    if (!event) {
+      throw new Error(
+        `PublicHomeSnapshot shortlist ref missing event ${ref.eventId}`,
+      );
+    }
+    return {
+      event,
+      score: ref.score,
+      planningScore: ref.planningScore,
+      reasons: ref.reasons,
+    };
+  });
+
+  const radarEligibleEvents = snapshot.events.filter((event) =>
+    isRadarEligibleAvailability(event.availabilityStatus),
+  );
+  const rankedCandidates = rankDetourHighlightCandidates(radarEligibleEvents);
+  const highlightCandidates = rankedCandidates.slice(0, 20);
+
   return {
-    ...pipeline,
-    ingestion: {
-      events: pipeline.ingestion.events,
-      adapterByEventId: new Map(
-        Object.entries(pipeline.ingestion.adapterByEventId),
-      ),
-      rawCountByAdapter: new Map(
-        Object.entries(pipeline.ingestion.rawCountByAdapter),
-      ),
-      statusByAdapter: new Map(
-        Object.entries(pipeline.ingestion.statusByAdapter),
-      ),
-      sourceNameByAdapter: new Map(
-        Object.entries(pipeline.ingestion.sourceNameByAdapter),
-      ),
-      adapterOrder: pipeline.ingestion.adapterOrder,
-    },
+    ingestion: ingestionFromPlainEvents(snapshot.events),
+    rawEvents: snapshot.events,
+    classifiedEvents: snapshot.events,
+    events: snapshot.events,
+    duplicates: [],
+    rankedCandidates,
+    highlightCandidates,
+    aiShortlist,
+    aiShortlistInclusion: {},
+    aiShortlistBucketSizes: EMPTY_BUCKET_STATS,
   };
 }
 
@@ -142,7 +187,7 @@ function toPublicHomeData(
 }
 
 /**
- * Compute Home sans IA — destiné au callback `unstable_cache` public.
+ * Compute Home slim sans IA — destiné au callback `unstable_cache` public.
  */
 export async function getPublicHomeSnapshot(
   params: GetPublicHomeDataParams,
@@ -157,14 +202,18 @@ export async function getPublicHomeSnapshot(
     listExplorerEvents({ when: "weekend", limit: 12 }),
   ]);
 
-  return {
-    pipeline: {
-      ...pipeline,
-      ingestion: serializeIngestion(pipeline.ingestion),
-    },
+  const snapshot = toPublicHomeSnapshotSlim({
+    events: pipeline.events,
+    aiShortlist: pipeline.aiShortlist,
     explorerPage,
     exposeDebug,
-  };
+  });
+
+  homePerfLog(
+    `public_home_snapshot_bytes=${measurePublicHomeSnapshotBytes(snapshot)}`,
+  );
+
+  return snapshot;
 }
 
 /**
@@ -174,7 +223,7 @@ export async function materializePublicHomeData(
   snapshot: PublicHomeSnapshot,
 ): Promise<PublicHomeData> {
   const result = await eventService.finalizeUpcomingWithAutoAi(
-    revivePipeline(snapshot.pipeline),
+    reviveUpcomingPipelineFromSlim(snapshot),
   );
   return toPublicHomeData(result, snapshot.explorerPage, snapshot.exposeDebug);
 }
