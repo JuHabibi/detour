@@ -27,6 +27,11 @@ vi.mock("@/infrastructure/db/home-perf", () => ({
     const value = await run();
     return { value, ms: 1 };
   },
+  homePerfWithAuthDbProbe: async <T>(run: () => Promise<T>) => {
+    const value = await run();
+    return { value, dbMs: 0, dbQueries: 0 };
+  },
+  homePerfNoteAuthDbQuery: vi.fn(),
 }));
 
 describe("loadHomePage", () => {

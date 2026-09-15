@@ -37,6 +37,8 @@ export async function loadHomePage() {
         })()
       : [];
 
+  homePerfLog(`favorites=${favoritesMs}ms authStatus=${auth.status}`);
+
   const poolMeta = homePerfPoolMeta();
   const totalMs = Date.now() - tTotal;
   homePerfLog(

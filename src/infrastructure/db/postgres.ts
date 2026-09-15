@@ -4,6 +4,7 @@ import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg
 import {
   homePerfLog,
   homePerfMarkPoolCreate,
+  homePerfNoteAuthDbQuery,
   homePerfProcessAgeMs,
 } from "@/infrastructure/db/home-perf";
 
@@ -42,6 +43,64 @@ function logSafeDatabaseUrlMeta(connectionString: string): void {
   }
 }
 
+function instrumentQueryForAuthProbe(
+  original: (...args: never[]) => unknown,
+): (...args: never[]) => unknown {
+  return (...args: never[]) => {
+    const t0 = Date.now();
+    const result = original(...args);
+    if (
+      result != null &&
+      typeof result === "object" &&
+      "then" in result &&
+      typeof (result as { then?: unknown }).then === "function"
+    ) {
+      return Promise.resolve(result).finally(() => {
+        homePerfNoteAuthDbQuery(Date.now() - t0);
+      });
+    }
+    homePerfNoteAuthDbQuery(Date.now() - t0);
+    return result;
+  };
+}
+
+function instrumentPoolClient(client: PoolClient): void {
+  const marked = client as PoolClient & { __detourAuthProbe?: boolean };
+  if (marked.__detourAuthProbe) return;
+  marked.__detourAuthProbe = true;
+  marked.query = instrumentQueryForAuthProbe(
+    marked.query.bind(marked) as (...args: never[]) => unknown,
+  ) as typeof marked.query;
+}
+
+function instrumentPool(created: Pool): Pool {
+  created.query = instrumentQueryForAuthProbe(
+    created.query.bind(created) as (...args: never[]) => unknown,
+  ) as typeof created.query;
+
+  const originalConnect = created.connect.bind(created);
+  created.connect = ((
+    callback?: (
+      err: Error | undefined,
+      client: PoolClient | undefined,
+      done: (release?: unknown) => void,
+    ) => void,
+  ) => {
+    if (typeof callback === "function") {
+      return originalConnect((err, client, done) => {
+        if (client) instrumentPoolClient(client);
+        callback(err, client, done);
+      });
+    }
+    return originalConnect().then((client) => {
+      instrumentPoolClient(client);
+      return client;
+    });
+  }) as Pool["connect"];
+
+  return created;
+}
+
 /**
  * Pool process-local, créé au premier usage serveur.
  * DATABASE_URL lue uniquement ici — jamais loggée.
@@ -67,7 +126,7 @@ export function getPool(): Pool {
 
   const t0 = Date.now();
   try {
-    pool = new Pool({ connectionString });
+    pool = instrumentPool(new Pool({ connectionString }));
   } finally {
     process.off("warning", onWarning);
   }
