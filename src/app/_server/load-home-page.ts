@@ -1,10 +1,3 @@
-import { EventService } from "@/application/event.service";
-import { buildEventsDebugMeta } from "@/application/build-events-debug-meta";
-import { listExplorerEvents } from "@/application/explorer/list-explorer-events";
-import {
-  mapDetourEventToEventItem,
-  mapDetourHighlightToEventItem,
-} from "@/application/map-detour-event-to-ui";
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import {
   homePerfLog,
@@ -13,56 +6,23 @@ import {
   homePerfProcessAgeMs,
   homePerfTimed,
 } from "@/infrastructure/db/home-perf";
-import { getAiConfig } from "@/config/ai-config";
-import { shouldExposeHomeDebug } from "@/config/home-debug";
-import { createHighlightAssessmentProvider } from "@/infrastructure/ai/create-highlight-assessment-provider";
-import {
-  createNextAiAssessmentReadThrough,
-  invalidateNextAiAssessmentCache,
-} from "@/infrastructure/ai/next-ai-assessment-cache";
-import { createHomeEventSource } from "@/infrastructure/create-detour-event-source";
+import { getCachedPublicHomeData } from "@/infrastructure/next-public-home-cache";
 import { listFavoriteEventIdsForUser } from "@/infrastructure/db/favorite.repository";
 
-const UPCOMING_WINDOW_DAYS = 180;
-
-const eventService = new EventService(
-  createHomeEventSource(),
-  createHighlightAssessmentProvider(),
-  {
-    aiConfig: getAiConfig(),
-    readThrough: createNextAiAssessmentReadThrough(),
-    onForceInvalidate: invalidateNextAiAssessmentCache,
-  },
-);
-
-/** Charge les données Home (radar, explorer, debug, label Account, favoris) pour `page.tsx`. */
+/**
+ * Charge la Home : read model public (cache) + auth/favoris (dynamiques).
+ */
 export async function loadHomePage() {
   const tTotal = Date.now();
   const reqId = homePerfNextReqId();
   const processAgeBefore = homePerfProcessAgeMs();
 
-  const from = new Date();
-  const to = new Date(from);
-  to.setDate(to.getDate() + UPCOMING_WINDOW_DAYS);
-
-  const exposeDebug = shouldExposeHomeDebug();
-
-  const eventsP = homePerfTimed(() =>
-    eventService.getUpcomingEvents({ from, to }),
-  );
-  const explorerP = homePerfTimed(() =>
-    listExplorerEvents({ when: "weekend", limit: 12 }),
-  );
+  const publicP = homePerfTimed(() => getCachedPublicHomeData());
   const authP = homePerfTimed(() => getAccountAuthState());
 
-  const [eventsTimed, explorerTimed, authTimed] = await Promise.all([
-    eventsP,
-    explorerP,
-    authP,
-  ]);
+  const [publicTimed, authTimed] = await Promise.all([publicP, authP]);
 
-  const result = eventsTimed.value;
-  const explorerPage = explorerTimed.value;
+  const publicData = publicTimed.value;
   const auth = authTimed.value;
 
   let favoritesMs = 0;
@@ -86,8 +46,7 @@ export async function loadHomePage() {
       processAgeBefore < 5_000 ? "instance=likely_cold" : "instance=warm",
       `pool_create=${poolMeta.poolCreateMs ?? "n/a"}ms`,
       `pool_age=${poolMeta.poolAgeMs ?? "n/a"}ms`,
-      `events=${eventsTimed.ms}ms`,
-      `explorer=${explorerTimed.ms}ms`,
+      `public=${publicTimed.ms}ms`,
       `auth=${authTimed.ms}ms`,
       `favorites=${favoritesMs}ms`,
       `authStatus=${auth.status}`,
@@ -100,22 +59,10 @@ export async function loadHomePage() {
       auth.status === "authenticated" ? "Mon compte" : "Se connecter",
     isAuthenticated: auth.status === "authenticated",
     favoriteEventIds,
-    highlights: result.highlights.map((highlight) =>
-      mapDetourHighlightToEventItem(highlight),
-    ),
-    planningEvents: result.planningEvents.map((item) =>
-      mapDetourEventToEventItem(item.event),
-    ),
-    explorer: {
-      events: explorerPage.events.map((event) =>
-        mapDetourEventToEventItem(event),
-      ),
-      totalCount: explorerPage.totalCount,
-      nextCursor: explorerPage.nextCursor,
-    },
-    debugEvents: exposeDebug
-      ? result.events.map((event) => mapDetourEventToEventItem(event))
-      : undefined,
-    debugMeta: exposeDebug ? buildEventsDebugMeta(result) : undefined,
+    highlights: publicData.highlights,
+    planningEvents: publicData.planningEvents,
+    explorer: publicData.explorer,
+    debugEvents: publicData.debugEvents,
+    debugMeta: publicData.debugMeta,
   };
 }

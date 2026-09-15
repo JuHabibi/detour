@@ -84,7 +84,7 @@ describe("GET /api/cron/event-sync", () => {
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
-  it("200 + sync appelée ; SyncResult skipped OK ; revalidatePath(/)", async () => {
+  it("200 + sync appelée ; SyncResult skipped OK ; revalidatePath(/) + invalidate public home", async () => {
     const res = await GET(requestWithAuth(`Bearer ${SECRET}`));
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
@@ -109,11 +109,14 @@ describe("GET /api/cron/event-sync", () => {
     expect(body.availabilityError).toBeNull();
     expect(revalidatePathMock).toHaveBeenCalledTimes(1);
     expect(revalidatePathMock).toHaveBeenCalledWith("/");
-    expect(revalidateTagMock).not.toHaveBeenCalled();
+    expect(revalidateTagMock).toHaveBeenCalledTimes(1);
+    expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", {
+      expire: 0,
+    });
     expect(updateTagMock).not.toHaveBeenCalled();
   });
 
-  it("sync OK même si enrichissement disponibilité échoue ; revalidatePath quand même", async () => {
+  it("sync OK même si enrichissement disponibilité échoue ; revalidate quand même", async () => {
     runDetourAvailabilityEnrichmentMock.mockRejectedValue(
       new Error("mapado down"),
     );
@@ -123,7 +126,9 @@ describe("GET /api/cron/event-sync", () => {
     expect(body.availabilityError).toBe("mapado down");
     expect(revalidatePathMock).toHaveBeenCalledTimes(1);
     expect(revalidatePathMock).toHaveBeenCalledWith("/");
-    expect(revalidateTagMock).not.toHaveBeenCalled();
+    expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", {
+      expire: 0,
+    });
     expect(updateTagMock).not.toHaveBeenCalled();
   });
 

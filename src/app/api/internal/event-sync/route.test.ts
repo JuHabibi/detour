@@ -91,7 +91,7 @@ describe("POST /api/internal/event-sync", () => {
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
-  it("200 + sync même si SyncResult error ; revalidatePath(/)", async () => {
+  it("200 + sync même si SyncResult error ; revalidatePath(/) + invalidate public home", async () => {
     const res = await POST(requestWithAuth(`Bearer ${SECRET}`));
     expect(res.status).toBe(200);
     const body = (await res.json()) as { results: unknown[] };
@@ -100,11 +100,14 @@ describe("POST /api/internal/event-sync", () => {
     expect(runDetourAvailabilityEnrichmentMock).toHaveBeenCalledTimes(1);
     expect(revalidatePathMock).toHaveBeenCalledTimes(1);
     expect(revalidatePathMock).toHaveBeenCalledWith("/");
-    expect(revalidateTagMock).not.toHaveBeenCalled();
+    expect(revalidateTagMock).toHaveBeenCalledTimes(1);
+    expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", {
+      expire: 0,
+    });
     expect(updateTagMock).not.toHaveBeenCalled();
   });
 
-  it("availability best-effort échoue → 200 + revalidatePath", async () => {
+  it("availability best-effort échoue → 200 + revalidate", async () => {
     runDetourAvailabilityEnrichmentMock.mockRejectedValue(
       new Error("mapado down"),
     );
@@ -114,7 +117,9 @@ describe("POST /api/internal/event-sync", () => {
     expect(body.availabilityError).toBe("mapado down");
     expect(revalidatePathMock).toHaveBeenCalledTimes(1);
     expect(revalidatePathMock).toHaveBeenCalledWith("/");
-    expect(revalidateTagMock).not.toHaveBeenCalled();
+    expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", {
+      expire: 0,
+    });
     expect(updateTagMock).not.toHaveBeenCalled();
   });
 

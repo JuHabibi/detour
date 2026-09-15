@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { runDetourAvailabilityEnrichment } from "@/application/availability/run-detour-availability-enrichment";
 import { runDetourEventSync } from "@/application/event-sync/run-detour-event-sync";
+import { invalidatePublicHomeCache } from "@/infrastructure/next-public-home-cache";
 
 export const runtime = "nodejs";
 
@@ -44,6 +45,8 @@ export async function GET(request: Request): Promise<Response> {
         error instanceof Error ? error.message : "availability_enrichment_failed";
     }
 
+    // Après écritures DB (events + availability best-effort) : une invalidation globale.
+    invalidatePublicHomeCache();
     revalidatePath("/");
 
     return Response.json({ results, availability, availabilityError });

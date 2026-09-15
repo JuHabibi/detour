@@ -28,12 +28,18 @@ describe("Explorer UI wiring", () => {
   });
 
   it("page serveur charge Explorer via listExplorerEvents, pas result.events pour la grille", () => {
-    const source = readFileSync(loadHomePagePath, "utf8");
-    expect(source).toContain("listExplorerEvents");
-    expect(source).toContain('when: "weekend"');
-    expect(source).toContain("explorer:");
-    expect(source).toContain("debugEvents");
-    expect(source).not.toMatch(/events=\{result\.events/);
+    const publicHomePath = path.join(
+      __dirname,
+      "../../../application/home/get-public-home-data.ts",
+    );
+    const publicSource = readFileSync(publicHomePath, "utf8");
+    const loaderSource = readFileSync(loadHomePagePath, "utf8");
+    expect(publicSource).toContain("listExplorerEvents");
+    expect(publicSource).toContain('when: "weekend"');
+    expect(loaderSource).toContain("getCachedPublicHomeData");
+    expect(loaderSource).toContain("explorer:");
+    expect(loaderSource).toContain("debugEvents");
+    expect(loaderSource).not.toMatch(/events=\{result\.events/);
   });
 
   it("référentiel villes UI = V1_COMMUNES", () => {
