@@ -369,7 +369,7 @@ export function StandardEventCard(props: CardProps) {
       )}
     >
       <EventActionLink event={event} surface={surface} />
-      <div className="relative aspect-[3/4] w-28 shrink-0 overflow-hidden bg-ink-3 md:aspect-[4/5] md:w-auto">
+      <div className="relative aspect-[3/4] w-28 shrink-0 overflow-hidden bg-ink-3 md:aspect-[16/10] md:w-auto">
         <Image
           src={imageSrc}
           alt={resolveEventImageAlt(event)}
