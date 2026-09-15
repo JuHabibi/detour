@@ -364,18 +364,18 @@ export function StandardEventCard(props: CardProps) {
   return (
     <article
       className={cn(
-        "group relative flex h-full flex-col",
+        "group relative flex h-full gap-3 md:flex-col md:gap-0",
         resolveEventAction(event).href && "cursor-pointer",
       )}
     >
       <EventActionLink event={event} surface={surface} />
-      <div className="relative aspect-[3/4] overflow-hidden bg-ink-3">
+      <div className="relative aspect-[3/4] w-28 shrink-0 overflow-hidden bg-ink-3 md:w-auto">
         <Image
           src={imageSrc}
           alt={resolveEventImageAlt(event)}
           fill
           priority={priority}
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          sizes="(max-width: 767px) 7rem, (max-width: 1024px) 50vw, 25vw"
           className="object-cover object-center transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.03]"
         />
         {onToggleFavorite ? (
@@ -383,35 +383,51 @@ export function StandardEventCard(props: CardProps) {
             isFavorite={isFavorite}
             onClick={() => onToggleFavorite(event.id)}
             eventTitle={event.title}
-            className="absolute right-2 top-2 z-[2] border-0 bg-foam/90"
+            className="absolute right-2 top-2 z-[2] hidden border-0 bg-foam/90 md:flex"
           />
         ) : null}
       </div>
 
-      <div className="relative flex flex-1 flex-col pt-3">
-        <CategoryBadge event={event} className="px-2 py-1" />
-        <EditorialBadgePill label={event.editorialBadge} />
-        <AvailabilityBadgePill label={event.availabilityBadge} />
-        <h3 className="mt-1.5 line-clamp-2 font-display text-[1.3rem] font-semibold leading-[1.08] tracking-tight text-ink md:text-[1.4rem]">
+      <div className="relative flex min-w-0 flex-1 flex-col py-0.5 md:pt-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <CategoryBadge event={event} className="px-2 py-1" />
+            <div className="hidden md:block">
+              <EditorialBadgePill label={event.editorialBadge} />
+              <AvailabilityBadgePill label={event.availabilityBadge} />
+            </div>
+          </div>
+          {onToggleFavorite ? (
+            <FavoriteButton
+              isFavorite={isFavorite}
+              onClick={() => onToggleFavorite(event.id)}
+              eventTitle={event.title}
+              className="relative z-[2] shrink-0 md:hidden"
+            />
+          ) : null}
+        </div>
+        <h3 className="mt-1 line-clamp-2 font-display text-[1.15rem] font-semibold leading-[1.08] tracking-tight text-ink md:mt-1.5 md:text-[1.4rem]">
           {event.title}
         </h3>
-        {event.venue ? (
-          <p className="mt-1.5 line-clamp-1 text-sm text-cream-dim">
-            {event.venue}
+        <div className="mt-auto space-y-0.5 pt-1.5 text-sm md:pt-3">
+          <p className="line-clamp-1 text-[13px] italic text-sand">
+            {whenLabel}
           </p>
-        ) : null}
-        <div className="mt-0.5 text-sm">
-          <LocationLine
-            city={event.city}
-            distanceKm={event.distanceKm}
-            cityClassName="text-cream-dim"
-            sepClassName="text-sand"
-            distanceClassName="font-medium text-ink"
-          />
-        </div>
-        <div className="mt-auto space-y-0.5 pt-3 text-sm">
-          <p className="text-[13px] italic text-sand">{whenLabel}</p>
-          {priceLabel ? <p className="font-medium text-ink">{priceLabel}</p> : null}
+          {event.venue ? (
+            <p className="line-clamp-1 text-cream-dim">{event.venue}</p>
+          ) : null}
+          <div className={cn("text-sm", event.venue && "hidden md:block")}>
+            <LocationLine
+              city={event.city}
+              distanceKm={event.distanceKm}
+              cityClassName="text-cream-dim"
+              sepClassName="text-sand"
+              distanceClassName="font-medium text-ink"
+            />
+          </div>
+          {priceLabel ? (
+            <p className="hidden font-medium text-ink md:block">{priceLabel}</p>
+          ) : null}
         </div>
       </div>
     </article>

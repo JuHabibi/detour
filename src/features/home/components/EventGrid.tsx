@@ -63,7 +63,7 @@ export function EventGrid({
           </p>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-x-5 gap-y-12 sm:grid-cols-2 lg:grid-cols-4 2xl:gap-x-6">
+            <div className="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-2 md:gap-y-12 lg:grid-cols-4 2xl:gap-x-6">
               {events.map((event, index) => (
                 <EventCard
                   key={event.id}
