@@ -2,6 +2,7 @@ import type { SyncSource } from "@/application/event-sync/sync-types";
 import { BouillonEventAdapter } from "@/infrastructure/sources/bouillon/bouillon.adapter";
 import { IngreAgendaEventAdapter } from "@/infrastructure/sources/ingre-agenda/ingre-agenda.adapter";
 import { OrleansEventAdapter } from "@/infrastructure/sources/orleans/orleans-event.adapter";
+import { OrmesEventAdapter } from "@/infrastructure/sources/ormes/ormes.adapter";
 import { SaranEventAdapter } from "@/infrastructure/sources/saran/saran-event.adapter";
 
 /**
@@ -25,6 +26,10 @@ export function createDetourSyncSources(): SyncSource[] {
     {
       adapterId: "bouillon",
       adapter: new BouillonEventAdapter(),
+    },
+    {
+      adapterId: "ormes",
+      adapter: new OrmesEventAdapter(),
     },
   ];
 }

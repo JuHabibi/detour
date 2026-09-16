@@ -18,6 +18,7 @@ const ADAPTER_LABELS: Record<string, string> = {
   saran: "Ville de Saran",
   "ingre-agenda": "Ville d'Ingré (agenda)",
   bouillon: "Université d'Orléans / Le Bouillon",
+  ormes: "Ville d'Ormes",
 };
 
 const ADAPTER_ORDER_PREFERRED = [
@@ -25,6 +26,7 @@ const ADAPTER_ORDER_PREFERRED = [
   "saran",
   "ingre-agenda",
   "bouillon",
+  "ormes",
 ] as const;
 
 export type ListUpcomingActiveWithAdapter = (params: {

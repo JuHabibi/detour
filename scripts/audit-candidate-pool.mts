@@ -1,6 +1,11 @@
 /**
  * Audit pipeline candidat « Faites un détour » (sans appeler l’IA).
- * Usage : npx tsx scripts/audit-candidate-pool.mts
+ * Usage : bun scripts/audit-candidate-pool.mts
+ *     ou : npx tsx scripts/audit-candidate-pool.mts
+ *
+ * Ne pas importer createDetourEventSource : ce module tire DatabaseEventSourceAdapter
+ * → postgres → server-only, incompatible CLI Bun/tsx hors Next.
+ * Corpus inchangé : orleans + saran (même live composite que createDetourEventSource).
  */
 import { writeFileSync } from "node:fs";
 import { classifyEventRelevance } from "../src/domain/events/classify-event-relevance";
@@ -13,13 +18,37 @@ import {
 import {
   HIGHLIGHT_WEIGHTS,
   rankDetourHighlightCandidates,
-  type HighlightReason,
 } from "../src/domain/editorial/select-detour-highlights";
 import type { DetourEvent } from "../src/domain/events/event";
-import { createDetourEventSource } from "../src/infrastructure/create-detour-event-source";
+import { CompositeEventSourceAdapter } from "../src/infrastructure/composite-event-source.adapter";
+import { createDetourSyncSources } from "../src/infrastructure/create-detour-sync-sources";
+import type { EventSource } from "../src/application/ports/event-source";
 
 const WINDOW_DAYS = 180;
 const TOP20 = 20;
+
+/** Aligné sur createDetourEventSource — pas Ingré/Bouillon (sync only). */
+const AUDIT_LIVE_ADAPTER_IDS = ["orleans", "saran"] as const;
+const AUDIT_LIVE_LABELS: Record<(typeof AUDIT_LIVE_ADAPTER_IDS)[number], string> =
+  {
+    orleans: "Orléans / OpenAgenda",
+    saran: "Ville de Saran",
+  };
+
+function createAuditCandidatePoolSource(): EventSource {
+  const byId = new Map(
+    createDetourSyncSources().map((source) => [source.adapterId, source.adapter]),
+  );
+  return new CompositeEventSourceAdapter(
+    AUDIT_LIVE_ADAPTER_IDS.map((id) => {
+      const adapter = byId.get(id);
+      if (!adapter) {
+        throw new Error(`Missing sync adapter for audit corpus: ${id}`);
+      }
+      return { name: id, label: AUDIT_LIVE_LABELS[id], adapter };
+    }),
+  );
+}
 
 function matchesRouve(event: DetourEvent): boolean {
   return /jean[-\s]?paul\s+rouve|\brouve\b/i.test(
@@ -36,7 +65,7 @@ async function main() {
   const to = new Date(from);
   to.setDate(to.getDate() + WINDOW_DAYS);
 
-  const rawEvents = await createDetourEventSource().fetchUpcomingEvents({
+  const rawEvents = await createAuditCandidatePoolSource().fetchUpcomingEvents({
     from,
     to,
   });
