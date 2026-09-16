@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "audit:evaluate": "tsx scripts/evaluate-editorial-snapshot.mts",
-    "audit:challenger": "tsx scripts/evaluate-selector-challenger.mts"
+    "audit:challenger": "tsx scripts/evaluate-selector-challenger.mts",
+    "db:migrate": "dbmate --env-file .env.local up",
+    "db:status": "dbmate --env-file .env.local status"
   },
   "dependencies": {
     "better-auth": "^1.7.4",

@@ -19,6 +19,13 @@ export type GroupRow = {
   updatedAt: string;
 };
 
+/** Liste Mon compte — compteurs + plage dates (events liés). */
+export type GroupSummary = GroupRow & {
+  eventCount: number;
+  earliestStartAt: string | null;
+  latestStartAt: string | null;
+};
+
 export type GroupWithEvents = GroupRow & {
   events: DetourEvent[];
 };
@@ -87,6 +94,50 @@ ORDER BY created_at DESC, id ASC
     [userId],
   );
   return result.rows.map(mapGroupRow);
+}
+
+type GroupSummarySqlRow = GroupSqlRow & {
+  event_count: string | number;
+  earliest_start_at: Date | null;
+  latest_start_at: Date | null;
+};
+
+/** Groupes + eventCount / plage start_at — scoppé user_id. */
+export async function listGroupSummariesForUser(
+  userId: string,
+  client?: DbQueryable,
+): Promise<GroupSummary[]> {
+  const result = await db(client).query<GroupSummarySqlRow>(
+    `
+SELECT
+  g.id,
+  g.user_id,
+  g.name,
+  g.created_at,
+  g.updated_at,
+  COUNT(ge.event_id)::int AS event_count,
+  MIN(e.start_at) AS earliest_start_at,
+  MAX(e.start_at) AS latest_start_at
+FROM groups g
+LEFT JOIN group_events ge ON ge.group_id = g.id
+LEFT JOIN events e ON e.id = ge.event_id
+WHERE g.user_id = $1
+GROUP BY g.id
+ORDER BY g.created_at DESC, g.id ASC
+`.trim(),
+    [userId],
+  );
+
+  return result.rows.map((row) => ({
+    ...mapGroupRow(row),
+    eventCount: Number(row.event_count),
+    earliestStartAt: row.earliest_start_at
+      ? row.earliest_start_at.toISOString()
+      : null,
+    latestStartAt: row.latest_start_at
+      ? row.latest_start_at.toISOString()
+      : null,
+  }));
 }
 
 /**

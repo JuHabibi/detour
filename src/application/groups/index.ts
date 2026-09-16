@@ -7,11 +7,13 @@ export {
   createGroupForUser,
   deleteGroupForUser,
   getGroupWithEventsForUser,
+  listGroupSummariesForUser,
   listGroupsForUser,
   normalizeGroupName,
   removeEventFromGroupForUser,
   renameGroupForUser,
   type AddEventToGroupResult,
   type GroupRow,
+  type GroupSummary,
   type GroupWithEvents,
 } from "@/infrastructure/db/group.repository";

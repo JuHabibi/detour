@@ -2,14 +2,20 @@ import { Header } from "@/components/layout/Header";
 import type { AccountAuthState } from "@/features/account/account-auth-state";
 import { AccountSignedIn } from "@/features/account/components/AccountSignedIn";
 import { AccountSignedOut } from "@/features/account/components/AccountSignedOut";
+import type { GroupSummary } from "@/application/groups";
 import type { EventItem } from "@/data/types";
 
 type AccountPageProps = {
   auth: AccountAuthState;
   favorites?: EventItem[];
+  groups?: GroupSummary[];
 };
 
-export function AccountPage({ auth, favorites = [] }: AccountPageProps) {
+export function AccountPage({
+  auth,
+  favorites = [],
+  groups = [],
+}: AccountPageProps) {
   const signedIn = auth.status === "authenticated";
 
   return (
@@ -30,6 +36,7 @@ export function AccountPage({ auth, favorites = [] }: AccountPageProps) {
                 email: auth.user.email,
               }}
               initialFavorites={favorites}
+              initialGroups={groups}
             />
           ) : (
             <AccountSignedOut />
@@ -43,7 +50,7 @@ export function AccountPage({ auth, favorites = [] }: AccountPageProps) {
             Détour<span className="text-coral">.</span>
           </p>
           <p className="max-w-md text-sm leading-6 text-sand">
-            Compte Détour — favoris synchronisés sur vos appareils.
+            Compte Détour — favoris et groupes synchronisés sur vos appareils.
           </p>
         </div>
       </footer>

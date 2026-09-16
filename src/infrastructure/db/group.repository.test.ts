@@ -78,6 +78,38 @@ describe("group.repository — ownership / IDOR", () => {
     expect(sql).not.toContain("WHERE id =");
   });
 
+  it("listGroupSummariesForUser JOINs counts scoppés user_id", async () => {
+    const { listGroupSummariesForUser } = await import(
+      "@/infrastructure/db/group.repository"
+    );
+    const now = new Date("2026-09-16T10:00:00.000Z");
+    query.mockResolvedValue({
+      rows: [
+        {
+          id: GROUP_A,
+          user_id: USER_A,
+          name: "Week-end",
+          created_at: now,
+          updated_at: now,
+          event_count: 2,
+          earliest_start_at: new Date("2026-10-01T18:00:00.000Z"),
+          latest_start_at: new Date("2026-10-03T20:00:00.000Z"),
+        },
+      ],
+    });
+
+    const rows = await listGroupSummariesForUser(USER_A);
+    expect(rows[0]).toMatchObject({
+      eventCount: 2,
+      earliestStartAt: "2026-10-01T18:00:00.000Z",
+      latestStartAt: "2026-10-03T20:00:00.000Z",
+    });
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("COUNT(ge.event_id)");
+    expect(sql).toContain("WHERE g.user_id = $1");
+    expect(params).toEqual([USER_A]);
+  });
+
   it("getGroupWithEventsForUser refuse implicitement user B (WHERE id + user_id)", async () => {
     query.mockResolvedValueOnce({ rows: [] });
 

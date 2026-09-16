@@ -3,11 +3,14 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { removeFavorite } from "@/app/actions/favorites";
+import type { GroupSummary } from "@/application/groups";
 import type { EventItem } from "@/data/types";
 import { authClient } from "@/features/account/auth-client";
 import { AccountAddToAgendaModal } from "@/features/account/components/AccountAddToAgendaModal";
+import { AccountAddToGroupModal } from "@/features/account/components/AccountAddToGroupModal";
 import { AccountEmptyFavorites } from "@/features/account/components/AccountEmptyFavorites";
 import { AccountFavoriteCard } from "@/features/account/components/AccountFavoriteCard";
+import { AccountGroupsSection } from "@/features/account/components/AccountGroupsSection";
 
 export type AccountUserView = {
   name: string;
@@ -17,15 +20,19 @@ export type AccountUserView = {
 type AccountSignedInProps = {
   user: AccountUserView;
   initialFavorites?: EventItem[];
+  initialGroups?: GroupSummary[];
 };
 
 export function AccountSignedIn({
   user,
   initialFavorites = [],
+  initialGroups = [],
 }: AccountSignedInProps) {
   const router = useRouter();
   const [favorites, setFavorites] = useState(initialFavorites);
+  const [groups, setGroups] = useState(initialGroups);
   const [agendaEvent, setAgendaEvent] = useState<EventItem | null>(null);
+  const [groupEvent, setGroupEvent] = useState<EventItem | null>(null);
   const [agendaNotice, setAgendaNotice] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [logoutPending, setLogoutPending] = useState(false);
@@ -44,6 +51,7 @@ export function AccountSignedIn({
     setFavorites((current) => current.filter((event) => event.id !== id));
     setAgendaNotice(null);
     if (agendaEvent?.id === id) setAgendaEvent(null);
+    if (groupEvent?.id === id) setGroupEvent(null);
 
     startTransition(async () => {
       const result = await removeFavorite(id);
@@ -60,6 +68,11 @@ export function AccountSignedIn({
     const event = favorites.find((item) => item.id === id) ?? null;
     setAgendaEvent(event);
     setAgendaNotice(null);
+  }
+
+  function handleOpenAddToGroup(id: string) {
+    const event = favorites.find((item) => item.id === id) ?? null;
+    setGroupEvent(event);
   }
 
   function handleConfirmAgenda() {
@@ -134,6 +147,8 @@ export function AccountSignedIn({
         </p>
       ) : null}
 
+      <AccountGroupsSection groups={groups} onGroupsChange={setGroups} />
+
       {favorites.length === 0 ? (
         <div className="mt-10 md:mt-14">
           <AccountEmptyFavorites />
@@ -156,6 +171,7 @@ export function AccountSignedIn({
                 event={event}
                 onRemove={handleRemove}
                 onAddToAgenda={handleOpenAgenda}
+                onAddToGroup={handleOpenAddToGroup}
               />
             ))}
           </div>
@@ -177,6 +193,15 @@ export function AccountSignedIn({
           event={agendaEvent}
           onClose={() => setAgendaEvent(null)}
           onConfirm={handleConfirmAgenda}
+        />
+      ) : null}
+
+      {groupEvent ? (
+        <AccountAddToGroupModal
+          event={groupEvent}
+          groups={groups}
+          onClose={() => setGroupEvent(null)}
+          onGroupsChange={setGroups}
         />
       ) : null}
     </div>

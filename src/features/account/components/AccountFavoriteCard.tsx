@@ -5,15 +5,19 @@ import { cn } from "@/lib/cn";
 
 type AccountFavoriteCardProps = {
   event: EventItem;
-  /** Maquette : handlers no-op / toast UI local. */
   onRemove?: (id: string) => void;
   onAddToAgenda?: (id: string) => void;
+  onAddToGroup?: (id: string) => void;
+  /** Libellé du bouton retirer — défaut « Retirer ». */
+  removeLabel?: string;
 };
 
 export function AccountFavoriteCard({
   event,
   onRemove,
   onAddToAgenda,
+  onAddToGroup,
+  removeLabel = "Retirer",
 }: AccountFavoriteCardProps) {
   const whenLabel = event.time
     ? `${event.dateLabel} · ${event.time}`
@@ -70,20 +74,33 @@ export function AccountFavoriteCard({
         <p className="mt-1 text-[13px] italic text-sand">{whenLabel}</p>
 
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <button
-            type="button"
-            onClick={() => onAddToAgenda?.(event.id)}
-            className="text-[12px] font-medium uppercase tracking-[0.1em] text-ink underline decoration-mint/70 decoration-2 underline-offset-4 transition-colors hover:decoration-coral"
-          >
-            Ajouter à mon agenda
-          </button>
-          <button
-            type="button"
-            onClick={() => onRemove?.(event.id)}
-            className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand transition-colors hover:text-coral"
-          >
-            Retirer
-          </button>
+          {onAddToAgenda ? (
+            <button
+              type="button"
+              onClick={() => onAddToAgenda(event.id)}
+              className="text-[12px] font-medium uppercase tracking-[0.1em] text-ink underline decoration-mint/70 decoration-2 underline-offset-4 transition-colors hover:decoration-coral"
+            >
+              Ajouter à mon agenda
+            </button>
+          ) : null}
+          {onAddToGroup ? (
+            <button
+              type="button"
+              onClick={() => onAddToGroup(event.id)}
+              className="text-[12px] font-medium uppercase tracking-[0.1em] text-ink underline decoration-line underline-offset-4 transition-colors hover:text-coral"
+            >
+              Ajouter à un groupe
+            </button>
+          ) : null}
+          {onRemove ? (
+            <button
+              type="button"
+              onClick={() => onRemove(event.id)}
+              className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand transition-colors hover:text-coral"
+            >
+              {removeLabel}
+            </button>
+          ) : null}
         </div>
       </div>
     </article>
