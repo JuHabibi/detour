@@ -223,6 +223,70 @@ describe("ormes adapter fetch", () => {
     expect(events.every((e) => e.city === ORMES_CITY)).toBe(true);
     expect(events.every((e) => !/COMPLET/i.test(e.title))).toBe(true);
   });
+
+  it("fail-closed : challenge haphash HTTP 200 → unexpected_list_html", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        `<html><title>I Challenge Thee</title>
+         <form action="/_challenge"></form>
+         <div>Checking connection, please wait</div>
+         protected by haphash</html>`,
+        { status: 200, headers: { "content-type": "text/html" } },
+      ),
+    );
+
+    await expect(
+      collectOrmesEvents(
+        {
+          from: new Date("2026-09-01T00:00:00.000Z"),
+          to: new Date("2027-03-01T00:00:00.000Z"),
+        },
+        { fetchImpl, minIntervalMs: 0, sleep: async () => undefined },
+      ),
+    ).rejects.toThrow(/unexpected_list_html: challenge_haphash/);
+  });
+
+  it("fail-closed : HTML inattendu HTTP 200 → unexpected_list_html", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(`<html><body><p>CDN error</p></body></html>`, {
+        status: 200,
+      }),
+    );
+
+    await expect(
+      collectOrmesEvents(
+        {
+          from: new Date("2026-09-01T00:00:00.000Z"),
+          to: new Date("2027-03-01T00:00:00.000Z"),
+        },
+        { fetchImpl, minIntervalMs: 0, sleep: async () => undefined },
+      ),
+    ).rejects.toThrow(/unexpected_list_html: unexpected_html/);
+  });
+
+  it("agenda EM vide → [] (pas d’erreur)", async () => {
+    const emptyList = `
+      <!doctype html><html><body>
+      <div class="em-category-single">
+        <h3>Évènement à venir</h3>
+        <ul></ul>
+      </div>
+      <script src="/wp-content/plugins/events-manager/js.js"></script>
+      </body></html>`;
+    const fetchImpl = vi.fn(async () => new Response(emptyList, { status: 200 }));
+
+    const result = await collectOrmesEvents(
+      {
+        from: new Date("2026-09-01T00:00:00.000Z"),
+        to: new Date("2027-03-01T00:00:00.000Z"),
+      },
+      { fetchImpl, minIntervalMs: 0, sleep: async () => undefined },
+    );
+
+    expect(result.events).toEqual([]);
+    expect(result.stats.discovered).toBe(0);
+    expect(result.stats.published).toBe(0);
+  });
 });
 
 function hash(value: string): number {
