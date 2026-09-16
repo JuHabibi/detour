@@ -9,7 +9,7 @@ import {
   renameGroup,
 } from "@/app/actions/groups";
 import type { EventItem } from "@/data/types";
-import { eventCalendarPath } from "@/domain/calendar/build-event-calendar";
+import { groupCalendarPath } from "@/domain/calendar/build-event-calendar";
 import { AccountGroupEventCard } from "@/features/account/components/AccountGroupEventCard";
 import {
   nextSelectedIds,
@@ -221,22 +221,25 @@ export function AccountGroupDetail({
     });
   }
 
-  /** Téléchargements ICS unitaires (DET-19) — en attendant un export groupe. */
+  /** Export ICS unique (groupe complet ou sélection) — DET-20. */
   function handleBulkAgenda() {
     if (selectedList.length === 0) return;
-    for (const event of selectedList) {
-      const link = document.createElement("a");
-      link.href = eventCalendarPath(event.id);
-      link.rel = "noopener";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    }
-    setNotice(
-      selectedList.length === 1
-        ? "Fichier agenda téléchargé."
-        : `${selectedList.length} fichiers agenda téléchargés.`,
+    setError(null);
+    window.location.assign(
+      groupCalendarPath(
+        groupId,
+        selectedList.map((event) => event.id),
+      ),
     );
+  }
+
+  function handleExportFullGroup() {
+    if (events.length === 0) {
+      setError("Ce groupe est vide — rien à exporter.");
+      return;
+    }
+    setError(null);
+    window.location.assign(groupCalendarPath(groupId));
   }
 
   return (
@@ -396,10 +399,20 @@ export function AccountGroupDetail({
                 ) : null}
               </div>
               {!selectionMode ? (
-                <p className="max-w-sm text-[12px] leading-5 text-sand/70">
-                  Ajoutez plusieurs événements à l’agenda ou retirez-les du
-                  groupe.
-                </p>
+                <>
+                  <p className="max-w-sm text-[12px] leading-5 text-sand/70">
+                    Ajoutez plusieurs événements à l’agenda ou retirez-les du
+                    groupe.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleExportFullGroup}
+                    disabled={pending}
+                    className="self-start text-[11px] font-medium uppercase tracking-[0.12em] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-ink disabled:opacity-60"
+                  >
+                    Ajouter tout à mon agenda
+                  </button>
+                </>
               ) : null}
             </div>
             {selectionMode ? (
@@ -448,7 +461,7 @@ export function AccountGroupDetail({
                 disabled={pending}
                 className="inline-flex h-8 items-center justify-center bg-mint px-3 text-[11px] font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam disabled:opacity-60"
               >
-                Ajouter à mon agenda
+                Ajouter la sélection à mon agenda
               </button>
               <button
                 type="button"

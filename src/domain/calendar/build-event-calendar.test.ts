@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DetourEvent } from "@/domain/events/event";
 import {
   buildEventCalendar,
+  buildEventsCalendar,
   calendarDateInParis,
   escapeText,
   eventCalendarFilename,
@@ -9,6 +10,8 @@ import {
   eventCalendarUid,
   foldLine,
   formatLocation,
+  groupCalendarFilename,
+  groupCalendarPath,
   slugifyTitle,
 } from "@/domain/calendar/build-event-calendar";
 
@@ -247,5 +250,70 @@ describe("escapeText / foldLine / slug", () => {
     expect(eventCalendarPath("openagenda:1")).toBe(
       "/api/events/openagenda%3A1/calendar",
     );
+    expect(groupCalendarFilename("Week-end Loire")).toBe(
+      "detour-week-end-loire.ics",
+    );
+    expect(groupCalendarFilename("Week-end Loire", { selection: true })).toBe(
+      "detour-week-end-loire-selection.ics",
+    );
+    expect(groupCalendarPath("g1")).toBe("/api/account/groups/g1/calendar");
+    expect(groupCalendarPath("g1", ["a", "b"])).toBe(
+      "/api/account/groups/g1/calendar?eventId=a&eventId=b",
+    );
+  });
+});
+
+describe("buildEventsCalendar (DET-20)", () => {
+  it("1 VCALENDAR / N VEVENT + UID stables", () => {
+    const ics = buildEventsCalendar(
+      [
+        event({
+          id: "e1",
+          title: "A",
+          startAt: "2026-10-12T18:00:00.000Z",
+        }),
+        event({
+          id: "e2",
+          title: "B",
+          startAt: "2026-10-13T00:00:00+02:00",
+          endAt: "2026-10-14T00:00:00+02:00",
+          allDay: true,
+        }),
+      ],
+      { now: NOW },
+    );
+
+    expect(ics.match(/BEGIN:VCALENDAR/g)?.length).toBe(1);
+    expect(ics.match(/BEGIN:VEVENT/g)?.length).toBe(2);
+    expect(ics.match(/END:VEVENT/g)?.length).toBe(2);
+    expect(ics).toContain("UID:e1@detour");
+    expect(ics).toContain("UID:e2@detour");
+    expect(ics).toContain("DTSTART:20261012T180000Z");
+    expect(ics).toContain("DTSTART;VALUE=DATE:20261013");
+  });
+
+  it("buildEventCalendar reste un wrapper mono-event", () => {
+    const single = event({
+      id: "openagenda:1",
+      title: "Solo",
+      startAt: "2026-10-12T18:00:00.000Z",
+      endAt: "2026-10-12T20:00:00.000Z",
+    });
+    expect(buildEventCalendar(single, { now: NOW })).toBe(
+      buildEventsCalendar([single], { now: NOW }),
+    );
+  });
+
+  it("même event dans deux appels → même UID", () => {
+    const a = buildEventsCalendar(
+      [event({ id: "shared", title: "X", startAt: "2026-10-01T10:00:00.000Z" })],
+      { now: NOW },
+    );
+    const b = buildEventsCalendar(
+      [event({ id: "shared", title: "Y", startAt: "2026-11-01T10:00:00.000Z" })],
+      { now: new Date("2026-09-17T00:00:00.000Z") },
+    );
+    expect(a).toContain("UID:shared@detour");
+    expect(b).toContain("UID:shared@detour");
   });
 });

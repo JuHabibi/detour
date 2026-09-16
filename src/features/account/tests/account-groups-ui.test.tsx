@@ -188,6 +188,7 @@ describe("AccountGroupDetail (vue groupe)", () => {
     expect(html).toContain("Concert jazz");
     expect(html).toContain("Expo photo");
     expect(html).toContain("Choisir plusieurs événements");
+    expect(html).toContain("Ajouter tout à mon agenda");
     expect(html).toContain(
       "Ajoutez plusieurs événements à l’agenda ou retirez-les du groupe.",
     );

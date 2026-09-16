@@ -15,6 +15,25 @@ export function eventCalendarPath(eventId: string): string {
   return `/api/events/${encodeURIComponent(eventId)}/calendar`;
 }
 
+/**
+ * Chemin account — export ICS d’un groupe (ownership session).
+ * Sans eventIds → groupe complet ; avec → sélection (query `eventId` répété).
+ */
+export function groupCalendarPath(
+  groupId: string,
+  eventIds?: readonly string[],
+): string {
+  const base = `/api/account/groups/${encodeURIComponent(groupId)}/calendar`;
+  if (!eventIds || eventIds.length === 0) return base;
+  const params = new URLSearchParams();
+  for (const id of eventIds) {
+    const trimmed = id.trim();
+    if (trimmed) params.append("eventId", trimmed);
+  }
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
 /** UID stable — uniquement dérivé de event.id. */
 export function eventCalendarUid(eventId: string): string {
   return `${eventId}@detour`;
@@ -26,6 +45,16 @@ export function eventCalendarFilename(title: string): string {
   return `detour-${slug}.ics`;
 }
 
+/** Nom de fichier groupe / sélection. */
+export function groupCalendarFilename(
+  groupName: string,
+  options?: { selection?: boolean },
+): string {
+  const slug = slugifyTitle(groupName);
+  const base = `detour-${slug}`;
+  return options?.selection ? `${base}-selection.ics` : `${base}.ics`;
+}
+
 /**
  * Génère un calendrier iCalendar (RFC 5545) pour un DetourEvent.
  * Pur — pas de Next / DB. Dates timed en UTC (Z) ; all-day en DATE Europe/Paris.
@@ -34,6 +63,21 @@ export function buildEventCalendar(
   event: DetourEvent,
   options?: BuildEventCalendarOptions,
 ): string {
+  return buildEventsCalendar([event], options);
+}
+
+/**
+ * Un VCALENDAR / N VEVENT — même règles que DET-19 (UID, dates, escaping).
+ * Prérequis : `events.length >= 1` (l’appelant gère le cas vide).
+ */
+export function buildEventsCalendar(
+  events: readonly DetourEvent[],
+  options?: BuildEventCalendarOptions,
+): string {
+  if (events.length === 0) {
+    throw new Error("buildEventsCalendar requires at least one event");
+  }
+
   const now = options?.now ?? new Date();
   const lines: string[] = [
     "BEGIN:VCALENDAR",
@@ -41,6 +85,19 @@ export function buildEventCalendar(
     `PRODID:${PRODID}`,
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
+  ];
+
+  for (const event of events) {
+    lines.push(...buildVEventLines(event, now));
+  }
+
+  lines.push("END:VCALENDAR");
+  return `${lines.map(foldLine).join("\r\n")}\r\n`;
+}
+
+/** Lignes d’un VEVENT (sans wrapping calendrier). */
+function buildVEventLines(event: DetourEvent, now: Date): string[] {
+  const lines: string[] = [
     "BEGIN:VEVENT",
     `UID:${escapeText(eventCalendarUid(event.id))}`,
     `DTSTAMP:${formatUtcDateTime(now)}`,
@@ -78,9 +135,8 @@ export function buildEventCalendar(
     lines.push(`URL:${escapeText(url)}`);
   }
 
-  lines.push("END:VEVENT", "END:VCALENDAR");
-
-  return `${lines.map(foldLine).join("\r\n")}\r\n`;
+  lines.push("END:VEVENT");
+  return lines;
 }
 
 function pickUrl(event: DetourEvent): string | null {
