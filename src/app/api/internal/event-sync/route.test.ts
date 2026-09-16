@@ -91,23 +91,20 @@ describe("POST /api/internal/event-sync", () => {
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
-  it("200 + sync même si SyncResult error ; revalidatePath(/) + invalidate public home", async () => {
+  it("200 + sync même si SyncResult error ; revalidateTag SWR max (pas revalidatePath)", async () => {
     const res = await POST(requestWithAuth(`Bearer ${SECRET}`));
     expect(res.status).toBe(200);
     const body = (await res.json()) as { results: unknown[] };
     expect(body.results).toHaveLength(2);
     expect(runDetourEventSyncMock).toHaveBeenCalledTimes(1);
     expect(runDetourAvailabilityEnrichmentMock).toHaveBeenCalledTimes(1);
-    expect(revalidatePathMock).toHaveBeenCalledTimes(1);
-    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
     expect(revalidateTagMock).toHaveBeenCalledTimes(1);
-    expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", {
-      expire: 0,
-    });
+    expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", "max");
     expect(updateTagMock).not.toHaveBeenCalled();
   });
 
-  it("availability best-effort échoue → 200 + revalidate", async () => {
+  it("availability best-effort échoue → 200 + revalidate tag SWR", async () => {
     runDetourAvailabilityEnrichmentMock.mockRejectedValue(
       new Error("mapado down"),
     );
@@ -115,15 +112,12 @@ describe("POST /api/internal/event-sync", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { availabilityError: string | null };
     expect(body.availabilityError).toBe("mapado down");
-    expect(revalidatePathMock).toHaveBeenCalledTimes(1);
-    expect(revalidatePathMock).toHaveBeenCalledWith("/");
-    expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", {
-      expire: 0,
-    });
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", "max");
     expect(updateTagMock).not.toHaveBeenCalled();
   });
 
-  it("500 générique si throw inattendu ; pas de revalidatePath", async () => {
+  it("500 générique si throw inattendu ; pas de revalidate", async () => {
     runDetourEventSyncMock.mockRejectedValue(
       new Error("boom with DATABASE_URL"),
     );
@@ -134,5 +128,6 @@ describe("POST /api/internal/event-sync", () => {
     expect(JSON.stringify(body)).not.toContain("DATABASE_URL");
     expect(JSON.stringify(body)).not.toContain("boom");
     expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(revalidateTagMock).not.toHaveBeenCalled();
   });
 });

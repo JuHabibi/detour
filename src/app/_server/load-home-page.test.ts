@@ -12,8 +12,6 @@ vi.mock("@/infrastructure/next-public-home-cache", () => ({
 vi.mock("@/infrastructure/db/home-perf", () => ({
   homePerfLog: vi.fn(),
   homePerfNextReqId: () => "test-req",
-  homePerfPoolMeta: () => ({ poolCreateMs: null, poolAgeMs: null }),
-  homePerfProcessAgeMs: () => 10_000,
   homePerfTimed: async <T>(run: () => Promise<T>) => {
     const value = await run();
     return { value, ms: 1 };

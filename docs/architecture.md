@@ -87,17 +87,32 @@ Fichiers : `src/application/event-sync/*`, `src/infrastructure/create-detour-syn
 
 ### B. Lecture Home
 
+Trois caches complémentaires — aucun user / session / favori dans les couches publiques.
+
 ```
-app/page.tsx
-  → loadHomePage()                   # app/_server/load-home-page.ts
-       → createHomeEventSource()     # create-detour-event-source.ts
-       → EventService.getUpcomingEvents
-       → listExplorerEvents (week-end)
-       → map* → props HomePage (+ debugMeta si exposé)
-  → <HomePage {...props} />
+GET /
+  → ISR / Full Route Cache (revalidate 6h)     # HTML public CDN
+  → loadHomePage()                             # pas de headers()/session
+       → getCachedPublicHomeData()             # Data Cache tag public-home:orleans (6h)
+            → unstable_cache(getPublicHomeSnapshot)   # SQL + pipeline + explorer
+            → materializePublicHomeData(snapshot)     # IA hors nest (cache IA 7j)
+  → <HomePage /> public
+  → client : useSession + listMyFavoriteEventIds   # hors cache public
 ```
 
-`page.tsx` est un **point d’entrée minimal**. L’orchestration (fenêtre 180 jours, EventService, Explorer, mapping UI, debug) vit dans le **page loader** `loadHomePage`.
+Post-sync (cron / internal) :
+
+```
+invalidatePublicHomeCache()
+  → revalidateTag("public-home:orleans", "max")   # SWR : stale immédiat + regen background
+# pas de revalidatePath("/") — expire soft tags → premier GET bloquant
+```
+
+Le cache IA per-event **n’est pas** invalidé au sync : clés content-addressed
+(input IA + model + promptVersion). Event inchangé → hit ; event modifié → nouvelle clé.
+
+`page.tsx` reste un point d’entrée minimal. L’orchestration métier vit dans
+`get-public-home-data` (snapshot + materialize).
 
 En mode **`database`** :
 
@@ -177,7 +192,9 @@ Dette connue, non bloquante à ce stade : debug Saran encore composé dans `comp
 
 `EventService` ne connaît **pas** : system prompt, parsing JSON brut, batch size HTTP, shape DTO provider.
 
-Composition home : `createHighlightAssessmentProvider()` + cache Next (`next-ai-assessment-cache`) dans `loadHomePage` / actions. Sans clé → noop → fallback déterministe.
+Composition home : `createHighlightAssessmentProvider()` + cache Next
+(`next-ai-assessment-cache`, TTL 7j, clés per-event) dans `get-public-home-data`
+(materialize hors nest Home) / actions. Sans clé → noop → fallback déterministe.
 
 ## 7. Base de données
 
@@ -255,9 +272,11 @@ Ce sont des **écarts au modèle cible** (§13). Ils **ne constituent pas** des 
 
 | Fichier | Rôle |
 |---------|------|
-| `src/app/page.tsx` | Point d’entrée home minimal |
-| `src/app/_server/load-home-page.ts` | Page loader : fenêtre 180j, EventService, Explorer, mapping, debug |
-| `src/features/home/components/HomePage.tsx` | Composition UI home (Radar, Explorer, shell) |
+| `src/app/page.tsx` | Point d’entrée home minimal + `revalidate` ISR 6h |
+| `src/app/_server/load-home-page.ts` | Page loader public (cache Home) — pas d’auth |
+| `src/application/home/get-public-home-data.ts` | Snapshot slim + materialize IA |
+| `src/infrastructure/next-public-home-cache.ts` | Data Cache Home + invalidation tag |
+| `src/features/home/components/HomePage.tsx` | Composition UI home (Radar, Explorer, hydratation auth/favoris) |
 | `src/features/home/hooks/useExplorerEvents.ts` | Orchestration async Explorer (client) |
 | `src/app/actions/load-explorer-events.ts` | Server action Explorer (filtres + pagination) |
 | `src/application/event.service.ts` | Orchestrateur métier / IA |

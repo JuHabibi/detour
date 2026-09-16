@@ -62,9 +62,7 @@ describe("next-public-home-cache", () => {
     expect(PUBLIC_HOME_CACHE_TAG).toBe("public-home:orleans");
 
     invalidatePublicHomeCache();
-    expect(revalidateTag).toHaveBeenCalledWith("public-home:orleans", {
-      expire: 0,
-    });
+    expect(revalidateTag).toHaveBeenCalledWith("public-home:orleans", "max");
   });
 
   it("getCachedPublicHomeData n’accepte pas de userId et wrap unstable_cache + tag", async () => {

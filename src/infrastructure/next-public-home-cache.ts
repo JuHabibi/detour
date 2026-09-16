@@ -33,9 +33,6 @@ export async function getCachedPublicHomeData(): Promise<PublicHomeData> {
   const cachedSnapshot = unstable_cache(
     async () => {
       computeRan = true;
-      homePerfLog(
-        `public_home_compute territory=${PUBLIC_HOME_TERRITORY_SLUG}`,
-      );
       const { from, to } = publicHomeUpcomingWindow();
       return getPublicHomeSnapshot({
         from,
@@ -60,9 +57,12 @@ export async function getCachedPublicHomeData(): Promise<PublicHomeData> {
 }
 
 /**
- * Invalidation immédiate (Route Handlers post-sync).
- * `{ expire: 0 }` → prochain hit = miss bloquant (pas de SWR stale).
+ * Revalidation SWR post-sync (Route Handlers).
+ * `"max"` → tag stale : Full Route Cache `/` + Data Cache Home servent
+ * l’ancienne valeur immédiatement, régénération en arrière-plan.
+ * Ne pas utiliser `{ expire: 0 }` ni `revalidatePath("/")` ici
+ * (expire soft tags → premier GET bloquant, headers REVALIDATED lents).
  */
 export function invalidatePublicHomeCache(): void {
-  revalidateTag(PUBLIC_HOME_CACHE_TAG, { expire: 0 });
+  revalidateTag(PUBLIC_HOME_CACHE_TAG, "max");
 }

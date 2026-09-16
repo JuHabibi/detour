@@ -1,5 +1,4 @@
 import { timingSafeEqual } from "node:crypto";
-import { revalidatePath } from "next/cache";
 import { runDetourAvailabilityEnrichment } from "@/application/availability/run-detour-availability-enrichment";
 import { runDetourEventSync } from "@/application/event-sync/run-detour-event-sync";
 import { invalidatePublicHomeCache } from "@/infrastructure/next-public-home-cache";
@@ -42,8 +41,8 @@ export async function POST(request: Request): Promise<Response> {
         error instanceof Error ? error.message : "availability_enrichment_failed";
     }
 
+    // SWR : tag Home stale — pas de revalidatePath (expire soft tags → hit bloquant).
     invalidatePublicHomeCache();
-    revalidatePath("/");
 
     return Response.json({ results, availability, availabilityError });
   } catch {

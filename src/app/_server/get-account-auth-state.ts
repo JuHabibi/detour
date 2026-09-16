@@ -1,10 +1,6 @@
 import "server-only";
 
-import {
-  homePerfLog,
-  homePerfTimed,
-  homePerfWithAuthDbProbe,
-} from "@/infrastructure/db/home-perf";
+import { homePerfLog, homePerfTimed } from "@/infrastructure/db/home-perf";
 import type { AccountAuthState } from "@/features/account/account-auth-state";
 import { auth } from "@/infrastructure/auth/auth";
 import { headers } from "next/headers";
@@ -14,46 +10,25 @@ import { headers } from "next/headers";
  * Boundary app : compose infrastructure + features DTO.
  */
 export async function getAccountAuthState(): Promise<AccountAuthState> {
-  const tTotal = Date.now();
+  const { value: state, ms } = await homePerfTimed(async () => {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
 
-  const {
-    value: sessionTimed,
-    dbMs,
-    dbQueries,
-    connectMs,
-    sessionRefresh,
-  } = await homePerfWithAuthDbProbe(() =>
-    homePerfTimed(async () =>
-      auth.api.getSession({
-        headers: await headers(),
-      }),
-    ),
-  );
+    if (!session?.user?.id || !session.user.email) {
+      return { status: "unauthenticated" as const };
+    }
 
-  const session = sessionTimed.value;
-  const hit = Boolean(session?.user?.id);
+    return {
+      status: "authenticated" as const,
+      user: {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name?.trim() || session.user.email,
+      },
+    };
+  });
 
-  homePerfLog(`auth_db_connect=${connectMs}ms`);
-  homePerfLog(`auth_session_refresh=${sessionRefresh}`);
-  homePerfLog(
-    `auth_session=${sessionTimed.ms}ms auth_db=${dbMs}ms auth_db_queries=${dbQueries} hit=${hit}`,
-  );
-
-  const state: AccountAuthState =
-    !session?.user?.id || !session.user.email
-      ? { status: "unauthenticated" }
-      : {
-          status: "authenticated",
-          user: {
-            id: session.user.id,
-            email: session.user.email,
-            name: session.user.name?.trim() || session.user.email,
-          },
-        };
-
-  homePerfLog(
-    `auth_total=${Date.now() - tTotal}ms status=${state.status}`,
-  );
-
+  homePerfLog(`auth_total=${ms}ms status=${state.status}`);
   return state;
 }

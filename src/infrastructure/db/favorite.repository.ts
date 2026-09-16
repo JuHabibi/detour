@@ -61,7 +61,7 @@ ORDER BY created_at DESC, event_id ASC
       [userId],
     ),
   );
-  homePerfLog(`db_favorites_sql=${ms}ms rows=${result.rows.length}`);
+  homePerfLog(`favorites=${ms}ms rows=${result.rows.length}`);
   return result.rows.map((row) => row.event_id);
 }
 
