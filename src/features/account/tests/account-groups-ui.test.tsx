@@ -8,6 +8,12 @@ import {
   groupEventCountLabel,
 } from "@/features/account/group-display";
 import { takeServerListIfChanged } from "@/features/account/take-server-list-if-changed";
+import {
+  nextSelectedIds,
+  selectAllIds,
+  selectAllToggleLabel,
+  shouldShowBulkBar,
+} from "@/features/account/group-selection";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -61,6 +67,7 @@ vi.mock("@/features/account/auth-client", () => ({
 
 import { AccountFavoriteCard } from "@/features/account/components/AccountFavoriteCard";
 import { AccountGroupDetail } from "@/features/account/components/AccountGroupDetail";
+import { AccountGroupEventCard } from "@/features/account/components/AccountGroupEventCard";
 import { AccountGroupsSection } from "@/features/account/components/AccountGroupsSection";
 import { AccountAddToGroupModal } from "@/features/account/components/AccountAddToGroupModal";
 import { AccountSignedIn } from "@/features/account/components/AccountSignedIn";
@@ -164,7 +171,7 @@ describe("AccountGroupsSection (rendu liste)", () => {
 });
 
 describe("AccountGroupDetail (vue groupe)", () => {
-  it("affiche nom, liste events, renommer, supprimer, retirer", () => {
+  it("affiche grille éditoriale, sélection discrète, options secondaires", () => {
     const html = renderToStaticMarkup(
       createElement(AccountGroupDetail, {
         groupId: GROUP_A,
@@ -180,10 +187,71 @@ describe("AccountGroupDetail (vue groupe)", () => {
     expect(html).toContain("2 événements");
     expect(html).toContain("Concert jazz");
     expect(html).toContain("Expo photo");
-    expect(html).toContain("Renommer");
-    expect(html).toContain("Supprimer le groupe");
-    expect(html).toContain("Retirer du groupe");
-    expect(html).not.toContain("Ajouter à un groupe");
+    expect(html).toContain("Choisir plusieurs événements");
+    expect(html).toContain(
+      "Ajoutez plusieurs événements à l’agenda ou retirez-les du groupe.",
+    );
+    expect(html).toContain("Options du groupe");
+    expect(html).toContain("grid-cols-1");
+    expect(html).toContain("sm:grid-cols-2");
+    expect(html).toContain("lg:grid-cols-3");
+    expect(html).toContain("max-w-[72rem]");
+    expect(html).toContain("Plus d’actions");
+    expect(html).not.toContain(">Annuler<");
+    expect(html).not.toContain("Tout sélectionner");
+    // Rename / delete collapsed into settings menu (not open by default)
+    expect(html).not.toContain("Nouveau nom du groupe");
+    expect(html).not.toContain("Supprimer le groupe");
+  });
+
+  it("état vide : pas de grille ni sélection", () => {
+    const html = renderToStaticMarkup(
+      createElement(AccountGroupDetail, {
+        groupId: GROUP_A,
+        initialName: "Vide",
+        initialEvents: [],
+      }),
+    );
+    expect(html).toContain("Ce groupe est vide");
+    expect(html).not.toContain("Choisir plusieurs événements");
+    expect(html).not.toContain("lg:grid-cols-3");
+  });
+});
+
+describe("AccountGroupEventCard", () => {
+  it("card collection compacte : image 16/10, badge, titre, menu …", () => {
+    const html = renderToStaticMarkup(
+      createElement(AccountGroupEventCard, {
+        event: eventItem({
+          id: "e1",
+          title: "Concert jazz",
+          image: "https://example.com/p.jpg",
+        }),
+        onRemove: () => undefined,
+      }),
+    );
+    expect(html).toContain("Concert jazz");
+    expect(html).toContain("Plus d’actions");
+    expect(html).toContain("aspect-[16/10]");
+    expect(html).not.toContain('type="checkbox"');
+  });
+
+  it("mode sélection : checkbox discrète, pas de menu", () => {
+    const html = renderToStaticMarkup(
+      createElement(AccountGroupEventCard, {
+        event: eventItem({ id: "e1", title: "Concert" }),
+        selectionMode: true,
+        selected: true,
+        onToggleSelect: () => undefined,
+        onRemove: () => undefined,
+      }),
+    );
+    expect(html).toContain('type="checkbox"');
+    expect(html).toContain("checked");
+    expect(html).toContain("border-coral");
+    expect(html).toContain("size-[18px]");
+    expect(html).not.toContain("Plus d’actions");
+    expect(html).not.toContain("ring-2");
   });
 });
 
@@ -326,5 +394,19 @@ describe("takeServerListIfChanged (sync post-refresh)", () => {
     expect(takeServerListIfChanged(v1, v1)).toBeNull();
     expect(takeServerListIfChanged(v2, v1)).toBe(v2);
     expect(takeServerListIfChanged(v2, v1)?.[0]?.eventCount).toBe(2);
+  });
+});
+
+describe("group-selection (vue détail groupe)", () => {
+  it("sélection multiple + tout sélectionner + barre bulk", () => {
+    let selected = new Set<string>();
+    selected = nextSelectedIds(selected, "e1");
+    selected = nextSelectedIds(selected, "e2");
+    expect(selected.size).toBe(2);
+    expect(selectAllToggleLabel(selected.size, 3)).toBe("Tout sélectionner");
+    selected = selectAllIds(["e1", "e2", "e3"]);
+    expect(selectAllToggleLabel(selected.size, 3)).toBe("Tout désélectionner");
+    expect(shouldShowBulkBar(true, selected.size)).toBe(true);
+    expect(shouldShowBulkBar(true, 0)).toBe(false);
   });
 });
