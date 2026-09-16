@@ -1,5 +1,6 @@
 import type { DetourEvent } from "@/domain/events/event";
 import type { EventSource } from "@/application/ports/event-source";
+import { logOrmesFetchDiagnostic } from "./ormes.diagnostics";
 import { parseOrmesDetail } from "./ormes.detail-parser";
 import {
   absoluteOrmesUrl,
@@ -147,8 +148,20 @@ async function fetchAllOrmesListItems(
 
   while (pageUrl && pages < MAX_LIST_PAGES) {
     pages += 1;
-    const html = await fetchOrmesHtml(pageUrl, config, pace);
-    const parsed = parseOrmesListPage(html, pageUrl);
+    const fetched = await fetchOrmesHtmlDetailed(pageUrl, config, pace);
+    const parsed = parseOrmesListPage(fetched.html, pageUrl);
+
+    // TEMP diag prod — retirer après résolution fetchedCount=0.
+    logOrmesFetchDiagnostic({
+      phase: "list",
+      url: pageUrl,
+      status: fetched.status,
+      contentType: fetched.contentType,
+      contentLengthHeader: fetched.contentLengthHeader,
+      html: fetched.html,
+      parsedItemCount: parsed.items.length,
+    });
+
     for (const item of parsed.items) {
       if (seen.has(item.slug)) continue;
       seen.add(item.slug);
@@ -159,35 +172,63 @@ async function fetchAllOrmesListItems(
       : null;
   }
 
+  if (items.length === 0) {
+    console.warn("[detour:ormes:diag] list yielded 0 items", {
+      listUrl: config.listUrl,
+      pagesFetched: pages,
+    });
+  }
+
   return items;
 }
+
+type OrmesFetchedHtml = {
+  html: string;
+  status: number;
+  contentType: string | null;
+  contentLengthHeader: string | null;
+};
 
 async function fetchOrmesHtml(
   url: string,
   config: ResolvedOrmesConfig,
   pace: PaceGate,
 ): Promise<string> {
+  const fetched = await fetchOrmesHtmlDetailed(url, config, pace);
+  return fetched.html;
+}
+
+async function fetchOrmesHtmlDetailed(
+  url: string,
+  config: ResolvedOrmesConfig,
+  pace: PaceGate,
+): Promise<OrmesFetchedHtml> {
   await pace.wait();
-  const response = await fetchWithTimeout(url, config);
+  let response = await fetchWithTimeout(url, config);
 
   if (response.status === 429) {
-    // Un seul backoff court — pas de retry agressif.
+    console.warn("[detour:ormes:diag] HTTP 429, single backoff 10s", { url });
     await config.sleep(10_000);
     await pace.wait();
-    const retry = await fetchWithTimeout(url, config);
-    if (!retry.ok) {
-      throw new Error(`Ormes HTTP error: ${retry.status} ${retry.statusText} (${url})`);
+    response = await fetchWithTimeout(url, config);
+    if (!response.ok) {
+      throw new Error(
+        `Ormes HTTP error: ${response.status} ${response.statusText} (${url})`,
+      );
     }
-    return retry.text();
-  }
-
-  if (!response.ok) {
+  } else if (!response.ok) {
     throw new Error(
       `Ormes HTTP error: ${response.status} ${response.statusText} (${url})`,
     );
   }
 
-  return response.text();
+  const html = await response.text();
+  return {
+    html,
+    status: response.status,
+    contentType: response.headers.get("content-type"),
+    contentLengthHeader: response.headers.get("content-length"),
+  };
 }
 
 async function fetchWithTimeout(
