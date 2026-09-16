@@ -3,8 +3,11 @@
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import {
   addEventToGroupForUser,
+  addEventsToGroupForUser,
   createGroupForUser,
+  createGroupWithEventsForUser,
   deleteGroupForUser,
+  normalizeEventIds,
   removeEventFromGroupForUser,
   renameGroupForUser,
   type GroupRow,
@@ -19,6 +22,24 @@ export type GroupMutationResult =
         | "invalid"
         | "not_found"
         | "already_member"
+        | "event_not_found"
+        | "error";
+    };
+
+export type BulkGroupMutationResult =
+  | {
+      ok: true;
+      addedCount: number;
+      alreadyMemberCount: number;
+      missingCount: number;
+      group?: GroupRow;
+    }
+  | {
+      ok: false;
+      reason:
+        | "unauthenticated"
+        | "invalid"
+        | "not_found"
         | "event_not_found"
         | "error";
     };
@@ -126,6 +147,69 @@ export async function addFavoriteToGroup(
       return { ok: false, reason: "event_not_found" };
     }
     console.error("[detour:groups] addFavoriteToGroup failed", error);
+    return { ok: false, reason: "error" };
+  }
+}
+
+/** Ajout multiple en une opération serveur — pas de boucle N actions client. */
+export async function addFavoritesToGroup(
+  groupId: string,
+  eventIds: string[],
+): Promise<BulkGroupMutationResult> {
+  const gId = normalizeGroupId(groupId);
+  const ids = normalizeEventIds(eventIds);
+  if (!gId || ids.length === 0) return { ok: false, reason: "invalid" };
+
+  const userId = await requireUserId();
+  if (!userId) return { ok: false, reason: "unauthenticated" };
+
+  try {
+    const result = await addEventsToGroupForUser(userId, gId, ids);
+    if (result.status === "not_found") return { ok: false, reason: "not_found" };
+    if (result.status === "invalid") return { ok: false, reason: "invalid" };
+    return {
+      ok: true,
+      addedCount: result.addedCount,
+      alreadyMemberCount: result.alreadyMemberCount,
+      missingCount: result.missingCount,
+    };
+  } catch (error) {
+    console.error("[detour:groups] addFavoritesToGroup failed", error);
+    return { ok: false, reason: "error" };
+  }
+}
+
+/**
+ * Crée un groupe + ajoute les events en transaction (session userId).
+ * Évite le flow client create puis add séparé.
+ */
+export async function createGroupWithFavorites(
+  name: string,
+  eventIds: string[],
+): Promise<BulkGroupMutationResult> {
+  const ids = normalizeEventIds(eventIds);
+  const userId = await requireUserId();
+  if (!userId) return { ok: false, reason: "unauthenticated" };
+
+  try {
+    const result = await createGroupWithEventsForUser({
+      userId,
+      name,
+      eventIds: ids,
+    });
+    if (result.status === "invalid") return { ok: false, reason: "invalid" };
+    if (result.status === "event_not_found") {
+      return { ok: false, reason: "event_not_found" };
+    }
+    return {
+      ok: true,
+      group: result.group,
+      addedCount: result.addedCount,
+      alreadyMemberCount: result.alreadyMemberCount,
+      missingCount: result.missingCount,
+    };
+  } catch (error) {
+    console.error("[detour:groups] createGroupWithFavorites failed", error);
     return { ok: false, reason: "error" };
   }
 }

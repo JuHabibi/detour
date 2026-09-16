@@ -6,17 +6,34 @@ vi.mock("@/app/_server/get-account-auth-state", () => ({
 
 vi.mock("@/application/groups", () => ({
   createGroupForUser: vi.fn(),
+  createGroupWithEventsForUser: vi.fn(),
   renameGroupForUser: vi.fn(),
   deleteGroupForUser: vi.fn(),
   addEventToGroupForUser: vi.fn(),
+  addEventsToGroupForUser: vi.fn(),
   removeEventFromGroupForUser: vi.fn(),
+  normalizeEventIds: (ids: unknown) => {
+    if (!Array.isArray(ids)) return [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of ids) {
+      if (typeof raw !== "string") continue;
+      const t = raw.trim();
+      if (!t || seen.has(t)) continue;
+      seen.add(t);
+      out.push(t);
+    }
+    return out;
+  },
 }));
 
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import * as groupsApp from "@/application/groups";
 import {
   addFavoriteToGroup,
+  addFavoritesToGroup,
   createGroup,
+  createGroupWithFavorites,
   deleteGroup,
   removeEventFromGroup,
   renameGroup,
@@ -128,14 +145,14 @@ describe("groups actions", () => {
     });
   });
 
-  it("createGroup nom vide → invalid", async () => {
+  it("createGroup nom trop long → invalid", async () => {
     vi.mocked(getAccountAuthState).mockResolvedValue({
       status: "authenticated",
       user: { id: USER_A, email: "a@exemple.fr", name: "A" },
     });
     vi.mocked(groupsApp.createGroupForUser).mockResolvedValue(null);
 
-    await expect(createGroup("   ")).resolves.toEqual({
+    await expect(createGroup("x".repeat(81))).resolves.toEqual({
       ok: false,
       reason: "invalid",
     });
@@ -165,6 +182,103 @@ describe("groups actions", () => {
     });
 
     await expect(addFavoriteToGroup(GROUP_A, "missing")).resolves.toEqual({
+      ok: false,
+      reason: "event_not_found",
+    });
+  });
+
+  it("addFavoritesToGroup bulk : session + une seule opération", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: { id: USER_A, email: "a@exemple.fr", name: "A" },
+    });
+    vi.mocked(groupsApp.addEventsToGroupForUser).mockResolvedValue({
+      status: "ok",
+      addedCount: 2,
+      alreadyMemberCount: 1,
+      missingCount: 0,
+    });
+
+    await expect(
+      addFavoritesToGroup(GROUP_A, ["e1", "e2", "e1"]),
+    ).resolves.toEqual({
+      ok: true,
+      addedCount: 2,
+      alreadyMemberCount: 1,
+      missingCount: 0,
+    });
+
+    expect(groupsApp.addEventsToGroupForUser).toHaveBeenCalledWith(
+      USER_A,
+      GROUP_A,
+      ["e1", "e2"],
+    );
+    expect(groupsApp.addEventsToGroupForUser).toHaveBeenCalledTimes(1);
+    expect(addFavoritesToGroup.length).toBe(2);
+  });
+
+  it("addFavoritesToGroup IDOR → not_found", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: { id: USER_A, email: "a@exemple.fr", name: "A" },
+    });
+    vi.mocked(groupsApp.addEventsToGroupForUser).mockResolvedValue({
+      status: "not_found",
+    });
+
+    await expect(addFavoritesToGroup(GROUP_A, ["e1"])).resolves.toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+  });
+
+  it("createGroupWithFavorites transactionnel via use case", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: { id: USER_A, email: "a@exemple.fr", name: "A" },
+    });
+    vi.mocked(groupsApp.createGroupWithEventsForUser).mockResolvedValue({
+      status: "ok",
+      group: {
+        id: GROUP_A,
+        userId: USER_A,
+        name: "Week-end",
+        createdAt: "2026-09-16T10:00:00.000Z",
+        updatedAt: "2026-09-16T10:00:00.000Z",
+      },
+      addedCount: 2,
+      alreadyMemberCount: 0,
+      missingCount: 0,
+    });
+
+    await expect(
+      createGroupWithFavorites("Week-end", ["e1", "e2"]),
+    ).resolves.toMatchObject({
+      ok: true,
+      addedCount: 2,
+      group: { id: GROUP_A },
+    });
+
+    expect(groupsApp.createGroupWithEventsForUser).toHaveBeenCalledWith({
+      userId: USER_A,
+      name: "Week-end",
+      eventIds: ["e1", "e2"],
+    });
+    expect(groupsApp.createGroupForUser).not.toHaveBeenCalled();
+  });
+
+  it("createGroupWithFavorites all missing → event_not_found", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: { id: USER_A, email: "a@exemple.fr", name: "A" },
+    });
+    vi.mocked(groupsApp.createGroupWithEventsForUser).mockResolvedValue({
+      status: "event_not_found",
+    });
+
+    await expect(
+      createGroupWithFavorites("Week-end", ["missing"]),
+    ).resolves.toEqual({
       ok: false,
       reason: "event_not_found",
     });

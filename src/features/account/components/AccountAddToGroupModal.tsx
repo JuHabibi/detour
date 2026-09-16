@@ -3,22 +3,63 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addFavoriteToGroup, createGroup } from "@/app/actions/groups";
+import {
+  addFavoritesToGroup,
+  createGroupWithFavorites,
+  type BulkGroupMutationResult,
+} from "@/app/actions/groups";
 import type { GroupSummary } from "@/application/groups";
-import type { EventItem } from "@/data/types";
 
 type AccountAddToGroupModalProps = {
-  event: EventItem;
+  eventIds: string[];
+  /** Titre affiché (ex. nom d’un event ou « 3 favoris »). */
+  heading: string;
   groups: GroupSummary[];
   onClose: () => void;
   onGroupsChange?: (groups: GroupSummary[]) => void;
+  /** Appelé après un ajout réussi (bulk : sortie mode sélection). */
+  onSuccess?: () => void;
 };
 
+function formatBulkStatus(result: Extract<BulkGroupMutationResult, { ok: true }>): string {
+  const { addedCount, alreadyMemberCount, missingCount } = result;
+  if (addedCount === 0 && alreadyMemberCount > 0 && missingCount === 0) {
+    return alreadyMemberCount === 1
+      ? "Déjà dans ce groupe."
+      : `Déjà dans ce groupe (${alreadyMemberCount}).`;
+  }
+  const parts: string[] = [];
+  if (addedCount > 0) {
+    parts.push(
+      addedCount === 1
+        ? "1 ajouté"
+        : `${addedCount} ajoutés`,
+    );
+  }
+  if (alreadyMemberCount > 0) {
+    parts.push(
+      alreadyMemberCount === 1
+        ? "1 déjà présent"
+        : `${alreadyMemberCount} déjà présents`,
+    );
+  }
+  if (missingCount > 0) {
+    parts.push(
+      missingCount === 1
+        ? "1 introuvable"
+        : `${missingCount} introuvables`,
+    );
+  }
+  return parts.length > 0 ? `${parts.join(" · ")}.` : "Aucun changement.";
+}
+
 export function AccountAddToGroupModal({
-  event,
+  eventIds,
+  heading,
   groups,
   onClose,
   onGroupsChange,
+  onSuccess,
 }: AccountAddToGroupModalProps) {
   const router = useRouter();
   const titleId = useId();
@@ -46,25 +87,56 @@ export function AccountAddToGroupModal({
     };
   }, [onClose]);
 
+  function handleResult(
+    result: BulkGroupMutationResult,
+    options?: { created?: boolean; groupId?: string },
+  ) {
+    if (!result.ok) {
+      setError(
+        result.reason === "not_found" || result.reason === "event_not_found"
+          ? "Impossible d’ajouter à ce groupe."
+          : result.reason === "invalid"
+            ? "Sélection invalide."
+            : "Impossible d’ajouter. Réessayez.",
+      );
+      return;
+    }
+
+    if (result.group) {
+      onGroupsChange?.([
+        {
+          ...result.group,
+          eventCount: result.addedCount,
+          earliestStartAt: null,
+          latestStartAt: null,
+        },
+        ...groups,
+      ]);
+    } else if (options?.groupId && result.addedCount > 0) {
+      onGroupsChange?.(
+        groups.map((group) =>
+          group.id === options.groupId
+            ? {
+                ...group,
+                eventCount: group.eventCount + result.addedCount,
+              }
+            : group,
+        ),
+      );
+    }
+
+    const prefix = options?.created ? "Groupe créé · " : "";
+    setStatus(`${prefix}${formatBulkStatus(result)}`);
+    onSuccess?.();
+    router.refresh();
+  }
+
   function handlePick(groupId: string) {
     setError(null);
     setStatus(null);
     startTransition(async () => {
-      const result = await addFavoriteToGroup(groupId, event.id);
-      if (result.ok) {
-        setStatus("Ajouté au groupe.");
-        router.refresh();
-        return;
-      }
-      if (result.reason === "already_member") {
-        setStatus("Déjà dans ce groupe.");
-        return;
-      }
-      setError(
-        result.reason === "not_found" || result.reason === "event_not_found"
-          ? "Impossible d’ajouter à ce groupe."
-          : "Impossible d’ajouter. Réessayez.",
-      );
+      const result = await addFavoritesToGroup(groupId, eventIds);
+      handleResult(result, { groupId });
     });
   }
 
@@ -79,48 +151,16 @@ export function AccountAddToGroupModal({
     }
 
     startTransition(async () => {
-      const created = await createGroup(trimmed);
-      if (!created.ok) {
-        setError(
-          created.reason === "invalid"
-            ? "Indiquez un nom de groupe."
-            : "Impossible de créer ce groupe. Réessayez.",
-        );
-        return;
-      }
-      if (!created.group) {
-        setError("Impossible de créer ce groupe. Réessayez.");
-        return;
-      }
-
-      const groupId = created.group.id;
-      const nextGroups: GroupSummary[] = [
-        {
-          ...created.group,
-          eventCount: 0,
-          earliestStartAt: null,
-          latestStartAt: null,
-        },
-        ...groups,
-      ];
-      onGroupsChange?.(nextGroups);
-      setNewName("");
-
-      const added = await addFavoriteToGroup(groupId, event.id);
-      if (added.ok) {
-        setStatus("Groupe créé et événement ajouté.");
-        router.refresh();
-        return;
-      }
-      if (added.reason === "already_member") {
-        setStatus("Groupe créé — déjà membre.");
-        router.refresh();
-        return;
-      }
-      setStatus("Groupe créé. Ajoutez l’événement depuis la liste.");
-      router.refresh();
+      const result = await createGroupWithFavorites(trimmed, eventIds);
+      if (result.ok) setNewName("");
+      handleResult(result, { created: true });
     });
   }
+
+  const countLabel =
+    eventIds.length === 1
+      ? "1 favori"
+      : `${eventIds.length} favoris`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
@@ -158,8 +198,11 @@ export function AccountAddToGroupModal({
           id={titleId}
           className="mt-3 font-display text-[1.4rem] font-semibold leading-[1.08] tracking-tight text-ink"
         >
-          {event.title}
+          {heading}
         </h2>
+        <p className="mt-1 text-[12px] uppercase tracking-[0.12em] text-sand">
+          {countLabel}
+        </p>
 
         <div className="mt-5 min-h-0 flex-1 overflow-y-auto">
           {groups.length === 0 ? (

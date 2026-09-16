@@ -2,19 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/infrastructure/db/postgres", () => ({
   getPool: vi.fn(),
+  withClient: vi.fn(),
 }));
 
 import {
   addEventToGroupForUser,
+  addEventsToGroupForUser,
   createGroupForUser,
+  createGroupWithEventsForUser,
   deleteGroupForUser,
   getGroupWithEventsForUser,
   listGroupsForUser,
+  normalizeEventIds,
   normalizeGroupName,
   removeEventFromGroupForUser,
   renameGroupForUser,
 } from "@/infrastructure/db/group.repository";
-import { getPool } from "@/infrastructure/db/postgres";
+import { getPool, withClient } from "@/infrastructure/db/postgres";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
@@ -25,6 +29,23 @@ describe("normalizeGroupName", () => {
     expect(normalizeGroupName("  Week-end  ")).toBe("Week-end");
     expect(normalizeGroupName("   ")).toBeNull();
     expect(normalizeGroupName(null)).toBeNull();
+  });
+
+  it("refuse nom > 80 caractères", () => {
+    expect(normalizeGroupName("a".repeat(80))).toBe("a".repeat(80));
+    expect(normalizeGroupName("a".repeat(81))).toBeNull();
+    expect(normalizeGroupName(`  ${"b".repeat(80)}  `)).toBe("b".repeat(80));
+    expect(normalizeGroupName(`  ${"c".repeat(81)}  `)).toBeNull();
+  });
+});
+
+describe("normalizeEventIds", () => {
+  it("trim, déduplique, ignore invalides", () => {
+    expect(normalizeEventIds([" a ", "b", "a", "", "  ", 3, null])).toEqual([
+      "a",
+      "b",
+    ]);
+    expect(normalizeEventIds(null)).toEqual([]);
   });
 });
 
@@ -281,6 +302,158 @@ describe("group.repository — ownership / IDOR", () => {
     await expect(
       removeEventFromGroupForUser(USER_B, GROUP_A, "openagenda:1"),
     ).resolves.toBe(false);
+  });
+
+  it("addEventsToGroupForUser bulk scoppé ownership + unnest", async () => {
+    query.mockResolvedValue({
+      rows: [
+        {
+          owned: true,
+          added_count: 2,
+          already_member_count: 1,
+          missing_count: 0,
+        },
+      ],
+    });
+
+    await expect(
+      addEventsToGroupForUser(USER_A, GROUP_A, [
+        "e1",
+        "e2",
+        "e1",
+        "e3",
+      ]),
+    ).resolves.toEqual({
+      status: "ok",
+      addedCount: 2,
+      alreadyMemberCount: 1,
+      missingCount: 0,
+    });
+
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("unnest($3::text[])");
+    expect(sql).toContain("user_id = $2");
+    expect(sql).toContain("ON CONFLICT (group_id, event_id) DO NOTHING");
+    expect(params).toEqual([GROUP_A, USER_A, ["e1", "e2", "e3"]]);
+  });
+
+  it("addEventsToGroupForUser user B → not_found", async () => {
+    query.mockResolvedValue({
+      rows: [
+        {
+          owned: false,
+          added_count: 0,
+          already_member_count: 0,
+          missing_count: 0,
+        },
+      ],
+    });
+    await expect(
+      addEventsToGroupForUser(USER_B, GROUP_A, ["e1"]),
+    ).resolves.toEqual({ status: "not_found" });
+  });
+
+  it("addEventsToGroupForUser liste vide → invalid", async () => {
+    await expect(
+      addEventsToGroupForUser(USER_A, GROUP_A, ["  ", ""]),
+    ).resolves.toEqual({ status: "invalid" });
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("createGroupWithEventsForUser transaction COMMIT si ajout ok", async () => {
+    const now = new Date("2026-09-16T10:00:00.000Z");
+    const clientQuery = vi
+      .fn()
+      .mockResolvedValueOnce(undefined) // BEGIN
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: GROUP_A,
+            user_id: USER_A,
+            name: "Week-end",
+            created_at: now,
+            updated_at: now,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            owned: true,
+            added_count: 2,
+            already_member_count: 0,
+            missing_count: 0,
+          },
+        ],
+      })
+      .mockResolvedValueOnce(undefined); // COMMIT
+
+    vi.mocked(withClient).mockImplementation(async (fn) =>
+      fn({ query: clientQuery } as never),
+    );
+
+    await expect(
+      createGroupWithEventsForUser({
+        userId: USER_A,
+        name: "Week-end",
+        eventIds: ["e1", "e2"],
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      group: { id: GROUP_A, name: "Week-end" },
+      addedCount: 2,
+    });
+
+    expect(clientQuery.mock.calls.map((c) => c[0])).toEqual([
+      "BEGIN",
+      expect.stringContaining("INSERT INTO groups"),
+      expect.stringContaining("unnest"),
+      "COMMIT",
+    ]);
+  });
+
+  it("createGroupWithEventsForUser ROLLBACK si tous les events manquent", async () => {
+    const now = new Date("2026-09-16T10:00:00.000Z");
+    const clientQuery = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: GROUP_A,
+            user_id: USER_A,
+            name: "Week-end",
+            created_at: now,
+            updated_at: now,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            owned: true,
+            added_count: 0,
+            already_member_count: 0,
+            missing_count: 2,
+          },
+        ],
+      })
+      .mockResolvedValueOnce(undefined);
+
+    vi.mocked(withClient).mockImplementation(async (fn) =>
+      fn({ query: clientQuery } as never),
+    );
+
+    await expect(
+      createGroupWithEventsForUser({
+        userId: USER_A,
+        name: "Week-end",
+        eventIds: ["missing-1", "missing-2"],
+      }),
+    ).resolves.toEqual({ status: "event_not_found" });
+
+    expect(clientQuery.mock.calls.map((c) => c[0])).toContain("ROLLBACK");
+    expect(clientQuery.mock.calls.map((c) => c[0])).not.toContain("COMMIT");
   });
 });
 

@@ -7,6 +7,7 @@ import {
   formatGroupDateRange,
   groupEventCountLabel,
 } from "@/features/account/group-display";
+import { takeServerListIfChanged } from "@/features/account/take-server-list-if-changed";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -42,16 +43,27 @@ vi.mock("next/image", () => ({
 
 vi.mock("@/app/actions/groups", () => ({
   createGroup: vi.fn(),
+  createGroupWithFavorites: vi.fn(),
   renameGroup: vi.fn(),
   deleteGroup: vi.fn(),
   addFavoriteToGroup: vi.fn(),
+  addFavoritesToGroup: vi.fn(),
   removeEventFromGroup: vi.fn(),
+}));
+
+vi.mock("@/app/actions/favorites", () => ({
+  removeFavorite: vi.fn(),
+}));
+
+vi.mock("@/features/account/auth-client", () => ({
+  authClient: { signOut: vi.fn() },
 }));
 
 import { AccountFavoriteCard } from "@/features/account/components/AccountFavoriteCard";
 import { AccountGroupDetail } from "@/features/account/components/AccountGroupDetail";
 import { AccountGroupsSection } from "@/features/account/components/AccountGroupsSection";
 import { AccountAddToGroupModal } from "@/features/account/components/AccountAddToGroupModal";
+import { AccountSignedIn } from "@/features/account/components/AccountSignedIn";
 
 const GROUP_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
@@ -175,8 +187,8 @@ describe("AccountGroupDetail (vue groupe)", () => {
   });
 });
 
-describe("AccountFavoriteCard — ajout groupe", () => {
-  it("affiche l’action secondaire Ajouter à un groupe", () => {
+describe("AccountFavoriteCard", () => {
+  it("mode normal : agenda visible + actions secondaires inline", () => {
     const html = renderToStaticMarkup(
       createElement(AccountFavoriteCard, {
         event: eventItem({ id: "e1", title: "Concert" }),
@@ -189,6 +201,42 @@ describe("AccountFavoriteCard — ajout groupe", () => {
     expect(html).toContain("Ajouter à un groupe");
     expect(html).toContain("Ajouter à mon agenda");
     expect(html).toContain("Retirer");
+  });
+
+  it("secondaryInMenu : agenda visible, menu … (pas d’inline groupe)", () => {
+    const html = renderToStaticMarkup(
+      createElement(AccountFavoriteCard, {
+        event: eventItem({ id: "e1", title: "Concert" }),
+        onRemove: () => undefined,
+        onAddToAgenda: () => undefined,
+        onAddToGroup: () => undefined,
+        secondaryInMenu: true,
+      }),
+    );
+
+    expect(html).toContain("Ajouter à mon agenda");
+    expect(html).toContain("Plus d’actions");
+    expect(html).not.toContain("Ajouter à un groupe");
+  });
+
+  it("mode sélection : checkbox, pas d’actions", () => {
+    const html = renderToStaticMarkup(
+      createElement(AccountFavoriteCard, {
+        event: eventItem({ id: "e1", title: "Concert" }),
+        selectionMode: true,
+        selected: true,
+        onToggleSelect: () => undefined,
+        onRemove: () => undefined,
+        onAddToAgenda: () => undefined,
+        onAddToGroup: () => undefined,
+        secondaryInMenu: true,
+      }),
+    );
+
+    expect(html).toContain('type="checkbox"');
+    expect(html).toContain("checked");
+    expect(html).not.toContain("Ajouter à mon agenda");
+    expect(html).not.toContain("Ajouter à un groupe");
   });
 
   it("sans onAddToGroup : pas de régression favoris", () => {
@@ -206,10 +254,11 @@ describe("AccountFavoriteCard — ajout groupe", () => {
 });
 
 describe("AccountAddToGroupModal", () => {
-  it("liste les groupes et propose Créer un groupe", () => {
+  it("liste les groupes et propose Créer un groupe (single)", () => {
     const html = renderToStaticMarkup(
       createElement(AccountAddToGroupModal, {
-        event: eventItem({ id: "e1", title: "Concert jazz" }),
+        eventIds: ["e1"],
+        heading: "Concert jazz",
         groups: [summary({ id: GROUP_A, name: "Week-end Loire" })],
         onClose: () => undefined,
       }),
@@ -217,21 +266,67 @@ describe("AccountAddToGroupModal", () => {
 
     expect(html).toContain("Ajouter à un groupe");
     expect(html).toContain("Concert jazz");
+    expect(html).toContain("1 favori");
     expect(html).toContain("Week-end Loire");
     expect(html).toContain("Créer un groupe");
     expect(html).toContain("Choisir");
   });
 
-  it("aucun groupe → message + créer", () => {
+  it("bulk : heading N favoris", () => {
     const html = renderToStaticMarkup(
       createElement(AccountAddToGroupModal, {
-        event: eventItem({ id: "e1", title: "Concert" }),
+        eventIds: ["e1", "e2", "e3"],
+        heading: "3 favoris",
         groups: [],
         onClose: () => undefined,
       }),
     );
 
+    expect(html).toContain("3 favoris");
     expect(html).toContain("Aucun groupe pour l’instant");
     expect(html).toContain("Créer un groupe");
+  });
+});
+
+describe("AccountSignedIn — mode sélection DET-18", () => {
+  it("affiche Sélectionner en mode normal (pas de barre sticky)", () => {
+    const html = renderToStaticMarkup(
+      createElement(AccountSignedIn, {
+        user: { name: "A", email: "a@exemple.fr" },
+        initialFavorites: [
+          eventItem({ id: "e1", title: "Concert" }),
+          eventItem({ id: "e2", title: "Expo" }),
+        ],
+        initialGroups: [],
+      }),
+    );
+
+    expect(html).toContain("Sélectionner");
+    expect(html).not.toContain("Annuler");
+    expect(html).not.toContain("sélectionné");
+    expect(html).toContain("Favoris");
+    expect(html).toContain("Plus d’actions");
+  });
+
+  it("état vide favoris : pas de Sélectionner", () => {
+    const html = renderToStaticMarkup(
+      createElement(AccountSignedIn, {
+        user: { name: "A", email: "a@exemple.fr" },
+        initialFavorites: [],
+        initialGroups: [],
+      }),
+    );
+
+    expect(html).not.toContain(">Sélectionner<");
+  });
+});
+
+describe("takeServerListIfChanged (sync post-refresh)", () => {
+  it("nouvelle référence props → prendre la liste serveur (eventCount à jour)", () => {
+    const v1 = [summary({ id: GROUP_A, name: "W", eventCount: 1 })];
+    const v2 = [summary({ id: GROUP_A, name: "W", eventCount: 2 })];
+    expect(takeServerListIfChanged(v1, v1)).toBeNull();
+    expect(takeServerListIfChanged(v2, v1)).toBe(v2);
+    expect(takeServerListIfChanged(v2, v1)?.[0]?.eventCount).toBe(2);
   });
 });

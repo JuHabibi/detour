@@ -5,7 +5,11 @@ import {
   mapEventRowToDetourEvent,
   type EventRow,
 } from "@/infrastructure/db/event-row.mapper";
-import { getPool, type DbQueryable } from "@/infrastructure/db/postgres";
+import {
+  getPool,
+  withClient,
+  type DbQueryable,
+} from "@/infrastructure/db/postgres";
 
 function db(client?: DbQueryable): DbQueryable {
   return client ?? getPool();
@@ -35,6 +39,43 @@ export type AddEventToGroupResult =
   | { status: "already_member" }
   | { status: "not_found" };
 
+/** Résultat bulk — doublons ignorés, events absents comptés (pas d’échec FK). */
+export type AddEventsToGroupResult =
+  | { status: "not_found" }
+  | { status: "invalid" }
+  | {
+      status: "ok";
+      addedCount: number;
+      alreadyMemberCount: number;
+      missingCount: number;
+    };
+
+export type CreateGroupWithEventsResult =
+  | { status: "invalid" }
+  | { status: "event_not_found" }
+  | {
+      status: "ok";
+      group: GroupRow;
+      addedCount: number;
+      alreadyMemberCount: number;
+      missingCount: number;
+    };
+
+/** Déduplique / trim une liste d’event ids — ordre stable de première occurrence. */
+export function normalizeEventIds(eventIds: unknown): string[] {
+  if (!Array.isArray(eventIds)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of eventIds) {
+    if (typeof raw !== "string") continue;
+    const trimmed = raw.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  return out;
+}
+
 type GroupSqlRow = {
   id: string;
   user_id: string;
@@ -54,10 +95,15 @@ function mapGroupRow(row: GroupSqlRow): GroupRow {
 }
 
 
+/** Longueur max alignée sur l’input UI (`maxLength={80}`). */
+export const MAX_GROUP_NAME_LENGTH = 80;
+
 export function normalizeGroupName(name: unknown): string | null {
   if (typeof name !== "string") return null;
   const trimmed = name.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  if (trimmed.length === 0) return null;
+  if (trimmed.length > MAX_GROUP_NAME_LENGTH) return null;
+  return trimmed;
 }
 
 export async function createGroupForUser(
@@ -281,6 +327,141 @@ SELECT
   return row.inserted ? { status: "added" } : { status: "already_member" };
 }
 
+/**
+ * Ajout multiple en une requête — ownership via CTE, ON CONFLICT ignore doublons,
+ * events absents exclus via JOIN (pas d’erreur FK).
+ */
+export async function addEventsToGroupForUser(
+  userId: string,
+  groupId: string,
+  eventIds: string[],
+  client?: DbQueryable,
+): Promise<AddEventsToGroupResult> {
+  const ids = normalizeEventIds(eventIds);
+  if (ids.length === 0) return { status: "invalid" };
+
+  const result = await db(client).query<{
+    owned: boolean;
+    added_count: string | number;
+    already_member_count: string | number;
+    missing_count: string | number;
+  }>(
+    `
+WITH wanted AS (
+  SELECT DISTINCT unnest($3::text[]) AS event_id
+),
+owned AS (
+  SELECT id
+  FROM groups
+  WHERE id = $1
+    AND user_id = $2
+),
+existing AS (
+  SELECT w.event_id
+  FROM wanted w
+  INNER JOIN events e ON e.id = w.event_id
+),
+missing AS (
+  SELECT w.event_id
+  FROM wanted w
+  WHERE NOT EXISTS (SELECT 1 FROM events e WHERE e.id = w.event_id)
+),
+ins AS (
+  INSERT INTO group_events (group_id, event_id)
+  SELECT o.id, ex.event_id
+  FROM owned o
+  CROSS JOIN existing ex
+  ON CONFLICT (group_id, event_id) DO NOTHING
+  RETURNING event_id
+)
+SELECT
+  EXISTS (SELECT 1 FROM owned) AS owned,
+  (SELECT COUNT(*)::int FROM ins) AS added_count,
+  (
+    (SELECT COUNT(*)::int FROM existing)
+    - (SELECT COUNT(*)::int FROM ins)
+  ) AS already_member_count,
+  (SELECT COUNT(*)::int FROM missing) AS missing_count
+`.trim(),
+    [groupId, userId, ids],
+  );
+
+  const row = result.rows[0];
+  if (!row?.owned) return { status: "not_found" };
+
+  return {
+    status: "ok",
+    addedCount: Number(row.added_count),
+    alreadyMemberCount: Number(row.already_member_count),
+    missingCount: Number(row.missing_count),
+  };
+}
+
+/**
+ * Crée un groupe et y ajoute des events dans une transaction.
+ * Si tous les eventIds sont absents → ROLLBACK (pas de groupe vide accidentel).
+ */
+export async function createGroupWithEventsForUser(params: {
+  userId: string;
+  name: string;
+  eventIds: string[];
+}): Promise<CreateGroupWithEventsResult> {
+  const normalized = normalizeGroupName(params.name);
+  if (!normalized) return { status: "invalid" };
+
+  const ids = normalizeEventIds(params.eventIds);
+
+  return withClient(async (client) => {
+    await client.query("BEGIN");
+    try {
+      const group = await createGroupForUser(params.userId, normalized, client);
+      if (!group) {
+        await client.query("ROLLBACK");
+        return { status: "invalid" };
+      }
+
+      if (ids.length === 0) {
+        await client.query("COMMIT");
+        return {
+          status: "ok",
+          group,
+          addedCount: 0,
+          alreadyMemberCount: 0,
+          missingCount: 0,
+        };
+      }
+
+      const add = await addEventsToGroupForUser(
+        params.userId,
+        group.id,
+        ids,
+        client,
+      );
+      if (add.status !== "ok") {
+        await client.query("ROLLBACK");
+        return { status: "invalid" };
+      }
+
+      // Aucun event valide → rollback pour ne pas laisser un groupe vide.
+      if (add.addedCount === 0 && add.missingCount > 0) {
+        await client.query("ROLLBACK");
+        return { status: "event_not_found" };
+      }
+
+      await client.query("COMMIT");
+      return {
+        status: "ok",
+        group,
+        addedCount: add.addedCount,
+        alreadyMemberCount: add.alreadyMemberCount,
+        missingCount: add.missingCount,
+      };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    }
+  });
+}
 
 export async function removeEventFromGroupForUser(
   userId: string,
