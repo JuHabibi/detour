@@ -188,38 +188,38 @@ describe("AccountGroupDetail (vue groupe)", () => {
 });
 
 describe("AccountFavoriteCard", () => {
-  it("mode normal : agenda visible + actions secondaires inline", () => {
+  it("mode normal : lien ICS agenda + actions secondaires inline", () => {
     const html = renderToStaticMarkup(
       createElement(AccountFavoriteCard, {
-        event: eventItem({ id: "e1", title: "Concert" }),
+        event: eventItem({ id: "openagenda:1", title: "Concert" }),
         onRemove: () => undefined,
-        onAddToAgenda: () => undefined,
         onAddToGroup: () => undefined,
       }),
     );
 
     expect(html).toContain("Ajouter à un groupe");
     expect(html).toContain("Ajouter à mon agenda");
+    expect(html).toContain('/api/events/openagenda%3A1/calendar');
     expect(html).toContain("Retirer");
   });
 
-  it("secondaryInMenu : agenda visible, menu … (pas d’inline groupe)", () => {
+  it("secondaryInMenu : agenda visible (lien), menu … (pas d’inline groupe)", () => {
     const html = renderToStaticMarkup(
       createElement(AccountFavoriteCard, {
         event: eventItem({ id: "e1", title: "Concert" }),
         onRemove: () => undefined,
-        onAddToAgenda: () => undefined,
         onAddToGroup: () => undefined,
         secondaryInMenu: true,
       }),
     );
 
     expect(html).toContain("Ajouter à mon agenda");
+    expect(html).toContain("/api/events/e1/calendar");
     expect(html).toContain("Plus d’actions");
     expect(html).not.toContain("Ajouter à un groupe");
   });
 
-  it("mode sélection : checkbox, pas d’actions", () => {
+  it("mode sélection : checkbox, pas d’actions ni lien agenda", () => {
     const html = renderToStaticMarkup(
       createElement(AccountFavoriteCard, {
         event: eventItem({ id: "e1", title: "Concert" }),
@@ -227,7 +227,6 @@ describe("AccountFavoriteCard", () => {
         selected: true,
         onToggleSelect: () => undefined,
         onRemove: () => undefined,
-        onAddToAgenda: () => undefined,
         onAddToGroup: () => undefined,
         secondaryInMenu: true,
       }),
@@ -239,17 +238,16 @@ describe("AccountFavoriteCard", () => {
     expect(html).not.toContain("Ajouter à un groupe");
   });
 
-  it("sans onAddToGroup : pas de régression favoris", () => {
+  it("showAgendaLink false : pas de lien agenda", () => {
     const html = renderToStaticMarkup(
       createElement(AccountFavoriteCard, {
         event: eventItem({ id: "e1", title: "Concert" }),
         onRemove: () => undefined,
-        onAddToAgenda: () => undefined,
+        showAgendaLink: false,
       }),
     );
 
-    expect(html).not.toContain("Ajouter à un groupe");
-    expect(html).toContain("Ajouter à mon agenda");
+    expect(html).not.toContain("Ajouter à mon agenda");
   });
 });
 

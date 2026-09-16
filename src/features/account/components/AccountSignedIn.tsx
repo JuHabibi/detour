@@ -6,7 +6,6 @@ import { removeFavorite } from "@/app/actions/favorites";
 import type { GroupSummary } from "@/application/groups";
 import type { EventItem } from "@/data/types";
 import { authClient } from "@/features/account/auth-client";
-import { AccountAddToAgendaModal } from "@/features/account/components/AccountAddToAgendaModal";
 import { AccountAddToGroupModal } from "@/features/account/components/AccountAddToGroupModal";
 import { AccountEmptyFavorites } from "@/features/account/components/AccountEmptyFavorites";
 import { AccountFavoriteCard } from "@/features/account/components/AccountFavoriteCard";
@@ -45,9 +44,7 @@ export function AccountSignedIn({
     setGroupsPropSnapshot(serverGroups);
     setGroups(serverGroups);
   }
-  const [agendaEvent, setAgendaEvent] = useState<EventItem | null>(null);
   const [groupModal, setGroupModal] = useState<GroupModalTarget | null>(null);
-  const [agendaNotice, setAgendaNotice] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [logoutPending, setLogoutPending] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -87,8 +84,6 @@ export function AccountSignedIn({
     setRemoveError(null);
     const previous = favorites;
     setFavorites((current) => current.filter((event) => event.id !== id));
-    setAgendaNotice(null);
-    if (agendaEvent?.id === id) setAgendaEvent(null);
     setSelectedIds((current) => {
       if (!current.has(id)) return current;
       const next = new Set(current);
@@ -116,12 +111,6 @@ export function AccountSignedIn({
     });
   }
 
-  function handleOpenAgenda(id: string) {
-    const event = favorites.find((item) => item.id === id) ?? null;
-    setAgendaEvent(event);
-    setAgendaNotice(null);
-  }
-
   function handleOpenAddToGroup(id: string) {
     const event = favorites.find((item) => item.id === id) ?? null;
     if (!event) return;
@@ -131,14 +120,6 @@ export function AccountSignedIn({
   function handleOpenBulkAddToGroup() {
     if (selectedIds.size === 0) return;
     setGroupModal({ kind: "bulk", eventIds: [...selectedIds] });
-  }
-
-  function handleConfirmAgenda() {
-    if (!agendaEvent) return;
-    setAgendaNotice(
-      `Maquette — « ${agendaEvent.title} » : fichier .ics non généré.`,
-    );
-    setAgendaEvent(null);
   }
 
   async function handleLogout() {
@@ -257,9 +238,6 @@ export function AccountSignedIn({
                 key={event.id}
                 event={event}
                 onRemove={handleRemove}
-                onAddToAgenda={
-                  selectionMode ? undefined : handleOpenAgenda
-                }
                 onAddToGroup={
                   selectionMode ? undefined : handleOpenAddToGroup
                 }
@@ -270,16 +248,6 @@ export function AccountSignedIn({
               />
             ))}
           </div>
-
-          {agendaNotice ? (
-            <p
-              className="mt-6 text-sm text-sand"
-              role="status"
-              aria-live="polite"
-            >
-              {agendaNotice}
-            </p>
-          ) : null}
         </div>
       )}
 
@@ -298,14 +266,6 @@ export function AccountSignedIn({
             </button>
           </div>
         </div>
-      ) : null}
-
-      {agendaEvent ? (
-        <AccountAddToAgendaModal
-          event={agendaEvent}
-          onClose={() => setAgendaEvent(null)}
-          onConfirm={handleConfirmAgenda}
-        />
       ) : null}
 
       {groupModal ? (

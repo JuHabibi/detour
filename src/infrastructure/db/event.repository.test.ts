@@ -4,6 +4,7 @@ import type { DetourEvent } from "@/domain/events/event";
 import {
   EVENT_UPSERT_CHUNK_SIZE,
   deactivateNotSeenSince,
+  getEventById,
   listUpcomingActive,
   listUpcomingActiveWithAdapter,
   upsertMany,
@@ -131,5 +132,53 @@ describe("event.repository", () => {
     expect(sql).toContain("is_active = false");
     expect(sql).toContain("last_seen_at < $2");
     expect(params).toEqual(["orleans", marker.toISOString()]);
+  });
+
+  it("getEventById SELECT par id + mapping", async () => {
+    const query = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          id: "openagenda:1",
+          adapter_id: "orleans",
+          title: "Concert",
+          description: "Desc",
+          image_url: null,
+          start_at: new Date("2026-11-01T20:00:00.000Z"),
+          end_at: null,
+          all_day: false,
+          venue: "Scène",
+          city: "Orléans",
+          latitude: null,
+          longitude: null,
+          category: null,
+          genre: null,
+          conditions: null,
+          source: null,
+          source_url: "https://example.com",
+          registration_url: null,
+          is_active: true,
+          created_at: new Date("2026-01-01T00:00:00.000Z"),
+          updated_at: new Date("2026-01-01T00:00:00.000Z"),
+          last_seen_at: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      ],
+    });
+    const client = { query } as unknown as DbQueryable;
+
+    await expect(getEventById("openagenda:1", client)).resolves.toMatchObject({
+      id: "openagenda:1",
+      title: "Concert",
+      startAt: "2026-11-01T20:00:00.000Z",
+      sourceUrl: "https://example.com",
+    });
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("WHERE e.id = $1");
+    expect(params).toEqual(["openagenda:1"]);
+  });
+
+  it("getEventById absent → null", async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const client = { query } as unknown as DbQueryable;
+    await expect(getEventById("missing", client)).resolves.toBeNull();
   });
 });

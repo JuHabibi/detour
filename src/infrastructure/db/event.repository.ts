@@ -5,6 +5,7 @@ import type { EventAvailabilityRecord } from "@/domain/events/event-availability
 import {
   buildUpsertEventsChunkSql,
   detourEventToUpsertValues,
+  mapEventRowToDetourEvent,
   mapEventRowToEventWithAdapter,
   type EventRow,
   type EventWithAdapter,
@@ -109,6 +110,52 @@ export async function listUpcomingActive(params: {
 }): Promise<DetourEvent[]> {
   const rows = await listUpcomingActiveWithAdapter(params);
   return rows.map((row) => row.event);
+}
+
+const GET_EVENT_BY_ID_SQL = `
+SELECT
+  e.id,
+  e.adapter_id,
+  e.title,
+  e.description,
+  e.image_url,
+  e.image_credit,
+  e.image_license,
+  e.image_source_url,
+  e.start_at,
+  e.end_at,
+  e.all_day,
+  e.venue,
+  e.city,
+  e.latitude,
+  e.longitude,
+  e.category,
+  e.genre,
+  e.conditions,
+  e.source,
+  e.source_url,
+  e.registration_url,
+  e.is_active,
+  e.created_at,
+  e.updated_at,
+  e.last_seen_at
+FROM events e
+WHERE e.id = $1
+`.trim();
+
+/** Lecture publique minimale par id — null si absent. */
+export async function getEventById(
+  eventId: string,
+  client?: DbQueryable,
+): Promise<DetourEvent | null> {
+  const trimmed = eventId.trim();
+  if (!trimmed) return null;
+
+  const result = await db(client).query<EventRow>(GET_EVENT_BY_ID_SQL, [
+    trimmed,
+  ]);
+  const row = result.rows[0];
+  return row ? mapEventRowToDetourEvent(row) : null;
 }
 
 export async function countActiveByAdapter(

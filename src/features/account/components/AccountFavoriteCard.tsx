@@ -3,13 +3,13 @@
 import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 import type { EventItem } from "@/data/types";
+import { eventCalendarPath } from "@/domain/calendar/build-event-calendar";
 import { resolveCategoryBadgeTone } from "@/features/home/category-badge-style";
 import { cn } from "@/lib/cn";
 
 type AccountFavoriteCardProps = {
   event: EventItem;
   onRemove?: (id: string) => void;
-  onAddToAgenda?: (id: string) => void;
   onAddToGroup?: (id: string) => void;
   /** Libellé du bouton retirer — défaut « Retirer ». */
   removeLabel?: string;
@@ -22,18 +22,20 @@ type AccountFavoriteCardProps = {
    * Agenda reste visible. Ignoré en selectionMode / sans onAddToGroup+onRemove.
    */
   secondaryInMenu?: boolean;
+  /** Affiche le lien ICS (défaut true hors sélection). */
+  showAgendaLink?: boolean;
 };
 
 export function AccountFavoriteCard({
   event,
   onRemove,
-  onAddToAgenda,
   onAddToGroup,
   removeLabel = "Retirer",
   selectionMode = false,
   selected = false,
   onToggleSelect,
   secondaryInMenu = false,
+  showAgendaLink = true,
 }: AccountFavoriteCardProps) {
   const whenLabel = event.time
     ? `${event.dateLabel} · ${event.time}`
@@ -135,14 +137,13 @@ export function AccountFavoriteCard({
 
         {!selectionMode ? (
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-            {onAddToAgenda ? (
-              <button
-                type="button"
-                onClick={() => onAddToAgenda(event.id)}
+            {showAgendaLink ? (
+              <a
+                href={eventCalendarPath(event.id)}
                 className="text-[12px] font-medium uppercase tracking-[0.1em] text-ink underline decoration-mint/70 decoration-2 underline-offset-4 transition-colors hover:decoration-coral"
               >
                 Ajouter à mon agenda
-              </button>
+              </a>
             ) : null}
 
             {showMenu ? (
