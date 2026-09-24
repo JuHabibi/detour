@@ -9,15 +9,6 @@ vi.mock("@/infrastructure/next-public-home-cache", () => ({
     getCachedPublicHomeData(...args),
 }));
 
-vi.mock("@/infrastructure/db/home-perf", () => ({
-  homePerfLog: vi.fn(),
-  homePerfNextReqId: () => "test-req",
-  homePerfTimed: async <T>(run: () => Promise<T>) => {
-    const value = await run();
-    return { value, ms: 1 };
-  },
-}));
-
 describe("loadHomePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();

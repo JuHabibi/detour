@@ -1,8 +1,3 @@
-import {
-  homePerfLog,
-  homePerfNextReqId,
-  homePerfTimed,
-} from "@/infrastructure/db/home-perf";
 import { getCachedPublicHomeData } from "@/infrastructure/next-public-home-cache";
 
 /**
@@ -10,16 +5,7 @@ import { getCachedPublicHomeData } from "@/infrastructure/next-public-home-cache
  * Auth / favoris : hydratation client après paint.
  */
 export async function loadHomePage() {
-  const tTotal = Date.now();
-  const reqId = homePerfNextReqId();
-  homePerfLog(`req=${reqId} load_home_start`);
-
-  const publicTimed = await homePerfTimed(() => getCachedPublicHomeData());
-  const publicData = publicTimed.value;
-
-  homePerfLog(
-    `req=${reqId} public=${publicTimed.ms}ms total=${Date.now() - tTotal}ms highlights=${publicData.highlights.length} explorer=${publicData.explorer.events.length}`,
-  );
+  const publicData = await getCachedPublicHomeData();
 
   return {
     highlights: publicData.highlights,

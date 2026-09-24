@@ -1,6 +1,5 @@
 import "server-only";
 
-import { homePerfLog, homePerfTimed } from "@/infrastructure/db/home-perf";
 import type { AccountAuthState } from "@/features/account/account-auth-state";
 import { auth } from "@/infrastructure/auth/auth";
 import { headers } from "next/headers";
@@ -10,25 +9,20 @@ import { headers } from "next/headers";
  * Boundary app : compose infrastructure + features DTO.
  */
 export async function getAccountAuthState(): Promise<AccountAuthState> {
-  const { value: state, ms } = await homePerfTimed(async () => {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session?.user?.id || !session.user.email) {
-      return { status: "unauthenticated" as const };
-    }
-
-    return {
-      status: "authenticated" as const,
-      user: {
-        id: session.user.id,
-        email: session.user.email,
-        name: session.user.name?.trim() || session.user.email,
-      },
-    };
+  const session = await auth.api.getSession({
+    headers: await headers(),
   });
 
-  homePerfLog(`auth_total=${ms}ms status=${state.status}`);
-  return state;
+  if (!session?.user?.id || !session.user.email) {
+    return { status: "unauthenticated" };
+  }
+
+  return {
+    status: "authenticated",
+    user: {
+      id: session.user.id,
+      email: session.user.email,
+      name: session.user.name?.trim() || session.user.email,
+    },
+  };
 }

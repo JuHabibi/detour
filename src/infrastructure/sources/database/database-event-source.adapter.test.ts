@@ -78,12 +78,13 @@ describe("DatabaseEventSourceAdapter", () => {
 });
 
 describe("buildIngestionFromDbRows", () => {
-  it("ordre preferred orleans puis saran puis ingre-agenda puis bouillon puis ormes", () => {
+  it("ordre preferred orleans puis saran puis ingre-agenda puis bouillon puis saint-jean-le-blanc puis ormes", () => {
     const ingestion = buildIngestionFromDbRows([
       { event: eventStub("saran:1"), adapterId: "saran" },
       { event: eventStub("ingre:1"), adapterId: "ingre-agenda" },
       { event: eventStub("oa:1"), adapterId: "orleans" },
       { event: eventStub("bouillon:1"), adapterId: "bouillon" },
+      { event: eventStub("sjlb:1"), adapterId: "saint-jean-le-blanc" },
       { event: eventStub("ormes:1"), adapterId: "ormes" },
     ]);
     expect(ingestion.adapterOrder).toEqual([
@@ -91,10 +92,14 @@ describe("buildIngestionFromDbRows", () => {
       "saran",
       "ingre-agenda",
       "bouillon",
+      "saint-jean-le-blanc",
       "ormes",
     ]);
     expect(ingestion.sourceNameByAdapter.get("bouillon")).toBe(
       "Université d'Orléans / Le Bouillon",
+    );
+    expect(ingestion.sourceNameByAdapter.get("saint-jean-le-blanc")).toBe(
+      "Ville de Saint-Jean-le-Blanc",
     );
     expect(ingestion.sourceNameByAdapter.get("ormes")).toBe("Ville d'Ormes");
   });

@@ -32,10 +32,6 @@ vi.mock("@/config/home-debug", () => ({
   shouldExposeHomeDebug: () => false,
 }));
 
-vi.mock("@/infrastructure/db/home-perf", () => ({
-  homePerfLog: vi.fn(),
-}));
-
 describe("next-public-home-cache", () => {
   beforeEach(() => {
     vi.clearAllMocks();

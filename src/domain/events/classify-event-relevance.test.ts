@@ -513,6 +513,31 @@ describe("classifyEventRelevance", () => {
     expect(result.relevance).toBe("uncertain");
   });
 
+  it("atelier créatif → culture", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Atelier Créatif",
+        category: "Stage - atelier -  jeu",
+        venue: "Médiathèque",
+      }),
+    );
+    expect(result.relevance).toBe("culture");
+    expect(result.reason).toBe("cultural-keyword:créatif");
+  });
+
+  it("atelier récréatif seniors → pas culture via créatif", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Atelier récréatif seniors",
+        category: "Stage - atelier -  jeu",
+        description: "Temps convivial récréatif pour les seniors",
+        venue: "Salle polyvalente",
+      }),
+    );
+    expect(result.relevance).not.toBe("culture");
+    expect(result.reason).not.toMatch(/créatif/);
+  });
+
   it("visite commentée en médiathèque → culture_leisure (catégorie visite > lieu)", () => {
     const result = classifyEventRelevance(
       event({

@@ -6,7 +6,6 @@ import {
   type PublicHomeData,
 } from "@/application/home/get-public-home-data";
 import { shouldExposeHomeDebug } from "@/config/home-debug";
-import { homePerfLog } from "@/infrastructure/db/home-perf";
 
 /**
  * Scope cache Home publique — slug territoire futur-proof
@@ -28,12 +27,8 @@ export const PUBLIC_HOME_CACHE_REVALIDATE_SECONDS = 60 * 60 * 6;
  * les reads du cache IA per-event (unstable_cache imbriqué).
  */
 export async function getCachedPublicHomeData(): Promise<PublicHomeData> {
-  let computeRan = false;
-  const t0 = Date.now();
-
   const cachedSnapshot = unstable_cache(
     async () => {
-      computeRan = true;
       const { from, to } = publicHomeUpcomingWindow();
       return getPublicHomeSnapshot({
         from,
@@ -49,18 +44,9 @@ export async function getCachedPublicHomeData(): Promise<PublicHomeData> {
   );
 
   const snapshot = await cachedSnapshot();
-  const snapshotMs = Date.now() - t0;
-  homePerfLog(
-    `public_home=${computeRan ? "miss" : "hit"} territory=${PUBLIC_HOME_TERRITORY_SLUG} snapshot_ms=${snapshotMs}`,
-  );
 
   // Hors callback unstable_cache parent → reads Data Cache IA effectives.
-  const tMat = Date.now();
-  const data = await materializePublicHomeData(snapshot);
-  homePerfLog(
-    `materialize_ms=${Date.now() - tMat} highlights=${data.highlights.length} explorer=${data.explorer.events.length}`,
-  );
-  return data;
+  return materializePublicHomeData(snapshot);
 }
 
 /**

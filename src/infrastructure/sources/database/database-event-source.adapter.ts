@@ -18,6 +18,7 @@ const ADAPTER_LABELS: Record<string, string> = {
   saran: "Ville de Saran",
   "ingre-agenda": "Ville d'Ingré (agenda)",
   bouillon: "Université d'Orléans / Le Bouillon",
+  "saint-jean-le-blanc": "Ville de Saint-Jean-le-Blanc",
   ormes: "Ville d'Ormes",
 };
 
@@ -26,6 +27,7 @@ const ADAPTER_ORDER_PREFERRED = [
   "saran",
   "ingre-agenda",
   "bouillon",
+  "saint-jean-le-blanc",
   "ormes",
 ] as const;
 

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   addFavorite,
   listMyFavoriteEventIds,
@@ -27,13 +27,6 @@ const HomeDebugSection = dynamic(
 
 /** Jamais muté — état public initial / anonyme. */
 const EMPTY_FAVORITES: ReadonlySet<string> = new Set();
-
-const HOME_PERF = "[detour:home-perf]";
-
-function homePerfClient(message: string): void {
-  // Temporaire diagnostic — pas de PII (pas d’userId / email).
-  console.info(`${HOME_PERF} client ${message}`);
-}
 
 type HomePageProps = {
   /** Highlights radar — indépendants des filtres d’exploration. */
@@ -66,11 +59,6 @@ export function HomePage({
   debugEvents,
   debugMeta,
 }: HomePageProps) {
-  const mountAtRef = useRef<number | null>(null);
-  if (mountAtRef.current === null && typeof performance !== "undefined") {
-    mountAtRef.current = performance.now();
-  }
-
   const { data: session, isPending: isSessionPending } = authClient.useSession();
   const userId = session?.user?.id ?? null;
   const isAuthenticated = Boolean(userId);
@@ -90,42 +78,16 @@ export function HomePage({
   const [prevDebugMeta, setPrevDebugMeta] = useState(debugMeta);
 
   useEffect(() => {
-    const t0 = mountAtRef.current ?? performance.now();
-    homePerfClient(
-      `hydrate_mount +${(performance.now() - t0).toFixed(0)}ms highlights=${highlights.length} explorer=${explorer.events.length}`,
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot mount probe
-  }, []);
-
-  useEffect(() => {
-    const t0 = mountAtRef.current ?? 0;
-    homePerfClient(
-      `session pending=${isSessionPending} authenticated=${isAuthenticated} +${(performance.now() - t0).toFixed(0)}ms`,
-    );
-  }, [isSessionPending, isAuthenticated]);
-
-  useEffect(() => {
     if (isSessionPending || !userId) return;
 
     let cancelled = false;
-    const t0 = mountAtRef.current ?? performance.now();
-    const fetchStarted = performance.now();
-    homePerfClient(`favorites_fetch_start +${(fetchStarted - t0).toFixed(0)}ms`);
 
     void listMyFavoriteEventIds().then((result) => {
       if (cancelled) return;
-      const elapsed = performance.now() - fetchStarted;
-      const count = result.ok ? result.eventIds.length : 0;
-      homePerfClient(
-        `favorites_fetch_end ok=${result.ok} count=${count} duration_ms=${elapsed.toFixed(0)} +${(performance.now() - t0).toFixed(0)}ms`,
-      );
       setFavoriteState({
         userId,
         ids: new Set(result.ok ? result.eventIds : []),
       });
-      homePerfClient(
-        `favorites_state_applied count=${count} +${(performance.now() - t0).toFixed(0)}ms`,
-      );
     });
 
     return () => {
