@@ -375,7 +375,7 @@ describe("classifyEventRelevance", () => {
       }),
     );
     expect(result.relevance).toBe("culture");
-    expect(result.reason).toMatch(/^cultural-/);
+    expect(result.reason).toBe("cultural-keyword:lecture");
   });
 
   it("histoires pour les petites oreilles → culture", () => {
@@ -386,6 +386,155 @@ describe("classifyEventRelevance", () => {
       }),
     );
     expect(result.relevance).toBe("culture");
+  });
+
+  it("histoires pour petites oreilles (sans « les ») → culture via texte", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Histoires pour petites oreilles",
+        venue: "Bibliothèque Colette Vivier",
+        category: "Stage - atelier -  jeu",
+      }),
+    );
+    expect(result.relevance).toBe("culture");
+    expect(result.reason).toMatch(/^cultural-keyword:histoires/);
+  });
+
+  it("lieu culturel seul sans signal contenu → uncertain (venue-insufficient)", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Café papote",
+        venue: "Bibliothèque municipale",
+        description: "Moment convivial entre voisins",
+      }),
+    );
+    expect(result.relevance).toBe("uncertain");
+    expect(result.reason).toBe("venue-insufficient:bibliothèque");
+  });
+
+  it("atelier admin / bien-être en bibliothèque → uncertain (pas culture via lieu)", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "ATELIER SÉRÉNITÉ ET GESTION DU STRESS",
+        venue: "Bibliothèque municipale",
+        category: "CCAS",
+        description: "Atelier sérénité et gestion du stress",
+      }),
+    );
+    expect(result.relevance).toBe("uncertain");
+    expect(result.reason).toBe("venue-insufficient:bibliothèque");
+  });
+
+  it("code de la route en bibliothèque → uncertain", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "CODE DE LA ROUTE, ACTUALISEZ VOS CONNAISSANCES",
+        venue: "Bibliothèque municipale",
+        category: "CCAS",
+      }),
+    );
+    expect(result.relevance).toBe("uncertain");
+    expect(result.reason).toBe("venue-insufficient:bibliothèque");
+  });
+
+  it("comptoir romans → culture via roman (sans lieu)", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Comptoir romans cuisine",
+        category: "Conférence - rencontre - débat",
+        description:
+          "Conseiller sur des romans autour de la cuisine ou partager ses coups de cœur",
+      }),
+    );
+    expect(result.relevance).toBe("culture");
+    expect(result.reason).toBe("cultural-keyword:roman");
+  });
+
+  it("fable de La Fontaine → culture", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Atelier : Le corbeau et le Renard",
+        category: "Stage - atelier -  jeu",
+        description:
+          "Venez écouter cette belle fable de la Fontaine et fabriquer votre renard en origami.",
+      }),
+    );
+    expect(result.relevance).toBe("culture");
+    expect(result.reason).toBe("cultural-keyword:fable");
+  });
+
+  it("atelier d’arpentage / lisons → culture", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Lisons collectivement",
+        category: "Stage - atelier -  jeu",
+        description: "Deuxième atelier d’arpentage",
+      }),
+    );
+    expect(result.relevance).toBe("culture");
+    expect(result.reason).toMatch(/^cultural-keyword:(arpentage|lisons)$/);
+  });
+
+  it("société archéologique → culture (patrimoine)", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: 'Conférence : "Jean Zay ministre ou l\'art de gouverner"',
+        category: "Conférence - rencontre - débat",
+        description:
+          "Conférence organisée en partenariat avec la Société archéologique et historique de l’Orléanais (SAHO).",
+      }),
+    );
+    expect(result.relevance).toBe("culture");
+    expect(result.reason).toBe("cultural-keyword:archéologique");
+  });
+
+  it("mémoire collective d’une figure littéraire → culture", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Conférence : George Sand commémorée ou la fabrique d’une icône",
+        category: "Conférence - rencontre - débat",
+        description:
+          "Depuis sa disparition en 1876, George Sand n’a jamais cessé d’être présente dans la mémoire collective.",
+      }),
+    );
+    expect(result.relevance).toBe("culture");
+    expect(result.reason).toBe("cultural-keyword:mémoire collective");
+  });
+
+  it("conférence sans contenu culturel (nom seul) → uncertain", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Conférence de Frédéric Régent",
+        category: "Conférence - rencontre - débat",
+        description: "Activité à la médiathèque Anna Marly",
+        venue: "Médiathèque Anna Marly",
+      }),
+    );
+    expect(result.relevance).toBe("uncertain");
+  });
+
+  it("visite commentée en médiathèque → culture_leisure (catégorie visite > lieu)", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Micro-folie : Visite commentée",
+        venue: "Médiathèque Saint-Marceau",
+        category: "Stage - atelier -  jeu;Balade - découverte - visite",
+      }),
+    );
+    expect(result.relevance).toBe("culture_leisure");
+    expect(result.reason).toBe("leisure-category:balade");
+  });
+
+  it("excel / numérique en médiathèque → uncertain", () => {
+    const result = classifyEventRelevance(
+      event({
+        title: "Excel Niveau I",
+        venue: "Médiathèque Anna Marly",
+        category: "Stage - atelier -  jeu",
+        description: "Les matinées du numérique",
+      }),
+    );
+    expect(result.relevance).toBe("uncertain");
   });
 
   it("guinguette → culture_leisure", () => {

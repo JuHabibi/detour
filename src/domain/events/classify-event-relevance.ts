@@ -26,8 +26,8 @@ export type EventClassification = {
  * 2. catégories culture structurées
  * 3. texte culture (contenu)
  * 4. texte culture_leisure
- * 5. lieux culturels (signal faible)
- * 6. catégories leisure / ambiguës
+ * 5. catégories leisure / ambiguës
+ * 6. lieux culturels — soutien seulement (jamais culture seuls)
  * 7. uncertain
  */
 export function classifyEventRelevance(
@@ -102,16 +102,7 @@ export function classifyEventRelevance(
     };
   }
 
-  // 5. Lieux culturels — signal, pas vérité absolue.
-  const venueSignal = findCue(placeText, CULTURE_VENUE_SIGNALS);
-  if (venueSignal) {
-    return {
-      relevance: "culture",
-      reason: `cultural-venue:${venueSignal.label}`,
-    };
-  }
-
-  // 6. Catégories leisure / ambiguës.
+  // 5. Catégories leisure / ambiguës (avant le lieu : un lieu ne bat pas une cat. structurée).
   if (matchesAnySubstring(category, LEISURE_CATEGORY_SIGNALS)) {
     return {
       relevance: "culture_leisure",
@@ -123,6 +114,17 @@ export function classifyEventRelevance(
     return {
       relevance: "uncertain",
       reason: "ambiguous-category",
+    };
+  }
+
+  // 6. Lieux culturels — signal de soutien uniquement.
+  // Une bibliothèque / médiathèque / MJC n’implique pas un contenu culturel
+  // (ateliers admin, numérique, santé, etc. y sont fréquents).
+  const venueSignal = findCue(placeText, CULTURE_VENUE_SIGNALS);
+  if (venueSignal) {
+    return {
+      relevance: "uncertain",
+      reason: `venue-insufficient:${venueSignal.label}`,
     };
   }
 

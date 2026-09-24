@@ -1,9 +1,10 @@
 /**
- * Timings Home durables — préfixe `[home-perf]`.
- * Conservés : public_home, auth_total, favorites, req.
+ * Timings Home — préfixe `[detour:home-perf]`.
+ * Serveur : public_home hit/miss, auth, favorites, req.
+ * Client : voir HomePage (session / favorites hydration).
  */
 
-const PREFIX = "[home-perf]";
+const PREFIX = "[detour:home-perf]";
 
 let requestSeq = 0;
 const processStartedAt = Date.now();

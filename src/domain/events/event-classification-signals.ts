@@ -96,6 +96,7 @@ export const CULTURE_TEXT_SIGNALS: ClassificationCue[] = [
   { match: "danses", label: "danse", wholeWord: true },
   { match: "lecture", label: "lecture" },
   { match: "litterature", label: "littérature" },
+  { match: "litteraire", label: "littéraire" },
   { match: "musee", label: "musée" },
   { match: "patrimoine", label: "patrimoine" },
   { match: "spectacle", label: "spectacle" },
@@ -103,12 +104,31 @@ export const CULTURE_TEXT_SIGNALS: ClassificationCue[] = [
   { match: "photographie", label: "photographie" },
   { match: "ecriture", label: "écriture" },
   { match: "creation", label: "création" },
+  { match: "creatif", label: "créatif" },
+  { match: "creative", label: "créatif" },
   { match: "philharmonie", label: "philharmonie" },
   { match: "orchestre", label: "orchestre" },
   { match: "opera", label: "opéra" },
   { match: "chorale", label: "chorale" },
   { match: "batterie", label: "batterie" },
   { match: "comptine", label: "comptine" },
+  /** Médiation lecture / jeune public — évite de s’appuyer sur le seul lieu. */
+  { match: "histoires", label: "histoires" },
+  { match: "conte", label: "conte", wholeWord: true },
+  { match: "contes", label: "conte", wholeWord: true },
+  { match: "livre", label: "livre", wholeWord: true },
+  { match: "livres", label: "livre", wholeWord: true },
+  { match: "roman", label: "roman", wholeWord: true },
+  { match: "romans", label: "roman", wholeWord: true },
+  { match: "fable", label: "fable" },
+  { match: "fables", label: "fable" },
+  { match: "arpentage", label: "arpentage" },
+  { match: "lisons", label: "lisons" },
+  { match: "auteur", label: "auteur", wholeWord: true },
+  { match: "manga", label: "manga" },
+  { match: "musical", label: "musical" },
+  { match: "archeologique", label: "archéologique" },
+  { match: "memoire collective", label: "mémoire collective" },
   {
     match: "histoires pour les petites oreilles",
     label: "histoires petites oreilles",
@@ -117,11 +137,19 @@ export const CULTURE_TEXT_SIGNALS: ClassificationCue[] = [
     match: "histoires pour les grandes oreilles",
     label: "histoires grandes oreilles",
   },
+  {
+    match: "histoires pour petites oreilles",
+    label: "histoires petites oreilles",
+  },
+  {
+    match: "histoires pour grandes oreilles",
+    label: "histoires grandes oreilles",
+  },
 ];
 
 /**
- * Lieux culturels — signal faible (après contenu culture et leisure).
- * Un lieu ne bat jamais une exclusion ni un loisir explicite.
+ * Lieux culturels — signal de soutien uniquement (jamais suffisant seuls).
+ * Voir classifyEventRelevance étape « venue-insufficient ».
  */
 export const CULTURE_VENUE_SIGNALS: ClassificationCue[] = [
   { match: "mediatheque", label: "médiathèque" },
