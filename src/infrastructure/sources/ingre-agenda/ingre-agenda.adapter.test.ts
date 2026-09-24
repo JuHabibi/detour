@@ -257,6 +257,70 @@ describe("ingre-agenda detail parser + mapper", () => {
     ).toMatch(/administrative_period:body_rentree_promo_forum|body_distinct_dates/);
   });
 
+  it("accepte expo/festival multi-jours à heures Drupal identiques (pseudo all-day)", () => {
+    const html = detailShell({
+      nid: "9101",
+      title:
+        "3ème Festival PhotoPluriel : découvrez l'exposition « Les gens d'ici font la fête »",
+      body: "Présente jusqu’en octobre son festival : tirages grand format autour du bassin.",
+      dateHtml: `<ul class="field-ads-agenda-date">
+        <li><span class="date-display-start">Lundi 31 août 2026 13:45</span>
+            <span class="date-display-end">Samedi 31 octobre 2026 13:45</span></li>
+      </ul>`,
+    });
+    const detail = parseIngreAgendaDetail(html, "/agenda/photopluriel");
+    expect(detail.allDay).toBe(false);
+
+    const mapped = mapIngreAgendaDetailToDetourEvent(detail);
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) return;
+    expect(mapped.event.allDay).toBe(true);
+    expect(mapped.event.startAt).toBe("2026-08-31T00:00:00+02:00");
+    expect(mapped.event.endAt).toBe("2026-11-01T00:00:00+01:00");
+    expect(mapped.event.startAt).not.toContain("13:45");
+    expect(mapped.event.endAt).not.toContain("13:45");
+  });
+
+  it("rejette multi-jours heures identiques sans signal expo/festival", () => {
+    const html = detailShell({
+      nid: "9102",
+      title: "SOLEMBIO : paniers bio",
+      body: "Abonnement hebdomadaire de paniers de légumes.",
+      dateHtml: `<ul class="field-ads-agenda-date">
+        <li><span class="date-display-start">Lundi 31 août 2026 13:45</span>
+            <span class="date-display-end">Mercredi 30 septembre 2026 13:45</span></li>
+      </ul>`,
+    });
+    const mapped = mapIngreAgendaDetailToDetourEvent(
+      parseIngreAgendaDetail(html, "/agenda/solembio"),
+    );
+    expect(mapped.ok).toBe(false);
+    if (mapped.ok) return;
+    expect(mapped.exclusion.detail).toBe("multi_day_timed_range");
+  });
+
+  it("rejette signal culturel si récurrence déjà détectée dans le body", () => {
+    const html = detailShell({
+      nid: "9103",
+      title: "Festival du jardin",
+      body:
+        "Rendez-vous le samedi 29 août, le samedi 12 septembre et le samedi 19 septembre pour l'exposition.",
+      dateHtml: `<ul class="field-ads-agenda-date">
+        <li><span class="date-display-start">Lundi 31 août 2026 13:45</span>
+            <span class="date-display-end">Mercredi 30 septembre 2026 13:45</span></li>
+      </ul>`,
+    });
+    const detail = parseIngreAgendaDetail(html, "/agenda/festival-jardin");
+    expect(detectAmbiguousProgram({ title: detail.title, bodyText: detail.bodyText })).toMatch(
+      /body_distinct_dates/,
+    );
+    const mapped = mapIngreAgendaDetailToDetourEvent(detail);
+    expect(mapped.ok).toBe(false);
+    if (mapped.ok) return;
+    expect(mapped.exclusion.reason).toBe("ambiguous_program");
+    expect(mapped.exclusion.detail).toMatch(/body_distinct_dates/);
+  });
+
   it("stabilité du nid / ID", () => {
     const a = parseIngreAgendaDetail(fixture("detail-simple.html"));
     const b = parseIngreAgendaDetail(fixture("detail-simple.html"));

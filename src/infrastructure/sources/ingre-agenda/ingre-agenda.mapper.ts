@@ -126,11 +126,16 @@ export function mapIngreAgendaDetailToDetourEvent(
     };
   }
 
+  const multiDayTimed =
+    !detail.allDay && !isSameCivilDay(bounds.startParts, bounds.endParts);
+  const pseudoAllDayCultural =
+    multiDayTimed &&
+    isIdenticalClockTime(bounds.startParts, bounds.endParts) &&
+    hasContinuousCulturalSignal(detail);
+
   // Période multi-jours horodatée = risque de faux événement continu éditorial.
-  if (
-    !detail.allDay &&
-    !isSameCivilDay(bounds.startParts, bounds.endParts)
-  ) {
+  // Exception étroite : heures identiques (fenêtre Drupal) + signal expo/festival.
+  if (multiDayTimed && !pseudoAllDayCultural) {
     return {
       ok: false,
       exclusion: {
@@ -143,6 +148,24 @@ export function mapIngreAgendaDetailToDetourEvent(
     };
   }
 
+  const effectiveBounds = pseudoAllDayCultural
+    ? toAllDayBounds(bounds.startParts, bounds.endParts)
+    : bounds;
+  if (!effectiveBounds) {
+    return {
+      ok: false,
+      exclusion: {
+        nid: detail.nid,
+        path: detail.path,
+        title: detail.title,
+        reason: "unparseable_date",
+        detail: detail.dateRaw ?? undefined,
+      },
+    };
+  }
+
+  const allDay = detail.allDay || pseudoAllDayCultural;
+
   return {
     ok: true,
     event: {
@@ -150,9 +173,9 @@ export function mapIngreAgendaDetailToDetourEvent(
       title: detail.title.trim(),
       description: detail.teaser ?? detail.bodyText,
       imageUrl: detail.imageUrl,
-      startAt: bounds.startAt,
-      endAt: bounds.endAt,
-      ...(detail.allDay ? { allDay: true as const } : {}),
+      startAt: effectiveBounds.startAt,
+      endAt: effectiveBounds.endAt,
+      ...(allDay ? { allDay: true as const } : {}),
       venue: null,
       city: INGRE_AGENDA_CITY,
       latitude: null,
@@ -406,6 +429,63 @@ function monthNumber(raw: string): number | null {
 
 function isSameCivilDay(a: WallParts, b: WallParts): boolean {
   return a.year === b.year && a.month === b.month && a.day === b.day;
+}
+
+function isIdenticalClockTime(a: WallParts, b: WallParts): boolean {
+  return a.hour === b.hour && a.minute === b.minute;
+}
+
+/** Signal culturel fort : exposition / expo / festival (titre ou body). */
+function hasContinuousCulturalSignal(detail: IngreAgendaDetail): boolean {
+  const haystack = `${detail.title}\n${detail.teaser ?? ""}\n${detail.bodyText ?? ""}`;
+  return /\b(?:expositions?|expos?|festivals?)\b/i.test(haystack);
+}
+
+/** Bornes all-day exclusives (00:00 jour début → 00:00 jour suivant la fin). */
+function toAllDayBounds(
+  startParts: WallParts,
+  endParts: WallParts,
+): {
+  startAt: string;
+  endAt: string;
+  startParts: WallParts;
+  endParts: WallParts;
+} | null {
+  const start: WallParts = {
+    year: startParts.year,
+    month: startParts.month,
+    day: startParts.day,
+    hour: 0,
+    minute: 0,
+    second: 0,
+    timeZone: INGRE_AGENDA_TIMEZONE,
+  };
+  const startAt = wallTimeToIso(start);
+  if (!startAt) return null;
+
+  const next = addCivilDays(
+    {
+      year: endParts.year,
+      month: endParts.month,
+      day: endParts.day,
+      hour: 0,
+      minute: 0,
+      second: 0,
+      timeZone: INGRE_AGENDA_TIMEZONE,
+    },
+    1,
+  );
+  const end: WallParts = {
+    ...next,
+    hour: 0,
+    minute: 0,
+    second: 0,
+    timeZone: INGRE_AGENDA_TIMEZONE,
+  };
+  const endAt = wallTimeToIso(end);
+  if (!endAt) return null;
+
+  return { startAt, endAt, startParts: start, endParts: end };
 }
 
 function addCivilDays(
