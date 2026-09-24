@@ -11,6 +11,11 @@ describe("toSafeNextImageSrc", () => {
     expect(
       toSafeNextImageSrc("https://img.openagenda.com/u/x.jpg"),
     ).toContain("img.openagenda.com");
+    expect(
+      toSafeNextImageSrc(
+        "https://www.saintjeanleblanc.com/upload/3219_yanis.jpg",
+      ),
+    ).toBe("https://www.saintjeanleblanc.com/upload/3219_yanis.jpg");
   });
 
   it("autorise les chemins locaux", () => {
