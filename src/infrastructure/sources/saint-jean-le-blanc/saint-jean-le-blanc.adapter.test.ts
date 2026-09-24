@@ -107,6 +107,13 @@ describe("saint-jean-le-blanc detail parser + mapper", () => {
       day: 16,
     });
     expect(parseFrSlashDate("junk")).toBeNull();
+    expect(parseFrSlashDate("31/02/2026")).toBeNull();
+    expect(parseFrSlashDate("29/02/2026")).toBeNull();
+    expect(parseFrSlashDate("29/02/2024")).toEqual({
+      year: 2024,
+      month: 2,
+      day: 29,
+    });
     expect(parseHoraires("20H00")).toEqual({
       startHour: 20,
       startMinute: 0,
@@ -245,32 +252,58 @@ ${Array.from({ length: 2 }, (_, i) => {
     ).rejects.toThrow(/empty intermediate page 2|0 \.item_agenda/);
   });
 
-  it("taux de détails trop bas → throw", async () => {
+  it("dernière page annoncée vide → throw", async () => {
     const page1 = fixture("list-page.html");
     const fetchImpl = vi.fn(async (input: string | URL) => {
       const url = String(input);
-      if (url.includes("Liste_agenda") || /ListeAgenda|p=1/.test(url)) {
-        // Force single-page by stripping pager links beyond p=1 for simplicity:
-        // list-page announces p=2 — return empty last page with 0 items allowed
-        if (/p=2&/.test(url)) {
-          return htmlResponse(
-            `<!DOCTYPE html><html><body><p>end</p></body></html>`,
-          );
-        }
+      if (/p=2&/.test(url)) {
+        return htmlResponse(
+          `<!DOCTYPE html><html><body><p>empty last</p></body></html>`,
+        );
+      }
+      if (url.includes("Liste_agenda") || /p=1&/.test(url) || /ListeAgenda/.test(url)) {
         return htmlResponse(page1);
       }
-      return htmlResponse("fail", 500);
+      return htmlResponse("unused", 500);
     });
 
-    const adapter = new SaintJeanLeBlancEventAdapter({
-      fetchImpl,
-      minDetailSuccessRate: 0.7,
-    });
+    const adapter = new SaintJeanLeBlancEventAdapter({ fetchImpl });
     await expect(
       adapter.fetchUpcomingEvents({
         from: new Date("2026-01-01"),
         to: new Date("2027-01-01"),
       }),
-    ).rejects.toThrow(/success rate too low|HTTP error: 500/);
+    ).rejects.toThrow(/empty last page 2|0 \.item_agenda/);
+  });
+
+  it("un seul détail en échec → throw (pas de snapshot partiel)", async () => {
+    const page1 = `<!DOCTYPE html><html><body>
+<div class="item_agenda"><div class="content"><span class="thematique">Théâtre</span>
+<div id="A" class="agenda"><h3><a href="Ress_3195/BELLE.html">BELLE</a></h3></div></div></div>
+<div class="item_agenda"><div class="content"><span class="thematique">Théâtre</span>
+<div id="B" class="agenda"><h3><a href="Ress_3219/YANIS.html">YANIS</a></h3></div></div></div>
+</body></html>`;
+
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("Liste_agenda") || url.includes("ListeAgenda")) {
+        return htmlResponse(page1);
+      }
+      if (url.includes("Ress_3195")) {
+        return htmlResponse(fixture("detail-complete.html"));
+      }
+      if (url.includes("Ress_3219")) {
+        return htmlResponse("boom", 500);
+      }
+      return htmlResponse("missing", 404);
+    });
+
+    const adapter = new SaintJeanLeBlancEventAdapter({ fetchImpl });
+    await expect(
+      adapter.fetchUpcomingEvents({
+        from: new Date("2026-01-01"),
+        to: new Date("2027-01-01"),
+      }),
+    ).rejects.toThrow(/detail failed \(1\/2\)/);
   });
 });

@@ -23,8 +23,6 @@ export const SJLB_LIST_URL = absoluteSjlbUrl("/Liste_agenda_1/");
 
 const DEFAULT_HTTP_TIMEOUT_MS = 15_000;
 const DEFAULT_DETAIL_CONCURRENCY = 3;
-/** Fail-closed si trop de fiches détail échouent (structure / HTTP). */
-const MIN_DETAIL_SUCCESS_RATE = 0.7;
 
 export type SjlbFetch = (
   input: string | URL,
@@ -37,7 +35,6 @@ export type SjlbAdapterConfig = {
   httpTimeoutMs?: number;
   detailConcurrency?: number;
   pageSize?: number;
-  minDetailSuccessRate?: number;
 };
 
 export type SjlbCollectResult = {
@@ -52,7 +49,6 @@ type ResolvedSjlbConfig = {
   httpTimeoutMs: number;
   detailConcurrency: number;
   pageSize: number;
-  minDetailSuccessRate: number;
 };
 
 /** Façade EventSource — logique dans `collectSjlbEvents`. */
@@ -90,7 +86,6 @@ export async function collectSjlbEvents(
   const exclusions: SjlbExclusion[] = [];
   const events: DetourEvent[] = [];
   let detailsFetched = 0;
-  let detailsFailed = 0;
 
   const detailResults = await mapPool(
     listItems,
@@ -118,18 +113,16 @@ export async function collectSjlbEvents(
     },
   );
 
+  const detailFailures = detailResults.filter((r) => !r.ok);
+  if (detailFailures.length > 0) {
+    const first = detailFailures[0]!;
+    throw new Error(
+      `Saint-Jean-le-Blanc detail failed (${detailFailures.length}/${listItems.length}): ${first.message}`,
+    );
+  }
+
   for (const result of detailResults) {
-    if (!result.ok) {
-      detailsFailed += 1;
-      exclusions.push({
-        resourceId: result.item.resourceId,
-        detailPath: result.item.detailPath,
-        title: result.item.title,
-        reason: result.reason,
-        detail: result.message,
-      });
-      continue;
-    }
+    if (!result.ok) continue;
 
     detailsFetched += 1;
     const mapped = mapSjlbDetailToDetourEvent(result.detail);
@@ -152,15 +145,6 @@ export async function collectSjlbEvents(
     events.push(mapped.event);
   }
 
-  if (listItems.length > 0) {
-    const successRate = detailsFetched / listItems.length;
-    if (successRate < resolved.minDetailSuccessRate) {
-      throw new Error(
-        `Saint-Jean-le-Blanc details success rate too low: ${detailsFetched}/${listItems.length} (min ${resolved.minDetailSuccessRate})`,
-      );
-    }
-  }
-
   return {
     events,
     exclusions,
@@ -168,7 +152,7 @@ export async function collectSjlbEvents(
       listPagesFetched,
       discovered: listItems.length,
       detailsFetched,
-      detailsFailed,
+      detailsFailed: 0,
       published: events.length,
       excluded: exclusions.length,
     },
@@ -182,8 +166,6 @@ function resolveSjlbConfig(config: SjlbAdapterConfig): ResolvedSjlbConfig {
     httpTimeoutMs: config.httpTimeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS,
     detailConcurrency: config.detailConcurrency ?? DEFAULT_DETAIL_CONCURRENCY,
     pageSize: config.pageSize ?? SJLB_PAGE_SIZE,
-    minDetailSuccessRate:
-      config.minDetailSuccessRate ?? MIN_DETAIL_SUCCESS_RATE,
   };
 }
 
@@ -214,15 +196,18 @@ async function fetchAllSjlbListItems(
     const url = buildSjlbListPageUrl(page, config.origin, config.pageSize);
     const html = await fetchSjlbHtml(url, config);
     const isLast = page === lastPageNumber;
+    // Toute page annoncée par le pager doit contenir ≥ 1 item (y compris la dernière).
     const parsed = parseSjlbListPage(html, {
       origin: config.origin,
-      requireItems: !isLast,
+      requireItems: true,
     });
     listPagesFetched += 1;
 
-    if (!isLast && parsed.items.length === 0) {
+    if (parsed.items.length === 0) {
       throw new Error(
-        `Saint-Jean-le-Blanc incomplete pagination: empty intermediate page ${page}`,
+        isLast
+          ? `Saint-Jean-le-Blanc incomplete pagination: empty last page ${page}`
+          : `Saint-Jean-le-Blanc incomplete pagination: empty intermediate page ${page}`,
       );
     }
 

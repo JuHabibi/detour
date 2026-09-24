@@ -158,7 +158,7 @@ function resolveEventBounds(detail: SjlbDetail): {
   return { startAt, endAt, allDay: false };
 }
 
-/** jj/mm/aaaa uniquement — pas d’invention. */
+/** jj/mm/aaaa uniquement — pas d’invention ; rejette les dates impossibles (ex. 31/02). */
 export function parseFrSlashDate(
   raw: string | null | undefined,
 ): { year: number; month: number; day: number } | null {
@@ -169,6 +169,14 @@ export function parseFrSlashDate(
   const month = Number(m[2]);
   const year = Number(m[3]);
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  if (
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() !== month - 1 ||
+    probe.getUTCDate() !== day
+  ) {
+    return null;
+  }
   return { year, month, day };
 }
 
