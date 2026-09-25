@@ -302,9 +302,39 @@ describe("mapDetourHighlightToEventItem — pastille éditoriale", () => {
     expect(item.editorialBadge).toBe("À réserver");
   });
 
-  it("sans aiSelection → pas de pastille", () => {
+  it("sans aiSelection → pas de pastille, mais reasons Radar propagées", () => {
     const item = mapDetourHighlightToEventItem(highlight());
     expect(item.editorialBadge).toBeUndefined();
+    expect(item.radarSelectionReasons).toEqual(["headline-appeal"]);
+    expect(item.radarAiReasons).toBeUndefined();
+  });
+
+  it("propage slot + reasons IA pour le copy Radar", () => {
+    const item = mapDetourHighlightToEventItem({
+      ...highlight({
+        ai: {
+          formula: "rare-local",
+          slotScore: 8,
+          appeal: 4,
+          missRisk: 2,
+          planningNeed: 2,
+          localRarity: 4,
+          likelyDemand: 1,
+          confidence: 0.9,
+          aiReasons: ["Concert présenté dans une résidence sociale."],
+        },
+      }),
+      slot: "rare-local",
+      reasons: ["local-discovery", "singular"],
+    });
+    expect(item.radarSlot).toBe("rare-local");
+    expect(item.radarSelectionReasons).toEqual([
+      "local-discovery",
+      "singular",
+    ]);
+    expect(item.radarAiReasons).toEqual([
+      "Concert présenté dans une résidence sociale.",
+    ]);
   });
 });
 

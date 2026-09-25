@@ -69,13 +69,21 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
 
 /**
  * Mapping highlight « Faites un détour » → UI, avec pastille éditoriale si assessment IA.
+ * Attache aussi les faits de sélection Radar pour le copy « Pourquoi le repérer ? ».
  */
 export function mapDetourHighlightToEventItem(
   highlight: EventHighlight,
 ): EventItem {
   const item = mapDetourEventToEventItem(highlight.event);
   const ai = highlight.aiSelection;
-  if (!ai) return item;
+  const withSelection: EventItem = {
+    ...item,
+    radarSelectionReasons: [...highlight.reasons],
+    ...(highlight.slot ? { radarSlot: highlight.slot } : {}),
+    ...(ai?.aiReasons?.length ? { radarAiReasons: [...ai.aiReasons] } : {}),
+  };
+
+  if (!ai) return withSelection;
 
   const editorialBadge = resolveEditorialBadge({
     planningNeed: ai.planningNeed,
@@ -86,7 +94,9 @@ export function mapDetourHighlightToEventItem(
     hasRegistrationUrl: Boolean(highlight.event.registrationUrl),
   });
 
-  return editorialBadge ? { ...item, editorialBadge } : item;
+  return editorialBadge
+    ? { ...withSelection, editorialBadge }
+    : withSelection;
 }
 
 /**

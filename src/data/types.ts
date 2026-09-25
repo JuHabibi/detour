@@ -1,6 +1,10 @@
 import type { EventRelevance } from "@/domain/events/event";
 import type { DetourCategory } from "@/domain/events/classify-event-category";
 import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
+import type {
+  HighlightReason,
+  HighlightSlot,
+} from "@/domain/editorial/select-detour-highlights";
 
 export type { DetourCategory };
 
@@ -71,6 +75,18 @@ export type EventItem = {
    * Calculée hors composant (assessment IA + registrationUrl).
    */
   editorialBadge?: EditorialBadge;
+  /**
+   * Codes de sélection Radar (highlight) — raw pour copy de présentation.
+   * Présents uniquement sur les EventItem issus des highlights.
+   */
+  radarSelectionReasons?: HighlightReason[];
+  /** Slot éditorial Radar, si renseigné après sélection. */
+  radarSlot?: HighlightSlot;
+  /**
+   * Reasons IA factuelles (assessment) — texte libre traçable.
+   * Pas de `relevanceReason` machine : celui-ci n’est pas destiné à l’UI.
+   */
+  radarAiReasons?: string[];
   /**
    * Pastille disponibilité billetterie (Explorer / cartes).
    * Uniquement sold_out* frais — jamais « Disponible ».

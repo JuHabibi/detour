@@ -6,6 +6,7 @@ import { formatDistanceKm } from "@/application/format-distance";
 import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
 import { resolveCategoryBadgeTone } from "@/features/home/category-badge-style";
 import { getEditorialBadgeExplanation } from "@/features/home/editorial-badge-copy";
+import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 import type { CategoryId, EventItem, EventSignal } from "@/data/types";
 import { captureProductEvent } from "@/lib/analytics";
@@ -280,6 +281,8 @@ export function StandardEventCard(props: CardProps) {
   }
 
   if (isRadar) {
+    const pickReason = resolveRadarPickReason(event);
+
     return (
       <article
         className={cn(
@@ -356,6 +359,8 @@ export function StandardEventCard(props: CardProps) {
               {whenLabel}
             </p>
           </div>
+
+          <RadarPickReasonBlock reason={pickReason} />
         </div>
       </article>
     );
@@ -449,6 +454,8 @@ export function TextEventCard({
   const pastel = pastelByCategory[categoryKey];
   const accent = accentByCategory[categoryKey];
   const isExplorer = surface === "explorer";
+  const isRadar = surface === "radar";
+  const pickReason = isRadar ? resolveRadarPickReason(event) : null;
 
   return (
     <article
@@ -553,9 +560,35 @@ export function TextEventCard({
             </p>
             {priceLabel ? <p className="text-ink">{priceLabel}</p> : null}
           </div>
+          {isRadar ? <RadarPickReasonBlock reason={pickReason} /> : null}
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * Encart discret Radar — masqué si aucune justification publiable.
+ */
+export function RadarPickReasonBlock({
+  reason,
+}: {
+  reason: string | null;
+}) {
+  if (!reason) return null;
+
+  return (
+    <div
+      data-testid="radar-pick-reason"
+      className="mt-2.5 border-t border-line/70 pt-2"
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-sand">
+        Pourquoi le repérer&nbsp;?
+      </p>
+      <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-cream-dim md:text-[12.5px]">
+        {reason}
+      </p>
+    </div>
   );
 }
 
