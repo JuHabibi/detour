@@ -123,6 +123,8 @@ describe("StandardEventCard — CTA Radar (indicateur, pas de bouton)", () => {
     expect(html).toContain("size-7");
     expect(html).toContain("bg-coral");
     expect(html).not.toMatch(/data-testid="radar-card-cta"[\s\S]*?<button/);
+    expect(html).toContain("aspect-[4/5]");
+    expect(html).toContain("h-[2.25rem]");
   });
 
   it("affiche « Découvrir l’événement » sans justification", () => {

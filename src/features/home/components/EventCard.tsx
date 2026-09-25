@@ -314,13 +314,13 @@ export function StandardEventCard(props: CardProps) {
           surface={surface}
           onOpenDetail={onOpenDetail}
         />
-        <div className="relative aspect-[5/6] overflow-hidden bg-ink/10">
+        <div className="relative aspect-[4/5] overflow-hidden bg-ink/10">
           <Image
             src={imageSrc}
             alt={resolveEventImageAlt(event)}
             fill
             priority={priority}
-            sizes="(max-width: 640px) 72vw, (max-width: 1024px) 32vw, 26vw"
+            sizes="(max-width: 640px) 64vw, (max-width: 1024px) 28vw, 22vw"
             className="object-cover object-center transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.03]"
           />
           {onToggleFavorite ? (
@@ -333,11 +333,11 @@ export function StandardEventCard(props: CardProps) {
           ) : null}
         </div>
 
-        <div className="relative flex shrink-0 flex-col bg-foam px-3 pb-3.5 pt-3 md:px-3.5 md:pb-4 md:pt-3.5">
+        <div className="relative flex shrink-0 flex-col bg-foam px-3 pb-3 pt-2.5 md:px-3.5 md:pb-3.5 md:pt-3">
           {/* Zone rang + signaux : hauteur fixe, pas de wrap */}
-          <div className="flex h-8 shrink-0 items-center gap-x-2 overflow-hidden">
+          <div className="flex h-7 shrink-0 items-center gap-x-2 overflow-hidden">
             {rankLabel ? (
-              <span className="shrink-0 font-editorial text-[1.35rem] leading-none tracking-tight text-coral md:text-[1.5rem]">
+              <span className="shrink-0 font-editorial text-[1.25rem] leading-none tracking-tight text-coral md:text-[1.4rem]">
                 {rankLabel}
               </span>
             ) : null}
@@ -355,7 +355,7 @@ export function StandardEventCard(props: CardProps) {
           </div>
 
           {/* Zone catégorie : une ligne */}
-          <div className="mt-2 flex h-6 shrink-0 items-center">
+          <div className="mt-1.5 flex h-6 shrink-0 items-center">
             <CategoryBadge
               event={event}
               className="px-2 py-1 tracking-[0.1em]"
@@ -365,16 +365,16 @@ export function StandardEventCard(props: CardProps) {
           {/* Zone titre : toujours l’espace de 2 lignes (line-clamp-2) */}
           <h3
             className={cn(
-              "mt-2.5 line-clamp-2 font-display font-semibold tracking-tight text-ink",
-              "min-h-[calc(1.35rem*1.08*2)] text-[1.35rem] leading-[1.08]",
-              "md:min-h-[calc(1.5rem*1.08*2)] md:text-[1.5rem]",
+              "mt-2 line-clamp-2 font-display font-semibold tracking-tight text-ink",
+              "min-h-[calc(1.25rem*1.08*2)] text-[1.25rem] leading-[1.08]",
+              "md:min-h-[calc(1.35rem*1.08*2)] md:text-[1.35rem]",
             )}
           >
             {event.title}
           </h3>
 
           {/* Zone meta : hauteur fixe, collée en bas du bloc */}
-          <div className="mt-2.5 flex h-[2.5rem] shrink-0 flex-col justify-end gap-0.5 text-sm">
+          <div className="mt-2 flex h-[2.25rem] shrink-0 flex-col justify-end gap-0.5 text-sm">
             <p className="line-clamp-1 text-cream-dim">
               {event.venue?.trim() ? event.venue : "\u00a0"}
             </p>
