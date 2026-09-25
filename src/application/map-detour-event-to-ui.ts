@@ -9,16 +9,14 @@ import { resolveAvailabilityBadge } from "@/domain/events/event-availability";
 import { resolveEditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
 import type { EventItem } from "@/data/types";
-import { toSafeNextImageSrc } from "@/lib/safe-next-image";
-
-const UI_IMAGE_FALLBACK = "/images/fallbacks/culture.svg";
+import { resolveEventCardImage } from "@/lib/resolve-event-card-image";
 
 export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
   const start = new Date(event.startAt);
   const presentation = resolveDatePresentation(event, start);
   const availabilityStatus = event.availabilityStatus ?? "unknown";
   const availabilityBadge = resolveAvailabilityBadge(availabilityStatus);
-  const safeImage = resolveEventItemImage(event);
+  const safeImage = resolveEventCardImage(event);
 
   return {
     id: event.id,
@@ -74,39 +72,6 @@ export function mapDetourHighlightToEventItem(
   });
 
   return editorialBadge ? { ...item, editorialBadge } : item;
-}
-
-/**
- * Filtre les URLs image non autorisées par next/image (ex. anciennes Billetweb).
- * Fallback local pour éviter un crash runtime + card sans visuel.
- */
-function resolveEventItemImage(event: DetourEvent): {
-  image: string;
-  imageCredit?: string;
-  imageLicense?: string;
-  imageSourceUrl?: string;
-} {
-  const safe = toSafeNextImageSrc(event.imageUrl);
-  if (!safe) {
-    return { image: UI_IMAGE_FALLBACK };
-  }
-
-  if (safe.startsWith("/")) {
-    return { image: safe };
-  }
-
-  return {
-    image: safe,
-    ...(event.imageCredit?.trim()
-      ? { imageCredit: event.imageCredit.trim() }
-      : {}),
-    ...(event.imageLicense?.trim()
-      ? { imageLicense: event.imageLicense.trim() }
-      : {}),
-    ...(event.imageSourceUrl?.trim()
-      ? { imageSourceUrl: event.imageSourceUrl.trim() }
-      : {}),
-  };
 }
 
 /**

@@ -70,7 +70,7 @@ describe("mapDetourEventToEventItem — catégorie UI", () => {
     );
   });
 
-  it("rejette une ancienne URL Billetweb → fallback local sans attribution", () => {
+  it("rejette une ancienne URL Billetweb → placeholder Détour sans attribution", () => {
     const item = mapDetourEventToEventItem(
       baseEvent({
         id: "billetweb-stale",
@@ -81,10 +81,25 @@ describe("mapDetourEventToEventItem — catégorie UI", () => {
         imageSourceUrl: "https://www.billetweb.fr/x",
       }),
     );
-    expect(item.image).toBe("/images/fallbacks/culture.svg");
+    expect(item.image).toBe(
+      "/images/placeholders/detour-placeholder-concert.webp",
+    );
     expect(item.imageCredit).toBeUndefined();
     expect(item.imageLicense).toBeUndefined();
     expect(item.imageSourceUrl).toBeUndefined();
+  });
+
+  it("sans imageUrl → placeholder Détour selon signaux texte", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "no-img",
+        title: "Forum des associations",
+        imageUrl: null,
+      }),
+    );
+    expect(item.image).toBe(
+      "/images/placeholders/detour-placeholder-decouverte.webp",
+    );
   });
 
   it("culture_leisure → taxonomy normale", () => {
