@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StandardEventCard } from "@/features/home/components/EventCard";
+import {
+  StandardEventCard,
+  type OpenEventDetailHandler,
+} from "@/features/home/components/EventCard";
 import type { EventItem } from "@/data/types";
 import { cn } from "@/lib/cn";
 
@@ -9,6 +12,7 @@ type FeaturedEventsCarouselProps = {
   events: EventItem[];
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
+  onOpenDetail?: OpenEventDetailHandler;
 };
 
 /** Largeur unique pour toutes les affiches Radar (−~8 % vs 28 % lg précédent). */
@@ -20,6 +24,7 @@ export function FeaturedEventsCarousel({
   events,
   favorites,
   onToggleFavorite,
+  onOpenDetail,
 }: FeaturedEventsCarouselProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
@@ -105,6 +110,7 @@ export function FeaturedEventsCarousel({
               onToggleFavorite={onToggleFavorite}
               rank={index + 1}
               surface="radar"
+              onOpenDetail={onOpenDetail}
             />
           </div>
         ))}

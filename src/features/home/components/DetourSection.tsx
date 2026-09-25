@@ -1,16 +1,19 @@
 import { FeaturedEventsCarousel } from "@/features/home/components/FeaturedEventsCarousel";
+import type { OpenEventDetailHandler } from "@/features/home/components/EventCard";
 import type { EventItem } from "@/data/types";
 
 type DetourSectionProps = {
   events: EventItem[];
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
+  onOpenDetail?: OpenEventDetailHandler;
 };
 
 export function DetourSection({
   events,
   favorites,
   onToggleFavorite,
+  onOpenDetail,
 }: DetourSectionProps) {
   const picks = events.slice(0, 6);
   if (picks.length === 0) return null;
@@ -47,6 +50,7 @@ export function DetourSection({
           events={picks}
           favorites={favorites}
           onToggleFavorite={onToggleFavorite}
+          onOpenDetail={onOpenDetail}
         />
       </div>
     </section>

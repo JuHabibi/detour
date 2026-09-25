@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
-import { EventCard } from "@/features/home/components/EventCard";
+import {
+  EventCard,
+  type OpenEventDetailHandler,
+} from "@/features/home/components/EventCard";
 import type { EventItem } from "@/data/types";
 
 type EventGridProps = {
@@ -13,6 +16,7 @@ type EventGridProps = {
   totalCount?: number;
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
+  onOpenDetail?: OpenEventDetailHandler;
   onShowMore?: () => void;
 };
 
@@ -24,6 +28,7 @@ export function EventGrid({
   totalCount,
   favorites,
   onToggleFavorite,
+  onOpenDetail,
   onShowMore,
 }: EventGridProps) {
   const total = totalCount ?? events.length;
@@ -78,6 +83,7 @@ export function EventGrid({
                   isFavorite={favorites.has(event.id)}
                   onToggleFavorite={onToggleFavorite}
                   surface="explorer"
+                  onOpenDetail={onOpenDetail}
                 />
               ))}
             </div>

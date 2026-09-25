@@ -13,6 +13,7 @@ import type { CategoryId } from "@/data/types";
 import type { V1Commune } from "@/domain/geo/v1-communes";
 import type { WhenFilter } from "@/domain/time/when-filter";
 import { captureProductEvent } from "@/lib/analytics";
+import type { OpenEventDetailHandler } from "@/features/home/components/EventCard";
 
 export type { ExplorerInitialPage };
 
@@ -32,6 +33,7 @@ type ExplorerSectionProps = {
   initial: ExplorerInitialPage;
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
+  onOpenDetail?: OpenEventDetailHandler;
   /** Injectable pour tests — défaut : server action. */
   load?: typeof loadExplorerEvents;
 };
@@ -40,6 +42,7 @@ export function ExplorerSection({
   initial,
   favorites,
   onToggleFavorite,
+  onOpenDetail,
   load = loadExplorerEvents,
 }: ExplorerSectionProps) {
   const [when, setWhen] = useState<WhenFilter>("weekend");
@@ -171,6 +174,7 @@ export function ExplorerSection({
       totalCount={totalCount}
       favorites={favorites}
       onToggleFavorite={onToggleFavorite}
+      onOpenDetail={onOpenDetail}
       onShowMore={canShowMore ? () => void loadMore() : undefined}
     />
   );

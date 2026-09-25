@@ -104,10 +104,11 @@ describe("resolveRadarPickReason", () => {
     ).toBeNull();
   });
 
-  it("ne crée pas de fallback générique sans reason IA", () => {
+  it("ne crée pas de fallback générique sans reason IA ni override", () => {
     expect(
       resolveRadarPickReason(
         radarItem({
+          id: "openagenda:unknown",
           city: "La Chapelle-Saint-Mesmin",
           venue: "Médiathèque",
           conditions: "Gratuit, sur inscription",
@@ -123,6 +124,62 @@ describe("resolveRadarPickReason", () => {
         }),
       ),
     ).toBeNull();
+  });
+
+  it("applique les overrides manuels temporaires par id OpenAgenda", () => {
+    expect(
+      resolveRadarPickReason(
+        radarItem({ id: "openagenda:36101666", radarAiReasons: undefined }),
+      ),
+    ).toBe(
+      "Un spectacle où le papier prend vie en musique, porté par la compagnie Sans soucis.",
+    );
+
+    expect(
+      resolveRadarPickReason(
+        radarItem({ id: "openagenda:96155797", radarAiReasons: undefined }),
+      ),
+    ).toBe(
+      "Quatre jours pour passer de l’autre côté de la caméra et s’essayer au cinéma d’horreur, entre improvisation, quiz et défis.",
+    );
+
+    expect(
+      resolveRadarPickReason(
+        radarItem({ id: "openagenda:56369478", radarAiReasons: undefined }),
+      ),
+    ).toBe(
+      "Un voyage musical dans l’Amérique des années 20 et 30, entre ragtime, country blues et premiers accents du jazz, avec humour et groove.",
+    );
+  });
+
+  it("ne force pas d’override sur Un monde en couleurs (encart masqué)", () => {
+    expect(
+      resolveRadarPickReason(
+        radarItem({
+          id: "openagenda:77305621",
+          title: "Un monde en couleurs",
+          description:
+            'Exposition en lien avec le spectacle "Le magicien des couleurs"',
+          radarAiReasons: undefined,
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("laisse une reason IA validée primer sur l’override manuel", () => {
+    expect(
+      resolveRadarPickReason(
+        radarItem({
+          id: "openagenda:36101666",
+          title: "Saison culturelle : La Fabrique",
+          description:
+            "Ce théâtre de papier et musique est à découvrir. Concerts enregistrés pour un CD live.",
+          radarAiReasons: [
+            "Concerts enregistrés pour la réalisation d’un CD live.",
+          ],
+        }),
+      ),
+    ).toBe("Concerts enregistrés pour la réalisation d’un CD live.");
   });
 
   it("ignore relevanceReason machine", () => {

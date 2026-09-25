@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import {
   addFavorite,
   listMyFavoriteEventIds,
@@ -13,6 +13,10 @@ import {
   ExplorerSection,
   type ExplorerInitialPage,
 } from "@/features/home/components/ExplorerSection";
+import {
+  EventDetailModal,
+  type EventDetailSurface,
+} from "@/features/home/components/EventDetailModal";
 import { Header } from "@/components/layout/Header";
 import { HeroFilters } from "@/features/home/components/HeroFilters";
 import { authClient } from "@/features/account/auth-client";
@@ -76,6 +80,26 @@ export function HomePage({
   );
   const [liveDebugMeta, setLiveDebugMeta] = useState(debugMeta);
   const [prevDebugMeta, setPrevDebugMeta] = useState(debugMeta);
+  const [detail, setDetail] = useState<{
+    event: EventItem;
+    surface: EventDetailSurface;
+    trigger: HTMLElement | null;
+  } | null>(null);
+
+  const openEventDetail = useCallback(
+    (
+      event: EventItem,
+      surface: EventDetailSurface,
+      trigger: HTMLElement,
+    ) => {
+      setDetail({ event, surface, trigger });
+    },
+    [],
+  );
+
+  const closeEventDetail = useCallback(() => {
+    setDetail(null);
+  }, []);
 
   useEffect(() => {
     if (isSessionPending || !userId) return;
@@ -197,11 +221,13 @@ export function HomePage({
           events={displayedHighlights}
           favorites={favorites as Set<string>}
           onToggleFavorite={toggleFavorite}
+          onOpenDetail={openEventDetail}
         />
         <ExplorerSection
           initial={explorer}
           favorites={favorites as Set<string>}
           onToggleFavorite={toggleFavorite}
+          onOpenDetail={openEventDetail}
         />
         {liveDebugMeta && debugEvents ? (
           <HomeDebugSection
@@ -219,6 +245,14 @@ export function HomePage({
           />
         ) : null}
       </main>
+      {detail ? (
+        <EventDetailModal
+          event={detail.event}
+          surface={detail.surface}
+          onClose={closeEventDetail}
+          returnFocusTo={detail.trigger}
+        />
+      ) : null}
       <footer className="border-t border-line px-5 py-10 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">
         <div className="mx-auto flex max-w-[var(--detour-shell-max)] flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <p className="font-display text-4xl tracking-tight">

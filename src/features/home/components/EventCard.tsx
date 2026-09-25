@@ -12,6 +12,14 @@ import type { CategoryId, EventItem, EventSignal } from "@/data/types";
 import { captureProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
 
+export type EventCardSurface = "radar" | "explorer";
+
+export type OpenEventDetailHandler = (
+  event: EventItem,
+  surface: EventCardSurface,
+  trigger: HTMLElement,
+) => void;
+
 type CardProps = {
   event: EventItem;
   isFavorite?: boolean;
@@ -20,7 +28,9 @@ type CardProps = {
   layout?: "stack" | "row";
   emphasis?: boolean;
   rank?: number;
-  surface?: "radar" | "explorer";
+  surface?: EventCardSurface;
+  /** Ouvre la fiche Détour (modale) — favoris / pastilles restent hors hit-area. */
+  onOpenDetail?: OpenEventDetailHandler;
 };
 
 type EventCardProps = CardProps & {
@@ -98,6 +108,7 @@ export function FeaturedEventCard({
   onToggleFavorite,
   priority = false,
   surface = "explorer",
+  onOpenDetail,
 }: CardProps) {
   if (!event.image) {
     return (
@@ -107,6 +118,7 @@ export function FeaturedEventCard({
         onToggleFavorite={onToggleFavorite}
         featured
         surface={surface}
+        onOpenDetail={onOpenDetail}
       />
     );
   }
@@ -119,10 +131,14 @@ export function FeaturedEventCard({
     <article
       className={cn(
         "group relative flex h-full flex-col",
-        resolveEventAction(event).href && "cursor-pointer",
+        canOpenEventDetail(event, onOpenDetail) && "cursor-pointer",
       )}
     >
-      <EventActionLink event={event} surface={surface} />
+      <EventOpenControl
+        event={event}
+        surface={surface}
+        onOpenDetail={onOpenDetail}
+      />
       <div className="relative aspect-[4/5] overflow-hidden sm:aspect-[16/10] lg:aspect-auto lg:min-h-0 lg:flex-1">
         <Image
           src={event.image}
@@ -193,6 +209,7 @@ export function StandardEventCard(props: CardProps) {
     emphasis = false,
     rank,
     surface = "explorer",
+    onOpenDetail,
   } = props;
   if (!event.image) {
     return (
@@ -218,10 +235,14 @@ export function StandardEventCard(props: CardProps) {
       <article
         className={cn(
           "group relative flex h-full min-h-[7.5rem] gap-3.5 sm:min-h-[8.25rem] sm:gap-4",
-          resolveEventAction(event).href && "cursor-pointer",
+          canOpenEventDetail(event, onOpenDetail) && "cursor-pointer",
         )}
       >
-        <EventActionLink event={event} surface={surface} />
+        <EventOpenControl
+          event={event}
+          surface={surface}
+          onOpenDetail={onOpenDetail}
+        />
         <div className="relative w-[38%] max-w-[11.5rem] shrink-0 overflow-hidden sm:w-[40%]">
           <Image
             src={imageSrc}
@@ -281,16 +302,18 @@ export function StandardEventCard(props: CardProps) {
   }
 
   if (isRadar) {
-    const pickReason = resolveRadarPickReason(event);
-
     return (
       <article
         className={cn(
           "group relative flex h-full flex-col text-ink",
-          resolveEventAction(event).href && "cursor-pointer",
+          canOpenEventDetail(event, onOpenDetail) && "cursor-pointer",
         )}
       >
-        <EventActionLink event={event} surface={surface} />
+        <EventOpenControl
+          event={event}
+          surface={surface}
+          onOpenDetail={onOpenDetail}
+        />
         <div className="relative aspect-[5/6] overflow-hidden bg-ink/10">
           <Image
             src={imageSrc}
@@ -360,7 +383,7 @@ export function StandardEventCard(props: CardProps) {
             </p>
           </div>
 
-          <RadarPickReasonBlock reason={pickReason} />
+          <RadarCardCta event={event} />
         </div>
       </article>
     );
@@ -370,10 +393,14 @@ export function StandardEventCard(props: CardProps) {
     <article
       className={cn(
         "group relative flex h-full gap-3 md:flex-col md:gap-0",
-        resolveEventAction(event).href && "cursor-pointer",
+        canOpenEventDetail(event, onOpenDetail) && "cursor-pointer",
       )}
     >
-      <EventActionLink event={event} surface={surface} />
+      <EventOpenControl
+          event={event}
+          surface={surface}
+          onOpenDetail={onOpenDetail}
+        />
       <div className="relative aspect-[3/4] w-28 shrink-0 overflow-hidden bg-ink-3 md:aspect-[16/10] md:w-auto">
         <Image
           src={imageSrc}
@@ -445,6 +472,7 @@ export function TextEventCard({
   onToggleFavorite,
   featured = false,
   surface = "explorer",
+  onOpenDetail,
 }: CardProps & { featured?: boolean }) {
   const priceLabel = formatPrice(event.price);
   const whenLabel = formatWhen(event);
@@ -455,7 +483,6 @@ export function TextEventCard({
   const accent = accentByCategory[categoryKey];
   const isExplorer = surface === "explorer";
   const isRadar = surface === "radar";
-  const pickReason = isRadar ? resolveRadarPickReason(event) : null;
 
   return (
     <article
@@ -465,10 +492,14 @@ export function TextEventCard({
         featured
           ? "min-h-[14.5rem] md:min-h-[16.5rem] lg:min-h-0"
           : "min-h-[15.5rem]",
-        resolveEventAction(event).href && "cursor-pointer",
+        canOpenEventDetail(event, onOpenDetail) && "cursor-pointer",
       )}
     >
-      <EventActionLink event={event} surface={surface} />
+      <EventOpenControl
+          event={event}
+          surface={surface}
+          onOpenDetail={onOpenDetail}
+        />
       <div
         aria-hidden="true"
         className={cn(
@@ -560,7 +591,7 @@ export function TextEventCard({
             </p>
             {priceLabel ? <p className="text-ink">{priceLabel}</p> : null}
           </div>
-          {isRadar ? <RadarPickReasonBlock reason={pickReason} /> : null}
+          {isRadar ? <RadarCardCta event={event} /> : null}
         </div>
       </div>
     </article>
@@ -568,26 +599,55 @@ export function TextEventCard({
 }
 
 /**
- * Encart discret Radar — masqué si aucune justification publiable.
+ * Pied de carte Radar — indicateur visuel (pas un bouton).
+ * Hauteur fixe pour aligner toutes les cartes, avec ou sans justification.
  */
-export function RadarPickReasonBlock({
-  reason,
-}: {
-  reason: string | null;
-}) {
-  if (!reason) return null;
+export function resolveRadarCardCtaLabel(event: EventItem): string {
+  return resolveRadarPickReason(event)
+    ? "Pourquoi le repérer ?"
+    : "Découvrir l’événement";
+}
+
+function RadarCardCta({ event }: { event: EventItem }) {
+  const hasPickReason = Boolean(resolveRadarPickReason(event));
+  const label = hasPickReason
+    ? "Pourquoi le repérer ?"
+    : "Découvrir l’événement";
 
   return (
     <div
-      data-testid="radar-pick-reason"
-      className="mt-2.5 border-t border-line/70 pt-2"
+      aria-hidden
+      data-testid="radar-card-cta"
+      data-cta={hasPickReason ? "why-pick" : "discover"}
+      className="mt-3 flex h-7 shrink-0 items-center justify-between gap-2"
     >
-      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-sand">
-        Pourquoi le repérer&nbsp;?
-      </p>
-      <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-cream-dim md:text-[12.5px]">
-        {reason}
-      </p>
+      <span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-sand">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "inline-flex size-7 shrink-0 items-center justify-center rounded-full",
+          "bg-coral text-foam shadow-sm ring-1 ring-coral/30",
+          "transition-transform duration-300 ease-out",
+          "motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:-translate-y-0.5",
+        )}
+      >
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M7 17L17 7M17 7H9M17 7V15"
+            stroke="currentColor"
+            strokeWidth="2.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
     </div>
   );
 }
@@ -683,13 +743,41 @@ export function EditorialBadgePill({
   );
 }
 
-function EventActionLink({
+
+function canOpenEventDetail(
+  event: EventItem,
+  onOpenDetail: OpenEventDetailHandler | undefined,
+): boolean {
+  if (onOpenDetail) return true;
+  return Boolean(resolveEventAction(event).href);
+}
+
+/**
+ * Hit-area carte : ouvre la fiche Détour si `onOpenDetail`, sinon lien externe legacy.
+ * Favoris / pastilles restent au-dessus (z-[2]) avec stopPropagation.
+ */
+function EventOpenControl({
   event,
   surface = "explorer",
+  onOpenDetail,
 }: {
   event: EventItem;
-  surface?: "radar" | "explorer";
+  surface?: EventCardSurface;
+  onOpenDetail?: OpenEventDetailHandler;
 }) {
+  if (onOpenDetail) {
+    return (
+      <button
+        type="button"
+        className="absolute inset-0 z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        aria-label={`Voir le détail — « ${event.title} »`}
+        onClick={(e) => {
+          onOpenDetail(event, surface, e.currentTarget);
+        }}
+      />
+    );
+  }
+
   const action = resolveEventAction(event);
   if (!action.href) return null;
 

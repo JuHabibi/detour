@@ -1,4 +1,5 @@
 import type { EventItem } from "@/data/types";
+import { getRadarPickReasonOverride } from "@/features/home/radar-pick-reason-overrides";
 
 /** Longueur cible d’une phrase carte (line-clamp-2). */
 const MAX_REASON_LENGTH = 120;
@@ -70,17 +71,22 @@ const EDITORIAL_SUBSTANCE =
   /th[eé][aâ]tre|concert|spectacle|exposition|expo|cin[eé]ma|projection|festival|danse|chor[eé]graph|humour|performance|r[eé]sidence|premi[eè]re|enregistrement|album|live|cd\b|sms|loto|paper|papier|improvis|quiz|atelier|lecture|conf[eé]rence|op[eé]ra|orchestre|jazz|blues|ragtime|participation|dispositif|cr[eé]ation|compagnie|duo|trio|quatuor|film|documentaire|inscription avant|date limite|derni[eè]re (?:repr[eé]sentation|s[eé]ance)|sortie de r[eé]sidence|hors[- ]les[- ]murs|jeune public|th[eé][aâ]tre de papier/i;
 
 /**
- * Phrase courte « Pourquoi le repérer ? » pour une carte Radar.
+ * Phrase courte « LE REGARD DÉTOUR » (modale Radar).
  * Retourne null si aucune justification informative et vérifiable.
  *
- * V1 resserrée : uniquement une reason IA factuelle, concrète (contenu /
- * format / singularité / échéance réelle) et étayée par la fiche source.
- * Pas de fallback ville / lieu / billetterie / gratuité / badge générique.
+ * Priorité :
+ * 1. reason IA factuelle, concrète et étayée par la fiche
+ * 2. override éditorial manuel temporaire (id stable) — test utilisateur
+ * 3. sinon null (bloc masqué)
  *
  * Ne publie jamais `relevanceReason` (clé machine de classification).
+ * Pas de fallback ville / lieu / billetterie / gratuité / badge générique.
  */
 export function resolveRadarPickReason(event: EventItem): string | null {
-  return pickPublishableAiReason(event);
+  const fromAi = pickPublishableAiReason(event);
+  if (fromAi) return fromAi;
+
+  return getRadarPickReasonOverride(event.id);
 }
 
 function pickPublishableAiReason(event: EventItem): string | null {
