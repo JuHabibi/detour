@@ -167,6 +167,7 @@ export async function syncEventSource(
           status: "success",
           fetchedCount: fetchedEvents.length,
           deactivatedCount,
+          previousActiveCount,
         };
       } catch {
         try {

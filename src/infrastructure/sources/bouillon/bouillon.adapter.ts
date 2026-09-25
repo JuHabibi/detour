@@ -79,25 +79,43 @@ export async function collectBouillonEvents(
   const listItems = await fetchAllBouillonListItems(resolved);
   const exclusions: BouillonExclusion[] = [];
 
-  const details = await mapPool(
+  const detailResults = await mapPool(
     listItems,
     resolved.detailConcurrency,
     async (item) => {
-      const html = await fetchBouillonHtml(
-        absoluteBouillonUrl(item.path),
-        resolved,
-      );
-      return parseBouillonDetail(html, {
-        fallbackPath: item.path,
-        category: item.category,
-      });
+      try {
+        const html = await fetchBouillonHtml(
+          absoluteBouillonUrl(item.path),
+          resolved,
+        );
+        return {
+          ok: true as const,
+          detail: parseBouillonDetail(html, {
+            fallbackPath: item.path,
+            category: item.category,
+          }),
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { ok: false as const, item, message };
+      }
     },
   );
+
+  const detailFailures = detailResults.filter((r) => !r.ok);
+  if (detailFailures.length > 0) {
+    const first = detailFailures[0]!;
+    throw new Error(
+      `Bouillon detail failed (${detailFailures.length}/${listItems.length}): ${first.message}`,
+    );
+  }
 
   const entityCache = new Map<string, WikimediaImageHit | null>();
   const published: DetourEvent[] = [];
 
-  for (const detail of details) {
+  for (const result of detailResults) {
+    if (!result.ok) continue;
+    const detail = result.detail;
     const mapped = mapBouillonDetailToDetourEvent(detail);
     if (!mapped.ok) {
       exclusions.push(mapped.exclusion);
@@ -134,7 +152,7 @@ export async function collectBouillonEvents(
     exclusions,
     stats: {
       discovered: listItems.length,
-      detailsFetched: details.length,
+      detailsFetched: detailResults.length,
       published: events.length,
       excluded: exclusions.length,
     },

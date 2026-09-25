@@ -148,6 +148,7 @@ describe("syncEventSource", () => {
       status: "success",
       fetchedCount: 2,
       deactivatedCount: 3,
+      previousActiveCount: 1,
     });
     expect(callOrder).toEqual([
       "ensure",
@@ -168,6 +169,63 @@ describe("syncEventSource", () => {
     );
     expect(markError).not.toHaveBeenCalled();
     expect(clientRelease).toHaveBeenCalled();
+  });
+
+  it("A — baisse légitime de volume : sync OK + désactivation des absents", async () => {
+    countActiveByAdapter.mockResolvedValue(10);
+    const adapter = mockAdapter(async () => [
+      eventStub("kept-1"),
+      eventStub("kept-2"),
+      eventStub("kept-3"),
+    ]);
+    deactivateNotSeenSince.mockResolvedValue(7);
+
+    const result = await syncEventSource({
+      adapterId: "ingre-agenda",
+      adapter,
+      from,
+      to,
+      now,
+    });
+
+    expect(result).toEqual({
+      adapterId: "ingre-agenda",
+      status: "success",
+      fetchedCount: 3,
+      deactivatedCount: 7,
+      previousActiveCount: 10,
+    });
+    expect(upsertMany).toHaveBeenCalled();
+    expect(deactivateNotSeenSince).toHaveBeenCalled();
+    expect(markError).not.toHaveBeenCalled();
+    expect(clientQuery).toHaveBeenCalledWith("COMMIT");
+  });
+
+  it("B — corpus partiel détectable (fetch throw) : pas d’écriture ni désactivation", async () => {
+    countActiveByAdapter.mockResolvedValue(10);
+    const adapter = mockAdapter(async () => {
+      throw new Error("Ingré agenda detail failed (1/5): HTTP 503");
+    });
+
+    const result = await syncEventSource({
+      adapterId: "ingre-agenda",
+      adapter,
+      from,
+      to,
+      now,
+    });
+
+    expect(result).toEqual({
+      adapterId: "ingre-agenda",
+      status: "error",
+      errorCode: "fetch_failed",
+    });
+    expect(upsertMany).not.toHaveBeenCalled();
+    expect(deactivateNotSeenSince).not.toHaveBeenCalled();
+    expect(connect).not.toHaveBeenCalled();
+    expect(markError).toHaveBeenCalledWith(
+      expect.objectContaining({ errorCode: "fetch_failed", releaseLease: true }),
+    );
   });
 
   it("BUSY : pas de fetch, pas de tx, pas de markError", async () => {
@@ -219,6 +277,7 @@ describe("syncEventSource", () => {
       }),
     );
     expect(upsertMany).not.toHaveBeenCalled();
+    expect(deactivateNotSeenSince).not.toHaveBeenCalled();
     expect(connect).not.toHaveBeenCalled();
   });
 
@@ -244,6 +303,7 @@ describe("syncEventSource", () => {
     );
     expect(connect).not.toHaveBeenCalled();
     expect(upsertMany).not.toHaveBeenCalled();
+    expect(deactivateNotSeenSince).not.toHaveBeenCalled();
   });
 
   it("FIRST EMPTY : count=0 + fetch [] → succès autorisé", async () => {
@@ -262,6 +322,7 @@ describe("syncEventSource", () => {
       adapterId: "orleans",
       status: "success",
       fetchedCount: 0,
+      previousActiveCount: 0,
     });
     expect(upsertMany).toHaveBeenCalled();
     expect(markSuccess).toHaveBeenCalled();

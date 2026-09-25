@@ -71,17 +71,23 @@ Points clés :
 
 La désactivation des événements absents suppose que le fetch d’un adapter représente un snapshot complet de la fenêtre demandée.
 
-Un adapter ne doit donc jamais retourner silencieusement un corpus partiel. En cas d’échec HTTP, pagination incomplète ou réponse incohérente, le sync doit échouer avant l’écriture / désactivation.
+Un adapter ne doit donc jamais retourner silencieusement un corpus partiel. En cas d’échec HTTP, pagination incomplète, échec de fiche détail ou réponse incohérente, le sync doit échouer (`fetch_failed`) **avant** l’écriture / désactivation.
 
-L’adapter Orléans vérifie la cohérence de `total_count` et refuse une pagination incomplète avant que le moteur de sync puisse effectuer des désactivations.
+Trois situations à distinguer :
 
-L’adapter `ingre-agenda` applique la même logique fail-closed sur le pager Drupal (`pager-last`, pages pleines sauf dernière, HTML inattendu, HTTP non OK).
+| Cas | Exemple | Comportement |
+|-----|---------|--------------|
+| **A** — baisse légitime | Moins d’événements réellement publiés | Sync OK ; `deactivateNotSeenSince` retire les absents |
+| **B** — incident détectable | HTTP/pagination/détail en échec | Throw adapter → `fetch_failed` ; **aucune** écriture / désactivation |
+| **C** — baisse forte sans preuve d’incident | Feed OK mais volume suspect | Sync OK (pas de seuil arbitraire) ; `previousActiveCount` vs `fetchedCount` sur `SyncResult` pour investigation |
 
-#### Cas `empty_corpus` (Ingré)
+Adapters sync actifs (fail-closed sur B) : Orléans (`total_count`), Saran (tout mois HTTP non-OK), Ingré / Bouillon / Saint-Jean-le-Blanc (pager + fiches détail).
 
-Si un sync `ingre-agenda` a déjà publié des événements actifs (`previousActiveCount > 0`) et qu’un sync ultérieur retourne légitimement `[]` (agenda municipal temporairement vide hors saison), le moteur actuel refuse l’écriture avec `errorCode: empty_corpus` et **conserve** l’ancien corpus actif.
+**Limite du contrat `EventSource`** : le moteur ne voit qu’un `DetourEvent[]` réussi. Un corpus partiel **non détecté** par l’adapter (ex. mois iCal 200 OK mais vide à tort ; records ODS mappés à `null`) est traité comme A — pas de blocage automatique. Correction = renforcer l’adapter, pas un seuil % global.
 
-Effet : pas de wipe accidentel, mais des événements « fantômes » peuvent rester actifs jusqu’à un fetch non vide. **Le moteur de sync n’est pas modifié en phase 2A** ; ce contrat sera traité séparément si le cas devient réel en production.
+#### Cas `empty_corpus`
+
+Si un sync a déjà des événements actifs (`previousActiveCount > 0`) et qu’un fetch retourne `[]`, le moteur refuse l’écriture avec `errorCode: empty_corpus` et **conserve** l’ancien corpus actif (anti-wipe). Des fantômes peuvent rester jusqu’à un fetch non vide.
 
 Fichiers : `src/application/event-sync/*`, `src/infrastructure/create-detour-sync-sources.ts`, `src/infrastructure/db/*`, `src/app/api/cron|internal/event-sync/`.
 

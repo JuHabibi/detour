@@ -5,7 +5,7 @@ import { createDetourSyncSources } from "@/infrastructure/create-detour-sync-sou
 const UPCOMING_WINDOW_DAYS = 180;
 
 /**
- * Orchestration Detour → syncEventSources (orleans puis saran).
+ * Orchestration Detour → syncEventSources (sources de createDetourSyncSources).
  * Pas d’auth / HTTP — réservé aux routes.
  */
 export async function runDetourEventSync(options?: {

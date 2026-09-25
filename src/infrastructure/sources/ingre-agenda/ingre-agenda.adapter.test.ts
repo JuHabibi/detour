@@ -447,6 +447,37 @@ describe("IngreAgendaEventAdapter pagination", () => {
     ).rejects.toThrow(/HTTP error: 503/);
   });
 
+  it("un seul détail en échec → throw (pas de snapshot partiel)", async () => {
+    const listHtml = listShell(
+      [
+        teaser("1", "e-1", "A"),
+        teaser("2", "e-2", "B"),
+      ].join("\n"),
+      "",
+    );
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("/agenda/e-1")) {
+        return new Response(
+          detailTimed("1", "e-1", "Samedi 26 septembre 2026"),
+          { status: 200 },
+        );
+      }
+      if (url.includes("/agenda/e-2")) {
+        return new Response("gone", { status: 503 });
+      }
+      return new Response(listHtml, { status: 200 });
+    });
+
+    const adapter = new IngreAgendaEventAdapter({ fetchImpl });
+    await expect(
+      adapter.fetchUpcomingEvents({
+        from: new Date("2026-01-01"),
+        to: new Date("2027-01-01"),
+      }),
+    ).rejects.toThrow(/detail failed \(1\/2\)/);
+  });
+
   it("HTML inattendu sans pager → corpus vide légitime", async () => {
     const fetchImpl = vi.fn(
       async () =>

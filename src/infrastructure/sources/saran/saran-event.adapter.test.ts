@@ -288,6 +288,31 @@ describe("SaranEventAdapter", () => {
     ]);
   });
 
+  it("un mois HTTP non OK → throw (pas de corpus partiel des autres mois)", async () => {
+    const fetchByUrl = vi.fn(async (url: string) => {
+      if (url.endsWith("/2026-10")) {
+        return { ok: false, status: 503, statusText: "Service Unavailable" };
+      }
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: async () => STANDARD_VEVENT,
+      };
+    });
+
+    const adapter = new SaranEventAdapter({
+      fetchImpl: fetchByUrl as unknown as typeof fetch,
+    });
+
+    await expect(
+      adapter.fetchUpcomingEvents({
+        from: new Date("2026-09-01T00:00:00+02:00"),
+        to: new Date("2026-11-01T00:00:00+01:00"),
+      }),
+    ).rejects.toThrow(/Saran iCal error: 503/);
+  });
+
   it("icalUrl override ignore la dérivation mensuelle", async () => {
     const fetchSimple = vi.fn().mockResolvedValue({
       ok: true,

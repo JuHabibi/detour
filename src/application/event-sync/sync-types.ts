@@ -26,6 +26,12 @@ export type SyncResult =
       status: "success";
       fetchedCount: number;
       deactivatedCount: number;
+      /**
+       * Actifs PG avant ce sync (même adapter).
+       * Si `fetchedCount < previousActiveCount` : baisse de volume (cas A ou C) —
+       * la sync réussit quand même ; signal d’investigation, pas de blocage.
+       */
+      previousActiveCount: number;
     }
   | {
       adapterId: string;

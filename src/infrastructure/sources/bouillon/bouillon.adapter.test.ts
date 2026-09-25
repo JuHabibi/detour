@@ -217,6 +217,61 @@ describe("bouillon adapter pagination + window", () => {
     ).rejects.toThrow(/HTTP error: 500/);
   });
 
+  it("un seul détail en échec → throw (pas de snapshot partiel)", async () => {
+    const listHtml = `<!DOCTYPE html><html><body>
+<div class="view-id-univ_agenda univ-layout-group-agenda">
+  <article class="univ-agenda teaser">
+    <a href="/fr/culture/agenda-actualites/ok-event">link</a>
+    <div class="wrapper-title">OK Event</div>
+  </article>
+  <article class="univ-agenda teaser">
+    <a href="/fr/culture/agenda-actualites/bad-event">link</a>
+    <div class="wrapper-title">Bad Event</div>
+  </article>
+</div>
+</body></html>`;
+    const okDetail = `<!DOCTYPE html><html><head>
+<link rel="canonical" href="https://www.univ-orleans.fr/fr/culture/agenda-actualites/ok-event" />
+</head><body>
+<a data-drupal-link-system-path="node/111"></a>
+<h1 class="page-header">OK Event</h1>
+<time datetime="2026-10-15T18:00:00Z">x</time>
+<time datetime="2026-10-15T20:00:00Z">y</time>
+</body></html>`;
+
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (
+        url.includes("wikidata.org") ||
+        url.includes("wikimedia.org") ||
+        url.includes("commons.wikimedia.org")
+      ) {
+        return new Response(JSON.stringify({ search: [], query: { pages: {} } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("agenda-actualites") && !url.match(/agenda-actualites\/[^/?]+/)) {
+        return new Response(listHtml, { status: 200 });
+      }
+      if (url.includes("ok-event")) {
+        return new Response(okDetail, { status: 200 });
+      }
+      if (url.includes("bad-event")) {
+        return new Response("gone", { status: 503 });
+      }
+      return new Response("nope", { status: 404 });
+    });
+
+    const adapter = new BouillonEventAdapter({ fetchImpl });
+    await expect(
+      adapter.fetchUpcomingEvents({
+        from: new Date("2026-09-01T00:00:00Z"),
+        to: new Date("2026-12-01T00:00:00Z"),
+      }),
+    ).rejects.toThrow(/detail failed \(1\/2\)/);
+  });
+
   it("fail-closed : last page incohérente entre pages", async () => {
     const list0 = fixture("list-page0.html");
     const brokenP1 = fixture("list-page1.html").replace(

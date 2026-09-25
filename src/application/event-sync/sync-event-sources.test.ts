@@ -37,6 +37,7 @@ describe("syncEventSources", () => {
       status: "success",
       fetchedCount: 4,
       deactivatedCount: 0,
+      previousActiveCount: 4,
     };
 
     syncEventSource
@@ -96,6 +97,7 @@ describe("syncEventSources", () => {
         status: "success",
         fetchedCount: 1,
         deactivatedCount: 0,
+        previousActiveCount: 1,
       });
 
     const results = await syncEventSources({

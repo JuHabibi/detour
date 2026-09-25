@@ -78,19 +78,37 @@ export async function collectIngreAgendaEvents(
   const exclusions: IngreAgendaExclusion[] = [];
   const events: DetourEvent[] = [];
 
-  const details = await mapPool(
+  const detailResults = await mapPool(
     listItems,
     resolved.detailConcurrency,
     async (item) => {
-      const html = await fetchIngreAgendaHtml(
-        absoluteIngreUrl(item.path),
-        resolved,
-      );
-      return parseIngreAgendaDetail(html, item.path);
+      try {
+        const html = await fetchIngreAgendaHtml(
+          absoluteIngreUrl(item.path),
+          resolved,
+        );
+        return {
+          ok: true as const,
+          detail: parseIngreAgendaDetail(html, item.path),
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { ok: false as const, item, message };
+      }
     },
   );
 
-  for (const detail of details) {
+  const detailFailures = detailResults.filter((r) => !r.ok);
+  if (detailFailures.length > 0) {
+    const first = detailFailures[0]!;
+    throw new Error(
+      `Ingré agenda detail failed (${detailFailures.length}/${listItems.length}): ${first.message}`,
+    );
+  }
+
+  for (const result of detailResults) {
+    if (!result.ok) continue;
+    const detail = result.detail;
     const mapped = mapIngreAgendaDetailToDetourEvent(detail);
     if (!mapped.ok) {
       exclusions.push(mapped.exclusion);
@@ -118,7 +136,7 @@ export async function collectIngreAgendaEvents(
     exclusions,
     stats: {
       discovered: listItems.length,
-      detailsFetched: details.length,
+      detailsFetched: detailResults.length,
       published: events.length,
       excluded: exclusions.length,
     },
