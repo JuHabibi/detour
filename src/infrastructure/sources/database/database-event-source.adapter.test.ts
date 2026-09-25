@@ -78,10 +78,11 @@ describe("DatabaseEventSourceAdapter", () => {
 });
 
 describe("buildIngestionFromDbRows", () => {
-  it("ordre preferred orleans puis saran puis ingre-agenda puis bouillon puis saint-jean-le-blanc puis ormes", () => {
+  it("ordre preferred orleans puis saran puis ingre-agenda puis ingre-mediatheque puis bouillon puis saint-jean-le-blanc puis ormes", () => {
     const ingestion = buildIngestionFromDbRows([
       { event: eventStub("saran:1"), adapterId: "saran" },
       { event: eventStub("ingre:1"), adapterId: "ingre-agenda" },
+      { event: eventStub("media:1"), adapterId: "ingre-mediatheque" },
       { event: eventStub("oa:1"), adapterId: "orleans" },
       { event: eventStub("bouillon:1"), adapterId: "bouillon" },
       { event: eventStub("sjlb:1"), adapterId: "saint-jean-le-blanc" },
@@ -91,12 +92,16 @@ describe("buildIngestionFromDbRows", () => {
       "orleans",
       "saran",
       "ingre-agenda",
+      "ingre-mediatheque",
       "bouillon",
       "saint-jean-le-blanc",
       "ormes",
     ]);
     expect(ingestion.sourceNameByAdapter.get("bouillon")).toBe(
       "Université d'Orléans / Le Bouillon",
+    );
+    expect(ingestion.sourceNameByAdapter.get("ingre-mediatheque")).toBe(
+      "Médiathèque-Ludothèque La Parenthèse (Ingré)",
     );
     expect(ingestion.sourceNameByAdapter.get("saint-jean-le-blanc")).toBe(
       "Ville de Saint-Jean-le-Blanc",

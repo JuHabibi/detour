@@ -8,7 +8,7 @@ import { SaintJeanLeBlancEventAdapter } from "@/infrastructure/sources/saint-jea
 import { SaranEventAdapter } from "@/infrastructure/sources/saran/saran-event.adapter";
 
 describe("createDetourSyncSources", () => {
-  it("retourne orleans, saran, ingre-agenda, bouillon, saint-jean-le-blanc (Ormes hors sync)", () => {
+  it("retourne orleans, saran, ingre-agenda, bouillon, saint-jean-le-blanc (Ormes + ingre-mediatheque hors sync)", () => {
     const sources = createDetourSyncSources();
 
     expect(sources.map((s) => s.adapterId)).toEqual([
@@ -19,6 +19,7 @@ describe("createDetourSyncSources", () => {
       "saint-jean-le-blanc",
     ]);
     expect(sources.map((s) => s.adapterId)).not.toContain("ormes");
+    expect(sources.map((s) => s.adapterId)).not.toContain("ingre-mediatheque");
     expect(sources[0]?.adapter).toBeInstanceOf(OrleansEventAdapter);
     expect(sources[1]?.adapter).toBeInstanceOf(SaranEventAdapter);
     expect(sources[2]?.adapter).toBeInstanceOf(IngreAgendaEventAdapter);
