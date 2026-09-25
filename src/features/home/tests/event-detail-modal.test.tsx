@@ -63,6 +63,9 @@ describe("EventDetailModal", () => {
       "« La Fabrique », de la compagnie Sans soucis. Ce théâtre de papier et musique est à découvrir.",
     );
     expect(html).toContain("Voir la fiche officielle");
+    expect(html).toContain("lucide-map-pin");
+    expect(html).toContain("lucide-calendar-clock");
+    expect(html).toContain("lucide-move-up-right");
   });
 
   it("masque LE REGARD DÉTOUR sans justification, sans espace réservé", () => {
@@ -120,11 +123,15 @@ describe("StandardEventCard — CTA Radar (indicateur, pas de bouton)", () => {
     expect(html).toContain('data-cta="why-pick"');
     expect(html).toContain("Pourquoi le repérer ?");
     expect(html).toContain("h-7");
-    expect(html).toContain("size-7");
-    expect(html).toContain("bg-coral");
+    expect(html).toContain("h-[2.75rem]");
+    expect(html).toContain("lucide-map-pin");
+    expect(html).toContain("lucide-calendar-clock");
+    expect(html).toContain("underline");
+    expect(html).not.toMatch(
+      /data-testid="radar-card-cta"[\s\S]*?lucide-move-up-right/,
+    );
     expect(html).not.toMatch(/data-testid="radar-card-cta"[\s\S]*?<button/);
     expect(html).toContain("aspect-[4/5]");
-    expect(html).toContain("h-[2.25rem]");
   });
 
   it("affiche « Découvrir l’événement » sans justification", () => {

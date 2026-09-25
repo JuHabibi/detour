@@ -7,6 +7,10 @@ import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui"
 import { resolveCategoryBadgeTone } from "@/features/home/category-badge-style";
 import { getEditorialBadgeExplanation } from "@/features/home/editorial-badge-copy";
 import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
+import {
+  EventCalendarClockIcon,
+  EventMapPinIcon,
+} from "@/features/home/components/event-lucide-icons";
 import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 import {
   parisCalendarYear,
@@ -14,6 +18,42 @@ import {
 import type { CategoryId, EventItem, EventSignal } from "@/data/types";
 import { captureProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
+
+/** Lieu + date — colonne d’icônes coral, espacement Radar / Explorer aligné. */
+function EventPlaceDateLines({
+  venue,
+  whenLabel,
+  reservePlaceLine = false,
+  className,
+}: {
+  venue?: string | null;
+  whenLabel: string;
+  /** Radar : réserve la ligne lieu (nbsp) pour une hauteur uniforme. */
+  reservePlaceLine?: boolean;
+  className?: string;
+}) {
+  const place = venue?.trim() ?? "";
+  const showPlace = Boolean(place) || reservePlaceLine;
+
+  return (
+    <div className={cn("flex flex-col gap-1.5 text-sm", className)}>
+      {showPlace ? (
+        <p className="grid min-h-0 grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2.5 text-cream-dim">
+          {place ? (
+            <EventMapPinIcon />
+          ) : (
+            <span aria-hidden className="size-4" />
+          )}
+          <span className="truncate">{place || "\u00a0"}</span>
+        </p>
+      ) : null}
+      <p className="grid min-h-0 grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2.5 text-[13px] italic text-sand">
+        <EventCalendarClockIcon />
+        <span className="truncate">{whenLabel}</span>
+      </p>
+    </div>
+  );
+}
 
 export type EventCardSurface = "radar" | "explorer";
 
@@ -376,14 +416,13 @@ export function StandardEventCard(props: CardProps) {
             {event.title}
           </h3>
 
-          {/* Zone meta : hauteur fixe, collée en bas du bloc */}
-          <div className="mt-2 flex h-[2.25rem] shrink-0 flex-col justify-end gap-0.5 text-sm">
-            <p className="line-clamp-1 text-cream-dim">
-              {event.venue?.trim() ? event.venue : "\u00a0"}
-            </p>
-            <p className="line-clamp-1 text-[13px] italic text-sand">
-              {whenLabel}
-            </p>
+          {/* Zone meta : hauteur fixe uniforme, colonne d’icônes alignée */}
+          <div className="mt-2 flex h-[2.75rem] shrink-0 flex-col justify-end">
+            <EventPlaceDateLines
+              venue={event.venue}
+              whenLabel={whenLabel}
+              reservePlaceLine
+            />
           </div>
 
           <RadarCardCta event={event} />
@@ -444,13 +483,8 @@ export function StandardEventCard(props: CardProps) {
         <h3 className="mt-1 line-clamp-2 font-display text-[1.15rem] font-semibold leading-[1.08] tracking-tight text-ink md:mt-1 md:text-[1.2rem]">
           {event.title}
         </h3>
-        <div className="mt-auto space-y-0.5 pt-1.5 text-sm md:pt-2">
-          <p className="line-clamp-1 text-[13px] italic text-sand">
-            {whenLabel}
-          </p>
-          {event.venue ? (
-            <p className="line-clamp-1 text-cream-dim">{event.venue}</p>
-          ) : null}
+        <div className="mt-auto space-y-1.5 pt-1.5 text-sm md:pt-2">
+          <EventPlaceDateLines venue={event.venue} whenLabel={whenLabel} />
           <div className={cn("text-sm", event.venue && "hidden md:block")}>
             <LocationLine
               city={event.city}
@@ -572,9 +606,7 @@ export function TextEventCard({
         ) : null}
 
         <div className="mt-auto space-y-1.5 pt-5 text-sm">
-          {event.venue ? (
-            <p className="line-clamp-1 text-cream-dim">{event.venue}</p>
-          ) : null}
+          <EventPlaceDateLines venue={event.venue} whenLabel={whenLabel} />
           <LocationLine
             city={event.city}
             distanceKm={event.distanceKm}
@@ -582,18 +614,9 @@ export function TextEventCard({
             sepClassName="text-sand"
             distanceClassName="font-medium text-ink"
           />
-          <div className="flex items-end justify-between gap-3 pt-0.5">
-            <p
-              className={cn(
-                isExplorer
-                  ? "text-[13px] italic text-sand"
-                  : "text-cream-dim",
-              )}
-            >
-              {whenLabel}
-            </p>
-            {priceLabel ? <p className="text-ink">{priceLabel}</p> : null}
-          </div>
+          {priceLabel ? (
+            <p className="font-medium text-ink">{priceLabel}</p>
+          ) : null}
           {isRadar ? <RadarCardCta event={event} /> : null}
         </div>
       </div>
@@ -622,34 +645,10 @@ function RadarCardCta({ event }: { event: EventItem }) {
       aria-hidden
       data-testid="radar-card-cta"
       data-cta={hasPickReason ? "why-pick" : "discover"}
-      className="mt-3 flex h-7 shrink-0 items-center justify-between gap-2"
+      className="mt-3 flex h-7 shrink-0 items-center"
     >
-      <span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-sand">
+      <span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-sand underline decoration-coral/70 decoration-1 underline-offset-4">
         {label}
-      </span>
-      <span
-        className={cn(
-          "inline-flex size-7 shrink-0 items-center justify-center rounded-full",
-          "bg-coral text-foam shadow-sm ring-1 ring-coral/30",
-          "transition-transform duration-300 ease-out",
-          "motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:-translate-y-0.5",
-        )}
-      >
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M7 17L17 7M17 7H9M17 7V15"
-            stroke="currentColor"
-            strokeWidth="2.25"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
       </span>
     </div>
   );

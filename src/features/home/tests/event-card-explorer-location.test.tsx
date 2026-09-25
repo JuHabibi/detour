@@ -43,6 +43,10 @@ describe("StandardEventCard Explorer (avec image)", () => {
 
     expect(html).toContain("Orléans");
     expect(html).toContain("3,2");
+    expect(html).toContain("lucide-map-pin");
+    expect(html).toContain("lucide-calendar-clock");
+    expect(html).toContain("gap-1.5");
+    expect(html).toContain("gap-x-2.5");
   });
 
   it("n’invente pas de ville quand city est null", () => {

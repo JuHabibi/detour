@@ -4,6 +4,11 @@ import Image from "next/image";
 import { useEffect, useId, useRef } from "react";
 import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
 import { resolveCategoryBadgeTone } from "@/features/home/category-badge-style";
+import {
+  EventCalendarClockIcon,
+  EventMapPinIcon,
+  EventMoveUpRightIcon,
+} from "@/features/home/components/event-lucide-icons";
 import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import type { EventItem } from "@/data/types";
 import { captureProductEvent } from "@/lib/analytics";
@@ -135,12 +140,20 @@ export function EventDetailModal({
             {event.title}
           </h2>
 
-          <div className="mt-3 space-y-1 text-sm text-cream-dim">
-            <p className="italic text-sand">{event.dateLabel}</p>
-            {event.time && !event.allDay ? (
-              <p>{event.time}</p>
+          <div className="mt-3 space-y-2.5 text-sm text-cream-dim">
+            <p className="grid grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2.5 italic text-sand">
+              <EventCalendarClockIcon />
+              <span className="min-w-0">
+                {event.dateLabel}
+                {event.time && !event.allDay ? ` · ${event.time}` : ""}
+              </span>
+            </p>
+            {placeLine ? (
+              <p className="grid grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2.5">
+                <EventMapPinIcon />
+                <span className="min-w-0">{placeLine}</span>
+              </p>
             ) : null}
-            {placeLine ? <p>{placeLine}</p> : null}
           </div>
 
           {pickReason ? (
@@ -176,7 +189,7 @@ export function EventDetailModal({
               rel="noopener noreferrer"
               data-testid="event-official-link"
               data-cta={official.kind}
-              className="mt-6 inline-flex min-h-11 w-full items-center justify-center bg-mint px-4 text-center text-[12px] font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam"
+              className="mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2.5 bg-mint px-4 text-center text-[12px] font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam"
               onClick={() => {
                 captureProductEvent(
                   surface === "radar"
@@ -192,7 +205,8 @@ export function EventDetailModal({
                 );
               }}
             >
-              {official.label}
+              <span className="min-w-0">{official.label}</span>
+              <EventMoveUpRightIcon className="text-current" />
             </a>
           ) : null}
         </div>
