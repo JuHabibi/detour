@@ -10,11 +10,8 @@ import { SaranEventAdapter } from "@/infrastructure/sources/saran/saran-event.ad
  * Composition root sync DB — adapters sources bruts, hors composite/cache home.
  * Ajouter une source = une entrée ici, pas dans le moteur de sync.
  *
- * Hors sync volontaire :
- * - Ormes : ville-ormes.fr sert un challenge anti-bot depuis Vercel.
- * - `ingre-mediatheque` : adapter prêt ; activation = ré-ajouter
- *   `{ adapterId: "ingre-mediatheque", adapter: new IngreMediathequeEventAdapter() }`
- *   (sinon le prochain cron prod l’ingérerait dès le déploiement).
+ * Ormes (`OrmesEventAdapter`) est conservé hors sync : ville-ormes.fr sert un
+ * challenge anti-bot depuis Vercel. Réactivation = ré-ajouter l’entrée ici.
  */
 export function createDetourSyncSources(): SyncSource[] {
   return [
@@ -31,6 +28,10 @@ export function createDetourSyncSources(): SyncSource[] {
       adapter: new IngreAgendaEventAdapter(),
     },
     {
+      adapterId: "ingre-mediatheque",
+      adapter: new IngreMediathequeEventAdapter(),
+    },
+    {
       adapterId: "bouillon",
       adapter: new BouillonEventAdapter(),
     },
@@ -40,6 +41,3 @@ export function createDetourSyncSources(): SyncSource[] {
     },
   ];
 }
-
-/** Réexport pour activation / dry-run manuels sans l’enregistrer au sync. */
-export { IngreMediathequeEventAdapter };

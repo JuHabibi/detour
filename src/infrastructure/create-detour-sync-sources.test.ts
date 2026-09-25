@@ -3,28 +3,30 @@ import { createDetourSyncSources } from "@/infrastructure/create-detour-sync-sou
 import { CompositeEventSourceAdapter } from "@/infrastructure/composite-event-source.adapter";
 import { BouillonEventAdapter } from "@/infrastructure/sources/bouillon/bouillon.adapter";
 import { IngreAgendaEventAdapter } from "@/infrastructure/sources/ingre-agenda/ingre-agenda.adapter";
+import { IngreMediathequeEventAdapter } from "@/infrastructure/sources/ingre-mediatheque/ingre-mediatheque.adapter";
 import { OrleansEventAdapter } from "@/infrastructure/sources/orleans/orleans-event.adapter";
 import { SaintJeanLeBlancEventAdapter } from "@/infrastructure/sources/saint-jean-le-blanc/saint-jean-le-blanc.adapter";
 import { SaranEventAdapter } from "@/infrastructure/sources/saran/saran-event.adapter";
 
 describe("createDetourSyncSources", () => {
-  it("retourne orleans, saran, ingre-agenda, bouillon, saint-jean-le-blanc (Ormes + ingre-mediatheque hors sync)", () => {
+  it("retourne orleans, saran, ingre-agenda, ingre-mediatheque, bouillon, saint-jean-le-blanc (Ormes hors sync)", () => {
     const sources = createDetourSyncSources();
 
     expect(sources.map((s) => s.adapterId)).toEqual([
       "orleans",
       "saran",
       "ingre-agenda",
+      "ingre-mediatheque",
       "bouillon",
       "saint-jean-le-blanc",
     ]);
     expect(sources.map((s) => s.adapterId)).not.toContain("ormes");
-    expect(sources.map((s) => s.adapterId)).not.toContain("ingre-mediatheque");
     expect(sources[0]?.adapter).toBeInstanceOf(OrleansEventAdapter);
     expect(sources[1]?.adapter).toBeInstanceOf(SaranEventAdapter);
     expect(sources[2]?.adapter).toBeInstanceOf(IngreAgendaEventAdapter);
-    expect(sources[3]?.adapter).toBeInstanceOf(BouillonEventAdapter);
-    expect(sources[4]?.adapter).toBeInstanceOf(SaintJeanLeBlancEventAdapter);
+    expect(sources[3]?.adapter).toBeInstanceOf(IngreMediathequeEventAdapter);
+    expect(sources[4]?.adapter).toBeInstanceOf(BouillonEventAdapter);
+    expect(sources[5]?.adapter).toBeInstanceOf(SaintJeanLeBlancEventAdapter);
 
     for (const source of sources) {
       expect(source.adapter).not.toBeInstanceOf(CompositeEventSourceAdapter);
