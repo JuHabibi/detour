@@ -23,6 +23,7 @@
   --color-blush: #e49aab;
   --color-blush-soft: #f5e4e9;
   --color-mint: #97c9ab;
+  --color-sauge: #D9E3D6;
   --color-mint-soft: #c5dfd1;
   --color-lilac: #b0a4d8;
   --color-lilac-soft: #e8e3f4;
@@ -117,5 +118,118 @@ body {
 
   .scroll-smooth {
     scroll-behavior: auto;
+  }
+}
+
+/**
+ * Décors Radar / Explorer — texture tuilée (échelle native) + overlay alpha.
+ * Texture en ::before à opacité réduite pour rester une matière discrète.
+ * Pas de background-size: cover, ni masques de raccord.
+ */
+.detour-decor--radar,
+.detour-decor--explorer {
+  isolation: isolate;
+}
+
+.detour-decor--radar {
+  background-color: var(--color-sauge);
+}
+
+.detour-decor--radar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("/images/editorial/radar-paper-texture-sauge.webp");
+  background-size: auto;
+  background-position: top left;
+  background-repeat: repeat;
+  opacity: 0.32;
+}
+
+.detour-decor--explorer {
+  background-color: var(--color-foam);
+}
+
+.detour-decor--explorer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("/images/editorial/explorer-paper-texture.webp");
+  background-size: auto;
+  background-position: top left;
+  background-repeat: repeat;
+  opacity: 0.45;
+}
+
+.detour-overlay {
+  pointer-events: none;
+  user-select: none;
+  display: block;
+  height: auto;
+  max-width: none;
+}
+
+/* Radar — collage haut droit, derrière le contenu (z-0) */
+.detour-overlay--radar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 0;
+  width: min(18rem, 72vw);
+}
+
+/* Explorer — vélo en flux après résultats / Voir plus */
+.detour-overlay--explorer-bike {
+  width: min(18rem, 88%);
+  margin-left: auto;
+  margin-right: 0;
+}
+
+@media (min-width: 768px) {
+  .detour-overlay--radar {
+    width: min(24rem, 48vw);
+  }
+
+  .detour-overlay--explorer-bike {
+    width: min(26rem, 58%);
+  }
+}
+
+@media (min-width: 1024px) {
+  .detour-overlay--radar {
+    width: min(30rem, 42vw);
+    max-width: 520px;
+  }
+
+  .detour-overlay--explorer-bike {
+    width: min(32rem, 48%);
+    max-width: 560px;
+  }
+}
+
+@media (min-width: 1536px) {
+  .detour-overlay--radar {
+    width: min(32rem, 34vw);
+    max-width: 560px;
+  }
+
+  .detour-overlay--explorer-bike {
+    width: min(34rem, 40%);
+    max-width: 600px;
+  }
+}
+
+/* Mobile étroit : overlays masqués si trop envahissants ; textures conservées */
+@media (max-width: 429px) {
+  .detour-overlay--radar {
+    display: none;
+  }
+
+  .detour-overlay--explorer-bike {
+    width: min(14rem, 78%);
   }
 }

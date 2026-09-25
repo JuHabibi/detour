@@ -9,11 +9,7 @@ export type BouillonFallbackSlug =
   | "expo"
   | "culture";
 
-/**
- * Fallback local Détour par catégorie Bouillon.
- * Convention : `/images/fallbacks/{slug}.svg` (asset optionnel) ;
- * si l’asset catégorie n’existe pas encore, on pointe le générique `culture.svg`.
- */
+
 export function resolveBouillonCategoryFallback(input: {
   category: string | null | undefined;
   title?: string | null;
@@ -22,7 +18,7 @@ export function resolveBouillonCategoryFallback(input: {
   if (slug === "culture") {
     return { imageUrl: BOUILLON_FALLBACK_GENERIC, slug };
   }
-  // Assets catégories non livrés pour l’instant → générique, slug conservé pour plus tard.
+
   return { imageUrl: BOUILLON_FALLBACK_GENERIC, slug };
 }
 
