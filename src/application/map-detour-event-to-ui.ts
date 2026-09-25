@@ -10,6 +10,9 @@ import { resolveEditorialBadge } from "@/domain/editorial/resolve-editorial-badg
 import type { EventHighlight } from "@/domain/editorial/select-detour-highlights";
 import type { EventItem } from "@/data/types";
 import { resolveEventCardImage } from "@/lib/resolve-event-card-image";
+import {
+  isOtherParisCalendarYear,
+} from "@/domain/time/paris-calendar-year";
 
 export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
   const start = new Date(event.startAt);
@@ -151,12 +154,22 @@ function resolveDatePresentation(
 function formatMultiDayRange(start: Date, end: Date): string {
   const startParts = parisDayMonthParts(start);
   const endParts = parisDayMonthParts(end);
+  const crossYear = startParts.year !== endParts.year;
 
-  if (startParts.month === endParts.month && startParts.year === endParts.year) {
-    return `Du ${startParts.day} au ${endParts.day} ${endParts.month}`;
+  // Plage à cheval sur deux années : les deux années restent explicites.
+  if (crossYear) {
+    return `Du ${startParts.day} ${startParts.month} ${startParts.year} au ${endParts.day} ${endParts.month} ${endParts.year}`;
   }
 
-  return `Du ${startParts.day} ${startParts.month} au ${endParts.day} ${endParts.month}`;
+  const yearSuffix = isOtherParisCalendarYear(start)
+    ? ` ${startParts.year}`
+    : "";
+
+  if (startParts.month === endParts.month) {
+    return `Du ${startParts.day} au ${endParts.day} ${endParts.month}${yearSuffix}`;
+  }
+
+  return `Du ${startParts.day} ${startParts.month} au ${endParts.day} ${endParts.month}${yearSuffix}`;
 }
 
 function parisDayMonthParts(date: Date): {
@@ -217,11 +230,13 @@ function toDateKey(date: Date): string {
 }
 
 function formatDateLabel(date: Date): string {
+  const showYear = isOtherParisCalendarYear(date);
   const label = new Intl.DateTimeFormat("fr-FR", {
     timeZone: "Europe/Paris",
     weekday: "long",
     day: "numeric",
     month: "long",
+    ...(showYear ? { year: "numeric" as const } : {}),
   }).format(date);
 
   return capitalizeFr(label);
