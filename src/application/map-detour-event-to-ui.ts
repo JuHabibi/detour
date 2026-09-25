@@ -16,13 +16,28 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
   const presentation = resolveDatePresentation(event, start);
   const availabilityStatus = event.availabilityStatus ?? "unknown";
   const availabilityBadge = resolveAvailabilityBadge(availabilityStatus);
-  const safeImage = resolveEventCardImage(event);
+  const category = classifyEventCategory(event);
+  const genre = formatGenre(event.category) || event.genre?.trim() || "";
+  const sourceCategory = event.category;
+  const presentationLabel = resolveCategoryBadgeLabel({
+    category,
+    genre,
+    sourceCategory,
+  });
+  const safeImage = resolveEventCardImage({
+    imageUrl: event.imageUrl,
+    imageCredit: event.imageCredit,
+    imageLicense: event.imageLicense,
+    imageSourceUrl: event.imageSourceUrl,
+    presentationLabel,
+    productCategory: category,
+  });
 
   return {
     id: event.id,
     title: event.title,
-    category: classifyEventCategory(event),
-    genre: formatGenre(event.category) || event.genre?.trim() || "",
+    category,
+    genre,
     venue: event.venue,
     city: event.city,
     date: toDateKey(start),
@@ -43,7 +58,7 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
     registrationUrl: event.bookingUrl ?? event.registrationUrl ?? undefined,
     source: event.source ?? undefined,
     conditions: event.conditions ?? undefined,
-    sourceCategory: event.category,
+    sourceCategory,
     relevance: event.relevance,
     relevanceReason: event.relevanceReason,
     weekend: isWeekendDay(start),

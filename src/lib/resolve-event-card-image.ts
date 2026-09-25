@@ -3,6 +3,10 @@ import { toSafeNextImageSrc } from "@/lib/safe-next-image";
 
 /**
  * Placeholders Détour (assets locaux) — hors taxonomie produit.
+ * Alignés sur le label / la catégorie déjà résolus pour la carte
+ * (`resolveCategoryBadgeLabel` + catégorie produit), pas sur un second
+ * scan indépendant du titre brut — évite badge SPECTACLE + image découverte.
+ *
  * Utilisés seulement si l’illustration réelle est absente, filtrée
  * par l’allowlist next/image, ou déjà un fallback sync (ex. culture.svg).
  */
@@ -15,14 +19,13 @@ export const DETOUR_PLACEHOLDER = {
 
 export type EventCardImageFields = Pick<
   DetourEvent,
-  | "imageUrl"
-  | "title"
-  | "category"
-  | "genre"
-  | "imageCredit"
-  | "imageLicense"
-  | "imageSourceUrl"
->;
+  "imageUrl" | "imageCredit" | "imageLicense" | "imageSourceUrl"
+> & {
+  /** Label affiché sur la carte (même source que le badge). */
+  presentationLabel: string;
+  /** Catégorie produit UI — repli si le label ne mappe pas. */
+  productCategory?: string | null;
+};
 
 export type ResolvedEventCardImage = {
   image: string;
@@ -31,26 +34,30 @@ export type ResolvedEventCardImage = {
   imageSourceUrl?: string;
 };
 
-type FallbackSignals = Pick<DetourEvent, "title" | "category" | "genre">;
+export type FallbackPresentation = {
+  presentationLabel: string;
+  productCategory?: string | null;
+};
 
 const CONCERT_RE =
   /\b(concert|musique|chorale|live|dj|apero[\s-]?concert)\b/u;
-const SPECTACLE_RE = /\b(theatre|spectacle|humour|cirque|scene)\b/u;
+const SPECTACLE_RE =
+  /\b(theatre|spectacle|humour|cirque|scene|cinema|projection|cine)\b/u;
 const EXPOSITION_RE =
   /\b(exposition|expo|photo|photographie|galerie|arts)\b/u;
 
 /**
- * Choisit un placeholder Détour à partir de signaux texte bruts
- * (category / genre / title). Conservatif : défaut = découverte.
+ * Placeholder Détour depuis le label de présentation (prioritaire),
+ * puis la catégorie produit. Défaut = découverte.
  */
-export function getEventFallbackImage(event: FallbackSignals): string {
-  const haystack = normalizeSignals(event);
-
-  if (CONCERT_RE.test(haystack)) return DETOUR_PLACEHOLDER.concert;
-  if (SPECTACLE_RE.test(haystack)) return DETOUR_PLACEHOLDER.spectacle;
-  if (EXPOSITION_RE.test(haystack)) return DETOUR_PLACEHOLDER.exposition;
-
-  return DETOUR_PLACEHOLDER.decouverte;
+export function getEventFallbackImage(
+  presentation: FallbackPresentation,
+): string {
+  return (
+    mapPresentationToPlaceholder(presentation.presentationLabel) ??
+    mapPresentationToPlaceholder(presentation.productCategory ?? "") ??
+    DETOUR_PLACEHOLDER.decouverte
+  );
 }
 
 /**
@@ -81,7 +88,23 @@ export function resolveEventCardImage(
     };
   }
 
-  return { image: getEventFallbackImage(event) };
+  return {
+    image: getEventFallbackImage({
+      presentationLabel: event.presentationLabel,
+      productCategory: event.productCategory,
+    }),
+  };
+}
+
+function mapPresentationToPlaceholder(raw: string): string | null {
+  const normalized = normalizePresentation(raw);
+  if (!normalized) return null;
+
+  if (CONCERT_RE.test(normalized)) return DETOUR_PLACEHOLDER.concert;
+  if (SPECTACLE_RE.test(normalized)) return DETOUR_PLACEHOLDER.spectacle;
+  if (EXPOSITION_RE.test(normalized)) return DETOUR_PLACEHOLDER.exposition;
+
+  return null;
 }
 
 function isRealIllustrationSrc(src: string): boolean {
@@ -93,11 +116,10 @@ function isRealIllustrationSrc(src: string): boolean {
   );
 }
 
-function normalizeSignals(event: FallbackSignals): string {
-  return [event.title, event.category, event.genre]
-    .filter((value): value is string => Boolean(value?.trim()))
-    .join(" ")
+function normalizePresentation(value: string): string {
+  return value
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
-    .toLowerCase();
+    .toLowerCase()
+    .trim();
 }

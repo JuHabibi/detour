@@ -89,7 +89,7 @@ describe("mapDetourEventToEventItem — catégorie UI", () => {
     expect(item.imageSourceUrl).toBeUndefined();
   });
 
-  it("sans imageUrl → placeholder Détour selon signaux texte", () => {
+  it("sans imageUrl → placeholder Détour selon le label de présentation", () => {
     const item = mapDetourEventToEventItem(
       baseEvent({
         id: "no-img",
@@ -100,6 +100,55 @@ describe("mapDetourEventToEventItem — catégorie UI", () => {
     expect(item.image).toBe(
       "/images/placeholders/detour-placeholder-decouverte.webp",
     );
+  });
+
+  it("même label SPECTACLE sans image réelle → même placeholder (non-régression)", () => {
+    const malefique = mapDetourEventToEventItem(
+      baseEvent({
+        id: "ingre-mediatheque:malefique",
+        title: 'Spectacle : "Une visite maléfique"',
+        description:
+          "Spectacle-enquête d’Halloween en déambulation entre les équipements culturels.",
+        category: null,
+        genre: null,
+        imageUrl: null,
+      }),
+    );
+    const cineSeniors = mapDetourEventToEventItem(
+      baseEvent({
+        id: "ingre-mediatheque:cine",
+        title: "Ciné-séniors",
+        description: "Projection de film. Gratuit, entrée libre.",
+        category: null,
+        genre: null,
+        imageUrl: null,
+      }),
+    );
+
+    expect(resolveCategoryBadgeLabel(malefique)).toBe("Spectacle");
+    expect(resolveCategoryBadgeLabel(cineSeniors)).toBe("Spectacle");
+    expect(malefique.image).toBe(
+      "/images/placeholders/detour-placeholder-spectacle.webp",
+    );
+    expect(cineSeniors.image).toBe(malefique.image);
+  });
+
+  it("image réelle allowlistée prioritaire même si le label est SPECTACLE", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "real-img",
+        title: "Ciné-séniors",
+        description: "Projection de film.",
+        category: null,
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/x.jpg",
+        imageCredit: "Commons",
+      }),
+    );
+    expect(resolveCategoryBadgeLabel(item)).toBe("Spectacle");
+    expect(item.image).toBe(
+      "https://upload.wikimedia.org/wikipedia/commons/x.jpg",
+    );
+    expect(item.imageCredit).toBe("Commons");
   });
 
   it("culture_leisure → taxonomy normale", () => {

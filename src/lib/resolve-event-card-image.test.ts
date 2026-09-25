@@ -6,119 +6,60 @@ import {
 } from "@/lib/resolve-event-card-image";
 
 describe("getEventFallbackImage", () => {
-  it("concert via title / category / genre", () => {
+  it("mappe le label de présentation Spectacle → placeholder spectacle", () => {
     expect(
       getEventFallbackImage({
-        title: "Soirée live au parc",
-        category: null,
-        genre: null,
+        presentationLabel: "Spectacle",
+        productCategory: "Spectacle",
       }),
-    ).toBe(DETOUR_PLACEHOLDER.concert);
-
-    expect(
-      getEventFallbackImage({
-        title: "Atelier",
-        category: "Musique",
-        genre: null,
-      }),
-    ).toBe(DETOUR_PLACEHOLDER.concert);
-
-    expect(
-      getEventFallbackImage({
-        title: "Répétition",
-        category: null,
-        genre: "Chorale",
-      }),
-    ).toBe(DETOUR_PLACEHOLDER.concert);
-
-    expect(
-      getEventFallbackImage({
-        title: "Apéro-concert estival",
-        category: null,
-        genre: null,
-      }),
-    ).toBe(DETOUR_PLACEHOLDER.concert);
+    ).toBe(DETOUR_PLACEHOLDER.spectacle);
   });
 
-  it("spectacle via théâtre / humour / cirque (accents normalisés)", () => {
+  it("mappe Musique / Exposition depuis le label", () => {
     expect(
       getEventFallbackImage({
-        title: "Pièce de théâtre",
-        category: null,
-        genre: null,
+        presentationLabel: "Musique",
+        productCategory: "Autre",
+      }),
+    ).toBe(DETOUR_PLACEHOLDER.concert);
+
+    expect(
+      getEventFallbackImage({
+        presentationLabel: "Exposition",
+        productCategory: "Autre",
+      }),
+    ).toBe(DETOUR_PLACEHOLDER.exposition);
+  });
+
+  it("priorité au label, puis catégorie produit, sinon découverte", () => {
+    expect(
+      getEventFallbackImage({
+        presentationLabel: "Cinéma / Projection",
+        productCategory: "Autre",
       }),
     ).toBe(DETOUR_PLACEHOLDER.spectacle);
 
     expect(
       getEventFallbackImage({
-        title: "One man show",
-        category: "Humour",
-        genre: null,
+        presentationLabel: "Forum des associations",
+        productCategory: "Spectacle",
       }),
     ).toBe(DETOUR_PLACEHOLDER.spectacle);
 
     expect(
       getEventFallbackImage({
-        title: "Sur scène",
-        category: null,
-        genre: null,
-      }),
-    ).toBe(DETOUR_PLACEHOLDER.spectacle);
-  });
-
-  it("exposition via expo / photo / galerie", () => {
-    expect(
-      getEventFallbackImage({
-        title: "Vernissage",
-        category: "Exposition",
-        genre: null,
-      }),
-    ).toBe(DETOUR_PLACEHOLDER.exposition);
-
-    expect(
-      getEventFallbackImage({
-        title: "Salon photo",
-        category: null,
-        genre: null,
-      }),
-    ).toBe(DETOUR_PLACEHOLDER.exposition);
-
-    expect(
-      getEventFallbackImage({
-        title: "Ouverture galerie",
-        category: null,
-        genre: null,
-      }),
-    ).toBe(DETOUR_PLACEHOLDER.exposition);
-  });
-
-  it("défaut découverte si aucun signal", () => {
-    expect(
-      getEventFallbackImage({
-        title: "Forum des associations",
-        category: "Fête - salon - marché",
-        genre: null,
+        presentationLabel: "Forum des associations",
+        productCategory: "Visite",
       }),
     ).toBe(DETOUR_PLACEHOLDER.decouverte);
-  });
-
-  it("priorité concert si plusieurs signaux", () => {
-    expect(
-      getEventFallbackImage({
-        title: "Concert et spectacle",
-        category: null,
-        genre: null,
-      }),
-    ).toBe(DETOUR_PLACEHOLDER.concert);
   });
 });
 
 describe("resolveEventCardImage", () => {
-  it("garde une image distante allowlistée + attribution", () => {
+  it("garde une image distante allowlistée + attribution (priorité sur le fallback)", () => {
     const resolved = resolveEventCardImage({
-      title: "Concert",
-      category: "Musique",
-      genre: null,
+      presentationLabel: "Spectacle",
+      productCategory: "Spectacle",
       imageUrl: "https://upload.wikimedia.org/wikipedia/commons/x.jpg",
       imageCredit: "Jane Doe",
       imageLicense: "CC BY-SA 4.0",
@@ -135,22 +76,20 @@ describe("resolveEventCardImage", () => {
     );
   });
 
-  it("image absente → placeholder selon signaux", () => {
+  it("image absente → placeholder selon le label de présentation", () => {
     expect(
       resolveEventCardImage({
-        title: "Concert jazz",
-        category: null,
-        genre: null,
+        presentationLabel: "Spectacle",
+        productCategory: "Spectacle",
         imageUrl: null,
       }).image,
-    ).toBe(DETOUR_PLACEHOLDER.concert);
+    ).toBe(DETOUR_PLACEHOLDER.spectacle);
   });
 
   it("URL filtrée (Billetweb) → placeholder, sans attribution", () => {
     const resolved = resolveEventCardImage({
-      title: "Spectacle de cirque",
-      category: null,
-      genre: null,
+      presentationLabel: "Spectacle",
+      productCategory: "Spectacle",
       imageUrl: "https://www.billetweb.fr/files/event/150/1437112.jpg",
       imageCredit: "should-not-leak",
       imageLicense: "CC BY",
@@ -166,9 +105,8 @@ describe("resolveEventCardImage", () => {
   it("fallback sync culture.svg → remplacé par placeholder Détour", () => {
     expect(
       resolveEventCardImage({
-        title: "Atelier cuisine",
-        category: null,
-        genre: null,
+        presentationLabel: "Atelier",
+        productCategory: "Atelier",
         imageUrl: "/images/fallbacks/culture.svg",
       }).image,
     ).toBe(DETOUR_PLACEHOLDER.decouverte);
