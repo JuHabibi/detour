@@ -56,6 +56,7 @@ describe("buildRadarEditorialAudit", () => {
       sourceUrl: "https://example.test/1",
       registrationUrl: "https://example.test/book",
       endAt: "2026-10-01T22:00:00+02:00",
+      detourFirstInsertedAt: "2026-09-01T08:00:00.000Z",
     });
 
     const export_ = buildRadarEditorialAudit({
@@ -131,10 +132,32 @@ describe("buildRadarEditorialAudit", () => {
         "source",
         "sourceUrl",
         "startAt",
+        "timing",
         "title",
         "venue",
       ].sort(),
     );
+    expect(row.timing).toEqual({
+      detourFirstInsertedAt: "2026-09-01T08:00:00.000Z",
+      daysUntilStartAtDetourFirstInsert: 30,
+      firstRadarDisplayableSelectedAt: null,
+      daysUntilStartAtFirstRadarDisplayableSelected: null,
+    });
+    expect(export_.timingSemantics.detourFirstInsertedAt).toContain(
+      "events.created_at",
+    );
+    expect(export_.timingSemantics.daysUntilStartAtDetourFirstInsert).toContain(
+      "startAt actuel",
+    );
+    expect(export_.timingSemantics.daysUntilStartAtDetourFirstInsert).toContain(
+      "reporté",
+    );
+    expect(export_.timingSemantics.firstRadarDisplayableSelectedAt).toContain(
+      "Non mesuré",
+    );
+    expect(
+      export_.timingSemantics.daysUntilStartAtFirstRadarDisplayableSelected,
+    ).toContain("Non mesuré");
     expect(row.engine).toEqual({
       deterministicRank: 1,
       deterministicScore: 7,

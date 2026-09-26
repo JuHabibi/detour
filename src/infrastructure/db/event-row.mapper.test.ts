@@ -64,7 +64,11 @@ function sampleRow(overrides: Partial<EventRow> = {}): EventRow {
 describe("event-row.mapper", () => {
   it("row → DetourEvent (snake → camel, timestamptz → ISO)", () => {
     const event = mapEventRowToDetourEvent(sampleRow());
-    expect(event).toEqual(sampleEvent());
+    expect(event).toEqual(
+      sampleEvent({
+        detourFirstInsertedAt: "2026-01-01T00:00:00.000Z",
+      }),
+    );
     expect(event).not.toHaveProperty("adapterId");
     expect(event).not.toHaveProperty("adapter_id");
   });
@@ -139,7 +143,17 @@ describe("event-row.mapper", () => {
     expect(sql).not.toContain("resolved_latitude");
     expect(sql).not.toContain("geo_resolution");
     expect(sql).toContain("ON CONFLICT (id) DO UPDATE");
+    expect(sql).toContain("updated_at = now()");
+    // Première insertion : created_at n’est pas écrasé au re-sync.
+    expect(sql).not.toMatch(/DO UPDATE SET[\s\S]*created_at\s*=/);
     expect(sql).not.toMatch(/openagenda|Orléans|Concert|https?:/);
+  });
+
+  it("propage events.created_at → detourFirstInsertedAt", () => {
+    const event = mapEventRowToDetourEvent(
+      sampleRow({ created_at: new Date("2026-03-15T09:30:00.000Z") }),
+    );
+    expect(event.detourFirstInsertedAt).toBe("2026-03-15T09:30:00.000Z");
   });
 
   it("all_day true → DetourEvent.allDay et upsert", () => {

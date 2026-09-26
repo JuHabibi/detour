@@ -44,6 +44,13 @@ export type DetourEvent = {
   registrationUrl: string | null;
 
   /**
+   * Première insertion connue dans la DB Détour (`events.created_at`).
+   * Ce n’est **pas** la date d’annonce par l’organisateur.
+   * Absent hors lecture database (adapters live).
+   */
+  detourFirstInsertedAt?: string | null;
+
+  /**
    * Disponibilité billetterie résolue (fraîche) — générique, jamais un nom de provider.
    * Absent ou non renseigné ≡ unknown.
    */

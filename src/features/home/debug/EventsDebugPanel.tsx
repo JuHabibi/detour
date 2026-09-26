@@ -752,11 +752,24 @@ export function EventsDebugPanel({
                         <th className="px-3 py-2.5 font-medium">Score</th>
                         <th className="px-3 py-2.5 font-medium">Planning</th>
                         <th className="px-3 py-2.5 font-medium">Ville</th>
+                        <th className="px-3 py-2.5 font-medium">
+                          Insert Détour
+                        </th>
+                        <th
+                          className="px-3 py-2.5 font-medium"
+                          title="Jours civils Paris : insert Détour → startAt actuel (pas le délai historique si report)"
+                        >
+                          Jours→début*
+                        </th>
                         <th className="px-3 py-2.5 font-medium">Inclusion</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {meta.aiShortlist.map((item) => (
+                      {meta.aiShortlist.map((item) => {
+                        const timing = meta.radarEditorialAudit?.events.find(
+                          (row) => row.id === item.eventId,
+                        )?.timing;
+                        return (
                         <tr
                           key={item.eventId}
                           className="border-b border-line/70 align-top last:border-b-0"
@@ -776,11 +789,26 @@ export function EventsDebugPanel({
                           <td className="px-3 py-2.5 text-cream-dim">
                             {item.city || "—"}
                           </td>
+                          <td
+                            className="px-3 py-2.5 font-mono text-[10px] text-cream-dim"
+                            title="events.created_at — pas la date d’annonce organisateur"
+                          >
+                            {timing?.detourFirstInsertedAt
+                              ? timing.detourFirstInsertedAt.slice(0, 10)
+                              : "—"}
+                          </td>
+                          <td
+                            className="px-3 py-2.5 font-mono text-ink"
+                            title="Comparé au startAt actuel — pas le délai à l’époque si l’événement a été reporté"
+                          >
+                            {timing?.daysUntilStartAtDetourFirstInsert ?? "—"}
+                          </td>
                           <td className="max-w-[18rem] px-3 py-2.5 font-mono text-[10px] text-cream-dim">
                             {item.inclusionReasons.join(" · ") || "—"}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

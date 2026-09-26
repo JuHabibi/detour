@@ -74,6 +74,7 @@ export function mapEventRowToDetourEvent(row: EventRow): DetourEvent {
     source: row.source,
     sourceUrl: row.source_url,
     registrationUrl: row.registration_url,
+    detourFirstInsertedAt: toIso(row.created_at),
   };
 }
 
