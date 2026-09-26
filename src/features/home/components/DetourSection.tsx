@@ -15,8 +15,7 @@ export function DetourSection({
   onToggleFavorite,
   onOpenDetail,
 }: DetourSectionProps) {
-  const picks = events.slice(0, 6);
-  if (picks.length === 0) return null;
+  if (events.length === 0) return null;
 
   return (
     <section
@@ -47,7 +46,7 @@ export function DetourSection({
         </div>
 
         <FeaturedEventsCarousel
-          events={picks}
+          events={events}
           favorites={favorites}
           onToggleFavorite={onToggleFavorite}
           onOpenDetail={onOpenDetail}
