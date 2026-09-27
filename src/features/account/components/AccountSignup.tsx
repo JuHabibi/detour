@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { authClient } from "@/features/account/auth-client";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
+import { accountLoginHref } from "@/features/account/safe-account-next-path";
 
 const fieldClassName =
   "mt-2 h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint";
@@ -12,7 +13,12 @@ const fieldClassName =
 const AUTH_ERROR_MESSAGE =
   "Impossible de créer le compte. Vérifiez vos informations ou réessayez.";
 
-export function AccountSignup() {
+type AccountSignupProps = {
+  /** Cible post-inscription (déjà validée côté serveur). */
+  nextPath?: string;
+};
+
+export function AccountSignup({ nextPath = "/account" }: AccountSignupProps) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -45,7 +51,7 @@ export function AccountSignup() {
         setError(AUTH_ERROR_MESSAGE);
         return;
       }
-      router.push("/account");
+      router.push(nextPath);
       router.refresh();
     } catch {
       setError(AUTH_ERROR_MESSAGE);
@@ -53,6 +59,10 @@ export function AccountSignup() {
       setPending(false);
     }
   }
+
+  const lead = nextPath.startsWith("/frise")
+    ? "Un compte pour la promenade, vos favoris, et l’export calendrier en fichier .ics."
+    : "Un compte simple pour retrouver vos favoris et les glisser dans votre agenda.";
 
   return (
     <AccountAuthLayout variant="signup">
@@ -62,10 +72,7 @@ export function AccountSignup() {
       <h1 className="mt-4 font-display text-[2.1rem] leading-[1.02] tracking-tight text-ink md:mt-5 md:text-[2.75rem] lg:text-[3rem]">
         Gardez ce qui compte.
       </h1>
-      <p className="mt-5 text-sm leading-6 text-cream-dim md:mt-6">
-        Un compte simple pour retrouver vos favoris et les glisser dans votre
-        agenda.
-      </p>
+      <p className="mt-5 text-sm leading-6 text-cream-dim md:mt-6">{lead}</p>
 
       <form onSubmit={handleSubmit} className="mt-10 space-y-5 md:mt-12">
         <label className="block">
@@ -152,7 +159,7 @@ export function AccountSignup() {
       <p className="mt-8 text-sm text-cream-dim">
         Déjà inscrit ?{" "}
         <Link
-          href="/account/login"
+          href={accountLoginHref(nextPath === "/account" ? null : nextPath)}
           className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral"
         >
           J’ai déjà un compte

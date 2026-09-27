@@ -14,6 +14,8 @@ type HeaderProps = {
   /** Entrée Account. */
   accountHref?: string;
   accountLabel?: string;
+  /** Affiche « La promenade » dans la nav (compte connecté uniquement). */
+  showFriseNav?: boolean;
 };
 
 export function Header({
@@ -21,6 +23,7 @@ export function Header({
   homeHref = "#top",
   accountHref = "/account",
   accountLabel = "Se connecter",
+  showFriseNav = false,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm">
@@ -49,6 +52,11 @@ export function Header({
             >
               Explorer
             </Link>
+            {showFriseNav ? (
+              <Link href="/frise" className="transition-colors hover:text-sand">
+                La promenade
+              </Link>
+            ) : null}
           </nav>
 
           <p

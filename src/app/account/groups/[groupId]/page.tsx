@@ -22,7 +22,7 @@ export default async function AccountGroupRoutePage({ params }: GroupPageProps) 
   const events = group.events.map(mapDetourEventToEventItem);
 
   return (
-    <AccountShell accountLabel="Mon compte">
+    <AccountShell accountLabel="Mon compte" showFriseNav>
       <AccountGroupDetail
         groupId={group.id}
         initialName={group.name}

@@ -5,7 +5,11 @@ import {
 import { V1_COMMUNES, type V1Commune } from "@/domain/geo/v1-communes";
 import type { WhenFilter } from "@/domain/time/when-filter";
 import type { CategoryId } from "@/data/types";
-import type { ListExplorerEventsQuery } from "@/application/explorer/types";
+import {
+  EXPLORER_DEFAULT_PAGE_SIZE,
+  EXPLORER_MAX_PAGE_SIZE,
+  type ListExplorerEventsQuery,
+} from "@/application/explorer/types";
 
 const WHEN_FILTERS: readonly WhenFilter[] = [
   "today",
@@ -23,6 +27,8 @@ export type ExplorerPublicInput = {
   category?: string | null;
   city?: string | null;
   cursor?: string | null;
+  /** Défaut 12, plafonné à EXPLORER_MAX_PAGE_SIZE. */
+  limit?: number | null;
 };
 
 export type ParsedExplorerQuery =
@@ -83,6 +89,14 @@ export function parseExplorerPublicInput(
   const cursor =
     input.cursor != null && input.cursor !== "" ? input.cursor : undefined;
 
+  let limit = EXPLORER_DEFAULT_PAGE_SIZE;
+  if (input.limit != null && Number.isFinite(input.limit)) {
+    limit = Math.min(
+      Math.max(1, Math.floor(input.limit)),
+      EXPLORER_MAX_PAGE_SIZE,
+    );
+  }
+
   return {
     ok: true,
     query: {
@@ -91,7 +105,7 @@ export function parseExplorerPublicInput(
       category,
       city,
       cursor,
-      limit: 12,
+      limit,
     },
   };
 }

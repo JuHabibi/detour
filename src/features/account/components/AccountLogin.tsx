@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { authClient } from "@/features/account/auth-client";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
+import { accountSignupHref } from "@/features/account/safe-account-next-path";
 
 const fieldClassName =
   "mt-2 h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint";
@@ -14,7 +15,12 @@ const AUTH_ERROR_MESSAGE =
 
 const showForgotPassword = process.env.NODE_ENV !== "production";
 
-export function AccountLogin() {
+type AccountLoginProps = {
+  /** Cible post-connexion (déjà validée côté serveur). */
+  nextPath?: string;
+};
+
+export function AccountLogin({ nextPath = "/account" }: AccountLoginProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +40,7 @@ export function AccountLogin() {
         setError(AUTH_ERROR_MESSAGE);
         return;
       }
-      router.push("/account");
+      router.push(nextPath);
       router.refresh();
     } catch {
       setError(AUTH_ERROR_MESSAGE);
@@ -43,17 +49,24 @@ export function AccountLogin() {
     }
   }
 
+  const heading =
+    nextPath.startsWith("/frise")
+      ? "La promenade vous attend."
+      : "Retrouvez vos détours.";
+  const lead =
+    nextPath.startsWith("/frise")
+      ? "Connectez-vous pour reprendre la promenade temporelle — favoris et compte inclus."
+      : "Connectez-vous pour accéder à vos favoris et les ajouter à votre agenda.";
+
   return (
     <AccountAuthLayout variant="login">
       <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-sand">
         Connexion
       </p>
       <h1 className="mt-4 font-display text-[2.1rem] leading-[1.02] tracking-tight text-ink md:mt-5 md:text-[2.75rem] lg:text-[3rem]">
-        Retrouvez vos détours.
+        {heading}
       </h1>
-      <p className="mt-5 text-sm leading-6 text-cream-dim md:mt-6">
-        Connectez-vous pour accéder à vos favoris et les ajouter à votre agenda.
-      </p>
+      <p className="mt-5 text-sm leading-6 text-cream-dim md:mt-6">{lead}</p>
 
       <form onSubmit={handleSubmit} className="mt-10 space-y-5 md:mt-12">
         <label className="block">
@@ -118,7 +131,7 @@ export function AccountLogin() {
       <p className="mt-8 text-sm text-cream-dim">
         Pas encore de compte ?{" "}
         <Link
-          href="/account/signup"
+          href={accountSignupHref(nextPath === "/account" ? null : nextPath)}
           className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral"
         >
           Créer un compte
@@ -127,3 +140,4 @@ export function AccountLogin() {
     </AccountAuthLayout>
   );
 }
+

@@ -80,4 +80,16 @@ describe("parseExplorerPublicInput", () => {
     expect(parsed.query.category).toBeUndefined();
     expect(parsed.query.city).toBeUndefined();
   });
+
+  it("accepte limit plafonné", () => {
+    const parsed = parseExplorerPublicInput({ when: "upcoming", limit: 50 });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.query.limit).toBe(50);
+
+    const capped = parseExplorerPublicInput({ when: "upcoming", limit: 999 });
+    expect(capped.ok).toBe(true);
+    if (!capped.ok) return;
+    expect(capped.query.limit).toBe(50);
+  });
 });
