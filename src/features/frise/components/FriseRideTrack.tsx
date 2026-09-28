@@ -42,6 +42,11 @@ type FriseRideTrackProps = {
   favorites?: Set<string>;
   onToggleFavorite?: (id: string) => void;
   onOpenDetail?: OpenEventDetailHandler;
+  /** Erreur de chargement (hors flux : affichée dans le cadre de la piste). */
+  loadError?: string | null;
+  onRetry?: () => void;
+  /** Erreur favori ponctuelle — bandeau dans le cadre, sans pousser la piste. */
+  bannerError?: string | null;
 };
 
 function usePrefersReducedMotion(): boolean {
@@ -69,11 +74,17 @@ export function FriseRideTrack({
   favorites,
   onToggleFavorite,
   onOpenDetail,
+  loadError = null,
+  onRetry,
+  bannerError = null,
 }: FriseRideTrackProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<FriseScrollSession | null>(null);
   const reducedMotion = usePrefersReducedMotion();
+  const isPending = model.coverageStatus === "pending";
+  const isError = model.coverageStatus === "error";
+  const showTrackBody = !isPending && !isError;
   const geometryKey = useMemo(() => friseTrackGeometryKey(model), [model]);
   const [overlay, setOverlay] = useState<FriseScrollOverlaySnapshot>(() => ({
     progress: 0,
@@ -199,7 +210,7 @@ export function FriseRideTrack({
 
   const eventSummary =
     model.coverageStatus === "pending"
-      ? "Chargement de la période…"
+      ? "La promenade se prépare…"
       : model.coverageStatus === "error"
         ? "Impossible d’afficher cette période."
         : model.eventCountInWindow === 0
@@ -256,38 +267,77 @@ export function FriseRideTrack({
           }}
         />
 
-        <FriseScrollChrome overlay={overlay} reducedMotion={reducedMotion} />
+        {bannerError ? (
+          <div
+            className="absolute inset-x-0 top-0 z-30 border-b border-coral/30 bg-paper/95 px-3 py-2 md:px-4"
+            role="alert"
+            data-frise-status-slot="favorite-error"
+          >
+            <p className="text-sm leading-5 text-coral">{bannerError}</p>
+          </div>
+        ) : null}
+
+        {showTrackBody ? (
+          <FriseScrollChrome overlay={overlay} reducedMotion={reducedMotion} />
+        ) : (
+          <div className="absolute inset-0 z-[5] flex items-center justify-center">
+            <FriseTrackStatusLayer
+              pending={isPending}
+              errorMessage={
+                loadError ??
+                (isError ? "Impossible d’afficher cette période." : null)
+              }
+              onRetry={onRetry}
+              reducedMotion={reducedMotion}
+            />
+          </div>
+        )}
 
         <div
           ref={scrollerRef}
           role="region"
-          aria-label={`La promenade · ${categoryLabel}. Défilement horizontal. Mois affiché : ${overlay.activeMonthLabel}.`}
+          aria-label={
+            isPending
+              ? `La promenade · ${categoryLabel}. Chargement de ${model.window.label}.`
+              : isError
+                ? `La promenade · ${categoryLabel}. Impossible d’afficher ${model.window.label}.`
+                : `La promenade · ${categoryLabel}. Défilement horizontal. Mois affiché : ${overlay.activeMonthLabel}.`
+          }
+          aria-busy={isPending}
           tabIndex={0}
           onKeyDown={onKeyDown}
           className={cn(
-            "relative z-[1] flex snap-x snap-mandatory gap-0 overflow-x-auto overflow-y-hidden",
+            "relative z-[1] flex snap-x snap-mandatory gap-0 overflow-y-hidden",
+            showTrackBody ? "overflow-x-auto" : "overflow-x-hidden",
             "pt-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink",
             "md:pt-8",
             "scrollbar-none",
             "touch-pan-x",
+            !showTrackBody && "pointer-events-none",
           )}
         >
           <div
             ref={trackRef}
             data-frise-track-height="viewport"
+            data-frise-track-state={
+              isPending ? "pending" : isError ? "error" : "ready"
+            }
             className={cn(
-              "relative flex w-max shrink-0",
+              "relative flex shrink-0",
+              showTrackBody ? "w-max" : "w-full min-w-full",
               FRISE_TRACK_HEIGHT_CLASS,
               FRISE_TRACK_PB_CLASS,
             )}
           >
-            <FriseTrackBody
-              model={model}
-              favorites={favorites}
-              onToggleFavorite={onToggleFavorite}
-              onOpenDetail={onOpenDetail}
-              onOpenDayPanel={openDayPanel}
-            />
+            {showTrackBody ? (
+              <FriseTrackBody
+                model={model}
+                favorites={favorites}
+                onToggleFavorite={onToggleFavorite}
+                onOpenDetail={onOpenDetail}
+                onOpenDayPanel={openDayPanel}
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -302,6 +352,57 @@ export function FriseRideTrack({
           onClose={() => setDayPanel(null)}
         />
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Pending / erreur : même hauteur de piste, pas d’anciennes cartes ni de faux mois.
+ * Pas de décor paysage ici (évite d’élargir le track hors viewport).
+ */
+function FriseTrackStatusLayer({
+  pending,
+  errorMessage,
+  onRetry,
+  reducedMotion,
+}: {
+  pending: boolean;
+  errorMessage: string | null;
+  onRetry?: () => void;
+  reducedMotion: boolean;
+}) {
+  return (
+    <div className="flex max-w-md flex-col items-center gap-3 px-6 text-center">
+      {pending ? (
+        <p
+          className={cn(
+            "font-editorial text-[1.35rem] leading-snug tracking-tight text-ink/80 md:text-2xl",
+            !reducedMotion &&
+              "animate-[frise-pending-fade_1.6s_ease-in-out_infinite]",
+          )}
+          data-frise-status-slot="pending-loader"
+        >
+          La promenade se prépare…
+        </p>
+      ) : (
+        <div
+          className="flex flex-col items-center gap-3"
+          data-frise-status-slot="load-error"
+        >
+          <p className="text-sm leading-6 text-coral" role="alert">
+            {errorMessage ?? "Impossible d’afficher cette période."}
+          </p>
+          {onRetry ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="min-h-10 border border-line bg-paper px-4 text-[11px] font-medium uppercase tracking-[0.12em] text-ink transition-colors hover:border-ink/30 hover:bg-foam motion-reduce:transition-none"
+            >
+              Réessayer
+            </button>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

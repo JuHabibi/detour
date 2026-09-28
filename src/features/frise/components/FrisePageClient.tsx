@@ -261,39 +261,6 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
                 >
                   Chargement…
                 </span>
-
-                {/* Erreurs hors flux : pas de vide permanent, wrapping mobile sans pousser la piste. */}
-                <div
-                  className="pointer-events-none absolute inset-x-0 top-full z-20 h-0"
-                  aria-live="assertive"
-                  data-frise-status-slot="errors"
-                >
-                  {favoriteError ? (
-                    <p
-                      className="pointer-events-auto max-w-prose bg-paper/95 text-sm leading-5 text-coral"
-                      role="alert"
-                      data-frise-status-slot="favorite-error"
-                    >
-                      {favoriteError}
-                    </p>
-                  ) : null}
-                  {frise.error ? (
-                    <p
-                      className="pointer-events-auto mt-1 max-w-prose bg-paper/95 text-sm leading-5 text-coral"
-                      role="alert"
-                      data-frise-status-slot="load-error"
-                    >
-                      {frise.error}{" "}
-                      <button
-                        type="button"
-                        className="underline"
-                        onClick={() => void frise.reload()}
-                      >
-                        Réessayer
-                      </button>
-                    </p>
-                  ) : null}
-                </div>
               </div>
 
               <FriseRideTrack
@@ -303,6 +270,9 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
                 favorites={favorites as Set<string>}
                 onToggleFavorite={toggleFavorite}
                 onOpenDetail={onOpenDetail}
+                loadError={frise.error}
+                onRetry={() => void frise.reload()}
+                bannerError={favoriteError}
               />
 
               {showEmptyFavorites ? (

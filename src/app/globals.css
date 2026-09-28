@@ -123,6 +123,10 @@ body {
   .animate-\[frise-bike-bob_0\.28s_ease-in-out\] {
     animation: none !important;
   }
+
+  .animate-\[frise-pending-fade_1\.6s_ease-in-out_infinite\] {
+    animation: none !important;
+  }
 }
 
 @keyframes frise-bike-bob {
@@ -132,6 +136,16 @@ body {
   }
   50% {
     translate: 0 -2px;
+  }
+}
+
+@keyframes frise-pending-fade {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
   }
 }
 
