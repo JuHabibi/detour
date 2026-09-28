@@ -8,6 +8,22 @@ import { CITY } from "@/config/city";
 /** Plus long des deux labels Account — réserve la largeur (anti-CLS). */
 const ACCOUNT_LABEL_WIDTH_SAMPLE = "Se connecter";
 
+/**
+ * Échap : restore le focus sur le bouton menu puis ferme.
+ * Un clic lien ne passe pas par ici — la navigation garde le focus.
+ */
+export function closeMobileMenuOnEscape(
+  e: Pick<KeyboardEvent, "key"> & { preventDefault: () => void },
+  restoreFocus: () => void,
+  close: () => void,
+): boolean {
+  if (e.key !== "Escape") return false;
+  e.preventDefault();
+  restoreFocus();
+  close();
+  return true;
+}
+
 type HeaderProps = {
   favoriteCount: number;
   /** Lien logo — `#top` sur la home, `/` ailleurs. */
@@ -37,15 +53,16 @@ export function Header({
     firstLinkRef.current?.focus();
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      setMenuOpen(false);
+      closeMobileMenuOnEscape(
+        e,
+        () => menuButtonRef.current?.focus(),
+        () => setMenuOpen(false),
+      );
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      menuButtonRef.current?.focus();
     };
   }, [menuOpen]);
 
@@ -58,7 +75,7 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-[var(--detour-shell-max)] items-center justify-between gap-3 px-5 py-2 md:gap-4 md:px-8 md:py-2.5 lg:px-12 2xl:px-14 min-[1920px]:px-16">
+      <div className="mx-auto flex max-w-[var(--detour-shell-max)] items-center justify-between gap-2 px-4 py-2 sm:gap-5 sm:px-5 md:gap-4 md:px-8 md:py-2.5 lg:px-12 2xl:px-14 min-[1920px]:px-16">
         <Link
           href={homeHref}
           className="font-display text-[1.55rem] leading-none tracking-tight 2xl:text-[1.7rem]"
@@ -69,7 +86,7 @@ export function Header({
           </span>
         </Link>
 
-        <div className="flex items-center gap-3 sm:gap-5 md:gap-6">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-5 md:gap-6">
           <nav
             aria-label="Sections"
             className="hidden items-center gap-6 text-[12px] font-medium uppercase tracking-[0.14em] text-ink md:flex"
@@ -96,7 +113,7 @@ export function Header({
 
           <Link
             href={accountHref}
-            className="inline-grid text-[12px] font-medium uppercase tracking-[0.14em] text-ink transition-colors hover:text-sand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="inline-grid shrink-0 text-[11px] font-medium uppercase tracking-[0.14em] text-ink transition-colors hover:text-sand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:text-[12px]"
           >
             <span
               className="invisible col-start-1 row-start-1 whitespace-nowrap"
@@ -112,7 +129,7 @@ export function Header({
           <Link
             href={accountHref}
             aria-label={`Mes détours, ${favoriteCount} enregistré${favoriteCount > 1 ? "s" : ""}`}
-            className="relative flex size-10 items-center justify-center text-ink transition-colors hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="relative flex size-9 shrink-0 items-center justify-center text-ink transition-colors hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:size-10"
           >
             <HeartIcon filled={favoriteCount > 0} />
             <span
@@ -129,7 +146,7 @@ export function Header({
           <button
             ref={menuButtonRef}
             type="button"
-            className="flex size-10 items-center justify-center text-ink transition-colors hover:text-sand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:hidden"
+            className="flex size-9 shrink-0 items-center justify-center text-ink transition-colors hover:text-sand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:size-10 md:hidden"
             aria-expanded={menuOpen}
             aria-controls={menuId}
             aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
@@ -146,7 +163,7 @@ export function Header({
           aria-label="Sections"
           className="border-t border-line md:hidden"
         >
-          <ul className="mx-auto flex max-w-[var(--detour-shell-max)] flex-col gap-1 px-5 py-3 text-[13px] font-medium uppercase tracking-[0.14em] text-ink">
+          <ul className="mx-auto flex max-w-[var(--detour-shell-max)] flex-col gap-1 px-4 py-3 text-[13px] font-medium uppercase tracking-[0.14em] text-ink sm:px-5">
             <li>
               <Link
                 ref={firstLinkRef}
