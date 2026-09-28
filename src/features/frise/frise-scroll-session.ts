@@ -70,6 +70,39 @@ type SessionOptions = {
 };
 
 /**
+ * Clé de géométrie du track : change seulement si les marqueurs peuvent bouger.
+ * Ignore favoris / métadonnées hors layout.
+ */
+export function friseTrackGeometryKey(model: {
+  window: { fromKey: string; toKey: string };
+  coverageStatus: string;
+  chapters: readonly {
+    monthKey: string;
+    items: readonly (
+      | { kind: "day"; dateKey: string; events: readonly unknown[] }
+      | { kind: "quiet"; fromKey: string; toKey: string }
+    );
+  }[];
+}): string {
+  const parts: string[] = [
+    model.window.fromKey,
+    model.window.toKey,
+    model.coverageStatus,
+  ];
+  for (const chapter of model.chapters) {
+    parts.push(chapter.monthKey);
+    for (const item of chapter.items) {
+      if (item.kind === "day") {
+        parts.push(`d:${item.dateKey}:${item.events.length}`);
+      } else {
+        parts.push(`q:${item.fromKey}:${item.toKey}`);
+      }
+    }
+  }
+  return parts.join("|");
+}
+
+/**
  * Session scroll : coalesce les events via rAF, cache les marks.
  */
 export function createFriseScrollSession(options: SessionOptions) {
@@ -84,6 +117,7 @@ export function createFriseScrollSession(options: SessionOptions) {
   const clearRollTimeout =
     options.clearRollTimeout ?? ((id: number) => window.clearTimeout(id));
 
+  let reducedMotion = options.reducedMotion;
   let marks: FriseScrollMark[] = [];
   let lastScrollLeft = 0;
   let wheelAngle = 0;
@@ -145,7 +179,7 @@ export function createFriseScrollSession(options: SessionOptions) {
     if (!el) return;
 
     const left = el.scrollLeft;
-    if (!options.reducedMotion) {
+    if (!reducedMotion) {
       const delta = left - lastScrollLeft;
       wheelAngle += delta * 0.55;
       if (Math.abs(delta) > 0.5) {
@@ -175,10 +209,15 @@ export function createFriseScrollSession(options: SessionOptions) {
     scanMarks();
     const el = options.getScroller();
     if (el) {
+      // Conserve wheelAngle / lastScrollLeft : seul le cache des marks est rafraîchi.
       lastScrollLeft = el.scrollLeft;
       applyActiveFromCache(el.scrollLeft, el.clientWidth);
     }
     publish();
+  }
+
+  function setReducedMotion(next: boolean) {
+    reducedMotion = next;
   }
 
   function dispose() {
@@ -197,12 +236,18 @@ export function createFriseScrollSession(options: SessionOptions) {
     return marks.length;
   }
 
+  function getWheelAngle(): number {
+    return wheelAngle;
+  }
+
   return {
     onScroll,
     invalidateMarks,
+    setReducedMotion,
     dispose,
     getMetrics,
     getCachedMarkCount,
+    getWheelAngle,
   };
 }
 

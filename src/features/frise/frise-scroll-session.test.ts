@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   countLayoutReadsForMarkScan,
   createFriseScrollSession,
+  friseTrackGeometryKey,
   readScrollMarks,
 } from "@/features/frise/frise-scroll-session";
 import { resolveActiveFriseMark } from "@/features/frise/frise-scroll-mark";
@@ -160,6 +161,120 @@ describe("frise scroll cost — avant / après", () => {
   it("countLayoutReadsForMarkScan compte scroller + marqueurs", () => {
     expect(countLayoutReadsForMarkScan(0)).toBe(1);
     expect(countLayoutReadsForMarkScan(40)).toBe(41);
+  });
+});
+
+describe("continuité vélo (session + angle)", () => {
+  function fakeScroller(scrollLeft = 0) {
+    return {
+      scrollLeft,
+      scrollWidth: 8000,
+      clientWidth: 800,
+      getBoundingClientRect: () =>
+        ({
+          left: 0,
+          width: 800,
+          top: 0,
+          right: 800,
+          bottom: 0,
+          height: 0,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect,
+      querySelectorAll: () => [] as unknown as NodeListOf<HTMLElement>,
+    } as unknown as HTMLElement;
+  }
+
+  it("conserve wheelAngle après invalidateMarks (favori / reload sans géométrie)", () => {
+    const frames: FrameRequestCallback[] = [];
+    const scroller = fakeScroller(0);
+    const session = createFriseScrollSession({
+      getScroller: () => scroller,
+      reducedMotion: false,
+      initialMonthLabel: "Septembre 2026",
+      onOverlay: () => {},
+      requestFrame: (cb) => {
+        frames.push(cb);
+        return frames.length;
+      },
+      cancelFrame: () => {},
+      setRollTimeout: () => 1,
+      clearRollTimeout: () => {},
+    });
+
+    scroller.scrollLeft = 400;
+    session.onScroll();
+    frames[0]!(16);
+    const angleAfterScroll = session.getWheelAngle();
+    expect(angleAfterScroll).toBeCloseTo(400 * 0.55);
+
+    // Favori / rebuild model : invalidateMarks sans reset d’angle
+    session.invalidateMarks();
+    expect(session.getWheelAngle()).toBe(angleAfterScroll);
+    expect(session.getMetrics().markScans).toBe(1);
+
+    // Chargement données (nouveau contenu) : 2e scan, angle intact
+    session.invalidateMarks();
+    expect(session.getWheelAngle()).toBe(angleAfterScroll);
+    expect(session.getMetrics().markScans).toBe(2);
+
+    session.dispose();
+  });
+
+  it("friseTrackGeometryKey ignore les métadonnées hors layout", () => {
+    const base = {
+      window: { fromKey: "2026-09-01", toKey: "2026-11-30" },
+      coverageStatus: "complete",
+      chapters: [
+        {
+          monthKey: "2026-09",
+          items: [
+            { kind: "day" as const, dateKey: "2026-09-12", events: [{}, {}] },
+            {
+              kind: "quiet" as const,
+              fromKey: "2026-09-13",
+              toKey: "2026-09-20",
+            },
+          ],
+        },
+      ],
+    };
+
+    const sameGeometry = friseTrackGeometryKey(base);
+    // Même structure → même clé (favori ne touche pas events.length ici)
+    expect(friseTrackGeometryKey({ ...base })).toBe(sameGeometry);
+
+    // Contenu : nombre d’events change → positions possibles
+    expect(
+      friseTrackGeometryKey({
+        ...base,
+        chapters: [
+          {
+            monthKey: "2026-09",
+            items: [
+              { kind: "day", dateKey: "2026-09-12", events: [{}, {}, {}] },
+              {
+                kind: "quiet",
+                fromKey: "2026-09-13",
+                toKey: "2026-09-20",
+              },
+            ],
+          },
+        ],
+      }),
+    ).not.toBe(sameGeometry);
+
+    // Fenêtre / couverture : invalidation attendue (trimestre, load)
+    expect(
+      friseTrackGeometryKey({
+        ...base,
+        window: { fromKey: "2026-12-01", toKey: "2027-02-28" },
+      }),
+    ).not.toBe(sameGeometry);
+    expect(
+      friseTrackGeometryKey({ ...base, coverageStatus: "pending" }),
+    ).not.toBe(sameGeometry);
   });
 });
 

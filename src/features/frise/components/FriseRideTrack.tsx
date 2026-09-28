@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -23,7 +24,9 @@ import {
 } from "@/features/frise/frise-layout";
 import {
   createFriseScrollSession,
+  friseTrackGeometryKey,
   type FriseScrollOverlaySnapshot,
+  type FriseScrollSession,
 } from "@/features/frise/frise-scroll-session";
 import {
   type ExplorerFriezeDayCluster,
@@ -69,7 +72,9 @@ export function FriseRideTrack({
 }: FriseRideTrackProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const sessionRef = useRef<FriseScrollSession | null>(null);
   const reducedMotion = usePrefersReducedMotion();
+  const geometryKey = useMemo(() => friseTrackGeometryKey(model), [model]);
   const [overlay, setOverlay] = useState<FriseScrollOverlaySnapshot>(() => ({
     progress: 0,
     wheelAngle: 0,
@@ -93,6 +98,7 @@ export function FriseRideTrack({
     };
   }, [model.window.fromKey, model.window.toKey, categoryLabel]);
 
+  // Session durable : ne pas la reconstruire quand `model` est recréé (favori, etc.).
   useEffect(() => {
     const session = createFriseScrollSession({
       getScroller: () => scrollerRef.current,
@@ -100,15 +106,22 @@ export function FriseRideTrack({
       initialMonthLabel: initialMonthLabel(model),
       onOverlay: setOverlay,
     });
+    sessionRef.current = session;
 
     const el = scrollerRef.current;
     if (!el) {
       session.dispose();
+      sessionRef.current = null;
       return;
     }
 
     session.invalidateMarks();
     el.addEventListener("scroll", session.onScroll, { passive: true });
+    if (process.env.NODE_ENV !== "production") {
+      (
+        el as HTMLElement & { __friseScrollSession?: FriseScrollSession }
+      ).__friseScrollSession = session;
+    }
 
     const ro = new ResizeObserver(() => {
       session.invalidateMarks();
@@ -120,8 +133,25 @@ export function FriseRideTrack({
       el.removeEventListener("scroll", session.onScroll);
       ro.disconnect();
       session.dispose();
+      if (process.env.NODE_ENV !== "production") {
+        delete (
+          el as HTMLElement & { __friseScrollSession?: FriseScrollSession }
+        ).__friseScrollSession;
+      }
+      if (sessionRef.current === session) sessionRef.current = null;
     };
-  }, [reducedMotion, model]);
+    // `model` volontairement omis : géométrie gérée ci-dessous.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- session lifetime ≠ model identity
+  }, [reducedMotion]);
+
+  useEffect(() => {
+    sessionRef.current?.setReducedMotion(reducedMotion);
+  }, [reducedMotion]);
+
+  // Recalcule les marqueurs seulement si leur position peut changer.
+  useEffect(() => {
+    sessionRef.current?.invalidateMarks();
+  }, [geometryKey]);
 
   const scrollByStep = useCallback(
     (direction: -1 | 1) => {
