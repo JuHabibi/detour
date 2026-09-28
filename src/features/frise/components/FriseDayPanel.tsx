@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
-import type { OpenEventDetailHandler } from "@/features/home/components/EventCard";
+import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import { FrisePosterCard } from "@/features/frise/components/FrisePosterCard";
 import type { ExplorerFriezeDayCluster } from "@/features/frise/timeline/frise-timeline-model";
 import { cn } from "@/lib/cn";

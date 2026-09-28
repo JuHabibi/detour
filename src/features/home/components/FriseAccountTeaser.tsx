@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { VintageBikeSvg } from "@/features/frise/components/VintageBikeSvg";
+import { VintageBikeSvg } from "@/components/VintageBikeSvg";
 import {
   accountLoginHref,
   accountSignupHref,

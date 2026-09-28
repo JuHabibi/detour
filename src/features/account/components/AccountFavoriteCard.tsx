@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 import type { EventItem } from "@/data/types";
 import { eventCalendarPath } from "@/domain/calendar/build-event-calendar";
-import { resolveCategoryBadgeTone } from "@/features/home/category-badge-style";
+import { resolveCategoryBadgeTone } from "@/components/event/category-badge-style";
 import { cn } from "@/lib/cn";
 
 type AccountFavoriteCardProps = {

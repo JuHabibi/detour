@@ -12,7 +12,7 @@ const loadHomePagePath = path.join(
 describe("Explorer UI wiring", () => {
   it("ExplorationFilters n’expose plus le rayon", () => {
     const source = readFileSync(
-      path.join(homeComponents, "ExplorationFilters.tsx"),
+      path.join(homeComponents, "explorer/ExplorationFilters.tsx"),
       "utf8",
     );
     expect(source).not.toMatch(/radius|Rayon|RadiusFilter|km/);

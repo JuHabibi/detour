@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
-import {
-  EventCard,
-  type OpenEventDetailHandler,
-} from "@/features/home/components/EventCard";
+import { EventCard } from "@/features/home/components/EventCard";
+import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import type { EventItem } from "@/data/types";
 
 type EventGridProps = {

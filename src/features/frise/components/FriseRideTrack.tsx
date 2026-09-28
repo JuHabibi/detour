@@ -9,11 +9,11 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import type { OpenEventDetailHandler } from "@/features/home/components/EventCard";
+import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import { FriseDayPanel } from "@/features/frise/components/FriseDayPanel";
 import { FriseLandscapeDecor } from "@/features/frise/components/FriseLandscapeDecor";
 import { FrisePosterCard } from "@/features/frise/components/FrisePosterCard";
-import { VintageBikeSvg } from "@/features/frise/components/VintageBikeSvg";
+import { VintageBikeSvg } from "@/components/VintageBikeSvg";
 import {
   EXPLORER_FRIEZE_DAY_PREVIEW,
   EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE,

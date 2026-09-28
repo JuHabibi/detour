@@ -283,6 +283,7 @@ Ce sont des **écarts au modèle cible** (§13). Ils **ne constituent pas** des 
 | `src/application/home/get-public-home-data.ts` | Snapshot slim + materialize IA |
 | `src/infrastructure/next-public-home-cache.ts` | Data Cache Home + invalidation tag |
 | `src/features/home/components/HomePage.tsx` | Composition UI home (Radar, Explorer, hydratation auth/favoris) |
+| `src/components/event/` | UI événement partagée (modal, formatWhen, pastilles, raisons Radar) |
 | `src/features/home/hooks/useExplorerEvents.ts` | Orchestration async Explorer (client) |
 | `src/app/actions/load-explorer-events.ts` | Server action Explorer (filtres + pagination) |
 | `src/application/event.service.ts` | Orchestrateur métier / IA |

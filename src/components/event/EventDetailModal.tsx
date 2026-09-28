@@ -3,13 +3,13 @@
 import Image from "next/image";
 import { useEffect, useId, useRef } from "react";
 import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
-import { resolveCategoryBadgeTone } from "@/features/home/category-badge-style";
+import { resolveCategoryBadgeTone } from "@/components/event/category-badge-style";
 import {
   EventCalendarClockIcon,
   EventMapPinIcon,
   EventMoveUpRightIcon,
-} from "@/features/home/components/event-lucide-icons";
-import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
+} from "@/components/event/event-lucide-icons";
+import { resolveRadarPickReason } from "@/components/event/resolve-radar-pick-reason";
 import type { EventItem } from "@/data/types";
 import { captureProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
@@ -19,8 +19,14 @@ import {
   restoreDialogReturnFocus,
 } from "@/lib/stacked-dialog";
 
-
 export type EventDetailSurface = "radar" | "explorer";
+
+/** Callback d’ouverture de fiche — partagé home / frise. */
+export type OpenEventDetailHandler = (
+  event: EventItem,
+  surface: EventDetailSurface,
+  trigger: HTMLElement,
+) => void;
 
 type EventDetailModalProps = {
   event: EventItem;

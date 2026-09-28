@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { loadExplorerEvents } from "@/app/actions/load-explorer-events";
-import { CategoryFilter } from "@/features/home/components/CategoryFilter";
-import { EventGrid } from "@/features/home/components/EventGrid";
-import { ExplorationFilters } from "@/features/home/components/ExplorationFilters";
+import { CategoryFilter } from "@/features/home/components/explorer/CategoryFilter";
+import { EventGrid } from "@/features/home/components/explorer/EventGrid";
+import { ExplorationFilters } from "@/features/home/components/explorer/ExplorationFilters";
 import {
   useExplorerEvents,
   type ExplorerInitialPage,
@@ -13,7 +13,7 @@ import type { CategoryId } from "@/data/types";
 import type { V1Commune } from "@/domain/geo/v1-communes";
 import type { WhenFilter } from "@/domain/time/when-filter";
 import { captureProductEvent } from "@/lib/analytics";
-import type { OpenEventDetailHandler } from "@/features/home/components/EventCard";
+import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 
 export type { ExplorerInitialPage };
 

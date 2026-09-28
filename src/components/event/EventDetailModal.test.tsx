@@ -16,7 +16,7 @@ vi.mock("next/image", () => ({
 import {
   EventDetailModal,
   resolveOfficialSourceLink,
-} from "@/features/home/components/EventDetailModal";
+} from "@/components/event/EventDetailModal";
 import {
   StandardEventCard,
   resolveRadarCardCtaLabel,

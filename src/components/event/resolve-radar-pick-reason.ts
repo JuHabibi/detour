@@ -1,5 +1,5 @@
 import type { EventItem } from "@/data/types";
-import { getRadarPickReasonOverride } from "@/features/home/radar-pick-reason-overrides";
+import { getRadarPickReasonOverride } from "@/components/event/radar-pick-reason-overrides";
 
 /** Longueur cible d’une phrase carte (line-clamp-2). */
 const MAX_REASON_LENGTH = 120;

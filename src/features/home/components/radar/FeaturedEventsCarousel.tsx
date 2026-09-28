@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  StandardEventCard,
-  type OpenEventDetailHandler,
-} from "@/features/home/components/EventCard";
+import { StandardEventCard } from "@/features/home/components/EventCard";
+import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import type { EventItem } from "@/data/types";
 import { cn } from "@/lib/cn";
 

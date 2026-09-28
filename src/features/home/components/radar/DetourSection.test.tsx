@@ -13,7 +13,7 @@ vi.mock("next/image", () => ({
   },
 }));
 
-import { DetourSection } from "@/features/home/components/DetourSection";
+import { DetourSection } from "@/features/home/components/radar/DetourSection";
 
 function eventAt(index: number): EventItem {
   const n = index + 1;

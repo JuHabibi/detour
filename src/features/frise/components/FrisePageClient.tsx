@@ -11,7 +11,7 @@ import {
 import { categories } from "@/config/event-categories";
 import type { EventItem } from "@/data/types";
 import { Header } from "@/components/layout/Header";
-import { EventDetailModal } from "@/features/home/components/EventDetailModal";
+import { EventDetailModal } from "@/components/event/EventDetailModal";
 import { FriseRideTrack } from "@/features/frise/components/FriseRideTrack";
 import { useFriseEvents } from "@/features/frise/hooks/useFriseEvents";
 import { cn } from "@/lib/cn";

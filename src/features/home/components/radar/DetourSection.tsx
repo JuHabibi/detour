@@ -1,5 +1,5 @@
-import { FeaturedEventsCarousel } from "@/features/home/components/FeaturedEventsCarousel";
-import type { OpenEventDetailHandler } from "@/features/home/components/EventCard";
+import { FeaturedEventsCarousel } from "@/features/home/components/radar/FeaturedEventsCarousel";
+import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import type { EventItem } from "@/data/types";
 
 type DetourSectionProps = {

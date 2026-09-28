@@ -8,15 +8,15 @@ import {
   listMyFavoriteEventIds,
   removeFavorite,
 } from "@/app/actions/favorites";
-import { DetourSection } from "@/features/home/components/DetourSection";
+import { DetourSection } from "@/features/home/components/radar/DetourSection";
 import {
   ExplorerSection,
   type ExplorerInitialPage,
-} from "@/features/home/components/ExplorerSection";
+} from "@/features/home/components/explorer/ExplorerSection";
 import {
   EventDetailModal,
   type EventDetailSurface,
-} from "@/features/home/components/EventDetailModal";
+} from "@/components/event/EventDetailModal";
 import { FriseAccountTeaser } from "@/features/home/components/FriseAccountTeaser";
 import { Header } from "@/components/layout/Header";
 import { HeroFilters } from "@/features/home/components/HeroFilters";

@@ -1,9 +1,9 @@
 "use client";
 
 import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
-import { resolveCategoryBadgeTone } from "@/features/home/category-badge-style";
-import { formatWhen } from "@/features/home/components/EventCard";
-import type { OpenEventDetailHandler } from "@/features/home/components/EventCard";
+import { resolveCategoryBadgeTone } from "@/components/event/category-badge-style";
+import { formatWhen } from "@/components/event/format-when";
+import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import type { EventItem } from "@/data/types";
 import { cn } from "@/lib/cn";
 

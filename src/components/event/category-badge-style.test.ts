@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   categoryBadgeTone,
   resolveCategoryBadgeTone,
-} from "@/features/home/category-badge-style";
+} from "@/components/event/category-badge-style";
 import type { CategoryId } from "@/data/types";
 
 const PRODUCT: Exclude<CategoryId, "tout">[] = [

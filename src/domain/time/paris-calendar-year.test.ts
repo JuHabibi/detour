@@ -5,7 +5,7 @@ import {
   isOtherParisCalendarYear,
   parisCalendarYear,
 } from "@/domain/time/paris-calendar-year";
-import { formatWhen } from "@/features/home/components/EventCard";
+import { formatWhen } from "@/components/event/format-when";
 
 function baseEvent(
   overrides: Partial<DetourEvent> & Pick<DetourEvent, "id" | "title">,

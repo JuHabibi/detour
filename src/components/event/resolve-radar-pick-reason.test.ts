@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EventItem } from "@/data/types";
-import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
+import { resolveRadarPickReason } from "@/components/event/resolve-radar-pick-reason";
 
 function radarItem(overrides: Partial<EventItem> = {}): EventItem {
   return {
