@@ -184,6 +184,8 @@ export function useFriseEvents({
     });
     return () => {
       cancelled = true;
+      // Démontage ou changement de params : stoppe pagination + commits.
+      loadGenerationRef.current += 1;
     };
   }, [enabled, reload]);
 

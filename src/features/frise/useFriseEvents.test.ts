@@ -1,10 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
-import type { LoadExplorerEventsResult } from "@/app/actions/load-explorer-events";
+import type {
+  LoadExplorerEventsInput,
+  LoadExplorerEventsResult,
+} from "@/app/actions/load-explorer-events";
 import type { EventItem } from "@/data/types";
 import {
   runFriseEventsReload,
   type FriseEventsLoadSuccess,
 } from "@/features/frise/useFriseEvents";
+
+type LoadFn = (
+  input: LoadExplorerEventsInput,
+) => Promise<LoadExplorerEventsResult>;
 
 function event(id: string, category: EventItem["category"]): EventItem {
   return {
@@ -24,8 +31,9 @@ function event(id: string, category: EventItem["category"]): EventItem {
 function okPage(
   events: EventItem[],
   totalCount = events.length,
+  nextCursor: string | null = null,
 ): LoadExplorerEventsResult {
-  return { ok: true, events, totalCount, nextCursor: null };
+  return { ok: true, events, totalCount, nextCursor };
 }
 
 function deferred<T>() {
@@ -38,6 +46,30 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+/** Handlers naïfs : enregistrent tout appel. Le garde-fou est dans runFriseEventsReload. */
+function recordHandlers(isCurrent: () => boolean) {
+  const calls = {
+    loading: [] as boolean[],
+    success: [] as FriseEventsLoadSuccess[],
+    error: [] as string[],
+  };
+  return {
+    calls,
+    handlers: {
+      isCurrent,
+      onLoading: (value: boolean) => {
+        calls.loading.push(value);
+      },
+      onSuccess: (data: FriseEventsLoadSuccess) => {
+        calls.success.push(data);
+      },
+      onError: (message: string) => {
+        calls.error.push(message);
+      },
+    },
+  };
+}
+
 describe("runFriseEventsReload — concurrence", () => {
   it("garde le résultat de la dernière sélection si A finit après B", async () => {
     const gen = { current: 0 };
@@ -46,73 +78,43 @@ describe("runFriseEventsReload — concurrence", () => {
       return () => id === gen.current;
     };
 
-    let displayed: FriseEventsLoadSuccess | null = null;
-    let error: string | null = null;
-    let loading = false;
-
-    const handlersFor = (isCurrent: () => boolean) => ({
-      isCurrent,
-      onLoading: (value: boolean) => {
-        if (isCurrent()) loading = value;
-      },
-      onSuccess: (data: FriseEventsLoadSuccess) => {
-        if (isCurrent()) {
-          displayed = data;
-          error = null;
-        }
-      },
-      onError: (message: string) => {
-        if (isCurrent()) {
-          error = message;
-          displayed = null;
-        }
-      },
-    });
-
     const a = deferred<LoadExplorerEventsResult>();
     const b = deferred<LoadExplorerEventsResult>();
 
-    const load = vi.fn(async (input: { category?: string | null }) => {
+    const load = vi.fn<LoadFn>(async (input) => {
       if (input.category === "Musique") return a.promise;
       if (input.category === "Exposition") return b.promise;
       throw new Error(`catégorie inattendue: ${input.category}`);
     });
 
-    const isA = begin();
+    const recordedA = recordHandlers(begin());
     const loadA = runFriseEventsReload(
-      {
-        category: "Musique",
-        city: null,
-        search: "",
-        load: load as typeof import("@/app/actions/load-explorer-events").loadExplorerEvents,
-      },
-      handlersFor(isA),
+      { category: "Musique", city: null, search: "", load },
+      recordedA.handlers,
     );
 
-    const isB = begin();
+    const recordedB = recordHandlers(begin());
     const loadB = runFriseEventsReload(
-      {
-        category: "Exposition",
-        city: null,
-        search: "",
-        load: load as typeof import("@/app/actions/load-explorer-events").loadExplorerEvents,
-      },
-      handlersFor(isB),
+      { category: "Exposition", city: null, search: "", load },
+      recordedB.handlers,
     );
 
-    const eventsB = [event("b1", "Exposition")];
-    b.resolve(okPage(eventsB, 1));
+    b.resolve(okPage([event("b1", "Exposition")], 1));
     await loadB;
 
-    expect(displayed?.events.map((e) => e.id)).toEqual(["b1"]);
-    expect(error).toBeNull();
-    expect(loading).toBe(false);
+    expect(recordedB.calls.success).toHaveLength(1);
+    expect(recordedB.calls.success[0]?.events.map((e) => e.id)).toEqual([
+      "b1",
+    ]);
+    expect(recordedB.calls.error).toEqual([]);
+    expect(recordedB.calls.loading).toEqual([true, false]);
 
     a.resolve(okPage([event("a1", "Musique")], 1));
     await loadA;
 
-    expect(displayed?.events.map((e) => e.id)).toEqual(["b1"]);
-    expect(error).toBeNull();
+    expect(recordedA.calls.success).toEqual([]);
+    expect(recordedA.calls.error).toEqual([]);
+    expect(recordedB.calls.success).toHaveLength(1);
   });
 
   it("n’efface pas le résultat courant si une ancienne requête échoue", async () => {
@@ -122,113 +124,90 @@ describe("runFriseEventsReload — concurrence", () => {
       return () => id === gen.current;
     };
 
-    let displayed: FriseEventsLoadSuccess | null = {
-      events: [event("keep", "Exposition")],
-      fetchedCount: 1,
-      truncatedByCap: false,
-      totalCount: 1,
-    };
-    let error: string | null = null;
-
-    const handlersFor = (isCurrent: () => boolean) => ({
-      isCurrent,
-      onLoading: () => {},
-      onSuccess: (data: FriseEventsLoadSuccess) => {
-        if (isCurrent()) {
-          displayed = data;
-          error = null;
-        }
-      },
-      onError: (message: string) => {
-        if (isCurrent()) {
-          error = message;
-          displayed = {
-            events: [],
-            fetchedCount: 0,
-            truncatedByCap: false,
-            totalCount: 0,
-          };
-        }
-      },
-    });
-
     const stale = deferred<LoadExplorerEventsResult>();
     const current = deferred<LoadExplorerEventsResult>();
 
-    const load = vi.fn(async (input: { category?: string | null }) => {
+    const load = vi.fn<LoadFn>(async (input) => {
       if (input.category === "Musique") return stale.promise;
       return current.promise;
     });
 
-    const isStale = begin();
+    const recordedStale = recordHandlers(begin());
     const staleLoad = runFriseEventsReload(
-      {
-        category: "Musique",
-        city: null,
-        search: "",
-        load: load as typeof import("@/app/actions/load-explorer-events").loadExplorerEvents,
-      },
-      handlersFor(isStale),
+      { category: "Musique", city: null, search: "", load },
+      recordedStale.handlers,
     );
 
-    const isCurrent = begin();
+    const recordedCurrent = recordHandlers(begin());
     const currentLoad = runFriseEventsReload(
-      {
-        category: "Exposition",
-        city: null,
-        search: "",
-        load: load as typeof import("@/app/actions/load-explorer-events").loadExplorerEvents,
-      },
-      handlersFor(isCurrent),
+      { category: "Exposition", city: null, search: "", load },
+      recordedCurrent.handlers,
     );
 
     current.resolve(okPage([event("fresh", "Exposition")], 1));
     await currentLoad;
-    expect(displayed?.events.map((e) => e.id)).toEqual(["fresh"]);
-    expect(error).toBeNull();
+
+    expect(recordedCurrent.calls.success).toHaveLength(1);
+    expect(recordedCurrent.calls.success[0]?.events.map((e) => e.id)).toEqual([
+      "fresh",
+    ]);
+    expect(recordedCurrent.calls.error).toEqual([]);
 
     stale.resolve({ ok: false, error: "Période invalide." });
     await staleLoad;
 
-    expect(displayed?.events.map((e) => e.id)).toEqual(["fresh"]);
-    expect(error).toBeNull();
+    expect(recordedStale.calls.success).toEqual([]);
+    expect(recordedStale.calls.error).toEqual([]);
+    expect(recordedCurrent.calls.success).toHaveLength(1);
+    expect(recordedCurrent.calls.error).toEqual([]);
   });
 
-  it("ignore le commit après invalidation (hook désactivé / reload plus récent)", async () => {
+  it("n’enchaîne pas une 2ᵉ page après invalidation", async () => {
     const gen = { current: 0 };
     const id = ++gen.current;
     const isCurrent = () => id === gen.current;
 
-    let committed = false;
-    let loading = true;
+    const page1 = deferred<LoadExplorerEventsResult>();
+    const load = vi.fn<LoadFn>(async () => page1.promise);
+
+    const recorded = recordHandlers(isCurrent);
+    const run = runFriseEventsReload(
+      { category: "Musique", city: null, search: "", load },
+      recorded.handlers,
+    );
+
+    gen.current += 1;
+    page1.resolve(
+      okPage([event("p1", "Musique")], 80, "cursor-page-2"),
+    );
+    await run;
+
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(recorded.calls.success).toEqual([]);
+    expect(recorded.calls.error).toEqual([]);
+    expect(recorded.calls.loading).toEqual([true]);
+  });
+
+  it("ignore le commit après invalidation (cleanup / disable)", async () => {
+    const gen = { current: 0 };
+    const id = ++gen.current;
+    const isCurrent = () => id === gen.current;
+
     const pending = deferred<LoadExplorerEventsResult>();
+    const load = vi.fn<LoadFn>(async () => pending.promise);
+    const recorded = recordHandlers(isCurrent);
 
     const run = runFriseEventsReload(
-      {
-        category: "Musique",
-        city: null,
-        search: "",
-        load: (async () => pending.promise) as typeof import("@/app/actions/load-explorer-events").loadExplorerEvents,
-      },
-      {
-        isCurrent,
-        onLoading: (value) => {
-          if (isCurrent()) loading = value;
-        },
-        onSuccess: () => {
-          committed = true;
-        },
-        onError: () => {
-          committed = true;
-        },
-      },
+      { category: "Musique", city: null, search: "", load },
+      recorded.handlers,
     );
 
     gen.current += 1;
     pending.resolve(okPage([event("late", "Musique")]));
     await run;
 
-    expect(committed).toBe(false);
-    expect(loading).toBe(true);
+    expect(recorded.calls.success).toEqual([]);
+    expect(recorded.calls.error).toEqual([]);
+    expect(recorded.calls.loading).toEqual([true]);
   });
 });
