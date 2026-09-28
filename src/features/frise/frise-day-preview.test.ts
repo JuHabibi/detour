@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { EventItem } from "@/data/types";
 import {
+  EXPLORER_FRIEZE_DAY_PREVIEW,
+  EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE,
   friseDayMoreLabel,
+  friseDayTrackRestCount,
   sliceFriseDayPreview,
 } from "@/features/frise/frise-day-preview";
-import { EXPLORER_FRIEZE_DAY_PREVIEW } from "@/features/frise/frise-timeline-model";
 
 function ev(id: string): EventItem {
   return {
@@ -33,7 +35,7 @@ describe("sliceFriseDayPreview", () => {
     expect(p.restCount).toBe(0);
   });
 
-  it("deux événements : plafond preview, rien de caché", () => {
+  it("deux événements desktop : 2 visibles, rien de caché", () => {
     const p = sliceFriseDayPreview([ev("a"), ev("b")]);
     expect(EXPLORER_FRIEZE_DAY_PREVIEW).toBe(2);
     expect(p.visible.map((e) => e.id)).toEqual(["a", "b"]);
@@ -41,7 +43,18 @@ describe("sliceFriseDayPreview", () => {
     expect(p.all).toHaveLength(2);
   });
 
-  it("quinze événements : 2 visibles, 13 en reste, données intactes", () => {
+  it("deux événements mobile : 1 visible, 1 en reste", () => {
+    const p = sliceFriseDayPreview(
+      [ev("a"), ev("b")],
+      EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE,
+    );
+    expect(EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE).toBe(1);
+    expect(p.visible.map((e) => e.id)).toEqual(["a"]);
+    expect(p.restCount).toBe(1);
+    expect(friseDayMoreLabel(p.restCount)).toBe("Voir l’autre événement");
+  });
+
+  it("quinze événements : 2 visibles desktop, 13 en reste", () => {
     const events = Array.from({ length: 15 }, (_, i) => ev(`e${i}`));
     const p = sliceFriseDayPreview(events);
     expect(p.visible).toHaveLength(2);
@@ -56,6 +69,19 @@ describe("sliceFriseDayPreview", () => {
     const events = [ev("a"), ev("b"), ev("c")];
     sliceFriseDayPreview(events);
     expect(events.map((e) => e.id)).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("friseDayTrackRestCount", () => {
+  it("mobile 1 carte : reste dès le 2ᵉ événement", () => {
+    expect(friseDayTrackRestCount(1, 1)).toBe(0);
+    expect(friseDayTrackRestCount(2, 1)).toBe(1);
+    expect(friseDayTrackRestCount(5, 1)).toBe(4);
+  });
+
+  it("desktop 2 cartes : reste dès le 3ᵉ", () => {
+    expect(friseDayTrackRestCount(2, 2)).toBe(0);
+    expect(friseDayTrackRestCount(3, 2)).toBe(1);
   });
 });
 

@@ -1,4 +1,7 @@
-import { EXPLORER_FRIEZE_DAY_PREVIEW } from "@/features/frise/frise-timeline-model";
+import {
+  EXPLORER_FRIEZE_DAY_PREVIEW,
+  EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE,
+} from "@/features/frise/frise-timeline-model";
 import type { EventItem } from "@/data/types";
 
 export type FriseDayPreview = {
@@ -14,7 +17,7 @@ export type FriseDayPreview = {
 };
 
 /**
- * Découpe d’affichage frise : 2 cartes max visibles, le reste via panneau.
+ * Découpe d’affichage frise : plafond de cartes visibles, le reste via panneau.
  * Ne modifie pas les données — pure présentation.
  */
 export function sliceFriseDayPreview(
@@ -34,8 +37,21 @@ export function sliceFriseDayPreview(
   };
 }
 
+/** Reste hors piste pour un plafond donné (mobile 1, desktop 2). */
+export function friseDayTrackRestCount(
+  total: number,
+  previewLimit: number,
+): number {
+  return Math.max(0, total - Math.max(0, previewLimit));
+}
+
 export function friseDayMoreLabel(restCount: number): string {
   if (restCount <= 0) return "";
   if (restCount === 1) return "Voir l’autre événement";
   return `Voir les ${restCount} autres événements`;
 }
+
+export {
+  EXPLORER_FRIEZE_DAY_PREVIEW,
+  EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE,
+};

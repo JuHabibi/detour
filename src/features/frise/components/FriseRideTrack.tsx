@@ -15,10 +15,14 @@ import { FriseLandscapeDecor } from "@/features/frise/components/FriseLandscapeD
 import { FrisePosterCard } from "@/features/frise/components/FrisePosterCard";
 import { VintageBikeSvg } from "@/features/frise/components/VintageBikeSvg";
 import {
+  EXPLORER_FRIEZE_DAY_PREVIEW,
+  EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE,
   friseDayMoreLabel,
+  friseDayTrackRestCount,
   sliceFriseDayPreview,
 } from "@/features/frise/frise-day-preview";
 import {
+  FRISE_DAY_MARK_PT_CLASS,
   FRISE_TRACK_HEIGHT_CLASS,
   FRISE_TRACK_PB_CLASS,
 } from "@/features/frise/frise-layout";
@@ -423,7 +427,7 @@ const FriseScrollChrome = memo(function FriseScrollChrome({
     <>
       <div
         data-frise-time-chip
-        className="pointer-events-none absolute left-3 top-3 z-[4] max-w-[min(14rem,70%)] border border-line/50 bg-paper/95 px-2.5 py-1.5 shadow-[2px_2px_0_rgb(17_17_17/0.04)] md:left-4 md:top-4"
+        className="pointer-events-none absolute left-3 top-2 z-[4] max-w-[min(12.5rem,66%)] border border-line/50 bg-paper/95 px-2 py-1 shadow-[2px_2px_0_rgb(17_17_17/0.04)] md:left-4 md:top-4 md:max-w-[min(14rem,70%)] md:px-2.5 md:py-1.5"
         aria-live="polite"
       >
         <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-sand">
@@ -435,7 +439,7 @@ const FriseScrollChrome = memo(function FriseScrollChrome({
         {overlay.activeDetail &&
         overlay.activeDetail !== overlay.activeMonthLabel &&
         !overlay.activeDetail.startsWith("Respiration") ? (
-          <p className="mt-0.5 truncate text-[11px] text-cream-dim">
+          <p className="mt-0.5 hidden truncate text-[11px] text-cream-dim md:block">
             {overlay.activeDetail}
           </p>
         ) : null}
@@ -587,7 +591,11 @@ function MonthMilestone({
       data-frise-mark={monthLabel}
       data-frise-month-key={monthKey}
       data-frise-month-label={monthLabel}
-      className="relative flex w-[9.5rem] shrink-0 snap-start flex-col justify-start border-r border-line/40 px-3 pt-20 md:w-[12rem] md:px-4 md:pt-24"
+      className={cn(
+        "relative flex w-[9.5rem] shrink-0 snap-start flex-col justify-start border-r border-line/40 px-3 md:w-[12rem] md:px-4",
+        FRISE_DAY_MARK_PT_CLASS,
+        "md:pt-24",
+      )}
     >
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-sand">
         {year}
@@ -626,10 +634,11 @@ function QuietStretch({
       data-frise-month-label={monthLabel}
       className={cn(
         "relative flex h-full shrink-0 snap-center flex-col items-center justify-start px-2",
+        FRISE_DAY_MARK_PT_CLASS,
         width,
       )}
     >
-      <p className="mt-1 max-w-[9rem] text-center font-editorial text-sm italic leading-snug text-sand">
+      <p className="max-w-[9rem] text-center font-editorial text-sm italic leading-snug text-sand">
         {item.label}
       </p>
       <div
@@ -661,8 +670,21 @@ function DayPoster({
   ) => void;
 }) {
   const mark = `${item.weekdayLabel} ${item.dayNumber} ${item.monthShort}`;
-  const preview = sliceFriseDayPreview(item.events);
-  const moreLabel = friseDayMoreLabel(preview.restCount);
+  // Plafond desktop : mobile n’affiche que la 1ʳᵉ carte (CSS), panneau pour le reste.
+  const preview = sliceFriseDayPreview(
+    item.events,
+    EXPLORER_FRIEZE_DAY_PREVIEW,
+  );
+  const mobileRest = friseDayTrackRestCount(
+    preview.total,
+    EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE,
+  );
+  const desktopRest = friseDayTrackRestCount(
+    preview.total,
+    EXPLORER_FRIEZE_DAY_PREVIEW,
+  );
+  const mobileMoreLabel = friseDayMoreLabel(mobileRest);
+  const desktopMoreLabel = friseDayMoreLabel(desktopRest);
 
   return (
     <div
@@ -671,9 +693,16 @@ function DayPoster({
       data-frise-month-label={monthLabel}
       data-frise-day-total={preview.total}
       data-frise-day-visible={preview.visible.length}
-      className="relative flex w-[18.5rem] shrink-0 snap-center flex-col border-r border-line/40 px-3 pt-2 md:w-[21rem] md:px-4"
+      data-frise-day-visible-mobile={Math.min(
+        preview.total,
+        EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE,
+      )}
+      className={cn(
+        "relative flex w-[18.5rem] shrink-0 snap-center flex-col border-r border-line/40 px-3 md:w-[21rem] md:px-4",
+        FRISE_DAY_MARK_PT_CLASS,
+      )}
     >
-      <div className="mb-4 flex items-baseline gap-2 md:mb-5">
+      <div className="mb-3 flex items-baseline gap-2 md:mb-5">
         <p className="font-editorial text-[2rem] leading-none tracking-tight text-coral md:text-[2.35rem]">
           {item.dayNumber}
         </p>
@@ -692,26 +721,42 @@ function DayPoster({
         ) : null}
       </div>
 
-      <ul className="mt-1 flex flex-col gap-3">
-        {preview.visible.map((event) => (
+      <ul className="mt-1 flex min-h-0 flex-col gap-3">
+        {preview.visible.map((event, index) => (
           <FrisePosterCard
             key={event.id}
             event={event}
+            dense
             isFavorite={favorites?.has(event.id) ?? false}
             onToggleFavorite={onToggleFavorite}
             onOpenDetail={onOpenDetail}
+            as="li"
+            className={index >= EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE ? "hidden md:block" : undefined}
           />
         ))}
       </ul>
 
-      {preview.restCount > 0 ? (
+      {mobileRest > 0 ? (
         <button
           type="button"
-          className="mt-3 self-start text-[11px] font-medium uppercase tracking-[0.12em] text-ink underline decoration-mint/80 decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          className="mt-3 self-start bg-paper/90 px-1.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-ink underline decoration-mint/80 decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:hidden"
           aria-haspopup="dialog"
+          data-frise-day-more="mobile"
           onClick={(e) => onOpenDayPanel(item, e.currentTarget)}
         >
-          {moreLabel}
+          {mobileMoreLabel}
+        </button>
+      ) : null}
+
+      {desktopRest > 0 ? (
+        <button
+          type="button"
+          className="mt-3 hidden self-start bg-paper/90 px-1.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-ink underline decoration-mint/80 decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:inline"
+          aria-haspopup="dialog"
+          data-frise-day-more="desktop"
+          onClick={(e) => onOpenDayPanel(item, e.currentTarget)}
+        >
+          {desktopMoreLabel}
         </button>
       ) : null}
     </div>

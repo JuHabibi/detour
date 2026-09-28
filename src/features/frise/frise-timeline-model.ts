@@ -6,8 +6,10 @@ export const EXPLORER_FRIEZE_WINDOW_MONTHS = 3;
 export const EXPLORER_FRIEZE_PAGE_SIZE = 50;
 /** Plafond dur cumulé (pagination client) — explicite pour le prototype. */
 export const EXPLORER_FRIEZE_HARD_CAP = 150;
-/** Au-delà, le jour se regroupe (ouvrable). */
+/** Cartes visibles par journée dans la piste — desktop. */
 export const EXPLORER_FRIEZE_DAY_PREVIEW = 2;
+/** Cartes visibles par journée dans la piste — mobile. */
+export const EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE = 1;
 
 export type ExplorerFriezeWindow = {
   /** Premier jour inclus YYYY-MM-DD (Europe/Paris). */

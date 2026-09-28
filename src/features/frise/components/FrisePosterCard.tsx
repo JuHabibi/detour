@@ -16,6 +16,7 @@ type FrisePosterCardProps = {
   /** Variante un peu plus compacte (liste panneau). */
   dense?: boolean;
   as?: "li" | "div";
+  className?: string;
 };
 
 export function FrisePosterCard({
@@ -25,6 +26,7 @@ export function FrisePosterCard({
   onOpenDetail,
   dense = false,
   as = "li",
+  className,
 }: FrisePosterCardProps) {
   const categoryLabel = resolveCategoryBadgeLabel(event);
   const whenLabel = formatWhen(event);
@@ -36,7 +38,7 @@ export function FrisePosterCard({
   const Wrapper = as;
 
   return (
-    <Wrapper className="w-full">
+    <Wrapper className={cn("w-full", className)}>
       <div className="relative">
         {onToggleFavorite ? (
           <button
@@ -74,7 +76,7 @@ export function FrisePosterCard({
           }}
           className={cn(
             "group flex w-full flex-col border border-ink/15 bg-paper text-left shadow-[3px_3px_0_rgb(17_17_17/0.06)]",
-            dense ? "gap-1 px-3 py-3 pr-12" : "gap-1.5 px-3.5 py-3.5 pr-12",
+            dense ? "gap-0.5 px-2.5 py-2.5 pr-11" : "gap-1.5 px-3.5 py-3.5 pr-12",
             "transition-colors hover:border-ink/30 hover:bg-foam",
             "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
             "disabled:cursor-default",
@@ -98,12 +100,12 @@ export function FrisePosterCard({
           <p
             className={cn(
               "font-display font-semibold leading-[1.18] tracking-tight text-ink",
-              dense ? "text-[1.05rem]" : "text-[1.1rem] md:text-[1.2rem]",
+              dense ? "line-clamp-3 text-[1.05rem]" : "line-clamp-3 text-[1.1rem] md:text-[1.2rem]",
             )}
           >
             {event.title}
           </p>
-          <p className="text-[12px] leading-snug text-ink/80">{place}</p>
+          <p className="line-clamp-2 text-[12px] leading-snug text-ink/80">{place}</p>
           <p className="text-[12px] font-medium tabular-nums text-sand">
             {whenLabel}
           </p>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  FRISE_DAY_MARK_PT_CLASS,
   FRISE_TRACK_HEIGHT_BOUNDS_PX,
   FRISE_TRACK_HEIGHT_CLASS,
   FRISE_TRACK_PB_CLASS,
@@ -17,11 +18,21 @@ describe("frise-layout proportions", () => {
     expect(FRISE_TRACK_HEIGHT_BOUNDS_PX.desktopMax).toBe(750);
   });
 
-  it("garde les classes viewport (pas de hauteur fixe 26/32rem)", () => {
+  it("garde les classes viewport (clamp + dvh)", () => {
     expect(FRISE_TRACK_HEIGHT_CLASS).toContain("dvh");
     expect(FRISE_TRACK_HEIGHT_CLASS).toContain("clamp");
-    expect(FRISE_TRACK_HEIGHT_CLASS).not.toContain("26rem");
-    expect(FRISE_TRACK_HEIGHT_CLASS).not.toContain("32rem");
+    expect(FRISE_TRACK_HEIGHT_CLASS).toContain("26rem");
+    expect(FRISE_TRACK_HEIGHT_CLASS).toContain("32rem");
     expect(FRISE_TRACK_PB_CLASS).toContain("pb-");
+  });
+
+  it("réserve l’espace sous le chip pour la date du jour", () => {
+    expect(FRISE_DAY_MARK_PT_CLASS).toContain("pt-[5.25rem]");
+    expect(FRISE_DAY_MARK_PT_CLASS).toContain("md:pt-2");
+  });
+
+  it("mobile un peu plus haut pour carte + bouton au-dessus du vélo", () => {
+    expect(FRISE_TRACK_HEIGHT_BOUNDS_PX.mobileMin).toBe(416);
+    expect(FRISE_TRACK_HEIGHT_BOUNDS_PX.mobileMax).toBe(512);
   });
 });
