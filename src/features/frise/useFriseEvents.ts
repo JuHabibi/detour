@@ -16,6 +16,7 @@ import {
   resolveFriezeWindow,
   shiftFriezeAnchor,
   type ExplorerFriezeModel,
+  type FriseCoverageStatus,
   type FriseSettledScope,
 } from "@/features/frise/frise-timeline-model";
 import type { CategoryId, EventItem } from "@/data/types";
@@ -36,6 +37,63 @@ export type FriseEventsLoadSuccess = {
   truncatedByCap: boolean;
   totalCount: number;
 };
+
+/** Tranche d’état qui détermine `model.coverageStatus` exposé par le hook. */
+export type FriseEventsExposedSlice = {
+  settled: FriseSettledScope | null;
+  error: string | null;
+};
+
+export type FriseReloadScope = {
+  from: string;
+  to: string;
+  category: string;
+  city: string | null;
+  search: string;
+};
+
+/** Démarrage de reload / retry : coverage → pending immédiatement. */
+export function friseEventsReloadStart(): FriseEventsExposedSlice {
+  return { settled: null, error: null };
+}
+
+export function friseEventsReloadSuccess(
+  scope: FriseReloadScope,
+  truncatedByCap: boolean,
+): FriseEventsExposedSlice {
+  return {
+    error: null,
+    settled: {
+      ...scope,
+      status: truncatedByCap ? "truncated" : "complete",
+    },
+  };
+}
+
+export function friseEventsReloadFailure(
+  scope: FriseReloadScope,
+  message: string,
+): FriseEventsExposedSlice {
+  return {
+    error: message,
+    settled: { ...scope, status: "error" },
+  };
+}
+
+/** Coverage effectivement exposée via `model.coverageStatus`. */
+export function exposedFriseCoverageStatus(
+  view: FriseReloadScope,
+  slice: FriseEventsExposedSlice,
+): FriseCoverageStatus {
+  return resolveFriseCoverageStatus({
+    viewFrom: view.from,
+    viewTo: view.to,
+    viewCategory: view.category,
+    viewCity: view.city,
+    viewSearch: view.search,
+    settled: slice.settled,
+  });
+}
 
 type FriseEventsLoadHandlers = {
   /** false → ne plus toucher l’UI (requête obsolète). */
@@ -167,7 +225,11 @@ export function useFriseEvents({
     const requestCity = city;
     const requestSearch = search;
 
-    setError(null);
+    // Retry / refetch fenêtre courante : coverage → pending avant le fetch
+    // (évite de rester sur error/complete pendant le rechargement).
+    const reloadStart = friseEventsReloadStart();
+    setError(reloadStart.error);
+    setSettled(reloadStart.settled);
 
     await runFriseEventsReload(
       {
@@ -185,29 +247,35 @@ export function useFriseEvents({
           setEvents(data.events);
           setFetchedCount(data.fetchedCount);
           setTotalCount(data.totalCount);
-          setError(null);
-          setSettled({
-            from: requestFrom,
-            to: requestTo,
-            category: requestCategory,
-            city: requestCity,
-            search: requestSearch,
-            status: data.truncatedByCap ? "truncated" : "complete",
-          });
+          const next = friseEventsReloadSuccess(
+            {
+              from: requestFrom,
+              to: requestTo,
+              category: requestCategory,
+              city: requestCity,
+              search: requestSearch,
+            },
+            data.truncatedByCap,
+          );
+          setError(next.error);
+          setSettled(next.settled);
         },
         onError: (message) => {
-          setError(message);
           setEvents([]);
           setFetchedCount(0);
           setTotalCount(0);
-          setSettled({
-            from: requestFrom,
-            to: requestTo,
-            category: requestCategory,
-            city: requestCity,
-            search: requestSearch,
-            status: "error",
-          });
+          const next = friseEventsReloadFailure(
+            {
+              from: requestFrom,
+              to: requestTo,
+              category: requestCategory,
+              city: requestCity,
+              search: requestSearch,
+            },
+            message,
+          );
+          setError(next.error);
+          setSettled(next.settled);
         },
       },
     );

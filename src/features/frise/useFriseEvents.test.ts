@@ -10,7 +10,12 @@ import {
 } from "@/features/frise/frise-timeline-model";
 import {
   runFriseEventsReload,
+  exposedFriseCoverageStatus,
+  friseEventsReloadFailure,
+  friseEventsReloadStart,
+  friseEventsReloadSuccess,
   type FriseEventsLoadSuccess,
+  type FriseEventsExposedSlice,
 } from "@/features/frise/useFriseEvents";
 
 type LoadFn = (
@@ -524,5 +529,100 @@ describe("runFriseEventsReload — concurrence", () => {
     expect(recorded.calls.success).toEqual([]);
     expect(recorded.calls.error).toEqual([]);
     expect(recorded.calls.loading).toEqual([true]);
+  });
+});
+
+describe("retry fenêtre courante — coverage exposée par le hook", () => {
+  const view = {
+    from: "2026-09-01",
+    to: "2026-11-30",
+    category: "Spectacle",
+    city: null as string | null,
+    search: "",
+  };
+
+  function coverage(slice: FriseEventsExposedSlice) {
+    // Même résolution que `model.coverageStatus` dans useFriseEvents.
+    return exposedFriseCoverageStatus(view, slice);
+  }
+
+  it("error → pending → complete (ready)", () => {
+    let slice = friseEventsReloadFailure(view, "Impossible de charger la promenade.");
+    expect(coverage(slice)).toBe("error");
+    expect(slice.error).toBe("Impossible de charger la promenade.");
+
+    slice = friseEventsReloadStart();
+    expect(coverage(slice)).toBe("pending");
+    expect(slice.error).toBeNull();
+    expect(slice.settled).toBeNull();
+
+    slice = friseEventsReloadSuccess(view, false);
+    expect(coverage(slice)).toBe("complete");
+    expect(slice.error).toBeNull();
+  });
+
+  it("error → pending → error", () => {
+    let slice = friseEventsReloadFailure(view, "Période invalide.");
+    expect(coverage(slice)).toBe("error");
+
+    slice = friseEventsReloadStart();
+    expect(coverage(slice)).toBe("pending");
+
+    slice = friseEventsReloadFailure(view, "Impossible de charger la promenade.");
+    expect(coverage(slice)).toBe("error");
+    expect(slice.error).toBe("Impossible de charger la promenade.");
+  });
+
+  it("conserve la protection anti-périmé : succès obsolète ignoré après nouveau start", async () => {
+    const gen = { current: 0 };
+    const staleId = ++gen.current;
+    const staleIsCurrent = () => staleId === gen.current;
+
+    const pending = deferred<LoadExplorerEventsResult>();
+    const load = vi.fn<LoadFn>(async () => pending.promise);
+    const recorded = recordHandlers(staleIsCurrent);
+
+    // État error puis start → pending (comme reload du hook).
+    let slice = friseEventsReloadFailure(view, "boom");
+    slice = friseEventsReloadStart();
+    expect(coverage(slice)).toBe("pending");
+
+    const staleRun = runFriseEventsReload(
+      {
+        category: "Spectacle",
+        city: null,
+        search: "",
+        from: view.from,
+        to: view.to,
+        load,
+      },
+      {
+        ...recorded.handlers,
+        onSuccess: (data) => {
+          recorded.handlers.onSuccess(data);
+          // Ne doit pas être appelé après invalidation.
+          slice = friseEventsReloadSuccess(view, data.truncatedByCap);
+        },
+        onError: (message) => {
+          recorded.handlers.onError(message);
+          slice = friseEventsReloadFailure(view, message);
+        },
+      },
+    );
+
+    // Nouveau retry : invalide la génération (comme ++loadGenerationRef).
+    gen.current += 1;
+    const freshStart = friseEventsReloadStart();
+    expect(exposedFriseCoverageStatus(view, freshStart)).toBe("pending");
+
+    pending.resolve(
+      okPage([event("late", "Spectacle", "2026-09-05T20:00:00+02:00")]),
+    );
+    await staleRun;
+
+    expect(recorded.calls.success).toEqual([]);
+    expect(recorded.calls.error).toEqual([]);
+    // Coverage reste celle du start frais, pas un complete fantôme.
+    expect(coverage(freshStart)).toBe("pending");
   });
 });
