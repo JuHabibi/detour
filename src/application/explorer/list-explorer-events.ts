@@ -9,11 +9,15 @@ import {
   type ListExplorerEventsQuery,
   type ListExplorerEventsResult,
 } from "@/application/explorer/types";
-import { getDateRangeForWhenFilter } from "@/domain/time/when-filter";
+import {
+  getDateRangeForParisDateKeys,
+  getDateRangeForWhenFilter,
+} from "@/domain/time/when-filter";
 import {
   countExplorerEvents,
   listExplorerEventsPage,
   type ExplorerResolvedFilters,
+  type ExplorerTemporalFilter,
 } from "@/infrastructure/db/explorer-events.repository";
 import type { DbQueryable } from "@/infrastructure/db/postgres";
 
@@ -28,11 +32,27 @@ function resolveFilters(
   query: ListExplorerEventsQuery,
   now: Date,
 ): ExplorerResolvedFilters {
-  const range = getDateRangeForWhenFilter(query.when, now);
-  const temporal =
-    range.to == null
-      ? ({ mode: "upcoming", now } as const)
-      : ({ mode: "bounded", from: range.from, to: range.to } as const);
+  let temporal: ExplorerTemporalFilter;
+
+  if (query.from != null && query.to != null) {
+    const window = getDateRangeForParisDateKeys(query.from, query.to);
+    if (!window?.to) {
+      // Déjà validé en parse — garde-fou défensif.
+      temporal = { mode: "upcoming", now };
+    } else {
+      let from = window.from;
+      if (query.when === "upcoming" && from.getTime() < now.getTime()) {
+        from = now;
+      }
+      temporal = { mode: "bounded", from, to: window.to };
+    }
+  } else {
+    const range = getDateRangeForWhenFilter(query.when, now);
+    temporal =
+      range.to == null
+        ? ({ mode: "upcoming", now } as const)
+        : ({ mode: "bounded", from: range.from, to: range.to } as const);
+  }
 
   return {
     temporal,

@@ -330,7 +330,7 @@ export function buildExplorerFrieze(params: {
           existing.items.length > 0 &&
           existing.items.every((i) => i.kind === "quiet")
         ) {
-          // Mois sans aucune sortie : un seul libellé public, pas de jargon.
+          // Mois sans aucune sortie connue — ou couverture inconnue si tronqué.
           existing.items = [
             {
               kind: "quiet",
@@ -338,7 +338,9 @@ export function buildExplorerFrieze(params: {
               fromKey: monthStart,
               toKey: endKeyOfMonth(monthStart),
               dayCount: daysBetweenKeys(monthStart, endKeyOfMonth(monthStart)) + 1,
-              label: "Aucune sortie ce mois-ci",
+              label: truncatedByCap
+                ? "Couverture incomplète pour ce mois"
+                : "Aucune sortie ce mois-ci",
             },
           ];
         }
@@ -359,7 +361,9 @@ export function buildExplorerFrieze(params: {
               fromKey: monthStart,
               toKey: monthEnd,
               dayCount: daysBetweenKeys(monthStart, monthEnd) + 1,
-              label: "Aucune sortie ce mois-ci",
+              label: truncatedByCap
+                ? "Couverture incomplète pour ce mois"
+                : "Aucune sortie ce mois-ci",
             },
           ],
         });

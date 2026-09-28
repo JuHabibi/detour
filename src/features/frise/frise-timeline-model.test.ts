@@ -153,6 +153,14 @@ describe("buildExplorerFrieze", () => {
     });
     expect(model.hardCap).toBe(EXPLORER_FRIEZE_HARD_CAP);
     expect(model.truncatedByCap).toBe(true);
+    const october = model.chapters.find((c) => c.monthKey === "2026-10");
+    expect(october?.items[0]?.kind).toBe("quiet");
+    if (october?.items[0]?.kind === "quiet") {
+      expect(october.items[0].label).toBe(
+        "Couverture incomplète pour ce mois",
+      );
+      expect(october.items[0].label).not.toBe("Aucune sortie ce mois-ci");
+    }
   });
 
   it("garde des respirations calmes entre clusters", () => {

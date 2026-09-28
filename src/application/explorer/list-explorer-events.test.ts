@@ -386,6 +386,31 @@ describe("listExplorerEvents — WHEN", () => {
     expect(result.events[0]?.id).toBe("ongoing");
     expect(query).toHaveBeenCalled();
   });
+
+  it("fenêtre from/to : bornes civiles + clamp upcoming sur now", async () => {
+    const now = new Date("2026-09-15T12:00:00+02:00");
+    const { query, client } = mockClient((sql) => {
+      if (sql.includes("count(*)")) return { rows: [{ count: "0" }] };
+      return { rows: [] };
+    });
+
+    await listExplorerEvents(
+      {
+        when: "upcoming",
+        from: "2026-09-01",
+        to: "2026-11-30",
+      },
+      { client, now },
+    );
+
+    const countCall = query.mock.calls.find((c) =>
+      String(c[0]).includes("count(*)"),
+    ) as [string, unknown[]];
+    expect(countCall[0]).toContain("e.start_at <= $2");
+    expect(countCall[0]).toContain("COALESCE(e.end_at, e.start_at) >= $1");
+    expect(countCall[1][0]).toBe(now.toISOString());
+    expect(String(countCall[1][1])).toContain("2026-11-30");
+  });
 });
 
 describe("listExplorerEvents — SEARCH", () => {

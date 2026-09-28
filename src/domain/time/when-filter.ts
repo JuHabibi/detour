@@ -103,6 +103,38 @@ export function isDateInRange(date: Date, range: DateRange): boolean {
   return true;
 }
 
+const PARIS_DATE_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Jour civil Paris `YYYY-MM-DD` (calendrier valide). */
+export function isParisDateKey(value: string): boolean {
+  const match = PARIS_DATE_KEY_RE.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1) return false;
+  if (day > daysInParisMonth(year, month)) return false;
+  return true;
+}
+
+/**
+ * Plage [début du jour fromKey, fin du jour toKey] en Europe/Paris.
+ * `null` si clés invalides ou fromKey > toKey.
+ */
+export function getDateRangeForParisDateKeys(
+  fromKey: string,
+  toKey: string,
+): DateRange | null {
+  if (!isParisDateKey(fromKey) || !isParisDateKey(toKey)) return null;
+  if (fromKey > toKey) return null;
+  const fromParts = fromKey.split("-").map(Number) as [number, number, number];
+  const toParts = toKey.split("-").map(Number) as [number, number, number];
+  return {
+    from: startOfParisDay(fromParts[0], fromParts[1], fromParts[2]),
+    to: endOfParisDay(toParts[0], toParts[1], toParts[2]),
+  };
+}
+
 /**
  * Un événement matche si son intervalle [start, end] intersecte la période.
  * Si endAt est absent : end = start.

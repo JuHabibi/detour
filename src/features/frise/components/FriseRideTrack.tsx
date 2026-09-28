@@ -197,10 +197,16 @@ export function FriseRideTrack({
   const bikeTravel = reducedMotion ? 0.12 : 0.08 + progress * 0.72;
   const eventSummary =
     model.eventCountInWindow === 0
-      ? "Aucune sortie sur cette période."
+      ? model.truncatedByCap
+        ? "Couverture incomplète : d’autres sorties peuvent exister sur cette période."
+        : "Aucune sortie sur cette période."
       : model.eventCountInWindow === 1
         ? "1 sortie sur cette période."
         : `${model.eventCountInWindow} sorties sur cette période.`;
+  const truncationNote =
+    model.truncatedByCap && model.eventCountInWindow > 0
+      ? " Affichage partiel (plafond de sécurité)."
+      : "";
 
   return (
     <div className="relative">
@@ -212,7 +218,10 @@ export function FriseRideTrack({
           <p className="mt-1 font-editorial text-2xl leading-none tracking-tight text-ink md:text-3xl">
             {model.window.label}
           </p>
-          <p className="mt-2 text-sm text-cream-dim">{eventSummary}</p>
+          <p className="mt-2 text-sm text-cream-dim">
+            {eventSummary}
+            {truncationNote}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <RideButton label="←" onClick={() => scrollByStep(-1)} />

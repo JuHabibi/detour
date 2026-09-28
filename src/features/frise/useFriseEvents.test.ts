@@ -13,7 +13,12 @@ type LoadFn = (
   input: LoadExplorerEventsInput,
 ) => Promise<LoadExplorerEventsResult>;
 
-function event(id: string, category: EventItem["category"]): EventItem {
+function event(
+  id: string,
+  category: EventItem["category"],
+  startAt: string,
+): EventItem {
+  const date = startAt.slice(0, 10);
   return {
     id,
     title: id,
@@ -21,9 +26,9 @@ function event(id: string, category: EventItem["category"]): EventItem {
     genre: "",
     venue: "Lieu",
     city: "Orléans",
-    date: "2026-10-03",
-    dateLabel: "Sam. 3 oct.",
-    startAt: "2026-10-03T20:00:00+02:00",
+    date,
+    dateLabel: date,
+    startAt,
     time: "20h00",
   };
 }
@@ -70,6 +75,129 @@ function recordHandlers(isCurrent: () => boolean) {
   };
 }
 
+describe("runFriseEventsReload — fenêtre visible", () => {
+  it("affiche les sorties de la fenêtre suivante même si >150 précèdent dans upcoming", async () => {
+    const gen = { current: 0 };
+    const isCurrent = () => gen.current === 1;
+    gen.current = 1;
+
+    const earlyFlood = Array.from({ length: 150 }, (_, i) =>
+      event(`early-${i}`, "Musique", "2026-09-05T20:00:00+02:00"),
+    );
+    const nextWindowEvent = event(
+      "dec-concert",
+      "Musique",
+      "2026-12-10T20:00:00+01:00",
+    );
+
+    const load = vi.fn<LoadFn>(async (input) => {
+      // Sans from/to, on simulerait le bug (150 premiers upcoming).
+      if (!input.from || !input.to) {
+        return okPage(earlyFlood, 400);
+      }
+      if (input.from === "2026-12-01" && input.to === "2027-02-28") {
+        return okPage([nextWindowEvent], 1);
+      }
+      if (input.from === "2026-09-01" && input.to === "2026-11-30") {
+        return okPage(earlyFlood, 150);
+      }
+      throw new Error(`fenêtre inattendue: ${input.from}→${input.to}`);
+    });
+
+    const recorded = recordHandlers(isCurrent);
+    await runFriseEventsReload(
+      {
+        category: "Musique",
+        city: null,
+        search: "",
+        from: "2026-12-01",
+        to: "2027-02-28",
+        load,
+      },
+      recorded.handlers,
+    );
+
+    expect(load).toHaveBeenCalledWith(
+      expect.objectContaining({
+        when: "upcoming",
+        from: "2026-12-01",
+        to: "2027-02-28",
+        category: "Musique",
+      }),
+    );
+    expect(recorded.calls.success).toHaveLength(1);
+    expect(recorded.calls.success[0]?.events.map((e) => e.id)).toEqual([
+      "dec-concert",
+    ]);
+    expect(recorded.calls.success[0]?.truncatedByCap).toBe(false);
+  });
+
+  it("ignore la réponse de l’ancienne fenêtre si on navigue pendant le chargement", async () => {
+    const gen = { current: 0 };
+    const begin = () => {
+      const id = ++gen.current;
+      return () => id === gen.current;
+    };
+
+    const first = deferred<LoadExplorerEventsResult>();
+    const second = deferred<LoadExplorerEventsResult>();
+
+    const load = vi.fn<LoadFn>(async (input) => {
+      if (input.from === "2026-09-01") return first.promise;
+      if (input.from === "2026-12-01") return second.promise;
+      throw new Error(`from inattendu: ${input.from}`);
+    });
+
+    const recordedA = recordHandlers(begin());
+    const loadA = runFriseEventsReload(
+      {
+        category: "Musique",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
+      recordedA.handlers,
+    );
+
+    const recordedB = recordHandlers(begin());
+    const loadB = runFriseEventsReload(
+      {
+        category: "Musique",
+        city: null,
+        search: "",
+        from: "2026-12-01",
+        to: "2027-02-28",
+        load,
+      },
+      recordedB.handlers,
+    );
+
+    second.resolve(
+      okPage([
+        event("winter", "Musique", "2026-12-15T20:00:00+01:00"),
+      ]),
+    );
+    await loadB;
+
+    expect(recordedB.calls.success[0]?.events.map((e) => e.id)).toEqual([
+      "winter",
+    ]);
+
+    first.resolve(
+      okPage([
+        event("autumn", "Musique", "2026-09-20T20:00:00+02:00"),
+      ]),
+    );
+    await loadA;
+
+    expect(recordedA.calls.success).toEqual([]);
+    expect(recordedA.calls.error).toEqual([]);
+    expect(recordedB.calls.success).toHaveLength(1);
+  });
+});
+
 describe("runFriseEventsReload — concurrence", () => {
   it("garde le résultat de la dernière sélection si A finit après B", async () => {
     const gen = { current: 0 };
@@ -89,17 +217,33 @@ describe("runFriseEventsReload — concurrence", () => {
 
     const recordedA = recordHandlers(begin());
     const loadA = runFriseEventsReload(
-      { category: "Musique", city: null, search: "", load },
+      {
+        category: "Musique",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
       recordedA.handlers,
     );
 
     const recordedB = recordHandlers(begin());
     const loadB = runFriseEventsReload(
-      { category: "Exposition", city: null, search: "", load },
+      {
+        category: "Exposition",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
       recordedB.handlers,
     );
 
-    b.resolve(okPage([event("b1", "Exposition")], 1));
+    b.resolve(
+      okPage([event("b1", "Exposition", "2026-10-03T20:00:00+02:00")]),
+    );
     await loadB;
 
     expect(recordedB.calls.success).toHaveLength(1);
@@ -109,7 +253,7 @@ describe("runFriseEventsReload — concurrence", () => {
     expect(recordedB.calls.error).toEqual([]);
     expect(recordedB.calls.loading).toEqual([true, false]);
 
-    a.resolve(okPage([event("a1", "Musique")], 1));
+    a.resolve(okPage([event("a1", "Musique", "2026-10-03T20:00:00+02:00")]));
     await loadA;
 
     expect(recordedA.calls.success).toEqual([]);
@@ -134,23 +278,36 @@ describe("runFriseEventsReload — concurrence", () => {
 
     const recordedStale = recordHandlers(begin());
     const staleLoad = runFriseEventsReload(
-      { category: "Musique", city: null, search: "", load },
+      {
+        category: "Musique",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
       recordedStale.handlers,
     );
 
     const recordedCurrent = recordHandlers(begin());
     const currentLoad = runFriseEventsReload(
-      { category: "Exposition", city: null, search: "", load },
+      {
+        category: "Exposition",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
       recordedCurrent.handlers,
     );
 
-    current.resolve(okPage([event("fresh", "Exposition")], 1));
+    current.resolve(
+      okPage([event("fresh", "Exposition", "2026-10-03T20:00:00+02:00")]),
+    );
     await currentLoad;
 
     expect(recordedCurrent.calls.success).toHaveLength(1);
-    expect(recordedCurrent.calls.success[0]?.events.map((e) => e.id)).toEqual([
-      "fresh",
-    ]);
     expect(recordedCurrent.calls.error).toEqual([]);
 
     stale.resolve({ ok: false, error: "Période invalide." });
@@ -172,13 +329,24 @@ describe("runFriseEventsReload — concurrence", () => {
 
     const recorded = recordHandlers(isCurrent);
     const run = runFriseEventsReload(
-      { category: "Musique", city: null, search: "", load },
+      {
+        category: "Musique",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
       recorded.handlers,
     );
 
     gen.current += 1;
     page1.resolve(
-      okPage([event("p1", "Musique")], 80, "cursor-page-2"),
+      okPage(
+        [event("p1", "Musique", "2026-09-05T20:00:00+02:00")],
+        80,
+        "cursor-page-2",
+      ),
     );
     await run;
 
@@ -198,12 +366,21 @@ describe("runFriseEventsReload — concurrence", () => {
     const recorded = recordHandlers(isCurrent);
 
     const run = runFriseEventsReload(
-      { category: "Musique", city: null, search: "", load },
+      {
+        category: "Musique",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
       recorded.handlers,
     );
 
     gen.current += 1;
-    pending.resolve(okPage([event("late", "Musique")]));
+    pending.resolve(
+      okPage([event("late", "Musique", "2026-09-05T20:00:00+02:00")]),
+    );
     await run;
 
     expect(recorded.calls.success).toEqual([]);

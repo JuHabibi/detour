@@ -44,14 +44,18 @@ type FriseEventsLoadHandlers = {
 };
 
 /**
- * Charge les pages frise. N’applique loading / succès / erreur
- * que tant que `isCurrent()` reste vrai (ignore les réponses périmées).
+ * Charge les pages frise pour une fenêtre civile. N’applique loading /
+ * succès / erreur que tant que `isCurrent()` reste vrai.
  */
 export async function runFriseEventsReload(
   params: {
     category: CategoryId;
     city: V1Commune | null;
     search: string;
+    /** Début inclus `YYYY-MM-DD` (fenêtre affichée). */
+    from: string;
+    /** Fin inclusive `YYYY-MM-DD` (fenêtre affichée). */
+    to: string;
     load: typeof loadExplorerEvents;
   },
   handlers: FriseEventsLoadHandlers,
@@ -75,6 +79,8 @@ export async function runFriseEventsReload(
         category: categoryIdToExplorerFilter(params.category) ?? null,
         city: cityToExplorerFilter(params.city) ?? null,
         search: params.search || null,
+        from: params.from,
+        to: params.to,
         cursor,
         limit: EXPLORER_FRIEZE_PAGE_SIZE,
       });
@@ -154,7 +160,14 @@ export function useFriseEvents({
     setError(null);
 
     await runFriseEventsReload(
-      { category, city, search, load },
+      {
+        category,
+        city,
+        search,
+        from: window.fromKey,
+        to: window.toKey,
+        load,
+      },
       {
         isCurrent,
         onLoading: setLoading,
@@ -167,7 +180,16 @@ export function useFriseEvents({
         onError: applyError,
       },
     );
-  }, [enabled, category, city, search, load, applyError]);
+  }, [
+    enabled,
+    category,
+    city,
+    search,
+    load,
+    applyError,
+    window.fromKey,
+    window.toKey,
+  ]);
 
   useEffect(() => {
     if (!enabled) {
@@ -184,7 +206,7 @@ export function useFriseEvents({
     });
     return () => {
       cancelled = true;
-      // Démontage ou changement de params : stoppe pagination + commits.
+      // Démontage ou changement de params / fenêtre : stoppe pagination + commits.
       loadGenerationRef.current += 1;
     };
   }, [enabled, reload]);
