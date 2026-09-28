@@ -3,9 +3,13 @@ import {
   type DetourCategory,
 } from "@/domain/events/classify-event-category";
 import { V1_COMMUNES, type V1Commune } from "@/domain/geo/v1-communes";
-import type { WhenFilter } from "@/domain/time/when-filter";
+import { isParisDateKey, type WhenFilter } from "@/domain/time/when-filter";
 import type { CategoryId } from "@/data/types";
-import type { ListExplorerEventsQuery } from "@/application/explorer/types";
+import {
+  EXPLORER_DEFAULT_PAGE_SIZE,
+  EXPLORER_MAX_PAGE_SIZE,
+  type ListExplorerEventsQuery,
+} from "@/application/explorer/types";
 
 const WHEN_FILTERS: readonly WhenFilter[] = [
   "today",
@@ -23,6 +27,12 @@ export type ExplorerPublicInput = {
   category?: string | null;
   city?: string | null;
   cursor?: string | null;
+  /** Défaut 12, plafonné à EXPLORER_MAX_PAGE_SIZE. */
+  limit?: number | null;
+  /** Début inclus de fenêtre civile Paris (`YYYY-MM-DD`), avec `to`. */
+  from?: string | null;
+  /** Fin inclusive de fenêtre civile Paris (`YYYY-MM-DD`), avec `from`. */
+  to?: string | null;
 };
 
 export type ParsedExplorerQuery =
@@ -83,6 +93,36 @@ export function parseExplorerPublicInput(
   const cursor =
     input.cursor != null && input.cursor !== "" ? input.cursor : undefined;
 
+  let limit = EXPLORER_DEFAULT_PAGE_SIZE;
+  if (input.limit != null && Number.isFinite(input.limit)) {
+    limit = Math.min(
+      Math.max(1, Math.floor(input.limit)),
+      EXPLORER_MAX_PAGE_SIZE,
+    );
+  }
+
+  const rawFrom =
+    input.from != null && input.from !== "" ? input.from.trim() : undefined;
+  const rawTo =
+    input.to != null && input.to !== "" ? input.to.trim() : undefined;
+
+  if ((rawFrom == null) !== (rawTo == null)) {
+    return { ok: false, error: "Période invalide." };
+  }
+
+  let from: string | undefined;
+  let to: string | undefined;
+  if (rawFrom != null && rawTo != null) {
+    if (input.when !== "upcoming") {
+      return { ok: false, error: "Période invalide." };
+    }
+    if (!isParisDateKey(rawFrom) || !isParisDateKey(rawTo) || rawFrom > rawTo) {
+      return { ok: false, error: "Période invalide." };
+    }
+    from = rawFrom;
+    to = rawTo;
+  }
+
   return {
     ok: true,
     query: {
@@ -91,7 +131,9 @@ export function parseExplorerPublicInput(
       category,
       city,
       cursor,
-      limit: 12,
+      limit,
+      from,
+      to,
     },
   };
 }

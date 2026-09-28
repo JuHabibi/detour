@@ -8,7 +8,7 @@ import {
   EXPLORER_DEFAULT_PAGE_SIZE,
   EXPLORER_MAX_PAGE_SIZE,
 } from "@/application/explorer/types";
-import { getDateRangeForWhenFilter } from "@/domain/time/when-filter";
+import { getDateRangeForParisDateKeys, getDateRangeForWhenFilter } from "@/domain/time/when-filter";
 import {
   buildExplorerFilterSql,
   type ExplorerResolvedFilters,
@@ -385,6 +385,70 @@ describe("listExplorerEvents — WHEN", () => {
     );
     expect(result.events[0]?.id).toBe("ongoing");
     expect(query).toHaveBeenCalled();
+  });
+
+  it("fenêtre from/to : début dans la fenêtre + encore à venir (pas overlap)", async () => {
+    const now = new Date("2026-09-15T12:00:00+02:00");
+    const window = getDateRangeForParisDateKeys("2026-09-01", "2026-11-30")!;
+    const { query, client } = mockClient((sql) => {
+      if (sql.includes("count(*)")) return { rows: [{ count: "0" }] };
+      return { rows: [] };
+    });
+
+    await listExplorerEvents(
+      {
+        when: "upcoming",
+        from: "2026-09-01",
+        to: "2026-11-30",
+      },
+      { client, now },
+    );
+
+    const countCall = query.mock.calls.find((c) =>
+      String(c[0]).includes("count(*)"),
+    ) as [string, unknown[]];
+    expect(countCall[0]).toContain("e.start_at >= $1");
+    expect(countCall[0]).toContain("e.start_at <= $2");
+    expect(countCall[0]).toContain("COALESCE(e.end_at, e.start_at) >= $3");
+    // Pas le prédicat d’intersection Explorer (`end >= from` sans borne start).
+    expect(countCall[0]).not.toMatch(
+      /COALESCE\(e\.end_at, e\.start_at\) >= \$1/,
+    );
+    expect(countCall[1][0]).toBe(window.from.toISOString());
+    expect(countCall[1][1]).toBe(window.to!.toISOString());
+    expect(countCall[1][2]).toBe(now.toISOString());
+  });
+
+  it("fenêtre from/to : exclut une expo commencée avant from même si elle finit dans la fenêtre", async () => {
+    const now = new Date("2026-09-15T12:00:00+02:00");
+    const { query, client } = mockClient((sql) => {
+      if (sql.includes("count(*)")) {
+        expect(sql).toContain("e.start_at >= $1");
+        return { rows: [{ count: "1" }] };
+      }
+      // Seule une sortie dont le début est dans la fenêtre doit être renvoyée.
+      return {
+        rows: [dbRow("in-window", "2026-10-10T18:00:00+02:00")],
+      };
+    });
+
+    const result = await listExplorerEvents(
+      {
+        when: "upcoming",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        category: "Exposition",
+      },
+      { client, now },
+    );
+
+    expect(result.events.map((e) => e.id)).toEqual(["in-window"]);
+    const countSql = query.mock.calls.find((c) =>
+      String(c[0]).includes("count(*)"),
+    )?.[0] as string;
+    // Une expo start=août / end=octobre ne satisfait pas start_at >= from.
+    expect(countSql).toContain("e.start_at >= $1");
+    expect(countSql).toContain("e.start_at <= $2");
   });
 });
 

@@ -80,4 +80,55 @@ describe("parseExplorerPublicInput", () => {
     expect(parsed.query.category).toBeUndefined();
     expect(parsed.query.city).toBeUndefined();
   });
+
+  it("accepte limit plafonné", () => {
+    const parsed = parseExplorerPublicInput({ when: "upcoming", limit: 50 });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.query.limit).toBe(50);
+
+    const capped = parseExplorerPublicInput({ when: "upcoming", limit: 999 });
+    expect(capped.ok).toBe(true);
+    if (!capped.ok) return;
+    expect(capped.query.limit).toBe(50);
+  });
+
+  it("accepte une fenêtre civile from/to avec upcoming", () => {
+    const parsed = parseExplorerPublicInput({
+      when: "upcoming",
+      from: "2026-12-01",
+      to: "2027-02-28",
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.query.from).toBe("2026-12-01");
+    expect(parsed.query.to).toBe("2027-02-28");
+  });
+
+  it("rejette from/to incomplets, inversés ou hors upcoming", () => {
+    expect(
+      parseExplorerPublicInput({ when: "upcoming", from: "2026-12-01" }).ok,
+    ).toBe(false);
+    expect(
+      parseExplorerPublicInput({
+        when: "upcoming",
+        from: "2027-02-28",
+        to: "2026-12-01",
+      }).ok,
+    ).toBe(false);
+    expect(
+      parseExplorerPublicInput({
+        when: "weekend",
+        from: "2026-12-01",
+        to: "2027-02-28",
+      }).ok,
+    ).toBe(false);
+    expect(
+      parseExplorerPublicInput({
+        when: "upcoming",
+        from: "2026-13-01",
+        to: "2026-13-31",
+      }).ok,
+    ).toBe(false);
+  });
 });

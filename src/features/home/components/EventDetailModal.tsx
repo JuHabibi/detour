@@ -13,6 +13,12 @@ import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reaso
 import type { EventItem } from "@/data/types";
 import { captureProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
+import {
+  eventDetailTriggerSelector,
+  onStackedDialogEscape,
+  restoreDialogReturnFocus,
+} from "@/lib/stacked-dialog";
+
 
 export type EventDetailSurface = "radar" | "explorer";
 
@@ -36,6 +42,10 @@ export function EventDetailModal({
 }: EventDetailModalProps) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+  const returnFocusToRef = useRef(returnFocusTo);
+  onCloseRef.current = onClose;
+  returnFocusToRef.current = returnFocusTo;
   const pickReason =
     surface === "radar" ? resolveRadarPickReason(event) : null;
   const official = resolveOfficialSourceLink(event);
@@ -46,31 +56,28 @@ export function EventDetailModal({
     closeRef.current?.focus();
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
+      onStackedDialogEscape(e, () => onCloseRef.current());
     }
-    window.addEventListener("keydown", onKeyDown);
+    // Capture + stopImmediatePropagation : un seul dialogue empilé se ferme.
+    window.addEventListener("keydown", onKeyDown, true);
     return () => {
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-      if (
-        returnFocusTo &&
-        typeof returnFocusTo.focus === "function" &&
-        document.contains(returnFocusTo)
-      ) {
-        returnFocusTo.focus();
-      }
+      window.removeEventListener("keydown", onKeyDown, true);
+      restoreDialogReturnFocus(returnFocusToRef.current, [
+        // Préférer la carte encore dans le panneau jour (aria-modal).
+        `[data-testid="frise-day-panel"] ${eventDetailTriggerSelector(event.id)}`,
+        eventDetailTriggerSelector(event.id),
+      ]);
     };
-  }, [onClose, returnFocusTo]);
+  }, [event.id]);
 
   const placeLine = [event.venue?.trim(), event.city?.trim()]
     .filter(Boolean)
     .join(" · ");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-6">
+
       <button
         type="button"
         aria-label="Fermer"

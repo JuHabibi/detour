@@ -33,7 +33,11 @@ export function AccountSignedOut({
         </li>
         <li className="flex gap-3">
           <span className="mt-2 size-1.5 shrink-0 bg-mint" aria-hidden />
-          Les ajouter à votre agenda (fichier ICS)
+          Les ajouter à votre agenda via un fichier ICS (pas de sync auto)
+        </li>
+        <li className="flex gap-3">
+          <span className="mt-2 size-1.5 shrink-0 bg-mint" aria-hidden />
+          Parcourir la promenade, réservée au compte
         </li>
       </ul>
 

@@ -25,6 +25,7 @@ export function AccountPage({
         homeHref="/"
         accountHref="/account"
         accountLabel={signedIn ? "Mon compte" : "Se connecter"}
+        showFriseNav={signedIn}
       />
 
       <main className="px-5 py-11 md:px-8 md:py-16 lg:px-12 lg:py-20 2xl:px-14 2xl:py-20 min-[1920px]:px-16">
@@ -50,7 +51,8 @@ export function AccountPage({
             Détour<span className="text-coral">.</span>
           </p>
           <p className="max-w-md text-sm leading-6 text-sand">
-            Compte Détour — favoris et groupes synchronisés sur vos appareils.
+            Compte Détour — favoris, groupes personnels, export calendrier (.ics)
+            et la promenade.
           </p>
         </div>
       </footer>

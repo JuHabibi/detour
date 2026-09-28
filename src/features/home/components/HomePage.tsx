@@ -17,6 +17,7 @@ import {
   EventDetailModal,
   type EventDetailSurface,
 } from "@/features/home/components/EventDetailModal";
+import { FriseAccountTeaser } from "@/features/home/components/FriseAccountTeaser";
 import { Header } from "@/components/layout/Header";
 import { HeroFilters } from "@/features/home/components/HeroFilters";
 import { authClient } from "@/features/account/auth-client";
@@ -183,7 +184,11 @@ export function HomePage({
 
   return (
     <div id="top" className="min-h-screen bg-paper">
-      <Header favoriteCount={favorites.size} accountLabel={accountLabel} />
+      <Header
+        favoriteCount={favorites.size}
+        accountLabel={accountLabel}
+        showFriseNav={isAuthenticated}
+      />
       <main>
         {authPrompt || favoriteError ? (
           <div className="border-b border-line px-5 py-3 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">
@@ -229,6 +234,7 @@ export function HomePage({
           onToggleFavorite={toggleFavorite}
           onOpenDetail={openEventDetail}
         />
+        {!isAuthenticated ? <FriseAccountTeaser /> : null}
         {liveDebugMeta && debugEvents ? (
           <HomeDebugSection
             events={debugEvents}

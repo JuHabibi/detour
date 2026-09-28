@@ -17,6 +17,12 @@ export type ListExplorerEventsQuery = {
   cursor?: string | null;
   /** Défaut 12, borné côté application. */
   limit?: number;
+  /**
+   * Fenêtre civile Paris optionnelle (`YYYY-MM-DD`), réservée à `when: "upcoming"`.
+   * Filtre : `start_at` dans [from, to] et événement encore à venir.
+   */
+  from?: string;
+  to?: string;
 };
 
 export type ListExplorerEventsResult = {
