@@ -423,7 +423,8 @@ src/
 │       ├── components/          → UI propre à la feature
 │       ├── hooks/               → hooks propres à la feature
 │       ├── debug/               → panneaux / outils debug de la feature
-│       └── tests/               → tests UI / wiring de la feature
+│       ├── tests/               → tests UI / wiring multi-composants
+│       └── <rôle>/              → modules non-React du même rôle (≥ 2 fichiers)
 ├── components/
 │   └── layout/                  → shell global uniquement (Header, …)
 ├── lib/                         → utilitaires techniques transverses
@@ -459,3 +460,39 @@ Un composant reste dans sa feature tant qu’il n’a **pas** au moins **deux co
 | `lib` | Utils techniques transverses (`cn`, analytics client minimal, …) |
 
 Le **copy / wording de présentation** (ex. explications de pastilles éditoriales) reste dans la feature, pas dans `domain`.
+
+#### Intérieur d’une feature
+
+Objectif : en ouvrant `features/<feature>/`, retrouver vite composants, hooks, modèles de présentation, logique d’interaction, config visuelle et contenus éditoriaux — sans arborescence mécanique.
+
+**Critères de placement**
+
+| Emplacement | Quand |
+|-------------|--------|
+| `components/` | Composants React de la feature |
+| `hooks/` | Hooks React (jamais mélangés dans `components/`) |
+| `debug/` | Panneaux / outils debug UI |
+| Dossier nommé par **rôle métier** de la feature (ex. `timeline/`, `scroll/`, `editorial/`, `auth/`, `groups/`) | Au moins **deux** modules non-React du même rôle |
+| Racine de la feature (ou à côté de son unique consommateur) | Un seul module d’un rôle donné — **pas** de dossier `types/`, `data/`, `utils/` ou `shared/` à un fichier |
+
+Les types locaux restent dans le module propriétaire. Ne pas créer de `types.ts` uniquement pour vider d’autres fichiers.
+
+**Noms de fichiers**
+
+- Composants React : `PascalCase.tsx` ; préfixe feature déjà en place (`Account*`, `Frise*`) conservé.
+- Modules non-React : `kebab-case.ts` (ex. `frise-scroll-mark.ts`, `safe-account-next-path.ts`).
+- Pas de `utils.ts` / `helpers.ts` fourre-tout ; le nom doit dire le rôle.
+
+**Tests**
+
+- Unités pures : colloquer `foo.test.ts` à côté de `foo.ts`.
+- Suites UI / wiring multi-composants : `tests/`.
+- Les deux coexistent. Ne pas déplacer un test « pour uniformiser » s’il est déjà clair.
+
+**Promotion (partage entre features)**
+
+1. Interdit : importer les internals d’une autre feature (`features/a` ↛ `features/b/components/...`).
+2. Autorisé seulement si **≥ 2 features** consomment réellement le même module.
+3. Destination = plus petit lieu partagé déjà prévu : shell → `components/layout` ; sinon module dédié au bon niveau (`components/…` UI partagée, `lib/` utils techniques). **Pas** de `features/shared` anticipé.
+4. Mettre à jour **tous** les imports vers le nouvel emplacement. Interdit de laisser un réexport « alias » sur l’ancien chemin pour masquer un déplacement incomplet.
+5. Pas de barrel export généralisé (`index.ts` qui réexporte toute la feature).
