@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  memo,
   useCallback,
   useEffect,
   useRef,
@@ -21,10 +22,9 @@ import {
   FRISE_TRACK_PB_CLASS,
 } from "@/features/frise/frise-layout";
 import {
-  friseScrollProgress,
-  resolveActiveFriseMark,
-  type FriseScrollMark,
-} from "@/features/frise/frise-scroll-mark";
+  createFriseScrollSession,
+  type FriseScrollOverlaySnapshot,
+} from "@/features/frise/frise-scroll-session";
 import {
   type ExplorerFriezeDayCluster,
   type ExplorerFriezeModel,
@@ -45,33 +45,18 @@ function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const onChange = () => setReduced(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+    const sync = () => setReduced(mq.matches);
+    queueMicrotask(sync);
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
   }, []);
   return reduced;
 }
 
-function readScrollMarks(scroller: HTMLElement): FriseScrollMark[] {
-  const scrollerRect = scroller.getBoundingClientRect();
-  const nodes = scroller.querySelectorAll<HTMLElement>("[data-frise-mark]");
-  const marks: FriseScrollMark[] = [];
-  nodes.forEach((node) => {
-    const monthKey = node.dataset.friseMonthKey?.trim() ?? "";
-    const monthLabel = node.dataset.friseMonthLabel?.trim() ?? "";
-    if (!monthKey || !monthLabel) return;
-    const rect = node.getBoundingClientRect();
-    const offsetLeft = rect.left - scrollerRect.left + scroller.scrollLeft;
-    marks.push({
-      offsetLeft,
-      offsetWidth: Math.max(1, rect.width),
-      monthKey,
-      monthLabel,
-      detailLabel: node.dataset.friseMark?.trim() || undefined,
-    });
-  });
-  return marks;
+function initialMonthLabel(model: ExplorerFriezeModel): string {
+  return model.chapters[0]
+    ? `${model.chapters[0].title} ${model.chapters[0].yearLabel}`
+    : model.window.label;
 }
 
 export function FriseRideTrack({
@@ -83,79 +68,60 @@ export function FriseRideTrack({
   onOpenDetail,
 }: FriseRideTrackProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const lastScrollLeft = useRef(0);
+  const trackRef = useRef<HTMLDivElement>(null);
   const reducedMotion = usePrefersReducedMotion();
-  const [progress, setProgress] = useState(0);
-  const [wheelAngle, setWheelAngle] = useState(0);
-  const [rolling, setRolling] = useState(false);
-  const [activeMonthLabel, setActiveMonthLabel] = useState(
-    () =>
-      model.chapters[0]
-        ? `${model.chapters[0].title} ${model.chapters[0].yearLabel}`
-        : model.window.label,
-  );
-  const [activeDetail, setActiveDetail] = useState<string | null>(null);
+  const [overlay, setOverlay] = useState<FriseScrollOverlaySnapshot>(() => ({
+    progress: 0,
+    wheelAngle: 0,
+    rolling: false,
+    activeMonthLabel: initialMonthLabel(model),
+    activeDetail: null,
+  }));
   const [dayPanel, setDayPanel] = useState<{
     day: ExplorerFriezeDayCluster;
     returnFocusTo: HTMLElement | null;
   } | null>(null);
-  const rollTimeout = useRef<number | null>(null);
 
   // Trimestre / fenêtre : ferme le panneau sans réinitialiser le scroll horizontal.
   useEffect(() => {
-    setDayPanel(null);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setDayPanel(null);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [model.window.fromKey, model.window.toKey, categoryLabel]);
 
-  const syncFromScroll = useCallback(() => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const left = el.scrollLeft;
-    const nextProgress = friseScrollProgress(
-      left,
-      el.scrollWidth,
-      el.clientWidth,
-    );
-    setProgress(nextProgress);
-
-    if (!reducedMotion) {
-      const delta = left - lastScrollLeft.current;
-      setWheelAngle((angle) => angle + delta * 0.55);
-      if (Math.abs(delta) > 0.5) {
-        setRolling(true);
-        if (rollTimeout.current) window.clearTimeout(rollTimeout.current);
-        rollTimeout.current = window.setTimeout(() => setRolling(false), 140);
-      }
-    }
-    lastScrollLeft.current = left;
-
-    const active = resolveActiveFriseMark(
-      readScrollMarks(el),
-      left,
-      el.clientWidth,
-    );
-    if (active) {
-      setActiveMonthLabel(active.monthLabel);
-      setActiveDetail(active.detailLabel);
-    }
-  }, [reducedMotion]);
-
   useEffect(() => {
-    return () => {
-      if (rollTimeout.current) window.clearTimeout(rollTimeout.current);
-    };
-  }, []);
+    const session = createFriseScrollSession({
+      getScroller: () => scrollerRef.current,
+      reducedMotion,
+      initialMonthLabel: initialMonthLabel(model),
+      onOverlay: setOverlay,
+    });
 
-  useEffect(() => {
     const el = scrollerRef.current;
-    if (!el) return;
-    syncFromScroll();
-    el.addEventListener("scroll", syncFromScroll, { passive: true });
-    window.addEventListener("resize", syncFromScroll);
+    if (!el) {
+      session.dispose();
+      return;
+    }
+
+    session.invalidateMarks();
+    el.addEventListener("scroll", session.onScroll, { passive: true });
+
+    const ro = new ResizeObserver(() => {
+      session.invalidateMarks();
+    });
+    ro.observe(el);
+    if (trackRef.current) ro.observe(trackRef.current);
+
     return () => {
-      el.removeEventListener("scroll", syncFromScroll);
-      window.removeEventListener("resize", syncFromScroll);
+      el.removeEventListener("scroll", session.onScroll);
+      ro.disconnect();
+      session.dispose();
     };
-  }, [syncFromScroll, model]);
+  }, [reducedMotion, model]);
 
   const scrollByStep = useCallback(
     (direction: -1 | 1) => {
@@ -194,7 +160,13 @@ export function FriseRideTrack({
     }
   }
 
-  const bikeTravel = reducedMotion ? 0.12 : 0.08 + progress * 0.72;
+  const openDayPanel = useCallback(
+    (day: ExplorerFriezeDayCluster, trigger: HTMLElement) => {
+      setDayPanel({ day, returnFocusTo: trigger });
+    },
+    [],
+  );
+
   const eventSummary =
     model.coverageStatus === "pending"
       ? "Chargement de la période…"
@@ -238,7 +210,6 @@ export function FriseRideTrack({
       </p>
 
       <div className="relative overflow-hidden border border-line bg-foam/80">
-        {/* Texture papier — matière commune (tuile native, pas cover) */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-[0.4]"
@@ -251,85 +222,24 @@ export function FriseRideTrack({
           }}
         />
 
-        {/* Repère temporel discret — sync scroll / dates, hors vélo */}
-        <div
-          data-frise-time-chip
-          className="pointer-events-none absolute left-3 top-3 z-[4] max-w-[min(14rem,70%)] border border-line/50 bg-paper/95 px-2.5 py-1.5 shadow-[2px_2px_0_rgb(17_17_17/0.04)] md:left-4 md:top-4"
-          aria-live="polite"
-        >
-          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-sand">
-            Vous parcourez
-          </p>
-          <p className="mt-0.5 font-display text-[0.95rem] leading-tight tracking-tight text-ink">
-            {activeMonthLabel}
-          </p>
-          {activeDetail &&
-          activeDetail !== activeMonthLabel &&
-          !activeDetail.startsWith("Respiration") ? (
-            <p className="mt-0.5 truncate text-[11px] text-cream-dim">
-              {activeDetail}
-            </p>
-          ) : null}
-          <div
-            aria-hidden
-            className="mt-1.5 h-0.5 w-full overflow-hidden bg-ink/10"
-          >
-            <div
-              className={cn(
-                "h-full bg-ink/45",
-                !reducedMotion && "transition-[width] duration-150 ease-out",
-              )}
-              style={{ width: `${Math.round(progress * 100)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Route + vélo — au-dessus du décor (test bande route) */}
-        <div
-          aria-hidden
-          data-frise-road-over-decor="1"
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] h-[4.25rem] md:h-[5.75rem]"
-        >
-          {/* Bande de route : passe par-dessus la frise sous le vélo */}
-          <div className="absolute inset-x-0 bottom-0 h-[1.65rem] bg-paper/80 md:h-[2.1rem]" />
-          <div className="absolute inset-x-0 bottom-[1.55rem] h-px bg-ink/30 md:bottom-[1.95rem]" />
-          <div className="absolute inset-x-0 bottom-[1.45rem] h-px border-t border-dashed border-ink/25 md:bottom-[1.85rem]" />
-          <div
-            className={cn(
-              "absolute bottom-1 will-change-transform md:bottom-2",
-              !reducedMotion &&
-                rolling &&
-                "animate-[frise-bike-bob_0.28s_ease-in-out]",
-            )}
-            style={{
-              left: `${(bikeTravel * 100).toFixed(2)}%`,
-              transform: "translateX(-45%)",
-            }}
-          >
-            <VintageBikeSvg
-              wheelAngleDeg={reducedMotion ? 0 : wheelAngle}
-              className="h-12 w-auto sm:h-14 md:h-[4.75rem]"
-            />
-          </div>
-        </div>
+        <FriseScrollChrome overlay={overlay} reducedMotion={reducedMotion} />
 
         <div
           ref={scrollerRef}
           role="region"
-          aria-label={`La promenade · ${categoryLabel}. Défilement horizontal. Mois affiché : ${activeMonthLabel}.`}
+          aria-label={`La promenade · ${categoryLabel}. Défilement horizontal. Mois affiché : ${overlay.activeMonthLabel}.`}
           tabIndex={0}
           onKeyDown={onKeyDown}
           className={cn(
             "relative z-[1] flex snap-x snap-mandatory gap-0 overflow-x-auto overflow-y-hidden",
-            // Respiration haute (pastille) — padding vélo dans la piste
             "pt-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink",
             "md:pt-8",
             "scrollbar-none",
             "touch-pan-x",
           )}
         >
-          {/* Piste viewport (~650–750px desktop) : hauteur ≠ densité événements */}
           <div
+            ref={trackRef}
             data-frise-track-height="viewport"
             className={cn(
               "relative flex w-max shrink-0",
@@ -337,53 +247,13 @@ export function FriseRideTrack({
               FRISE_TRACK_PB_CLASS,
             )}
           >
-            <FriseLandscapeDecor />
-
-            <div className="relative z-[1] flex h-full items-start">
-              <div className="w-[8vw] shrink-0 md:w-[6vw]" aria-hidden />
-
-              {model.chapters.map((chapter) => {
-                const monthLabel = `${chapter.title} ${chapter.yearLabel}`;
-                return (
-                  <div
-                    key={chapter.id}
-                    className="flex h-full shrink-0 items-start"
-                  >
-                    <MonthMilestone
-                      title={chapter.title}
-                      year={chapter.yearLabel}
-                      monthKey={chapter.monthKey}
-                      monthLabel={monthLabel}
-                    />
-                    {chapter.items.map((item) =>
-                      item.kind === "quiet" ? (
-                        <QuietStretch
-                          key={item.id}
-                          item={item}
-                          monthKey={chapter.monthKey}
-                          monthLabel={monthLabel}
-                        />
-                      ) : (
-                        <DayPoster
-                          key={item.id}
-                          item={item}
-                          monthKey={chapter.monthKey}
-                          monthLabel={monthLabel}
-                          favorites={favorites}
-                          onToggleFavorite={onToggleFavorite}
-                          onOpenDetail={onOpenDetail}
-                          onOpenDayPanel={(day, trigger) =>
-                            setDayPanel({ day, returnFocusTo: trigger })
-                          }
-                        />
-                      ),
-                    )}
-                  </div>
-                );
-              })}
-
-              <div className="w-[12vw] shrink-0 md:w-[10vw]" aria-hidden />
-            </div>
+            <FriseTrackBody
+              model={model}
+              favorites={favorites}
+              onToggleFavorite={onToggleFavorite}
+              onOpenDetail={onOpenDetail}
+              onOpenDayPanel={openDayPanel}
+            />
           </div>
         </div>
       </div>
@@ -401,6 +271,152 @@ export function FriseRideTrack({
     </div>
   );
 }
+
+/** Vélo + repère temporel — seuls à réagir au scroll. */
+const FriseScrollChrome = memo(function FriseScrollChrome({
+  overlay,
+  reducedMotion,
+}: {
+  overlay: FriseScrollOverlaySnapshot;
+  reducedMotion: boolean;
+}) {
+  const bikeTravel = reducedMotion
+    ? 0.12
+    : 0.08 + overlay.progress * 0.72;
+
+  return (
+    <>
+      <div
+        data-frise-time-chip
+        className="pointer-events-none absolute left-3 top-3 z-[4] max-w-[min(14rem,70%)] border border-line/50 bg-paper/95 px-2.5 py-1.5 shadow-[2px_2px_0_rgb(17_17_17/0.04)] md:left-4 md:top-4"
+        aria-live="polite"
+      >
+        <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-sand">
+          Vous parcourez
+        </p>
+        <p className="mt-0.5 font-display text-[0.95rem] leading-tight tracking-tight text-ink">
+          {overlay.activeMonthLabel}
+        </p>
+        {overlay.activeDetail &&
+        overlay.activeDetail !== overlay.activeMonthLabel &&
+        !overlay.activeDetail.startsWith("Respiration") ? (
+          <p className="mt-0.5 truncate text-[11px] text-cream-dim">
+            {overlay.activeDetail}
+          </p>
+        ) : null}
+        <div
+          aria-hidden
+          className="mt-1.5 h-0.5 w-full overflow-hidden bg-ink/10"
+        >
+          <div
+            className={cn(
+              "h-full bg-ink/45",
+              !reducedMotion && "transition-[width] duration-150 ease-out",
+            )}
+            style={{ width: `${Math.round(overlay.progress * 100)}%` }}
+          />
+        </div>
+      </div>
+
+      <div
+        aria-hidden
+        data-frise-road-over-decor="1"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] h-[4.25rem] md:h-[5.75rem]"
+      >
+        <div className="absolute inset-x-0 bottom-0 h-[1.65rem] bg-paper/80 md:h-[2.1rem]" />
+        <div className="absolute inset-x-0 bottom-[1.55rem] h-px bg-ink/30 md:bottom-[1.95rem]" />
+        <div className="absolute inset-x-0 bottom-[1.45rem] h-px border-t border-dashed border-ink/25 md:bottom-[1.85rem]" />
+        <div
+          className={cn(
+            "absolute bottom-1 will-change-transform md:bottom-2",
+            !reducedMotion &&
+              overlay.rolling &&
+              "animate-[frise-bike-bob_0.28s_ease-in-out]",
+          )}
+          style={{
+            left: `${(bikeTravel * 100).toFixed(2)}%`,
+            transform: "translateX(-45%)",
+          }}
+        >
+          <VintageBikeSvg
+            wheelAngleDeg={reducedMotion ? 0 : overlay.wheelAngle}
+            className="h-12 w-auto sm:h-14 md:h-[4.75rem]"
+          />
+        </div>
+      </div>
+    </>
+  );
+});
+
+/**
+ * Chapitres / cartes / décor — ne rerendent pas quand seul le chrome scroll change.
+ */
+export const FriseTrackBody = memo(function FriseTrackBody({
+  model,
+  favorites,
+  onToggleFavorite,
+  onOpenDetail,
+  onOpenDayPanel,
+}: {
+  model: ExplorerFriezeModel;
+  favorites?: Set<string>;
+  onToggleFavorite?: (id: string) => void;
+  onOpenDetail?: OpenEventDetailHandler;
+  onOpenDayPanel: (
+    day: ExplorerFriezeDayCluster,
+    trigger: HTMLElement,
+  ) => void;
+}) {
+  return (
+    <>
+      <FriseLandscapeDecor />
+
+      <div className="relative z-[1] flex h-full items-start">
+        <div className="w-[8vw] shrink-0 md:w-[6vw]" aria-hidden />
+
+        {model.chapters.map((chapter) => {
+          const monthLabel = `${chapter.title} ${chapter.yearLabel}`;
+          return (
+            <div
+              key={chapter.id}
+              className="flex h-full shrink-0 items-start"
+            >
+              <MonthMilestone
+                title={chapter.title}
+                year={chapter.yearLabel}
+                monthKey={chapter.monthKey}
+                monthLabel={monthLabel}
+              />
+              {chapter.items.map((item) =>
+                item.kind === "quiet" ? (
+                  <QuietStretch
+                    key={item.id}
+                    item={item}
+                    monthKey={chapter.monthKey}
+                    monthLabel={monthLabel}
+                  />
+                ) : (
+                  <DayPoster
+                    key={item.id}
+                    item={item}
+                    monthKey={chapter.monthKey}
+                    monthLabel={monthLabel}
+                    favorites={favorites}
+                    onToggleFavorite={onToggleFavorite}
+                    onOpenDetail={onOpenDetail}
+                    onOpenDayPanel={onOpenDayPanel}
+                  />
+                ),
+              )}
+            </div>
+          );
+        })}
+
+        <div className="w-[12vw] shrink-0 md:w-[10vw]" aria-hidden />
+      </div>
+    </>
+  );
+});
 
 function RideButton({
   label,
@@ -541,7 +557,6 @@ function DayPoster({
         ) : null}
       </div>
 
-      {/* Zone cartes plafonnée : 2 niveaux max, empilement vertical uniquement */}
       <ul className="mt-1 flex flex-col gap-3">
         {preview.visible.map((event) => (
           <FrisePosterCard
