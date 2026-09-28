@@ -15,6 +15,11 @@ type FrisePosterCardProps = {
   onOpenDetail?: OpenEventDetailHandler;
   /** Variante un peu plus compacte (liste panneau). */
   dense?: boolean;
+  /**
+   * Compactage + clamps titre/lieu — piste mobile uniquement
+   * (`max-md`). Desktop et panneau gardent le texte complet.
+   */
+  trackCompact?: boolean;
   as?: "li" | "div";
   className?: string;
 };
@@ -25,6 +30,7 @@ export function FrisePosterCard({
   onToggleFavorite,
   onOpenDetail,
   dense = false,
+  trackCompact = false,
   as = "li",
   className,
 }: FrisePosterCardProps) {
@@ -76,7 +82,8 @@ export function FrisePosterCard({
           }}
           className={cn(
             "group flex w-full flex-col border border-ink/15 bg-paper text-left shadow-[3px_3px_0_rgb(17_17_17/0.06)]",
-            dense ? "gap-0.5 px-2.5 py-2.5 pr-11" : "gap-1.5 px-3.5 py-3.5 pr-12",
+            dense ? "gap-1 px-3 py-3 pr-12" : "gap-1.5 px-3.5 py-3.5 pr-12",
+            trackCompact && "max-md:gap-0.5 max-md:px-2.5 max-md:py-2.5 max-md:pr-11",
             "transition-colors hover:border-ink/30 hover:bg-foam",
             "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
             "disabled:cursor-default",
@@ -100,12 +107,20 @@ export function FrisePosterCard({
           <p
             className={cn(
               "font-display font-semibold leading-[1.18] tracking-tight text-ink",
-              dense ? "line-clamp-3 text-[1.05rem]" : "line-clamp-3 text-[1.1rem] md:text-[1.2rem]",
+              dense ? "text-[1.05rem]" : "text-[1.1rem] md:text-[1.2rem]",
+              trackCompact && "max-md:line-clamp-3",
             )}
           >
             {event.title}
           </p>
-          <p className="line-clamp-2 text-[12px] leading-snug text-ink/80">{place}</p>
+          <p
+            className={cn(
+              "text-[12px] leading-snug text-ink/80",
+              trackCompact && "max-md:line-clamp-2",
+            )}
+          >
+            {place}
+          </p>
           <p className="text-[12px] font-medium tabular-nums text-sand">
             {whenLabel}
           </p>

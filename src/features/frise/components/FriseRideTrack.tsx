@@ -726,12 +726,16 @@ function DayPoster({
           <FrisePosterCard
             key={event.id}
             event={event}
-            dense
+            trackCompact
             isFavorite={favorites?.has(event.id) ?? false}
             onToggleFavorite={onToggleFavorite}
             onOpenDetail={onOpenDetail}
             as="li"
-            className={index >= EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE ? "hidden md:block" : undefined}
+            className={
+              index >= EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE
+                ? "hidden md:block"
+                : undefined
+            }
           />
         ))}
       </ul>
