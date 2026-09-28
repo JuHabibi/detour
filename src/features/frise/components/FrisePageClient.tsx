@@ -140,9 +140,21 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
   const backHref = useMemo(() => "/#explorer", []);
   const showEmptyFavorites =
     favoritesHydrated && favorites.size === 0 && enabled;
-  /** Réserve la hauteur du bandeau avant hydratation pour ne pas pousser la piste. */
-  const reserveEmptyFavoritesSlot =
-    enabled && (!favoritesHydrated || favorites.size === 0);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const w = window as Window & {
+      __friseSetFavoriteIds?: (ids: string[]) => void;
+    };
+    w.__friseSetFavoriteIds = (ids: string[]) => {
+      setFavoriteState({ userId: "self", ids: new Set(ids) });
+      setFavoritesHydrated(true);
+      setFavoriteError(null);
+    };
+    return () => {
+      delete w.__friseSetFavoriteIds;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-paper">
@@ -176,45 +188,6 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
               </p>
             </div>
           </div>
-
-          <div
-            className="mb-4 min-h-5"
-            aria-live="assertive"
-            data-frise-status-slot="favorite-error"
-          >
-            {favoriteError ? (
-              <p className="text-sm text-coral" role="alert">
-                {favoriteError}
-              </p>
-            ) : null}
-          </div>
-
-          {reserveEmptyFavoritesSlot ? (
-            <div
-              className="mb-6 min-h-[8.875rem] md:min-h-[7.375rem]"
-              aria-live="polite"
-              data-frise-status-slot="empty-favorites"
-            >
-              {showEmptyFavorites ? (
-                <div className="border border-line bg-foam px-4 py-4 md:px-5">
-                  <p className="font-editorial text-xl leading-snug text-ink">
-                    Aucun favori pour l’instant.
-                  </p>
-                  <p className="mt-2 max-w-lg text-sm leading-6 text-cream-dim">
-                    Parcourez la promenade et touchez le cœur sur une sortie qui
-                    vous parle — vos détours apparaîtront aussi dans{" "}
-                    <Link
-                      href="/account"
-                      className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4"
-                    >
-                      Mon compte
-                    </Link>
-                    .
-                  </p>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
 
           <div className="mb-6 md:mb-8">
             <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-sand">
@@ -253,7 +226,7 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
             </p>
           ) : (
             <>
-              <div className="mb-5 flex flex-wrap items-center gap-2">
+              <div className="relative mb-5 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={frise.goToday}
@@ -288,25 +261,39 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
                 >
                   Chargement…
                 </span>
-              </div>
 
-              <div
-                className="mb-4 min-h-5"
-                aria-live="assertive"
-                data-frise-status-slot="load-error"
-              >
-                {frise.error ? (
-                  <p className="text-sm text-coral" role="alert">
-                    {frise.error}{" "}
-                    <button
-                      type="button"
-                      className="underline"
-                      onClick={() => void frise.reload()}
+                {/* Erreurs hors flux : pas de vide permanent, wrapping mobile sans pousser la piste. */}
+                <div
+                  className="pointer-events-none absolute inset-x-0 top-full z-20 h-0"
+                  aria-live="assertive"
+                  data-frise-status-slot="errors"
+                >
+                  {favoriteError ? (
+                    <p
+                      className="pointer-events-auto max-w-prose bg-paper/95 text-sm leading-5 text-coral"
+                      role="alert"
+                      data-frise-status-slot="favorite-error"
                     >
-                      Réessayer
-                    </button>
-                  </p>
-                ) : null}
+                      {favoriteError}
+                    </p>
+                  ) : null}
+                  {frise.error ? (
+                    <p
+                      className="pointer-events-auto mt-1 max-w-prose bg-paper/95 text-sm leading-5 text-coral"
+                      role="alert"
+                      data-frise-status-slot="load-error"
+                    >
+                      {frise.error}{" "}
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => void frise.reload()}
+                      >
+                        Réessayer
+                      </button>
+                    </p>
+                  ) : null}
+                </div>
               </div>
 
               <FriseRideTrack
@@ -317,6 +304,29 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
                 onToggleFavorite={toggleFavorite}
                 onOpenDetail={onOpenDetail}
               />
+
+              {showEmptyFavorites ? (
+                <div
+                  className="mt-8 border border-line bg-foam px-4 py-4 md:mt-10 md:px-5"
+                  aria-live="polite"
+                  data-frise-status-slot="empty-favorites"
+                >
+                  <p className="font-editorial text-xl leading-snug text-ink">
+                    Aucun favori pour l’instant.
+                  </p>
+                  <p className="mt-2 max-w-lg text-sm leading-6 text-cream-dim">
+                    Parcourez la promenade et touchez le cœur sur une sortie qui
+                    vous parle — vos détours apparaîtront aussi dans{" "}
+                    <Link
+                      href="/account"
+                      className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4"
+                    >
+                      Mon compte
+                    </Link>
+                    .
+                  </p>
+                </div>
+              ) : null}
             </>
           )}
         </div>
