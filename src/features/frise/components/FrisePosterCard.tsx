@@ -7,6 +7,7 @@ import type { OpenEventDetailHandler } from "@/features/home/components/EventCar
 import type { EventItem } from "@/data/types";
 import { cn } from "@/lib/cn";
 
+
 type FrisePosterCardProps = {
   event: EventItem;
   isFavorite: boolean;
@@ -66,6 +67,7 @@ export function FrisePosterCard({
         <button
           type="button"
           disabled={!interactive}
+          data-event-detail-trigger={event.id}
           onClick={(e) => {
             if (!onOpenDetail) return;
             onOpenDetail(event, "explorer", e.currentTarget);

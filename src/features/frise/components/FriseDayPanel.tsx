@@ -29,36 +29,41 @@ export function FriseDayPanel({
 }: FriseDayPanelProps) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+  const returnFocusToRef = useRef(returnFocusTo);
+  onCloseRef.current = onClose;
+  returnFocusToRef.current = returnFocusTo;
   const dateLine = `${day.weekdayLabel} ${day.dayNumber} ${day.monthShort}`;
   const countLabel =
     day.events.length === 1
       ? "1 événement"
       : `${day.events.length} événements`;
 
+  // Montage seul : un onClose inline du parent ne doit pas re-voler le focus
+  // quand une fiche s’ouvre/ferme au-dessus.
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     closeRef.current?.focus();
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
+      if (e.key !== "Escape") return;
+      // Fiche au-dessus : laisser EventDetailModal consommer Escape seul.
+      if (document.querySelector('[data-testid="event-detail-modal"]')) return;
+      e.preventDefault();
+      onCloseRef.current();
     }
+
     window.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
-      if (
-        returnFocusTo &&
-        typeof returnFocusTo.focus === "function" &&
-        document.contains(returnFocusTo)
-      ) {
-        returnFocusTo.focus();
+      const el = returnFocusToRef.current;
+      if (el && typeof el.focus === "function" && document.contains(el)) {
+        el.focus();
       }
     };
-  }, [onClose, returnFocusTo]);
+  }, []);
 
   return (
     <div
