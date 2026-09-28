@@ -29,12 +29,19 @@ export type RunAiAssessmentResult =
 
 /**
  * Déclenche l’évaluation IA sur la shortlist Détour uniquement.
- * Disponible seulement en mode manual + clé présente.
+ * Panneau debug / lancement manuel : développement local seulement.
  * Ne constitue pas un proxy OpenAI générique.
  */
 export async function runAiHighlightAssessment(options?: {
   force?: boolean;
 }): Promise<RunAiAssessmentResult> {
+  if (process.env.NODE_ENV !== "development") {
+    return {
+      ok: false,
+      error: "Run AI assessment réservé au développement local.",
+    };
+  }
+
   const config = getAiConfig();
 
   if (!config.enabled) {
