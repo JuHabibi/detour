@@ -81,7 +81,7 @@ export function friseTrackGeometryKey(model: {
     items: readonly (
       | { kind: "day"; dateKey: string; events: readonly unknown[] }
       | { kind: "quiet"; fromKey: string; toKey: string }
-    );
+    )[];
   }[];
 }): string {
   const parts: string[] = [

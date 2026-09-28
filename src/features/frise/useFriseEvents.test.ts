@@ -113,7 +113,9 @@ describe("runFriseEventsReload — fenêtre visible", () => {
       expect(input.to).toBe("2026-11-30");
       // Contrat serveur start-in-window : les spanning ne sont pas renvoyés.
       const startsInWindow = [...spanningFlood, inWindow].filter((e) => {
-        const key = e.startAt.slice(0, 10);
+        const startAt = e.startAt;
+        if (!startAt) return false;
+        const key = startAt.slice(0, 10);
         return key >= input.from! && key <= input.to!;
       });
       return okPage(startsInWindow, startsInWindow.length);
