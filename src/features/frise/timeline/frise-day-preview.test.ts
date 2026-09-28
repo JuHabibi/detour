@@ -6,7 +6,7 @@ import {
   friseDayMoreLabel,
   friseDayTrackRestCount,
   sliceFriseDayPreview,
-} from "@/features/frise/frise-day-preview";
+} from "@/features/frise/timeline/frise-day-preview";
 
 function ev(id: string): EventItem {
   return {

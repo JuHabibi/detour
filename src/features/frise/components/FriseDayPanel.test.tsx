@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { EventItem } from "@/data/types";
 import { FriseDayPanel } from "@/features/frise/components/FriseDayPanel";
-import type { ExplorerFriezeDayCluster } from "@/features/frise/frise-timeline-model";
+import type { ExplorerFriezeDayCluster } from "@/features/frise/timeline/frise-timeline-model";
 
 function ev(id: string, title: string): EventItem {
   return {

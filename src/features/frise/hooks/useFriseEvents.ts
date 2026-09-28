@@ -18,7 +18,7 @@ import {
   type ExplorerFriezeModel,
   type FriseCoverageStatus,
   type FriseSettledScope,
-} from "@/features/frise/frise-timeline-model";
+} from "@/features/frise/timeline/frise-timeline-model";
 import type { CategoryId, EventItem } from "@/data/types";
 import type { V1Commune } from "@/domain/geo/v1-communes";
 

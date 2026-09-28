@@ -20,23 +20,23 @@ import {
   friseDayMoreLabel,
   friseDayTrackRestCount,
   sliceFriseDayPreview,
-} from "@/features/frise/frise-day-preview";
+} from "@/features/frise/timeline/frise-day-preview";
 import {
   FRISE_DAY_MARK_PT_CLASS,
   FRISE_TRACK_HEIGHT_CLASS,
   FRISE_TRACK_PB_CLASS,
-} from "@/features/frise/frise-layout";
+} from "@/features/frise/landscape/frise-layout";
 import {
   createFriseScrollSession,
   friseTrackGeometryKey,
   type FriseScrollOverlaySnapshot,
   type FriseScrollSession,
-} from "@/features/frise/frise-scroll-session";
+} from "@/features/frise/scroll/frise-scroll-session";
 import {
   type ExplorerFriezeDayCluster,
   type ExplorerFriezeModel,
   type ExplorerFriezeQuietGap,
-} from "@/features/frise/frise-timeline-model";
+} from "@/features/frise/timeline/frise-timeline-model";
 import { cn } from "@/lib/cn";
 
 type FriseRideTrackProps = {

@@ -13,7 +13,7 @@ import type { EventItem } from "@/data/types";
 import { Header } from "@/components/layout/Header";
 import { EventDetailModal } from "@/features/home/components/EventDetailModal";
 import { FriseRideTrack } from "@/features/frise/components/FriseRideTrack";
-import { useFriseEvents } from "@/features/frise/useFriseEvents";
+import { useFriseEvents } from "@/features/frise/hooks/useFriseEvents";
 import { cn } from "@/lib/cn";
 import type { DetourCategory } from "@/domain/events/classify-event-category";
 

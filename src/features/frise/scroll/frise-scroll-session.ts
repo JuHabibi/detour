@@ -9,7 +9,7 @@ import {
   resolveActiveFriseMark,
   type FriseActiveMark,
   type FriseScrollMark,
-} from "@/features/frise/frise-scroll-mark";
+} from "@/features/frise/scroll/frise-scroll-mark";
 
 export type FriseScrollOverlaySnapshot = {
   progress: number;

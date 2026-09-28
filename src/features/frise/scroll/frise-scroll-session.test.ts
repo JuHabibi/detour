@@ -4,8 +4,8 @@ import {
   createFriseScrollSession,
   friseTrackGeometryKey,
   readScrollMarks,
-} from "@/features/frise/frise-scroll-session";
-import { resolveActiveFriseMark } from "@/features/frise/frise-scroll-mark";
+} from "@/features/frise/scroll/frise-scroll-session";
+import { resolveActiveFriseMark } from "@/features/frise/scroll/frise-scroll-mark";
 
 /**
  * Baseline (avant optimisation) sur une frise chargée (~40 marqueurs) :

@@ -1,7 +1,7 @@
 import {
   EXPLORER_FRIEZE_DAY_PREVIEW,
   EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE,
-} from "@/features/frise/frise-timeline-model";
+} from "@/features/frise/timeline/frise-timeline-model";
 import type { EventItem } from "@/data/types";
 
 export type FriseDayPreview = {

@@ -7,7 +7,7 @@ import type { EventItem } from "@/data/types";
 import {
   buildExplorerFrieze,
   resolveFriezeWindow,
-} from "@/features/frise/frise-timeline-model";
+} from "@/features/frise/timeline/frise-timeline-model";
 import {
   runFriseEventsReload,
   exposedFriseCoverageStatus,
@@ -16,7 +16,7 @@ import {
   friseEventsReloadSuccess,
   type FriseEventsLoadSuccess,
   type FriseEventsExposedSlice,
-} from "@/features/frise/useFriseEvents";
+} from "@/features/frise/hooks/useFriseEvents";
 
 type LoadFn = (
   input: LoadExplorerEventsInput,
@@ -203,7 +203,7 @@ describe("runFriseEventsReload — fenêtre visible", () => {
 describe("couverture vue ↔ données", () => {
   it("ne présente pas d’anciennes données comme vide du nouveau trimestre", async () => {
     const { resolveFriseCoverageStatus } = await import(
-      "@/features/frise/frise-timeline-model"
+      "@/features/frise/timeline/frise-timeline-model"
     );
     const autumn = resolveFriezeWindow("2026-09-01");
     const winter = resolveFriezeWindow("2026-12-01");
@@ -293,7 +293,7 @@ describe("couverture vue ↔ données", () => {
 
   it("city ou search changés à trimestre/catégorie identiques → pas complete", async () => {
     const { resolveFriseCoverageStatus } = await import(
-      "@/features/frise/frise-timeline-model"
+      "@/features/frise/timeline/frise-timeline-model"
     );
     const window = resolveFriezeWindow("2026-09-01");
     const settled = {

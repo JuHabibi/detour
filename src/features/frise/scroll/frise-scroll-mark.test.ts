@@ -3,7 +3,7 @@ import {
   friseScrollProgress,
   resolveActiveFriseMark,
   type FriseScrollMark,
-} from "@/features/frise/frise-scroll-mark";
+} from "@/features/frise/scroll/frise-scroll-mark";
 
 function mark(
   partial: Pick<FriseScrollMark, "offsetLeft" | "monthKey" | "monthLabel"> &

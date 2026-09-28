@@ -9,7 +9,7 @@ import {
   planRiveContinuum,
   promenadePanelDisplayWidth,
   promenadePanelStepPx,
-} from "@/features/frise/frise-promenade-spec";
+} from "@/features/frise/landscape/frise-promenade-spec";
 
 describe("frise-promenade-spec — dimensions", () => {
   it("préserve le ratio artboard à l’affichage", () => {

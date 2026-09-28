@@ -4,7 +4,7 @@ import {
   FRISE_TRACK_HEIGHT_BOUNDS_PX,
   FRISE_TRACK_HEIGHT_CLASS,
   FRISE_TRACK_PB_CLASS,
-} from "@/features/frise/frise-layout";
+} from "@/features/frise/landscape/frise-layout";
 
 describe("frise-layout proportions", () => {
   it("expose une hauteur desktop dans la cible 650–750 px", () => {

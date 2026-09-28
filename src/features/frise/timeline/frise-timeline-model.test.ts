@@ -6,7 +6,7 @@ import {
   resolveFriezeWindow,
   shiftFriezeAnchor,
   toParisDateKey,
-} from "@/features/frise/frise-timeline-model";
+} from "@/features/frise/timeline/frise-timeline-model";
 
 function item(
   partial: Pick<EventItem, "id" | "title" | "date"> &
@@ -184,7 +184,7 @@ describe("buildExplorerFrieze", () => {
 
   it("coverage status mismatches other windows", async () => {
     const { resolveFriseCoverageStatus: resolveCoverage } = await import(
-      "@/features/frise/frise-timeline-model"
+      "@/features/frise/timeline/frise-timeline-model"
     );
     const status = resolveCoverage({
       viewFrom: "2026-12-01",
@@ -223,7 +223,7 @@ describe("buildExplorerFrieze", () => {
 
   it("coverage status mismatches when city or search changes", async () => {
     const { resolveFriseCoverageStatus: resolveCoverage } = await import(
-      "@/features/frise/frise-timeline-model"
+      "@/features/frise/timeline/frise-timeline-model"
     );
     const settled = {
       from: "2026-09-01",

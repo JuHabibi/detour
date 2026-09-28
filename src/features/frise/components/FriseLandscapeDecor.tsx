@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import {
   planRiveContinuum,
   type FriseRiveContinuumPlan,
-} from "@/features/frise/frise-promenade-spec";
+} from "@/features/frise/landscape/frise-promenade-spec";
 
 /**
  * Continuité graphique frise : Loire-A → quai → entrée → motif bouclé.
