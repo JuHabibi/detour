@@ -9,12 +9,20 @@ import type {
 } from "@/application/groups";
 import type { EventItem } from "@/data/types";
 import { authClient } from "@/lib/auth-client";
+import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
 import { AccountAddToGroupModal } from "@/features/account/components/AccountAddToGroupModal";
 import { AccountCarnetsLibrary } from "@/features/account/components/AccountCarnetsLibrary";
 import { AccountEmptyFavorites } from "@/features/account/components/AccountEmptyFavorites";
 import { AccountFavoriteCard } from "@/features/account/components/AccountFavoriteCard";
-import { buildMembershipMap, filterFavoriteIds, type FavoriteFilter } from "@/features/account/groups/membership-index";
+import {
+  buildMembershipMap,
+  countFavoritesInGroup,
+  countFavoritesWithoutCarnet,
+  filterFavoriteIds,
+  type FavoriteFilter,
+} from "@/features/account/groups/membership-index";
 import { takeServerListIfChanged } from "@/features/account/take-server-list-if-changed";
+import { cn } from "@/lib/cn";
 
 export type AccountUserView = {
   name: string;
@@ -107,6 +115,54 @@ export function AccountSignedIn({
     activeGroupId != null
       ? (groups.find((g) => g.id === activeGroupId)?.name ?? null)
       : null;
+  const withoutCarnetCount = useMemo(
+    () => countFavoritesWithoutCarnet(favoriteIds, memberships),
+    [favoriteIds, memberships],
+  );
+
+  const filterChips = useMemo(() => {
+    const chips: {
+      key: string;
+      label: string;
+      count: number;
+      filter: FavoriteFilter;
+      active: boolean;
+    }[] = [
+      {
+        key: "all",
+        label: "Tous",
+        count: favorites.length,
+        filter: { kind: "all" },
+        active: effectiveFilter.kind === "all",
+      },
+      {
+        key: "none",
+        label: "Sans carnet",
+        count: withoutCarnetCount,
+        filter: { kind: "none" },
+        active: effectiveFilter.kind === "none",
+      },
+    ];
+    for (const group of groups) {
+      chips.push({
+        key: group.id,
+        label: group.name,
+        count: countFavoritesInGroup(favoriteIds, memberships, group.id),
+        filter: { kind: "group", groupId: group.id },
+        active:
+          effectiveFilter.kind === "group" &&
+          effectiveFilter.groupId === group.id,
+      });
+    }
+    return chips;
+  }, [
+    effectiveFilter,
+    favoriteIds,
+    favorites.length,
+    groups,
+    memberships,
+    withoutCarnetCount,
+  ]);
 
   function exitSelectionMode() {
     setSelectionMode(false);
@@ -206,11 +262,19 @@ export function AccountSignedIn({
   }
 
   const groupModalHeading =
-    groupModal?.kind === "single"
-      ? groupModal.event.title
-      : groupModal
-        ? `${groupModal.eventIds.length} favori${groupModal.eventIds.length > 1 ? "s" : ""}`
-        : "";
+    groupModal?.kind === "bulk"
+      ? `${groupModal.eventIds.length} favori${groupModal.eventIds.length > 1 ? "s" : ""}`
+      : "";
+
+  const organizeEvent =
+    groupModal?.kind === "single" ? groupModal.event : null;
+
+  const filterCaption =
+    effectiveFilter.kind === "none"
+      ? "Favoris non rangés dans un carnet."
+      : activeGroupName
+        ? `Favoris du carnet « ${activeGroupName} ».`
+        : "Tous vos événements sauvegardés, classés ou non.";
 
   return (
     <div className={selectionMode && selectedCount > 0 ? "pb-28" : undefined}>
@@ -280,10 +344,8 @@ export function AccountSignedIn({
               Mes favoris
             </h2>
             <p className="mt-1.5 text-sm leading-6 text-cream-dim">
-              {activeGroupName
-                ? `Favoris du carnet « ${activeGroupName} ».`
-                : "Tous vos événements sauvegardés, classés ou non."}
-              {activeGroupName ? (
+              {filterCaption}
+              {effectiveFilter.kind !== "all" ? (
                 <>
                   {" "}
                   <button
@@ -310,6 +372,39 @@ export function AccountSignedIn({
           ) : null}
         </div>
 
+        {favorites.length > 0 ? (
+          <div
+            className="mt-5 flex flex-wrap gap-2"
+            role="group"
+            aria-label="Filtrer les favoris"
+          >
+            {filterChips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => setFilter(chip.filter)}
+                aria-pressed={chip.active}
+                className={cn(
+                  "inline-flex min-h-9 items-center gap-1.5 border px-3 text-[11px] font-medium uppercase tracking-[0.1em] transition-colors",
+                  chip.active
+                    ? "border-ink bg-ink text-foam"
+                    : "border-line bg-foam text-ink hover:border-ink",
+                )}
+              >
+                <span className="max-w-[12rem] truncate">{chip.label}</span>
+                <span
+                  className={cn(
+                    "tabular-nums",
+                    chip.active ? "text-foam/70" : "text-sand",
+                  )}
+                >
+                  {chip.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         {favorites.length === 0 ? (
           <div className="mt-8">
             <AccountEmptyFavorites />
@@ -329,7 +424,9 @@ export function AccountSignedIn({
 
             {filteredFavorites.length === 0 ? (
               <p className="mt-8 text-sm leading-6 text-cream-dim">
-                Aucun favori dans ce carnet.
+                {effectiveFilter.kind === "none"
+                  ? "Tous vos favoris sont déjà rangés dans un carnet."
+                  : "Aucun favori dans ce carnet."}
               </p>
             ) : (
               <div className="mt-2">
@@ -372,22 +469,28 @@ export function AccountSignedIn({
         </div>
       ) : null}
 
-      {groupModal ? (
+      {organizeEvent ? (
+        <OrganizeInCarnetModal
+          event={organizeEvent}
+          groups={groups}
+          memberships={memberships}
+          isFavorite
+          onClose={() => setGroupModal(null)}
+          onGroupsChange={setGroups}
+          onMembershipsChange={setMemberships}
+        />
+      ) : null}
+
+      {groupModal?.kind === "bulk" ? (
         <AccountAddToGroupModal
-          eventIds={
-            groupModal.kind === "single"
-              ? [groupModal.event.id]
-              : groupModal.eventIds
-          }
+          eventIds={groupModal.eventIds}
           heading={groupModalHeading}
           groups={groups}
           memberships={memberships}
           onClose={() => setGroupModal(null)}
           onGroupsChange={setGroups}
           onMembershipsChange={setMemberships}
-          onSuccess={
-            groupModal.kind === "bulk" ? exitSelectionMode : undefined
-          }
+          onSuccess={exitSelectionMode}
         />
       ) : null}
     </div>

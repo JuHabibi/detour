@@ -10,6 +10,8 @@ type FeaturedEventsCarouselProps = {
   events: EventItem[];
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
+  carnetCounts?: Map<string, number>;
+  onOrganizeCarnets?: (event: EventItem) => void;
   onOpenDetail?: OpenEventDetailHandler;
 };
 
@@ -22,6 +24,8 @@ export function FeaturedEventsCarousel({
   events,
   favorites,
   onToggleFavorite,
+  carnetCounts,
+  onOrganizeCarnets,
   onOpenDetail,
 }: FeaturedEventsCarouselProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -106,6 +110,8 @@ export function FeaturedEventsCarousel({
               priority={index < 2}
               isFavorite={favorites.has(event.id)}
               onToggleFavorite={onToggleFavorite}
+              carnetCount={carnetCounts?.get(event.id) ?? 0}
+              onOrganizeCarnets={onOrganizeCarnets}
               rank={index + 1}
               surface="radar"
               onOpenDetail={onOpenDetail}

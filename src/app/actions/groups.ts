@@ -7,11 +7,40 @@ import {
   createGroupForUser,
   createGroupWithEventsForUser,
   deleteGroupForUser,
+  listEventGroupMembershipsForUser,
+  listGroupSummariesForUser,
   normalizeEventIds,
   removeEventFromGroupForUser,
   renameGroupForUser,
+  type EventGroupMembership,
   type GroupRow,
+  type GroupSummary,
 } from "@/application/groups";
+
+export type ListMyCarnetsStateResult =
+  | {
+      ok: true;
+      groups: GroupSummary[];
+      memberships: EventGroupMembership[];
+    }
+  | { ok: false; reason: "unauthenticated" | "error" };
+
+/** Hydratation Home — carnets + memberships session (pas de userId client). */
+export async function listMyCarnetsState(): Promise<ListMyCarnetsStateResult> {
+  const userId = await requireUserId();
+  if (!userId) return { ok: false, reason: "unauthenticated" };
+
+  try {
+    const [groups, memberships] = await Promise.all([
+      listGroupSummariesForUser(userId),
+      listEventGroupMembershipsForUser(userId),
+    ]);
+    return { ok: true, groups, memberships };
+  } catch (error) {
+    console.error("[detour:groups] listMyCarnetsState failed", error);
+    return { ok: false, reason: "error" };
+  }
+}
 
 export type GroupMutationResult =
   | { ok: true; group?: GroupRow }
@@ -23,6 +52,7 @@ export type GroupMutationResult =
         | "not_found"
         | "already_member"
         | "event_not_found"
+        | "limit_reached"
         | "error";
     };
 
@@ -41,6 +71,7 @@ export type BulkGroupMutationResult =
         | "invalid"
         | "not_found"
         | "event_not_found"
+        | "limit_reached"
         | "error";
     };
 
@@ -76,9 +107,12 @@ export async function createGroup(name: string): Promise<GroupMutationResult> {
   if (!userId) return { ok: false, reason: "unauthenticated" };
 
   try {
-    const group = await createGroupForUser(userId, name);
-    if (!group) return { ok: false, reason: "invalid" };
-    return { ok: true, group };
+    const result = await createGroupForUser(userId, name);
+    if (result.status === "limit_reached") {
+      return { ok: false, reason: "limit_reached" };
+    }
+    if (result.status !== "ok") return { ok: false, reason: "invalid" };
+    return { ok: true, group: result.group };
   } catch (error) {
     console.error("[detour:groups] createGroup failed", error);
     return { ok: false, reason: "error" };
@@ -198,6 +232,9 @@ export async function createGroupWithFavorites(
       eventIds: ids,
     });
     if (result.status === "invalid") return { ok: false, reason: "invalid" };
+    if (result.status === "limit_reached") {
+      return { ok: false, reason: "limit_reached" };
+    }
     if (result.status === "event_not_found") {
       return { ok: false, reason: "event_not_found" };
     }

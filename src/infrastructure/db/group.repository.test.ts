@@ -55,39 +55,70 @@ describe("group.repository — ownership / IDOR", () => {
   beforeEach(() => {
     query.mockReset();
     vi.mocked(getPool).mockReturnValue({ query } as never);
+    vi.mocked(withClient).mockImplementation(async (fn) =>
+      fn({ query } as never),
+    );
   });
 
-  it("createGroupForUser insère scoppé user_id", async () => {
+  it("createGroupForUser insère scoppé user_id sous lock quota", async () => {
     const now = new Date("2026-09-16T10:00:00.000Z");
-    query.mockResolvedValue({
-      rows: [
-        {
-          id: GROUP_A,
-          user_id: USER_A,
-          name: "Week-end",
-          created_at: now,
-          updated_at: now,
-        },
-      ],
+    query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({ rows: [] }) // advisory lock
+      .mockResolvedValueOnce({ rows: [{ n: 1 }] }) // count
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: GROUP_A,
+            user_id: USER_A,
+            name: "Week-end",
+            created_at: now,
+            updated_at: now,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+    const result = await createGroupForUser(USER_A, "  Week-end  ");
+    expect(result).toEqual({
+      status: "ok",
+      group: {
+        id: GROUP_A,
+        userId: USER_A,
+        name: "Week-end",
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      },
     });
 
-    const group = await createGroupForUser(USER_A, "  Week-end  ");
-    expect(group).toEqual({
-      id: GROUP_A,
-      userId: USER_A,
-      name: "Week-end",
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-    });
-
-    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
-    expect(sql).toContain("INSERT INTO groups (user_id, name)");
-    expect(params).toEqual([USER_A, "Week-end"]);
+    const insertCall = query.mock.calls.find(
+      ([sql]) => typeof sql === "string" && sql.includes("INSERT INTO groups"),
+    ) as [string, unknown[]] | undefined;
+    expect(insertCall?.[0]).toContain("INSERT INTO groups (user_id, name)");
+    expect(insertCall?.[1]).toEqual([USER_A, "Week-end"]);
   });
 
   it("createGroupForUser refuse nom vide", async () => {
-    await expect(createGroupForUser(USER_A, "   ")).resolves.toBeNull();
+    await expect(createGroupForUser(USER_A, "   ")).resolves.toEqual({
+      status: "invalid",
+    });
     expect(query).not.toHaveBeenCalled();
+  });
+
+  it("createGroupForUser refuse au-delà de MAX_GROUPS_PER_USER", async () => {
+    query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({ rows: [] }) // lock
+      .mockResolvedValueOnce({ rows: [{ n: 4 }] }) // count
+      .mockResolvedValueOnce({ rows: [] }); // ROLLBACK
+
+    await expect(createGroupForUser(USER_A, "Trop")).resolves.toEqual({
+      status: "limit_reached",
+    });
+    const inserted = query.mock.calls.some(
+      ([sql]) => typeof sql === "string" && sql.includes("INSERT INTO groups"),
+    );
+    expect(inserted).toBe(false);
   });
 
   it("listGroupsForUser filtre uniquement user_id session", async () => {
@@ -390,6 +421,8 @@ describe("group.repository — ownership / IDOR", () => {
     const clientQuery = vi
       .fn()
       .mockResolvedValueOnce(undefined) // BEGIN
+      .mockResolvedValueOnce({ rows: [] }) // advisory lock
+      .mockResolvedValueOnce({ rows: [{ n: 0 }] }) // count
       .mockResolvedValueOnce({
         rows: [
           {
@@ -431,6 +464,8 @@ describe("group.repository — ownership / IDOR", () => {
 
     expect(clientQuery.mock.calls.map((c) => c[0])).toEqual([
       "BEGIN",
+      expect.stringContaining("pg_advisory_xact_lock"),
+      expect.stringContaining("COUNT(*)"),
       expect.stringContaining("INSERT INTO groups"),
       expect.stringContaining("unnest"),
       "COMMIT",
@@ -442,6 +477,8 @@ describe("group.repository — ownership / IDOR", () => {
     const clientQuery = vi
       .fn()
       .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ n: 0 }] })
       .mockResolvedValueOnce({
         rows: [
           {
@@ -459,11 +496,11 @@ describe("group.repository — ownership / IDOR", () => {
             owned: true,
             added_count: 0,
             already_member_count: 0,
-            missing_count: 2,
+            missing_count: 1,
           },
         ],
       })
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce(undefined); // ROLLBACK
 
     vi.mocked(withClient).mockImplementation(async (fn) =>
       fn({ query: clientQuery } as never),
@@ -473,12 +510,11 @@ describe("group.repository — ownership / IDOR", () => {
       createGroupWithEventsForUser({
         userId: USER_A,
         name: "Week-end",
-        eventIds: ["missing-1", "missing-2"],
+        eventIds: ["missing"],
       }),
     ).resolves.toEqual({ status: "event_not_found" });
 
-    expect(clientQuery.mock.calls.map((c) => c[0])).toContain("ROLLBACK");
-    expect(clientQuery.mock.calls.map((c) => c[0])).not.toContain("COMMIT");
+    expect(clientQuery.mock.calls.at(-1)?.[0]).toBe("ROLLBACK");
   });
 });
 

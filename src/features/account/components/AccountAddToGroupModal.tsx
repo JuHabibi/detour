@@ -11,6 +11,7 @@ import type {
   EventGroupMembership,
   GroupSummary,
 } from "@/application/groups";
+import { MAX_GROUPS_PER_USER } from "@/application/groups/limits";
 import { AppModal } from "@/components/ui/AppModal";
 import { replaceEventMemberships } from "@/features/account/groups/membership-index";
 
@@ -70,6 +71,7 @@ export function AccountAddToGroupModal({
     eventIds.length === 1
       ? "1 favori"
       : `${eventIds.length} favoris`;
+  const atLimit = groups.length >= MAX_GROUPS_PER_USER;
 
   function toggleGroup(groupId: string) {
     setCheckedIds((current) => {
@@ -155,6 +157,10 @@ export function AccountAddToGroupModal({
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (atLimit) {
+      setError("Vous avez atteint la limite de 4 carnets.");
+      return;
+    }
     const trimmed = newName.trim();
     if (!trimmed) {
       setError("Indiquez un nom de carnet.");
@@ -165,11 +171,14 @@ export function AccountAddToGroupModal({
       const result = await createGroupWithFavorites(trimmed, eventIds);
       if (!result.ok) {
         setError(
-          result.reason === "not_found" || result.reason === "event_not_found"
-            ? "Impossible d’ajouter à ce carnet."
-            : result.reason === "invalid"
-              ? "Sélection invalide."
-              : "Impossible de créer. Réessayez.",
+          result.reason === "limit_reached"
+            ? "Vous avez atteint la limite de 4 carnets."
+            : result.reason === "not_found" ||
+                result.reason === "event_not_found"
+              ? "Impossible d’ajouter à ce carnet."
+              : result.reason === "invalid"
+                ? "Sélection invalide."
+                : "Impossible de créer. Réessayez.",
         );
         return;
       }
@@ -275,31 +284,37 @@ export function AccountAddToGroupModal({
         )}
       </form>
 
-      <form
-        onSubmit={handleCreate}
-        className="mt-5 border-t border-line pt-5"
-      >
-        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-sand">
-          Créer un carnet
+      {atLimit ? (
+        <p className="mt-5 text-[12px] text-sand">
+          Vous avez atteint la limite de 4 carnets.
         </p>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <input
-            type="text"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Nom"
-            maxLength={80}
-            className="min-w-0 flex-1 border border-line bg-paper px-3 py-2.5 text-sm text-ink outline-none placeholder:text-sand focus:border-ink"
-          />
-          <button
-            type="submit"
-            disabled={pending}
-            className="inline-flex min-h-11 items-center justify-center bg-ink px-4 text-[12px] font-medium uppercase tracking-[0.1em] text-foam transition-colors hover:bg-coral disabled:opacity-60"
-          >
-            Créer
-          </button>
-        </div>
-      </form>
+      ) : (
+        <form
+          onSubmit={handleCreate}
+          className="mt-5 border-t border-line pt-5"
+        >
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-sand">
+            Créer un carnet
+          </p>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Nom"
+              maxLength={80}
+              className="min-w-0 flex-1 border border-line bg-paper px-3 py-2.5 text-sm text-ink outline-none placeholder:text-sand focus:border-ink"
+            />
+            <button
+              type="submit"
+              disabled={pending}
+              className="inline-flex min-h-11 items-center justify-center bg-ink px-4 text-[12px] font-medium uppercase tracking-[0.1em] text-foam transition-colors hover:bg-coral disabled:opacity-60"
+            >
+              Créer
+            </button>
+          </div>
+        </form>
+      )}
 
       {error ? (
         <p className="mt-4 text-sm text-coral" role="alert">

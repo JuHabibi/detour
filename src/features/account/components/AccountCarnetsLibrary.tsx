@@ -7,6 +7,7 @@ import type {
   EventGroupMembership,
   GroupSummary,
 } from "@/application/groups";
+import { MAX_GROUPS_PER_USER } from "@/application/groups/limits";
 import { groupCalendarPath } from "@/domain/calendar/build-event-calendar";
 import { AccountCarnetCover } from "@/features/account/components/AccountCarnetCover";
 import { AccountCarnetFormModal } from "@/features/account/components/AccountCarnetFormModal";
@@ -14,8 +15,6 @@ import {
   dropGroupMemberships,
   renameMemberships,
 } from "@/features/account/groups/membership-index";
-
-const DESKTOP_VISIBLE = 4;
 
 type AccountCarnetsLibraryProps = {
   groups: GroupSummary[];
@@ -39,14 +38,13 @@ export function AccountCarnetsLibrary({
   onMembershipsChange,
 }: AccountCarnetsLibraryProps) {
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formModal, setFormModal] = useState<FormModal | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const showExpand = groups.length > DESKTOP_VISIBLE;
-  const desktopGroups =
-    expanded || !showExpand ? groups : groups.slice(0, DESKTOP_VISIBLE);
+  const atLimit = groups.length >= MAX_GROUPS_PER_USER;
+  /** Legacy > 4 : on conserve toutes les couvertures ; sinon max 4. */
+  const visibleGroups = groups;
 
   function handleDelete(groupId: string) {
     const group = groups.find((g) => g.id === groupId);
@@ -97,19 +95,26 @@ export function AccountCarnetsLibrary({
         {groups.length > 0 ? (
           <p className="mr-auto text-[12px] uppercase tracking-[0.12em] text-sand">
             {groups.length} carnet{groups.length > 1 ? "s" : ""}
+            {atLimit ? " · limite atteinte" : ""}
           </p>
         ) : null}
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => {
-            setError(null);
-            setFormModal({ kind: "create" });
-          }}
-          className="inline-flex min-h-10 items-center justify-center border border-ink px-4 text-[11px] font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam disabled:opacity-60"
-        >
-          + Créer un carnet
-        </button>
+        {atLimit ? (
+          <p className="text-[12px] text-sand">
+            Vous avez atteint la limite de 4 carnets.
+          </p>
+        ) : (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              setError(null);
+              setFormModal({ kind: "create" });
+            }}
+            className="inline-flex min-h-10 items-center justify-center border border-ink px-4 text-[11px] font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam disabled:opacity-60"
+          >
+            + Créer un carnet
+          </button>
+        )}
       </div>
 
       {error ? (
@@ -126,7 +131,7 @@ export function AccountCarnetsLibrary({
       ) : (
         <>
           <div className="mt-8 flex gap-5 overflow-x-auto px-2 pb-6 pt-3 snap-x snap-mandatory scrollbar-none md:hidden">
-            {groups.map((group, index) => (
+            {visibleGroups.map((group, index) => (
               <AccountCarnetCover
                 key={group.id}
                 group={group}
@@ -141,7 +146,7 @@ export function AccountCarnetsLibrary({
           </div>
 
           <div className="mt-10 hidden grid-cols-2 gap-x-6 gap-y-10 px-3 pb-4 pt-2 md:grid lg:grid-cols-4 lg:gap-x-8">
-            {desktopGroups.map((group, index) => (
+            {visibleGroups.map((group, index) => (
               <AccountCarnetCover
                 key={group.id}
                 group={group}
@@ -157,18 +162,6 @@ export function AccountCarnetsLibrary({
 
           {groups.length > 0 ? (
             <div className="mt-8 border-t border-ink/15" />
-          ) : null}
-
-          {showExpand ? (
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              className="mt-5 hidden text-[12px] font-medium uppercase tracking-[0.1em] text-ink underline decoration-line underline-offset-4 transition-colors hover:text-coral md:inline-flex"
-            >
-              {expanded
-                ? "Réduire la bibliothèque"
-                : `Voir tous les carnets (${groups.length})`}
-            </button>
           ) : null}
         </>
       )}

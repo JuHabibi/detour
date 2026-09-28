@@ -20,6 +20,7 @@ import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge"
 import type { CategoryId, EventItem, EventSignal } from "@/data/types";
 import { captureProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
+import { BookmarkCheck } from "lucide-react";
 
 /** Lieu + date — colonne d’icônes coral, espacement Radar / Explorer aligné. */
 function EventPlaceDateLines({
@@ -63,6 +64,10 @@ type CardProps = {
   event: EventItem;
   isFavorite?: boolean;
   onToggleFavorite?: (id: string) => void;
+  /** Nombre de carnets contenant l’événement (0 = non classé). */
+  carnetCount?: number;
+  /** Ouvre la modale de classement (session authentifiée). */
+  onOrganizeCarnets?: (event: EventItem) => void;
   priority?: boolean;
   layout?: "stack" | "row";
   emphasis?: boolean;
@@ -145,6 +150,8 @@ export function FeaturedEventCard({
   event,
   isFavorite = false,
   onToggleFavorite,
+  carnetCount = 0,
+  onOrganizeCarnets,
   priority = false,
   surface = "explorer",
   onOpenDetail,
@@ -155,6 +162,8 @@ export function FeaturedEventCard({
         event={event}
         isFavorite={isFavorite}
         onToggleFavorite={onToggleFavorite}
+        carnetCount={carnetCount}
+        onOrganizeCarnets={onOrganizeCarnets}
         featured
         surface={surface}
         onOpenDetail={onOpenDetail}
@@ -201,14 +210,14 @@ export function FeaturedEventCard({
           ) : null}
         </div>
 
-        {onToggleFavorite ? (
-          <FavoriteButton
-            isFavorite={isFavorite}
-            onClick={() => onToggleFavorite(event.id)}
-            eventTitle={event.title}
-            className="absolute right-4 top-4 z-[2]"
-          />
-        ) : null}
+        <CardFavoriteActions
+          event={event}
+          isFavorite={isFavorite}
+          onToggleFavorite={onToggleFavorite}
+          carnetCount={carnetCount}
+          onOrganizeCarnets={onOrganizeCarnets}
+          className="absolute right-4 top-4"
+        />
 
         <div className="absolute inset-x-0 bottom-0 p-5 text-white md:p-5 lg:p-6">
           <h3 className="max-w-xl font-display text-[1.75rem] leading-[0.98] sm:text-[2.1rem] lg:text-[2.2rem]">
@@ -243,6 +252,8 @@ export function StandardEventCard(props: CardProps) {
     event,
     isFavorite = false,
     onToggleFavorite,
+    carnetCount = 0,
+    onOrganizeCarnets,
     priority = false,
     layout = "stack",
     emphasis = false,
@@ -305,14 +316,14 @@ export function StandardEventCard(props: CardProps) {
               <EditorialBadgePill label={event.editorialBadge} />
               <AvailabilityBadgePill label={event.availabilityBadge} />
             </div>
-            {onToggleFavorite ? (
-              <FavoriteButton
-                isFavorite={isFavorite}
-                onClick={() => onToggleFavorite(event.id)}
-                eventTitle={event.title}
-                className="relative z-[2] shrink-0"
-              />
-            ) : null}
+            <CardFavoriteActions
+              event={event}
+              isFavorite={isFavorite}
+              onToggleFavorite={onToggleFavorite}
+              carnetCount={carnetCount}
+              onOrganizeCarnets={onOrganizeCarnets}
+              className="relative z-[2] shrink-0"
+            />
           </div>
           <h3 className="mt-1 line-clamp-2 font-display text-[1.25rem] font-semibold leading-[1.08] tracking-tight sm:text-[1.35rem]">
             {event.title}
@@ -362,14 +373,14 @@ export function StandardEventCard(props: CardProps) {
             sizes="(max-width: 640px) 64vw, (max-width: 1024px) 28vw, 22vw"
             className="object-cover object-center transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.03]"
           />
-          {onToggleFavorite ? (
-            <FavoriteButton
+          <CardFavoriteActions
+              event={event}
               isFavorite={isFavorite}
-              onClick={() => onToggleFavorite(event.id)}
-              eventTitle={event.title}
-              className="absolute right-2 top-2 z-[2] border-0 bg-foam/90"
+              onToggleFavorite={onToggleFavorite}
+              carnetCount={carnetCount}
+              onOrganizeCarnets={onOrganizeCarnets}
+              className="absolute right-2 top-2 z-[2] border-0"
             />
-          ) : null}
         </div>
 
         <div className="relative flex shrink-0 flex-col bg-foam px-3 pb-3 pt-2.5 md:px-3.5 md:pb-3.5 md:pt-3">
@@ -448,14 +459,14 @@ export function StandardEventCard(props: CardProps) {
           sizes="(max-width: 767px) 7rem, (max-width: 1024px) 50vw, 18vw"
           className="object-cover object-center transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.03]"
         />
-        {onToggleFavorite ? (
-          <FavoriteButton
-            isFavorite={isFavorite}
-            onClick={() => onToggleFavorite(event.id)}
-            eventTitle={event.title}
-            className="absolute right-2 top-2 z-[2] hidden border-0 bg-foam/90 md:flex"
-          />
-        ) : null}
+        <CardFavoriteActions
+              event={event}
+              isFavorite={isFavorite}
+              onToggleFavorite={onToggleFavorite}
+              carnetCount={carnetCount}
+              onOrganizeCarnets={onOrganizeCarnets}
+              className="absolute right-2 top-2 z-[2] hidden border-0 md:flex"
+            />
       </div>
 
       <div className="relative flex min-w-0 flex-1 flex-col py-0.5 md:pt-2.5">
@@ -467,14 +478,14 @@ export function StandardEventCard(props: CardProps) {
               <AvailabilityBadgePill label={event.availabilityBadge} />
             </div>
           </div>
-          {onToggleFavorite ? (
-            <FavoriteButton
+          <CardFavoriteActions
+              event={event}
               isFavorite={isFavorite}
-              onClick={() => onToggleFavorite(event.id)}
-              eventTitle={event.title}
+              onToggleFavorite={onToggleFavorite}
+              carnetCount={carnetCount}
+              onOrganizeCarnets={onOrganizeCarnets}
               className="relative z-[2] shrink-0 md:hidden"
             />
-          ) : null}
         </div>
         <h3 className="mt-1 line-clamp-2 font-display text-[1.15rem] font-semibold leading-[1.08] tracking-tight text-ink md:mt-1 md:text-[1.2rem]">
           {event.title}
@@ -503,6 +514,8 @@ export function TextEventCard({
   event,
   isFavorite = false,
   onToggleFavorite,
+  carnetCount = 0,
+  onOrganizeCarnets,
   featured = false,
   surface = "explorer",
   onOpenDetail,
@@ -558,14 +571,14 @@ export function TextEventCard({
             <EditorialBadgePill label={event.editorialBadge} />
             <AvailabilityBadgePill label={event.availabilityBadge} />
           </div>
-          {onToggleFavorite ? (
-            <FavoriteButton
+          <CardFavoriteActions
+              event={event}
               isFavorite={isFavorite}
-              onClick={() => onToggleFavorite(event.id)}
-              eventTitle={event.title}
+              onToggleFavorite={onToggleFavorite}
+              carnetCount={carnetCount}
+              onOrganizeCarnets={onOrganizeCarnets}
               className="relative z-[2] shrink-0 bg-paper/70"
             />
-          ) : null}
         </div>
 
         {signal ? (
@@ -650,10 +663,7 @@ function RadarCardCta({ event }: { event: EventItem }) {
   );
 }
 
-/**
- * Pastille disponibilité billetterie — label déjà résolu hors UI.
- * Uniquement « Complet » / « Complet en ligne ».
- */
+
 export function AvailabilityBadgePill({
   label,
 }: {
@@ -672,10 +682,6 @@ export function AvailabilityBadgePill({
   );
 }
 
-/**
- * Pastille éditoriale — label déjà résolu hors UI.
- * Variante B : cartouche rectangulaire (plus pill).
- */
 export function EditorialBadgePill({
   label,
   tone = "default",
@@ -750,10 +756,6 @@ function canOpenEventDetail(
   return Boolean(resolveEventAction(event).href);
 }
 
-/**
- * Hit-area carte : ouvre la fiche Détour si `onOpenDetail`, sinon lien externe legacy.
- * Favoris / pastilles restent au-dessus (z-[2]) avec stopPropagation.
- */
 function EventOpenControl({
   event,
   surface = "explorer",
@@ -818,12 +820,21 @@ function FavoriteButton({
   onClick,
   className,
   eventTitle,
+  /** Cœur rempli ouvre le classement plutôt que retirer le favori. */
+  opensOrganize = false,
 }: {
   isFavorite: boolean;
   onClick: () => void;
   className?: string;
   eventTitle: string;
+  opensOrganize?: boolean;
 }) {
+  const ariaLabel = !isFavorite
+    ? `Ajouter « ${eventTitle} » aux favoris`
+    : opensOrganize
+      ? `Ranger « ${eventTitle} » dans un carnet`
+      : `Retirer « ${eventTitle} » des favoris`;
+
   return (
     <button
       type="button"
@@ -833,13 +844,9 @@ function FavoriteButton({
         onClick();
       }}
       aria-pressed={isFavorite}
-      aria-label={
-        isFavorite
-          ? `Retirer « ${eventTitle} » des favoris`
-          : `Ajouter « ${eventTitle} » aux favoris`
-      }
+      aria-label={ariaLabel}
       className={cn(
-        "flex size-11 items-center justify-center border border-line bg-paper/95 text-ink transition-colors hover:bg-mint/40",
+        "flex size-11 items-center justify-center border border-line bg-paper/95 text-ink transition-colors hover:bg-mint/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-paper",
         className,
       )}
     >
@@ -853,6 +860,109 @@ function FavoriteButton({
         />
       </svg>
     </button>
+  );
+}
+
+/** Badge personnel — pilule ink flottant sur l’illustration (uniquement si classé). */
+function CarnetStatusBadge({
+  count,
+  onClick,
+  eventTitle,
+  className,
+}: {
+  count: number;
+  onClick: () => void;
+  eventTitle: string;
+  className?: string;
+}) {
+  if (count <= 0) return null;
+
+  const label = count === 1 ? "Dans un carnet" : `Dans ${count} carnets`;
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
+      aria-label={`${label} — modifier le classement de « ${eventTitle} »`}
+      className={cn(
+        "inline-flex w-auto max-w-[11rem] shrink-0 items-center gap-1 rounded-full bg-ink px-2.5 py-1.5 text-[10px] font-medium leading-none tracking-[0.04em] text-foam transition-colors",
+        "hover:bg-coral hover:text-ink",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foam focus-visible:ring-offset-2 focus-visible:ring-offset-ink",
+        className,
+      )}
+    >
+      <BookmarkCheck
+        aria-hidden
+        className="size-3 shrink-0"
+        strokeWidth={2}
+      />
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+/**
+ * Zone d’action carte — trois états :
+ * A non favori → cœur vide (ajout)
+ * B favori sans carnet → cœur rempli (ouvre classement)
+ * C classé → cœur rempli + badge discret (les deux ouvrent le classement)
+ */
+function CardFavoriteActions({
+  event,
+  isFavorite,
+  onToggleFavorite,
+  carnetCount = 0,
+  onOrganizeCarnets,
+  className,
+}: {
+  event: EventItem;
+  isFavorite?: boolean;
+  onToggleFavorite?: (id: string) => void;
+  carnetCount?: number;
+  onOrganizeCarnets?: (event: EventItem) => void;
+  className?: string;
+}) {
+  const favorited = Boolean(isFavorite);
+  const canOrganize = Boolean(onOrganizeCarnets);
+  const showHeart = Boolean(onToggleFavorite) || (favorited && canOrganize);
+  const showBadge = favorited && carnetCount > 0 && canOrganize;
+
+  if (!showHeart && !showBadge) return null;
+
+  function handleHeartClick() {
+    if (!favorited) {
+      onToggleFavorite?.(event.id);
+      return;
+    }
+    if (onOrganizeCarnets) {
+      onOrganizeCarnets(event);
+      return;
+    }
+    onToggleFavorite?.(event.id);
+  }
+
+  return (
+    <div className={cn("z-[2] flex flex-col items-end gap-2", className)}>
+      {showHeart ? (
+        <FavoriteButton
+          isFavorite={favorited}
+          onClick={handleHeartClick}
+          eventTitle={event.title}
+          opensOrganize={favorited && canOrganize}
+        />
+      ) : null}
+      {showBadge ? (
+        <CarnetStatusBadge
+          count={carnetCount}
+          onClick={() => onOrganizeCarnets?.(event)}
+          eventTitle={event.title}
+        />
+      ) : null}
+    </div>
   );
 }
 

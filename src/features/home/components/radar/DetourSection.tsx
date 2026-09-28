@@ -6,6 +6,8 @@ type DetourSectionProps = {
   events: EventItem[];
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
+  carnetCounts?: Map<string, number>;
+  onOrganizeCarnets?: (event: EventItem) => void;
   onOpenDetail?: OpenEventDetailHandler;
 };
 
@@ -13,6 +15,8 @@ export function DetourSection({
   events,
   favorites,
   onToggleFavorite,
+  carnetCounts,
+  onOrganizeCarnets,
   onOpenDetail,
 }: DetourSectionProps) {
   if (events.length === 0) return null;
@@ -44,6 +48,8 @@ export function DetourSection({
           events={events}
           favorites={favorites}
           onToggleFavorite={onToggleFavorite}
+          carnetCounts={carnetCounts}
+          onOrganizeCarnets={onOrganizeCarnets}
           onOpenDetail={onOpenDetail}
         />
       </div>

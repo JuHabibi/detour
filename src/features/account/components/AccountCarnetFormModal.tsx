@@ -70,9 +70,11 @@ export function AccountCarnetFormModal({
       const result = await createGroup(trimmed);
       if (!result.ok) {
         setError(
-          result.reason === "invalid"
-            ? "Indiquez un nom de carnet."
-            : "Impossible de créer ce carnet. Réessayez.",
+          result.reason === "limit_reached"
+            ? "Vous avez atteint la limite de 4 carnets."
+            : result.reason === "invalid"
+              ? "Indiquez un nom de carnet."
+              : "Impossible de créer ce carnet. Réessayez.",
         );
         return;
       }

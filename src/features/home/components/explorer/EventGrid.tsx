@@ -14,6 +14,8 @@ type EventGridProps = {
   totalCount?: number;
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
+  carnetCounts?: Map<string, number>;
+  onOrganizeCarnets?: (event: EventItem) => void;
   onOpenDetail?: OpenEventDetailHandler;
   onShowMore?: () => void;
 };
@@ -26,6 +28,8 @@ export function EventGrid({
   totalCount,
   favorites,
   onToggleFavorite,
+  carnetCounts,
+  onOrganizeCarnets,
   onOpenDetail,
   onShowMore,
 }: EventGridProps) {
@@ -80,6 +84,8 @@ export function EventGrid({
                   priority={index < 3}
                   isFavorite={favorites.has(event.id)}
                   onToggleFavorite={onToggleFavorite}
+                  carnetCount={carnetCounts?.get(event.id) ?? 0}
+                  onOrganizeCarnets={onOrganizeCarnets}
                   surface="explorer"
                   onOpenDetail={onOpenDetail}
                 />

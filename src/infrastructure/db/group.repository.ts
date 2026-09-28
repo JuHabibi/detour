@@ -10,6 +10,12 @@ import {
   withClient,
   type DbQueryable,
 } from "@/infrastructure/db/postgres";
+import {
+  MAX_GROUP_NAME_LENGTH,
+  MAX_GROUPS_PER_USER,
+} from "@/application/groups/limits";
+
+export { MAX_GROUP_NAME_LENGTH, MAX_GROUPS_PER_USER } from "@/application/groups/limits";
 
 function db(client?: DbQueryable): DbQueryable {
   return client ?? getPool();
@@ -50,17 +56,6 @@ export type AddEventsToGroupResult =
       missingCount: number;
     };
 
-export type CreateGroupWithEventsResult =
-  | { status: "invalid" }
-  | { status: "event_not_found" }
-  | {
-      status: "ok";
-      group: GroupRow;
-      addedCount: number;
-      alreadyMemberCount: number;
-      missingCount: number;
-    };
-
 /** Déduplique / trim une liste d’event ids — ordre stable de première occurrence. */
 export function normalizeEventIds(eventIds: unknown): string[] {
   if (!Array.isArray(eventIds)) return [];
@@ -95,9 +90,6 @@ function mapGroupRow(row: GroupSqlRow): GroupRow {
 }
 
 
-/** Longueur max alignée sur l’input UI (`maxLength={80}`). */
-export const MAX_GROUP_NAME_LENGTH = 80;
-
 export function normalizeGroupName(name: unknown): string | null {
   if (typeof name !== "string") return null;
   const trimmed = name.trim();
@@ -106,24 +98,91 @@ export function normalizeGroupName(name: unknown): string | null {
   return trimmed;
 }
 
+export type CreateGroupForUserResult =
+  | { status: "ok"; group: GroupRow }
+  | { status: "invalid" }
+  | { status: "limit_reached" };
+
+export type CreateGroupWithEventsResult =
+  | { status: "invalid" }
+  | { status: "event_not_found" }
+  | { status: "limit_reached" }
+  | {
+      status: "ok";
+      group: GroupRow;
+      addedCount: number;
+      alreadyMemberCount: number;
+      missingCount: number;
+    };
+
+async function lockUserGroupsQuota(
+  userId: string,
+  client: DbQueryable,
+): Promise<void> {
+  // Sérialise les créations concurrentes pour le même user.
+  await client.query(
+    `SELECT pg_advisory_xact_lock(hashtext($1::text), 42001)`,
+    [userId],
+  );
+}
+
+async function countGroupsForUser(
+  userId: string,
+  client?: DbQueryable,
+): Promise<number> {
+  const result = await db(client).query<{ n: string | number }>(
+    `SELECT COUNT(*)::int AS n FROM groups WHERE user_id = $1`,
+    [userId],
+  );
+  return Number(result.rows[0]?.n ?? 0);
+}
+
 export async function createGroupForUser(
   userId: string,
   name: string,
   client?: DbQueryable,
-): Promise<GroupRow | null> {
+): Promise<CreateGroupForUserResult> {
   const normalized = normalizeGroupName(name);
-  if (!normalized) return null;
+  if (!normalized) return { status: "invalid" };
 
-  const result = await db(client).query<GroupSqlRow>(
-    `
+  async function insert(c: DbQueryable): Promise<CreateGroupForUserResult> {
+    await lockUserGroupsQuota(userId, c);
+    const count = await countGroupsForUser(userId, c);
+    if (count >= MAX_GROUPS_PER_USER) {
+      return { status: "limit_reached" };
+    }
+
+    const result = await c.query<GroupSqlRow>(
+      `
 INSERT INTO groups (user_id, name)
 VALUES ($1, $2)
 RETURNING id, user_id, name, created_at, updated_at
 `.trim(),
-    [userId, normalized],
-  );
-  const row = result.rows[0];
-  return row ? mapGroupRow(row) : null;
+      [userId, normalized],
+    );
+    const row = result.rows[0];
+    return row ? { status: "ok", group: mapGroupRow(row) } : { status: "invalid" };
+  }
+
+  if (client) {
+    return insert(client);
+  }
+
+  return withClient(async (c) => {
+    await c.query("BEGIN");
+    try {
+      const result = await insert(c);
+      if (result.status !== "ok") {
+        await c.query("ROLLBACK");
+        return result;
+      }
+      await c.query("COMMIT");
+      return result;
+    } catch (error) {
+      await c.query("ROLLBACK");
+      throw error;
+    }
+  });
 }
 
 export async function listGroupsForUser(
@@ -453,11 +512,20 @@ export async function createGroupWithEventsForUser(params: {
   return withClient(async (client) => {
     await client.query("BEGIN");
     try {
-      const group = await createGroupForUser(params.userId, normalized, client);
-      if (!group) {
+      const created = await createGroupForUser(
+        params.userId,
+        normalized,
+        client,
+      );
+      if (created.status === "limit_reached") {
+        await client.query("ROLLBACK");
+        return { status: "limit_reached" };
+      }
+      if (created.status !== "ok") {
         await client.query("ROLLBACK");
         return { status: "invalid" };
       }
+      const group = created.group;
 
       if (ids.length === 0) {
         await client.query("COMMIT");

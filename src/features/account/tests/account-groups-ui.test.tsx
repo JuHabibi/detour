@@ -12,6 +12,7 @@ import {
 } from "@/features/account/groups/group-display";
 import {
   buildMembershipMap,
+  countCarnetsByEventId,
   countFavoritesInGroup,
   countFavoritesWithoutCarnet,
   filterFavoriteIds,
@@ -70,6 +71,7 @@ vi.mock("@/app/actions/groups", () => ({
 
 vi.mock("@/app/actions/favorites", () => ({
   removeFavorite: vi.fn(),
+  addFavorite: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -84,7 +86,9 @@ import { AccountCarnetCover } from "@/features/account/components/AccountCarnetC
 import { AccountAddToGroupModal } from "@/features/account/components/AccountAddToGroupModal";
 import { AccountCarnetFormModal } from "@/features/account/components/AccountCarnetFormModal";
 import { AccountSignedIn } from "@/features/account/components/AccountSignedIn";
+import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
 import { AppModal } from "@/components/ui/AppModal";
+import { StandardEventCard } from "@/features/home/components/EventCard";
 
 const GROUP_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const GROUP_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -192,6 +196,13 @@ describe("membership-index", () => {
     expect(map.get("e1")?.map((c) => c.toneIndex)).toEqual([0, 1]);
   });
 
+  it("countCarnetsByEventId pour badge Radar/Explorer", () => {
+    const counts = countCarnetsByEventId(memberships);
+    expect(counts.get("e1")).toBe(2);
+    expect(counts.get("e2")).toBe(1);
+    expect(counts.get("e3")).toBeUndefined();
+  });
+
   it("replaceEventMemberships resync après Valider", () => {
     const next = replaceEventMemberships(memberships, ["e1"], [
       { groupId: GROUP_B, groupName: "Jazz" },
@@ -246,7 +257,7 @@ describe("AccountCarnetsLibrary", () => {
     expect(html).not.toContain("La bibliothèque");
   });
 
-  it("état vide + Voir tous si plus de 4 carnets", () => {
+  it("état vide + limite à 4 carnets (legacy conserve les 5)", () => {
     const empty = renderToStaticMarkup(
       createElement(AccountCarnetsLibrary, {
         groups: [],
@@ -258,6 +269,7 @@ describe("AccountCarnetsLibrary", () => {
       }),
     );
     expect(empty).toContain("Créez un premier carnet");
+    expect(empty).toContain("+ Créer un carnet");
 
     const many = Array.from({ length: 5 }, (_, i) =>
       summary({
@@ -276,12 +288,11 @@ describe("AccountCarnetsLibrary", () => {
         onMembershipsChange: () => undefined,
       }),
     );
-    expect(html).toContain("Voir tous les carnets (5)");
+    expect(html).toContain("Vous avez atteint la limite de 4 carnets.");
+    expect(html).not.toContain("+ Créer un carnet");
+    expect(html).not.toContain("Voir tous les carnets");
     expect(html).toContain("Carnet 0");
-    expect(html).toContain("Carnet 3");
     expect(html).toContain("Carnet 4");
-    // Desktop borné : pas de 5e couverture dans la grille md:grid (slice 4)
-    expect(html).toContain("hidden grid-cols-2");
   });
 });
 
@@ -551,10 +562,144 @@ describe("AccountAddToGroupModal", () => {
     expect(html).toContain("Aucun carnet pour l’instant");
     expect(html).toContain("Créer un carnet");
   });
+
+  it("masque la création à la limite de 4 carnets", () => {
+    const groups = Array.from({ length: 4 }, (_, i) =>
+      summary({
+        id: `${i}aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa`,
+        name: `Carnet ${i}`,
+      }),
+    );
+    const html = renderToStaticMarkup(
+      createElement(AccountAddToGroupModal, {
+        eventIds: ["e1"],
+        heading: "Concert",
+        groups,
+        memberships: [],
+        onClose: () => undefined,
+      }),
+    );
+    expect(html).toContain("Vous avez atteint la limite de 4 carnets.");
+    expect(html).not.toContain("Créer un carnet");
+  });
+});
+
+describe("OrganizeInCarnetModal", () => {
+  it("structure proto + préselection + création + retrait favoris", () => {
+    const html = renderToStaticMarkup(
+      createElement(OrganizeInCarnetModal, {
+        event: eventItem({
+          id: "e1",
+          title: "La ville en fragments",
+        }),
+        groups: [
+          summary({ id: GROUP_A, name: "Avec les copines", eventCount: 1 }),
+          summary({ id: GROUP_B, name: "Escapades", eventCount: 0 }),
+        ],
+        memberships: [
+          membership({
+            eventId: "e1",
+            groupId: GROUP_A,
+            groupName: "Avec les copines",
+          }),
+        ],
+        isFavorite: true,
+        onClose: () => undefined,
+      }),
+    );
+
+    expect(html).toContain("Ajouter une découverte");
+    expect(html).toContain("Garder cette affiche dans un carnet.");
+    expect(html).toContain("La ville en fragments");
+    expect(html).toContain("Choisissez où retrouver cette idée plus tard.");
+    expect(html).toContain("Avec les copines");
+    expect(html).toContain("Déjà dans ce carnet");
+    expect(html).toContain("Escapades");
+    expect(html).toContain("Enregistrer");
+    expect(html).toContain("+ Créer un nouveau carnet");
+    expect(html).toContain("Retirer des favoris");
+    expect(html).toContain('type="checkbox"');
+    expect(html).toContain("checked");
+  });
+});
+
+describe("StandardEventCard — trois états carnets", () => {
+  const base = eventItem({
+    id: "e1",
+    title: "Expo photo",
+    image: "https://example.com/x.jpg",
+  });
+
+  it("A — non favori : cœur vide uniquement, pas de Classer ni badge", () => {
+    const html = renderToStaticMarkup(
+      createElement(StandardEventCard, {
+        event: base,
+        isFavorite: false,
+        onToggleFavorite: () => undefined,
+        carnetCount: 0,
+        onOrganizeCarnets: () => undefined,
+        surface: "explorer",
+      }),
+    );
+    expect(html).toContain('aria-pressed="false"');
+    expect(html).toContain("Ajouter « Expo photo » aux favoris");
+    expect(html).not.toContain("Classer");
+    expect(html).not.toContain("Dans un carnet");
+    expect(html).not.toContain("Dans 2 carnets");
+  });
+
+  it("B — favori sans carnet : cœur rempli, aucun badge, ouvre classement", () => {
+    const html = renderToStaticMarkup(
+      createElement(StandardEventCard, {
+        event: base,
+        isFavorite: true,
+        onToggleFavorite: () => undefined,
+        carnetCount: 0,
+        onOrganizeCarnets: () => undefined,
+        surface: "explorer",
+      }),
+    );
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain("Ranger « Expo photo » dans un carnet");
+    expect(html).toContain("fill-coral");
+    expect(html).not.toContain("Classer");
+    expect(html).not.toContain("Dans un carnet");
+    expect(html).not.toContain("Retirer « Expo photo » des favoris");
+  });
+
+  it("C — classé : cœur rempli + badge discret avec le bon compte", () => {
+    const one = renderToStaticMarkup(
+      createElement(StandardEventCard, {
+        event: base,
+        isFavorite: true,
+        onToggleFavorite: () => undefined,
+        carnetCount: 1,
+        onOrganizeCarnets: () => undefined,
+        surface: "explorer",
+      }),
+    );
+    expect(one).toContain("Dans un carnet");
+    expect(one).toContain("Ranger « Expo photo » dans un carnet");
+    expect(one).not.toContain("Classer");
+    expect(one).not.toContain("✓");
+
+    const many = renderToStaticMarkup(
+      createElement(StandardEventCard, {
+        event: base,
+        isFavorite: true,
+        onToggleFavorite: () => undefined,
+        carnetCount: 3,
+        onOrganizeCarnets: () => undefined,
+        surface: "radar",
+      }),
+    );
+    expect(many).toContain("Dans 3 carnets");
+    expect(many).not.toContain("Classer");
+  });
 });
 
 describe("AccountSignedIn — Mes carnets", () => {
-  it("intro + couvertures + favoris sans barre de filtres", () => {
+  it("intro + couvertures + chips Tous / Sans carnet / par carnet", () => {
     const html = renderToStaticMarkup(
       createElement(AccountSignedIn, {
         user: { name: "A", email: "a@exemple.fr" },
@@ -581,11 +726,12 @@ describe("AccountSignedIn — Mes carnets", () => {
     expect(html).toContain("Week-end Loire");
     expect(html).toContain("Sélectionner");
     expect(html).toContain("Plus d’actions");
+    expect(html).toContain("Sans carnet");
+    expect(html).toContain("Tous");
+    expect(html).toContain('aria-label="Filtrer les favoris"');
+    expect(html).toContain("Tous vos événements sauvegardés");
     expect(html).not.toContain("Vos détours");
     expect(html).not.toContain("La bibliothèque");
-    expect(html).not.toContain("Sans carnet");
-    expect(html).not.toContain('aria-label="Filtrer par carnet"');
-    expect(html).toContain("Tous vos événements sauvegardés");
   });
 
   it("état vide favoris : pas de Sélectionner", () => {

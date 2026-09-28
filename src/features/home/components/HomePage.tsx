@@ -2,28 +2,35 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   addFavorite,
   listMyFavoriteEventIds,
   removeFavorite,
 } from "@/app/actions/favorites";
-import { DetourSection } from "@/features/home/components/radar/DetourSection";
-import {
-  ExplorerSection,
-  type ExplorerInitialPage,
-} from "@/features/home/components/explorer/ExplorerSection";
+import { listMyCarnetsState } from "@/app/actions/groups";
+import type {
+  EventGroupMembership,
+  GroupSummary,
+} from "@/application/groups";
+import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
 import {
   EventDetailModal,
   type EventDetailSurface,
 } from "@/components/event/EventDetailModal";
-import { FriseAccountTeaser } from "@/features/home/components/FriseAccountTeaser";
 import { Header } from "@/components/layout/Header";
+import { FriseAccountTeaser } from "@/features/home/components/FriseAccountTeaser";
 import { HeroFilters } from "@/features/home/components/HeroFilters";
+import {
+  ExplorerSection,
+  type ExplorerInitialPage,
+} from "@/features/home/components/explorer/ExplorerSection";
+import { DetourSection } from "@/features/home/components/radar/DetourSection";
+import { countCarnetsByEventId } from "@/features/account/groups/membership-index";
+import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import { authClient } from "@/lib/auth-client";
 import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
 import type { EventItem } from "@/data/types";
-import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 
 const HomeDebugSection = dynamic(
   () =>
@@ -33,6 +40,7 @@ const HomeDebugSection = dynamic(
 
 /** Jamais muté — état public initial / anonyme. */
 const EMPTY_FAVORITES: ReadonlySet<string> = new Set();
+const EMPTY_CARNET_COUNTS: ReadonlyMap<string, number> = new Map();
 
 type HomePageProps = {
   /** Highlights radar — indépendants des filtres d’exploration. */
@@ -58,6 +66,12 @@ type FavoriteState = {
   ids: Set<string>;
 };
 
+type CarnetsState = {
+  userId: string;
+  groups: GroupSummary[];
+  memberships: EventGroupMembership[];
+};
+
 export function HomePage({
   highlights,
   planningEvents: _planningEvents,
@@ -71,6 +85,11 @@ export function HomePage({
   const accountLabel = isAuthenticated ? "Mon compte" : "Se connecter";
 
   const [favoriteState, setFavoriteState] = useState<FavoriteState | null>(null);
+  const [carnetsState, setCarnetsState] = useState<CarnetsState | null>(null);
+  const [organizeEvent, setOrganizeEvent] = useState<EventItem | null>(null);
+  const [organizeTrigger, setOrganizeTrigger] = useState<HTMLElement | null>(
+    null,
+  );
   const [authPrompt, setAuthPrompt] = useState(false);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -104,15 +123,34 @@ export function HomePage({
   }, []);
 
   useEffect(() => {
-    if (isSessionPending || !userId) return;
+    if (isSessionPending || !userId) {
+      setCarnetsState(null);
+      return;
+    }
 
     let cancelled = false;
+    setCarnetsState((prev) =>
+      prev?.userId === userId ? prev : { userId, groups: [], memberships: [] },
+    );
 
     void listMyFavoriteEventIds().then((result) => {
       if (cancelled) return;
       setFavoriteState({
         userId,
         ids: new Set(result.ok ? result.eventIds : []),
+      });
+    });
+
+    void listMyCarnetsState().then((result) => {
+      if (cancelled) return;
+      if (!result.ok) {
+        setCarnetsState({ userId, groups: [], memberships: [] });
+        return;
+      }
+      setCarnetsState({
+        userId,
+        groups: result.groups,
+        memberships: result.memberships,
       });
     });
 
@@ -132,6 +170,14 @@ export function HomePage({
     userId && favoriteState?.userId === userId
       ? favoriteState.ids
       : EMPTY_FAVORITES;
+
+  const sessionCarnets =
+    userId && carnetsState?.userId === userId ? carnetsState : null;
+
+  const carnetCounts = useMemo(() => {
+    if (!sessionCarnets) return EMPTY_CARNET_COUNTS;
+    return countCarnetsByEventId(sessionCarnets.memberships);
+  }, [sessionCarnets]);
 
   const displayedHighlights = overrideHighlights ?? highlights;
 
@@ -183,6 +229,25 @@ export function HomePage({
     });
   }
 
+  function handleOrganizeCarnets(event: EventItem) {
+    if (isSessionPending) return;
+    if (!isAuthenticated || !userId) {
+      setAuthPrompt(true);
+      return;
+    }
+    setOrganizeTrigger(
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null,
+    );
+    setOrganizeEvent(event);
+  }
+
+  function closeOrganizeModal() {
+    setOrganizeEvent(null);
+    setOrganizeTrigger(null);
+  }
+
   return (
     <div id="top" className="min-h-screen bg-paper">
       <Header
@@ -227,12 +292,20 @@ export function HomePage({
           events={displayedHighlights}
           favorites={favorites as Set<string>}
           onToggleFavorite={toggleFavorite}
+          carnetCounts={carnetCounts as Map<string, number>}
+          onOrganizeCarnets={
+            isAuthenticated ? handleOrganizeCarnets : undefined
+          }
           onOpenDetail={openEventDetail}
         />
         <ExplorerSection
           initial={explorer}
           favorites={favorites as Set<string>}
           onToggleFavorite={toggleFavorite}
+          carnetCounts={carnetCounts as Map<string, number>}
+          onOrganizeCarnets={
+            isAuthenticated ? handleOrganizeCarnets : undefined
+          }
           onOpenDetail={openEventDetail}
         />
         {!isAuthenticated ? <FriseAccountTeaser /> : null}
@@ -263,6 +336,45 @@ export function HomePage({
               ? resolveRadarPickReason(detail.event)
               : null
           }
+        />
+      ) : null}
+      {organizeEvent && sessionCarnets && userId ? (
+        <OrganizeInCarnetModal
+          event={organizeEvent}
+          groups={sessionCarnets.groups}
+          memberships={sessionCarnets.memberships}
+          isFavorite={favorites.has(organizeEvent.id)}
+          onClose={closeOrganizeModal}
+          returnFocusTo={organizeTrigger}
+          onGroupsChange={(groups) =>
+            setCarnetsState((prev) =>
+              prev?.userId === userId ? { ...prev, groups } : prev,
+            )
+          }
+          onMembershipsChange={(memberships) =>
+            setCarnetsState((prev) =>
+              prev?.userId === userId ? { ...prev, memberships } : prev,
+            )
+          }
+          onFavoriteAdded={(eventId) => {
+            patchFavorites((draft) => {
+              draft.add(eventId);
+            });
+          }}
+          onFavoriteRemoved={(eventId) => {
+            patchFavorites((draft) => {
+              draft.delete(eventId);
+            });
+            setCarnetsState((prev) => {
+              if (prev?.userId !== userId) return prev;
+              return {
+                ...prev,
+                memberships: prev.memberships.filter(
+                  (m) => m.eventId !== eventId,
+                ),
+              };
+            });
+          }}
         />
       ) : null}
       <footer className="border-t border-line px-5 py-10 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">

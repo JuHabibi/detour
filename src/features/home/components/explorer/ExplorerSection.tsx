@@ -9,7 +9,7 @@ import {
   useExplorerEvents,
   type ExplorerInitialPage,
 } from "@/features/home/hooks/useExplorerEvents";
-import type { CategoryId } from "@/data/types";
+import type { CategoryId, EventItem } from "@/data/types";
 import type { V1Commune } from "@/domain/geo/v1-communes";
 import type { WhenFilter } from "@/domain/time/when-filter";
 import { captureProductEvent } from "@/lib/analytics";
@@ -33,6 +33,8 @@ type ExplorerSectionProps = {
   initial: ExplorerInitialPage;
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
+  carnetCounts?: Map<string, number>;
+  onOrganizeCarnets?: (event: EventItem) => void;
   onOpenDetail?: OpenEventDetailHandler;
   /** Injectable pour tests — défaut : server action. */
   load?: typeof loadExplorerEvents;
@@ -42,6 +44,8 @@ export function ExplorerSection({
   initial,
   favorites,
   onToggleFavorite,
+  carnetCounts,
+  onOrganizeCarnets,
   onOpenDetail,
   load = loadExplorerEvents,
 }: ExplorerSectionProps) {
@@ -174,6 +178,8 @@ export function ExplorerSection({
       totalCount={totalCount}
       favorites={favorites}
       onToggleFavorite={onToggleFavorite}
+      carnetCounts={carnetCounts}
+      onOrganizeCarnets={onOrganizeCarnets}
       onOpenDetail={onOpenDetail}
       onShowMore={canShowMore ? () => void loadMore() : undefined}
     />

@@ -65,11 +65,14 @@ describe("groups actions", () => {
       user: { id: USER_A, email: "a@exemple.fr", name: "A" },
     });
     vi.mocked(groupsApp.createGroupForUser).mockResolvedValue({
-      id: GROUP_A,
-      userId: USER_A,
-      name: "Week-end",
-      createdAt: "2026-09-16T10:00:00.000Z",
-      updatedAt: "2026-09-16T10:00:00.000Z",
+      status: "ok",
+      group: {
+        id: GROUP_A,
+        userId: USER_A,
+        name: "Week-end",
+        createdAt: "2026-09-16T10:00:00.000Z",
+        updatedAt: "2026-09-16T10:00:00.000Z",
+      },
     });
 
     await expect(createGroup("Week-end")).resolves.toMatchObject({
@@ -150,7 +153,9 @@ describe("groups actions", () => {
       status: "authenticated",
       user: { id: USER_A, email: "a@exemple.fr", name: "A" },
     });
-    vi.mocked(groupsApp.createGroupForUser).mockResolvedValue(null);
+    vi.mocked(groupsApp.createGroupForUser).mockResolvedValue({
+      status: "invalid",
+    });
 
     await expect(createGroup("x".repeat(81))).resolves.toEqual({
       ok: false,
@@ -281,6 +286,38 @@ describe("groups actions", () => {
     ).resolves.toEqual({
       ok: false,
       reason: "event_not_found",
+    });
+  });
+
+  it("createGroup refuse au-delà de 4 carnets", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: { id: USER_A, email: "a@exemple.fr", name: "A" },
+    });
+    vi.mocked(groupsApp.createGroupForUser).mockResolvedValue({
+      status: "limit_reached",
+    });
+
+    await expect(createGroup("Cinquième")).resolves.toEqual({
+      ok: false,
+      reason: "limit_reached",
+    });
+  });
+
+  it("createGroupWithFavorites refuse au-delà de 4 carnets", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: { id: USER_A, email: "a@exemple.fr", name: "A" },
+    });
+    vi.mocked(groupsApp.createGroupWithEventsForUser).mockResolvedValue({
+      status: "limit_reached",
+    });
+
+    await expect(
+      createGroupWithFavorites("Cinquième", ["e1"]),
+    ).resolves.toEqual({
+      ok: false,
+      reason: "limit_reached",
     });
   });
 });
