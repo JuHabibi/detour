@@ -209,10 +209,14 @@ describe("couverture vue ↔ données", () => {
       viewFrom: winter.fromKey,
       viewTo: winter.toKey,
       viewCategory: "Musique",
+      viewCity: null,
+      viewSearch: "",
       settled: {
         from: autumn.fromKey,
         to: autumn.toKey,
         category: "Musique",
+        city: null,
+        search: "",
         status: "complete",
       },
     });
@@ -279,6 +283,56 @@ describe("couverture vue ↔ données", () => {
       ),
     ).toBe(true);
   });
+
+  it("city ou search changés à trimestre/catégorie identiques → pas complete", async () => {
+    const { resolveFriseCoverageStatus } = await import(
+      "@/features/frise/frise-timeline-model"
+    );
+    const window = resolveFriezeWindow("2026-09-01");
+    const settled = {
+      from: window.fromKey,
+      to: window.toKey,
+      category: "Musique",
+      city: null as string | null,
+      search: "",
+      status: "complete" as const,
+    };
+
+    expect(
+      resolveFriseCoverageStatus({
+        viewFrom: window.fromKey,
+        viewTo: window.toKey,
+        viewCategory: "Musique",
+        viewCity: "Orléans",
+        viewSearch: "",
+        settled,
+      }),
+    ).toBe("pending");
+
+    expect(
+      resolveFriseCoverageStatus({
+        viewFrom: window.fromKey,
+        viewTo: window.toKey,
+        viewCategory: "Musique",
+        viewCity: null,
+        viewSearch: "jazz",
+        settled,
+      }),
+    ).toBe("pending");
+
+    const pendingModel = buildExplorerFrieze({
+      events: [event("old", "Musique", "2026-09-20T20:00:00+02:00")],
+      window,
+      fetchedCount: 1,
+      truncatedByCap: false,
+      coverageStatus: "pending",
+    });
+    expect(
+      pendingModel.chapters
+        .flatMap((c) => c.items)
+        .some((i) => i.kind === "quiet" && i.label.includes("Aucune sortie")),
+    ).toBe(false);
+  });
 });
 
 describe("runFriseEventsReload — concurrence", () => {
@@ -333,6 +387,8 @@ describe("runFriseEventsReload — concurrence", () => {
     expect(recordedB.calls.success[0]?.events.map((e) => e.id)).toEqual([
       "b1",
     ]);
+    expect(recordedB.calls.error).toEqual([]);
+    expect(recordedB.calls.loading).toEqual([true, false]);
 
     a.resolve(okPage([event("a1", "Musique", "2026-10-03T20:00:00+02:00")]));
     await loadA;
@@ -340,6 +396,65 @@ describe("runFriseEventsReload — concurrence", () => {
     expect(recordedA.calls.success).toEqual([]);
     expect(recordedA.calls.error).toEqual([]);
     expect(recordedB.calls.success).toHaveLength(1);
+  });
+
+  it("n’efface pas le résultat courant si une ancienne requête échoue", async () => {
+    const gen = { current: 0 };
+    const begin = () => {
+      const id = ++gen.current;
+      return () => id === gen.current;
+    };
+
+    const stale = deferred<LoadExplorerEventsResult>();
+    const current = deferred<LoadExplorerEventsResult>();
+
+    const load = vi.fn<LoadFn>(async (input) => {
+      if (input.category === "Musique") return stale.promise;
+      return current.promise;
+    });
+
+    const recordedStale = recordHandlers(begin());
+    const staleLoad = runFriseEventsReload(
+      {
+        category: "Musique",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
+      recordedStale.handlers,
+    );
+
+    const recordedCurrent = recordHandlers(begin());
+    const currentLoad = runFriseEventsReload(
+      {
+        category: "Exposition",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
+      recordedCurrent.handlers,
+    );
+
+    current.resolve(
+      okPage([event("fresh", "Exposition", "2026-10-03T20:00:00+02:00")]),
+    );
+    await currentLoad;
+
+    expect(recordedCurrent.calls.success).toHaveLength(1);
+    expect(recordedCurrent.calls.error).toEqual([]);
+    expect(recordedCurrent.calls.loading).toEqual([true, false]);
+
+    stale.resolve({ ok: false, error: "Période invalide." });
+    await staleLoad;
+
+    expect(recordedStale.calls.success).toEqual([]);
+    expect(recordedStale.calls.error).toEqual([]);
+    expect(recordedCurrent.calls.success).toHaveLength(1);
+    expect(recordedCurrent.calls.error).toEqual([]);
   });
 
   it("n’enchaîne pas une 2ᵉ page après invalidation", async () => {
@@ -376,5 +491,38 @@ describe("runFriseEventsReload — concurrence", () => {
     expect(load).toHaveBeenCalledTimes(1);
     expect(recorded.calls.success).toEqual([]);
     expect(recorded.calls.error).toEqual([]);
+    expect(recorded.calls.loading).toEqual([true]);
+  });
+
+  it("ignore le commit après invalidation (cleanup / disable)", async () => {
+    const gen = { current: 0 };
+    const id = ++gen.current;
+    const isCurrent = () => id === gen.current;
+
+    const pending = deferred<LoadExplorerEventsResult>();
+    const load = vi.fn<LoadFn>(async () => pending.promise);
+    const recorded = recordHandlers(isCurrent);
+
+    const run = runFriseEventsReload(
+      {
+        category: "Musique",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
+      recorded.handlers,
+    );
+
+    gen.current += 1;
+    pending.resolve(
+      okPage([event("late", "Musique", "2026-09-05T20:00:00+02:00")]),
+    );
+    await run;
+
+    expect(recorded.calls.success).toEqual([]);
+    expect(recorded.calls.error).toEqual([]);
+    expect(recorded.calls.loading).toEqual([true]);
   });
 });

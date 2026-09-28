@@ -56,6 +56,9 @@ export type FriseSettledScope = {
   from: string;
   to: string;
   category: string;
+  /** Commune V1 ou null (« toutes »). */
+  city: string | null;
+  search: string;
   status: Exclude<FriseCoverageStatus, "pending">;
 };
 
@@ -76,13 +79,15 @@ export type ExplorerFriezeModel = {
 };
 
 /**
- * Associe la vue (fenêtre + catégorie) aux données déjà réglées.
+ * Associe la vue (fenêtre + filtres) aux données déjà réglées.
  * Évite d’interpréter d’anciens événements comme un vide du nouveau trimestre.
  */
 export function resolveFriseCoverageStatus(params: {
   viewFrom: string;
   viewTo: string;
   viewCategory: string;
+  viewCity: string | null;
+  viewSearch: string;
   settled: FriseSettledScope | null;
 }): FriseCoverageStatus {
   const { settled } = params;
@@ -90,7 +95,9 @@ export function resolveFriseCoverageStatus(params: {
     settled &&
     settled.from === params.viewFrom &&
     settled.to === params.viewTo &&
-    settled.category === params.viewCategory
+    settled.category === params.viewCategory &&
+    settled.city === params.viewCity &&
+    settled.search === params.viewSearch
   ) {
     return settled.status;
   }

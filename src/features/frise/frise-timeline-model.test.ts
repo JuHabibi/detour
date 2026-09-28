@@ -190,10 +190,14 @@ describe("buildExplorerFrieze", () => {
       viewFrom: "2026-12-01",
       viewTo: "2027-02-28",
       viewCategory: "Musique",
+      viewCity: null,
+      viewSearch: "",
       settled: {
         from: "2026-09-01",
         to: "2026-11-30",
         category: "Musique",
+        city: null,
+        search: "",
         status: "complete",
       },
     });
@@ -203,14 +207,65 @@ describe("buildExplorerFrieze", () => {
       viewFrom: "2026-12-01",
       viewTo: "2027-02-28",
       viewCategory: "Musique",
+      viewCity: null,
+      viewSearch: "",
       settled: {
         from: "2026-12-01",
         to: "2027-02-28",
         category: "Musique",
+        city: null,
+        search: "",
         status: "error",
       },
     });
     expect(errorStatus).toBe("error");
+  });
+
+  it("coverage status mismatches when city or search changes", async () => {
+    const { resolveFriseCoverageStatus: resolveCoverage } = await import(
+      "@/features/frise/frise-timeline-model"
+    );
+    const settled = {
+      from: "2026-09-01",
+      to: "2026-11-30",
+      category: "Musique",
+      city: null as string | null,
+      search: "",
+      status: "complete" as const,
+    };
+
+    expect(
+      resolveCoverage({
+        viewFrom: settled.from,
+        viewTo: settled.to,
+        viewCategory: settled.category,
+        viewCity: "Orléans",
+        viewSearch: settled.search,
+        settled,
+      }),
+    ).toBe("pending");
+
+    expect(
+      resolveCoverage({
+        viewFrom: settled.from,
+        viewTo: settled.to,
+        viewCategory: settled.category,
+        viewCity: settled.city,
+        viewSearch: "jazz",
+        settled,
+      }),
+    ).toBe("pending");
+
+    expect(
+      resolveCoverage({
+        viewFrom: settled.from,
+        viewTo: settled.to,
+        viewCategory: settled.category,
+        viewCity: settled.city,
+        viewSearch: settled.search,
+        settled,
+      }),
+    ).toBe("complete");
   });
 
   it("garde des respirations calmes entre clusters", () => {

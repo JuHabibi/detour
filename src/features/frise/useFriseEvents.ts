@@ -142,6 +142,8 @@ export function useFriseEvents({
     viewFrom: window.fromKey,
     viewTo: window.toKey,
     viewCategory: category,
+    viewCity: city,
+    viewSearch: search,
     settled,
   });
   const dataMatchesView = coverageStatus !== "pending";
@@ -162,6 +164,8 @@ export function useFriseEvents({
     const requestFrom = window.fromKey;
     const requestTo = window.toKey;
     const requestCategory = category;
+    const requestCity = city;
+    const requestSearch = search;
 
     setError(null);
 
@@ -186,6 +190,8 @@ export function useFriseEvents({
             from: requestFrom,
             to: requestTo,
             category: requestCategory,
+            city: requestCity,
+            search: requestSearch,
             status: data.truncatedByCap ? "truncated" : "complete",
           });
         },
@@ -198,6 +204,8 @@ export function useFriseEvents({
             from: requestFrom,
             to: requestTo,
             category: requestCategory,
+            city: requestCity,
+            search: requestSearch,
             status: "error",
           });
         },
