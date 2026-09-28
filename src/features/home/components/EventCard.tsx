@@ -14,7 +14,7 @@ import type {
   EventDetailSurface,
   OpenEventDetailHandler,
 } from "@/components/event/EventDetailModal";
-import { resolveRadarPickReason } from "@/components/event/resolve-radar-pick-reason";
+import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import { getEditorialBadgeExplanation } from "@/features/home/editorial-badge-copy";
 import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 import type { CategoryId, EventItem, EventSignal } from "@/data/types";

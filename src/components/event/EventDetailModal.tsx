@@ -9,7 +9,6 @@ import {
   EventMapPinIcon,
   EventMoveUpRightIcon,
 } from "@/components/event/event-lucide-icons";
-import { resolveRadarPickReason } from "@/components/event/resolve-radar-pick-reason";
 import type { EventItem } from "@/data/types";
 import { captureProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
@@ -34,6 +33,11 @@ type EventDetailModalProps = {
   onClose: () => void;
   /** Élément qui a ouvert la modale — focus restauré à la fermeture. */
   returnFocusTo?: HTMLElement | null;
+  /**
+   * Justification Radar déjà calculée par la home (contenu éditorial).
+   * Ignorée hors surface Radar ; absente / null → pas de bloc « Le regard Détour ».
+   */
+  radarPickReason?: string | null;
 };
 
 /**
@@ -45,6 +49,7 @@ export function EventDetailModal({
   surface,
   onClose,
   returnFocusTo,
+  radarPickReason = null,
 }: EventDetailModalProps) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -52,8 +57,7 @@ export function EventDetailModal({
   const returnFocusToRef = useRef(returnFocusTo);
   onCloseRef.current = onClose;
   returnFocusToRef.current = returnFocusTo;
-  const pickReason =
-    surface === "radar" ? resolveRadarPickReason(event) : null;
+  const pickReason = surface === "radar" ? radarPickReason : null;
   const official = resolveOfficialSourceLink(event);
 
   useEffect(() => {

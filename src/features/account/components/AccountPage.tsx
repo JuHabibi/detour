@@ -1,5 +1,5 @@
 import { Header } from "@/components/layout/Header";
-import type { AccountAuthState } from "@/features/account/auth/account-auth-state";
+import type { AccountAuthState } from "@/features/account/account-auth-state";
 import { AccountSignedIn } from "@/features/account/components/AccountSignedIn";
 import { AccountSignedOut } from "@/features/account/components/AccountSignedOut";
 import type { GroupSummary } from "@/application/groups";

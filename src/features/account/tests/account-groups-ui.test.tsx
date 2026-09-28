@@ -61,7 +61,7 @@ vi.mock("@/app/actions/favorites", () => ({
   removeFavorite: vi.fn(),
 }));
 
-vi.mock("@/features/account/auth/auth-client", () => ({
+vi.mock("@/lib/auth-client", () => ({
   authClient: { signOut: vi.fn() },
 }));
 

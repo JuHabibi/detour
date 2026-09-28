@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { authClient } from "@/features/account/auth/auth-client";
+import { authClient } from "@/lib/auth-client";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
-import { accountLoginHref } from "@/features/account/auth/safe-account-next-path";
+import { accountLoginHref } from "@/lib/safe-account-next-path";
 
 const fieldClassName =
   "mt-2 h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint";

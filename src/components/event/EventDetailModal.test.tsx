@@ -48,6 +48,8 @@ describe("EventDetailModal", () => {
       createElement(EventDetailModal, {
         event: baseEvent(),
         surface: "radar",
+        radarPickReason:
+          "Un spectacle où le papier prend vie en musique, porté par la compagnie Sans soucis.",
         onClose: () => undefined,
       }),
     );
@@ -79,6 +81,7 @@ describe("EventDetailModal", () => {
           radarAiReasons: undefined,
         }),
         surface: "radar",
+        radarPickReason: null,
         onClose: () => undefined,
       }),
     );

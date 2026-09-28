@@ -20,9 +20,10 @@ import {
 import { FriseAccountTeaser } from "@/features/home/components/FriseAccountTeaser";
 import { Header } from "@/components/layout/Header";
 import { HeroFilters } from "@/features/home/components/HeroFilters";
-import { authClient } from "@/features/account/auth/auth-client";
+import { authClient } from "@/lib/auth-client";
 import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
 import type { EventItem } from "@/data/types";
+import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 
 const HomeDebugSection = dynamic(
   () =>
@@ -257,6 +258,11 @@ export function HomePage({
           surface={detail.surface}
           onClose={closeEventDetail}
           returnFocusTo={detail.trigger}
+          radarPickReason={
+            detail.surface === "radar"
+              ? resolveRadarPickReason(detail.event)
+              : null
+          }
         />
       ) : null}
       <footer className="border-t border-line px-5 py-10 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">

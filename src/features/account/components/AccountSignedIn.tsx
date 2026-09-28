@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { removeFavorite } from "@/app/actions/favorites";
 import type { GroupSummary } from "@/application/groups";
 import type { EventItem } from "@/data/types";
-import { authClient } from "@/features/account/auth/auth-client";
+import { authClient } from "@/lib/auth-client";
 import { AccountAddToGroupModal } from "@/features/account/components/AccountAddToGroupModal";
 import { AccountEmptyFavorites } from "@/features/account/components/AccountEmptyFavorites";
 import { AccountFavoriteCard } from "@/features/account/components/AccountFavoriteCard";

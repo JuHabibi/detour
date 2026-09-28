@@ -4,7 +4,7 @@ import { VintageBikeSvg } from "@/components/VintageBikeSvg";
 import {
   accountLoginHref,
   accountSignupHref,
-} from "@/features/account/auth/safe-account-next-path";
+} from "@/lib/safe-account-next-path";
 
 const FRISE_NEXT = "/frise";
 
