@@ -34,7 +34,6 @@ export function HeroFilters() {
             src="/new-detour-hero.jpg"
             alt=""
             fill
-            priority
             sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover object-[68%_22%] contrast-[0.96] saturate-[0.92]"
           />

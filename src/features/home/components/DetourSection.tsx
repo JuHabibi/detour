@@ -22,14 +22,21 @@ export function DetourSection({
       id="detour"
       className="detour-decor detour-decor--radar relative scroll-mt-20 overflow-x-clip bg-mint"
     >
+      {/* LCP = texture CSS de #detour ; preload unique pour découverte HTML immédiate */}
+      <link
+        rel="preload"
+        as="image"
+        href="/images/editorial/radar-paper-texture-sauge.webp"
+        fetchPriority="high"
+      />
       <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element -- décor PNG alpha hors LCP */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- décor PNG alpha hors LCP ; lazy : masqué ≤429px */}
         <img
           src="/images/editorial/radar-collage-overlay.png"
           alt=""
           width={737}
           height={413}
-          loading="eager"
+          loading="lazy"
           decoding="async"
           fetchPriority="low"
           className="detour-overlay detour-overlay--radar"
