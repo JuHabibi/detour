@@ -7,7 +7,7 @@ import { accountLoginHref } from "@/lib/safe-account-next-path";
 import { FrisePageClient } from "@/features/frise/components/FrisePageClient";
 
 export const metadata: Metadata = {
-  title: "La promenade · Détour",
+  title: "Mon parcours culturel · Détour",
   description:
     "Prenez le temps de faire un détour : choisissez une catégorie, parcourez les prochaines semaines et gardez vos découvertes de côté.",
 };

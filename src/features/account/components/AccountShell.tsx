@@ -3,7 +3,7 @@ import { Header } from "@/components/layout/Header";
 type AccountShellProps = {
   children: React.ReactNode;
   accountLabel?: string;
-  /** Nav « La promenade » — uniquement si connecté. */
+  /** Nav « Mon parcours culturel » — uniquement si connecté. */
   showFriseNav?: boolean;
   favoriteCount?: number;
 };

@@ -549,9 +549,9 @@ describe("retry fenêtre courante — coverage exposée par le hook", () => {
   }
 
   it("error → pending → complete (ready)", () => {
-    let slice = friseEventsReloadFailure(view, "Impossible de charger la promenade.");
+    let slice = friseEventsReloadFailure(view, "Impossible de charger mon parcours culturel.");
     expect(coverage(slice)).toBe("error");
-    expect(slice.error).toBe("Impossible de charger la promenade.");
+    expect(slice.error).toBe("Impossible de charger mon parcours culturel.");
 
     slice = friseEventsReloadStart();
     expect(coverage(slice)).toBe("pending");
@@ -570,9 +570,9 @@ describe("retry fenêtre courante — coverage exposée par le hook", () => {
     slice = friseEventsReloadStart();
     expect(coverage(slice)).toBe("pending");
 
-    slice = friseEventsReloadFailure(view, "Impossible de charger la promenade.");
+    slice = friseEventsReloadFailure(view, "Impossible de charger mon parcours culturel.");
     expect(coverage(slice)).toBe("error");
-    expect(slice.error).toBe("Impossible de charger la promenade.");
+    expect(slice.error).toBe("Impossible de charger mon parcours culturel.");
   });
 
   it("conserve la protection anti-périmé : succès obsolète ignoré après nouveau start", async () => {

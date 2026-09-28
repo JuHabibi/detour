@@ -31,7 +31,7 @@ type HeaderProps = {
   /** Entrée Account. */
   accountHref?: string;
   accountLabel?: string;
-  /** Affiche « La promenade » dans la nav (compte connecté uniquement). */
+  /** Affiche « Mon parcours culturel » dans la nav (compte connecté uniquement). */
   showFriseNav?: boolean;
 };
 
@@ -99,18 +99,10 @@ export function Header({
             </Link>
             {showFriseNav ? (
               <Link href="/frise" className={linkClass}>
-                La promenade
+                Mon parcours culturel
               </Link>
             ) : null}
           </nav>
-
-          <p
-            className="hidden text-[12px] uppercase tracking-[0.12em] text-sand sm:block"
-            aria-label={`Lieu actuel : ${CITY}`}
-          >
-            {CITY}
-          </p>
-
           <Link
             href={accountHref}
             className="inline-grid shrink-0 text-[11px] font-medium uppercase tracking-[0.14em] text-ink transition-colors hover:text-sand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:text-[12px]"
@@ -190,7 +182,7 @@ export function Header({
                   className={cn("block py-2.5", linkClass)}
                   onClick={closeMenu}
                 >
-                  La promenade
+                  Mon parcours culturel
                 </Link>
               </li>
             ) : null}

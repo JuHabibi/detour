@@ -22,7 +22,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 const GRID_RESULT_TITLES: Record<WhenFilter, string> = {
   today: "Aujourd’hui autour d’Orléans",
   tomorrow: "Demain autour d’Orléans",
-  weekend: "Ce week-end autour d’Orléans",
+  weekend: "Retrouver tous les événements à venir",
   "next-week": "Semaine prochaine autour d’Orléans",
   "this-month": "Ce mois-ci autour d’Orléans",
   "next-month": "Mois prochain autour d’Orléans",

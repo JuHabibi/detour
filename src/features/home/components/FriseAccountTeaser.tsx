@@ -9,8 +9,8 @@ import {
 const FRISE_NEXT = "/frise";
 
 /**
- * Encart public Home — avantages compte (vérifiés dans le code) + aperçu promenade.
- * Radar / Explorer restent publics ; la promenade est réservée au compte.
+ * Encart public Home — avantages compte (vérifiés dans le code) + aperçu parcours culturel.
+ * Radar / Explorer restent publics ; mon parcours culturel est réservé au compte.
  */
 export function FriseAccountTeaser() {
   return (
@@ -28,12 +28,12 @@ export function FriseAccountTeaser() {
             id="compte-frise-title"
             className="mt-3 max-w-[18ch] font-display text-[1.85rem] leading-[1.05] tracking-tight text-ink md:text-[2.35rem]"
           >
-            La promenade, et le reste de votre compte.
+            Mon parcours culturel, et le reste de votre compte.
           </h2>
           <p className="mt-4 max-w-md text-sm leading-6 text-cream-dim md:text-[15px] md:leading-7">
             Radar et Explorer restent ouverts à tous. Avec un compte, vous
-            gardez vos sorties et vous parcourez les mois à venir comme une
-            promenade.
+            gardez vos sorties et vous parcourez les mois à venir comme mon
+            parcours culturel.
           </p>
 
           <ul className="mt-7 space-y-3.5 text-sm leading-6 text-cream-dim">
@@ -52,7 +52,7 @@ export function FriseAccountTeaser() {
               à importer dans votre agenda. Pas de synchronisation automatique.
             </Benefit>
             <Benefit>
-              <strong className="font-medium text-ink">La promenade</strong> —
+              <strong className="font-medium text-ink">Mon parcours culturel</strong> —
               parcours temporel sur ~3 mois, une catégorie à la fois, réservé au
               compte.
             </Benefit>

@@ -177,7 +177,7 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
                 ← Retour à Explorer
               </Link>
               <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.16em] text-sand">
-                La promenade
+                Mon parcours culturel
               </p>
               <h1 className="mt-2 max-w-[16ch] font-display text-[2.15rem] leading-[1.02] tracking-tight text-ink md:text-[3rem]">
                 Prenez le temps de faire un détour.
@@ -195,7 +195,7 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
             </p>
             <div
               role="group"
-              aria-label="Catégorie de la promenade"
+              aria-label="Catégorie de mon parcours culturel"
               className="scrollbar-none -mx-5 flex gap-1.5 overflow-x-auto px-5 md:mx-0 md:flex-wrap md:overflow-visible md:px-0"
             >
               {RIDE_CATEGORIES.map((item) => {
@@ -222,7 +222,7 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
 
           {!category ? (
             <p className="max-w-md font-editorial text-2xl leading-snug text-ink">
-              Choisissez une catégorie pour lancer la promenade.
+              Choisissez une catégorie pour lancer mon parcours culturel.
             </p>
           ) : (
             <>
@@ -285,7 +285,7 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
                     Aucun favori pour l’instant.
                   </p>
                   <p className="mt-2 max-w-lg text-sm leading-6 text-cream-dim">
-                    Parcourez la promenade et touchez le cœur sur une sortie qui
+                    Parcourez mon parcours culturel et touchez le cœur sur une sortie qui
                     vous parle — vos détours apparaîtront aussi dans{" "}
                     <Link
                       href="/account"

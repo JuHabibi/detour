@@ -61,7 +61,7 @@ export function AccountSignup({ nextPath = "/account" }: AccountSignupProps) {
   }
 
   const lead = nextPath.startsWith("/frise")
-    ? "Un compte pour la promenade, vos favoris, et l’export calendrier en fichier .ics."
+    ? "Un compte pour mon parcours culturel, vos favoris, et l’export calendrier en fichier .ics."
     : "Un compte simple pour retrouver vos favoris et les glisser dans votre agenda.";
 
   return (

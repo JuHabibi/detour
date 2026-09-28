@@ -37,7 +37,7 @@ export function AccountSignedOut({
         </li>
         <li className="flex gap-3">
           <span className="mt-2 size-1.5 shrink-0 bg-mint" aria-hidden />
-          Parcourir la promenade, réservée au compte
+          Parcourir mon parcours culturel, réservé au compte
         </li>
       </ul>
 

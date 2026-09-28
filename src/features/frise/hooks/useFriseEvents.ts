@@ -173,7 +173,7 @@ export async function runFriseEventsReload(
     });
   } catch {
     if (!isCurrent()) return;
-    onError("Impossible de charger la promenade.");
+    onError("Impossible de charger mon parcours culturel.");
   } finally {
     if (isCurrent()) onLoading(false);
   }

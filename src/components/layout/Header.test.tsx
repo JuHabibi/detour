@@ -7,7 +7,7 @@ import {
 } from "@/components/layout/Header";
 
 describe("Header", () => {
-  it("mobile menu markup : liens de base sans promenade si déconnecté", () => {
+  it("mobile menu markup : liens de base sans parcours culturel si déconnecté", () => {
     const html = renderToStaticMarkup(
       createElement(Header, { favoriteCount: 0, showFriseNav: false }),
     );
@@ -15,12 +15,12 @@ describe("Header", () => {
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain("Sur le radar");
     expect(html).toContain("Explorer");
-    expect(html).not.toContain("La promenade");
+    expect(html).not.toContain("Mon parcours culturel");
     expect(html).toContain('href="/account"');
     expect(html).toContain("Mes détours, 0 enregistré");
   });
 
-  it("affiche La promenade quand showFriseNav", () => {
+  it("affiche Mon parcours culturel quand showFriseNav", () => {
     const html = renderToStaticMarkup(
       createElement(Header, {
         favoriteCount: 2,
@@ -28,7 +28,7 @@ describe("Header", () => {
         accountLabel: "Mon compte",
       }),
     );
-    expect(html).toContain("La promenade");
+    expect(html).toContain("Mon parcours culturel");
     expect(html).toContain("Mes détours, 2 enregistrés");
   });
 

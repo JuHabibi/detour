@@ -51,11 +51,11 @@ export function AccountLogin({ nextPath = "/account" }: AccountLoginProps) {
 
   const heading =
     nextPath.startsWith("/frise")
-      ? "La promenade vous attend."
+      ? "Mon parcours culturel vous attend."
       : "Retrouvez vos détours.";
   const lead =
     nextPath.startsWith("/frise")
-      ? "Connectez-vous pour reprendre la promenade temporelle — favoris et compte inclus."
+      ? "Connectez-vous pour reprendre mon parcours culturel — favoris et compte inclus."
       : "Connectez-vous pour accéder à vos favoris et les ajouter à votre agenda.";
 
   return (

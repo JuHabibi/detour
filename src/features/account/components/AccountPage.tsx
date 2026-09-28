@@ -52,7 +52,7 @@ export function AccountPage({
           </p>
           <p className="max-w-md text-sm leading-6 text-sand">
             Compte Détour — favoris, groupes personnels, export calendrier (.ics)
-            et la promenade.
+            et mon parcours culturel.
           </p>
         </div>
       </footer>

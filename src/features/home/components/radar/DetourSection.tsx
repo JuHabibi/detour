@@ -29,26 +29,14 @@ export function DetourSection({
         href="/images/editorial/radar-paper-texture-sauge.webp"
         fetchPriority="high"
       />
-      <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element -- décor PNG alpha hors LCP ; lazy : masqué ≤429px */}
-        <img
-          src="/images/editorial/radar-collage-overlay.png"
-          alt=""
-          width={737}
-          height={413}
-          loading="lazy"
-          decoding="async"
-          fetchPriority="low"
-          className="detour-overlay detour-overlay--radar"
-        />
-      </div>
+   
       <div className="relative z-[1] mx-auto max-w-[var(--detour-shell-max)] px-5 pb-7 pt-6 md:px-10 md:pb-10 md:pt-8 lg:px-16 lg:pt-9 2xl:px-20 2xl:pb-11 2xl:pt-10 min-[1920px]:px-24">
         <div className="mb-11 max-w-[min(100%,36rem)] md:mb-[3.25rem]">
           <h2 className="max-w-[14ch] font-display text-[1.85rem] leading-[1.02] tracking-tight text-ink md:text-[2.75rem] lg:text-[3.125rem] 2xl:text-[3.35rem]">
             À repérer maintenant
           </h2>
           <p className="mt-2.5 max-w-md text-sm leading-6 text-ink/70 md:mt-3.5 md:text-[0.95rem]">
-            Sélection Détour, aujourd’hui plutôt que trop tard.
+          Détour sélectionne ce qui mérite votre attention parmi l'offre culturelle locale.
           </p>
         </div>
 

@@ -214,7 +214,7 @@ export function FriseRideTrack({
 
   const eventSummary =
     model.coverageStatus === "pending"
-      ? "La promenade se prépare…"
+      ? "Mon parcours culturel se prépare…"
       : model.coverageStatus === "error"
         ? "Impossible d’afficher cette période."
         : model.eventCountInWindow === 0
@@ -234,7 +234,7 @@ export function FriseRideTrack({
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3 px-1 md:mb-5">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-sand">
-            Promenade · {categoryLabel}
+            Mon parcours culturel · {categoryLabel}
           </p>
           <p className="mt-1 font-editorial text-2xl leading-none tracking-tight text-ink md:text-3xl">
             {model.window.label}
@@ -302,10 +302,10 @@ export function FriseRideTrack({
           role="region"
           aria-label={
             isPending
-              ? `La promenade · ${categoryLabel}. Chargement de ${model.window.label}.`
+              ? `Mon parcours culturel · ${categoryLabel}. Chargement de ${model.window.label}.`
               : isError
-                ? `La promenade · ${categoryLabel}. Impossible d’afficher ${model.window.label}.`
-                : `La promenade · ${categoryLabel}. Défilement horizontal. Mois affiché : ${overlay.activeMonthLabel}.`
+                ? `Mon parcours culturel · ${categoryLabel}. Impossible d’afficher ${model.window.label}.`
+                : `Mon parcours culturel · ${categoryLabel}. Défilement horizontal. Mois affiché : ${overlay.activeMonthLabel}.`
           }
           aria-busy={isPending}
           tabIndex={0}
@@ -386,7 +386,7 @@ function FriseTrackStatusLayer({
           )}
           data-frise-status-slot="pending-loader"
         >
-          La promenade se prépare…
+          Mon parcours culturel se prépare…
         </p>
       ) : (
         <div
