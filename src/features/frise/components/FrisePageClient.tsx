@@ -140,6 +140,9 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
   const backHref = useMemo(() => "/#explorer", []);
   const showEmptyFavorites =
     favoritesHydrated && favorites.size === 0 && enabled;
+  /** Réserve la hauteur du bandeau avant hydratation pour ne pas pousser la piste. */
+  const reserveEmptyFavoritesSlot =
+    enabled && (!favoritesHydrated || favorites.size === 0);
 
   return (
     <div className="min-h-screen bg-paper">
@@ -174,28 +177,42 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
             </div>
           </div>
 
-          {favoriteError ? (
-            <p className="mb-4 text-sm text-coral" role="alert">
-              {favoriteError}
-            </p>
-          ) : null}
+          <div
+            className="mb-4 min-h-5"
+            aria-live="assertive"
+            data-frise-status-slot="favorite-error"
+          >
+            {favoriteError ? (
+              <p className="text-sm text-coral" role="alert">
+                {favoriteError}
+              </p>
+            ) : null}
+          </div>
 
-          {showEmptyFavorites ? (
-            <div className="mb-6 border border-line bg-foam px-4 py-4 md:px-5">
-              <p className="font-editorial text-xl leading-snug text-ink">
-                Aucun favori pour l’instant.
-              </p>
-              <p className="mt-2 max-w-lg text-sm leading-6 text-cream-dim">
-                Parcourez la promenade et touchez le cœur sur une sortie qui vous
-                parle — vos détours apparaîtront aussi dans{" "}
-                <Link
-                  href="/account"
-                  className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4"
-                >
-                  Mon compte
-                </Link>
-                .
-              </p>
+          {reserveEmptyFavoritesSlot ? (
+            <div
+              className="mb-6 min-h-[8.875rem] md:min-h-[7.375rem]"
+              aria-live="polite"
+              data-frise-status-slot="empty-favorites"
+            >
+              {showEmptyFavorites ? (
+                <div className="border border-line bg-foam px-4 py-4 md:px-5">
+                  <p className="font-editorial text-xl leading-snug text-ink">
+                    Aucun favori pour l’instant.
+                  </p>
+                  <p className="mt-2 max-w-lg text-sm leading-6 text-cream-dim">
+                    Parcourez la promenade et touchez le cœur sur une sortie qui
+                    vous parle — vos détours apparaîtront aussi dans{" "}
+                    <Link
+                      href="/account"
+                      className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4"
+                    >
+                      Mon compte
+                    </Link>
+                    .
+                  </p>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -260,25 +277,37 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
                 >
                   Trimestre →
                 </button>
-                {frise.loading ? (
-                  <span className="text-sm text-sand" aria-live="polite">
-                    Chargement…
-                  </span>
-                ) : null}
+                <span
+                  className={cn(
+                    "min-w-[6.5rem] text-sm text-sand",
+                    !frise.loading && "invisible",
+                  )}
+                  aria-live="polite"
+                  aria-hidden={!frise.loading}
+                  data-frise-status-slot="loading"
+                >
+                  Chargement…
+                </span>
               </div>
 
-              {frise.error ? (
-                <p className="mb-4 text-sm text-coral" role="alert">
-                  {frise.error}{" "}
-                  <button
-                    type="button"
-                    className="underline"
-                    onClick={() => void frise.reload()}
-                  >
-                    Réessayer
-                  </button>
-                </p>
-              ) : null}
+              <div
+                className="mb-4 min-h-5"
+                aria-live="assertive"
+                data-frise-status-slot="load-error"
+              >
+                {frise.error ? (
+                  <p className="text-sm text-coral" role="alert">
+                    {frise.error}{" "}
+                    <button
+                      type="button"
+                      className="underline"
+                      onClick={() => void frise.reload()}
+                    >
+                      Réessayer
+                    </button>
+                  </p>
+                ) : null}
+              </div>
 
               <FriseRideTrack
                 model={frise.model}

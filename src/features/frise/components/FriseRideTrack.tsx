@@ -224,7 +224,11 @@ export function FriseRideTrack({
           <p className="mt-1 font-editorial text-2xl leading-none tracking-tight text-ink md:text-3xl">
             {model.window.label}
           </p>
-          <p className="mt-2 text-sm text-cream-dim">
+          <p
+            className="mt-2 min-h-[2.75rem] text-sm leading-5 text-cream-dim md:min-h-10"
+            data-frise-status-slot="period-summary"
+            aria-live="polite"
+          >
             {eventSummary}
             {truncationNote}
           </p>
