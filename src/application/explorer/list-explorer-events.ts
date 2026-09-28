@@ -40,11 +40,13 @@ function resolveFilters(
       // Déjà validé en parse — garde-fou défensif.
       temporal = { mode: "upcoming", now };
     } else {
-      let from = window.from;
-      if (query.when === "upcoming" && from.getTime() < now.getTime()) {
-        from = now;
-      }
-      temporal = { mode: "bounded", from, to: window.to };
+      // Contrat frise : début dans la fenêtre + encore à venir (≠ overlap Explorer).
+      temporal = {
+        mode: "startInWindowUpcoming",
+        from: window.from,
+        to: window.to,
+        now,
+      };
     }
   } else {
     const range = getDateRangeForWhenFilter(query.when, now);

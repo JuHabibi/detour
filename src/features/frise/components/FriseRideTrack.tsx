@@ -196,15 +196,19 @@ export function FriseRideTrack({
 
   const bikeTravel = reducedMotion ? 0.12 : 0.08 + progress * 0.72;
   const eventSummary =
-    model.eventCountInWindow === 0
-      ? model.truncatedByCap
-        ? "Couverture incomplète : d’autres sorties peuvent exister sur cette période."
-        : "Aucune sortie sur cette période."
-      : model.eventCountInWindow === 1
-        ? "1 sortie sur cette période."
-        : `${model.eventCountInWindow} sorties sur cette période.`;
+    model.coverageStatus === "pending"
+      ? "Chargement de la période…"
+      : model.coverageStatus === "error"
+        ? "Impossible d’afficher cette période."
+        : model.eventCountInWindow === 0
+          ? model.coverageStatus === "truncated"
+            ? "Couverture incomplète : d’autres sorties peuvent exister sur cette période."
+            : "Aucune sortie sur cette période."
+          : model.eventCountInWindow === 1
+            ? "1 sortie sur cette période."
+            : `${model.eventCountInWindow} sorties sur cette période.`;
   const truncationNote =
-    model.truncatedByCap && model.eventCountInWindow > 0
+    model.coverageStatus === "truncated" && model.eventCountInWindow > 0
       ? " Affichage partiel (plafond de sécurité)."
       : "";
 

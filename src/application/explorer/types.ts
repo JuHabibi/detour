@@ -19,7 +19,7 @@ export type ListExplorerEventsQuery = {
   limit?: number;
   /**
    * Fenêtre civile Paris optionnelle (`YYYY-MM-DD`), réservée à `when: "upcoming"`.
-   * Borne basse encore intersectée avec « à venir » (max(from, now)).
+   * Filtre : `start_at` dans [from, to] et événement encore à venir.
    */
   from?: string;
   to?: string;

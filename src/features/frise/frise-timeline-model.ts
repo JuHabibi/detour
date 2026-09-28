@@ -45,6 +45,20 @@ export type ExplorerFriezeMonthChapter = {
   items: Array<ExplorerFriezeQuietGap | ExplorerFriezeDayCluster>;
 };
 
+/** État de couverture pour la fenêtre / catégorie affichées. */
+export type FriseCoverageStatus =
+  | "pending"
+  | "complete"
+  | "truncated"
+  | "error";
+
+export type FriseSettledScope = {
+  from: string;
+  to: string;
+  category: string;
+  status: Exclude<FriseCoverageStatus, "pending">;
+};
+
 export type ExplorerFriezeModel = {
   window: ExplorerFriezeWindow;
   chapters: ExplorerFriezeMonthChapter[];
@@ -54,7 +68,40 @@ export type ExplorerFriezeModel = {
   fetchedCount: number;
   hardCap: number;
   truncatedByCap: boolean;
+  /**
+   * Alignement données ↔ fenêtre affichée.
+   * `complete` : seule valeur qui autorise « Aucune sortie ».
+   */
+  coverageStatus: FriseCoverageStatus;
 };
+
+/**
+ * Associe la vue (fenêtre + catégorie) aux données déjà réglées.
+ * Évite d’interpréter d’anciens événements comme un vide du nouveau trimestre.
+ */
+export function resolveFriseCoverageStatus(params: {
+  viewFrom: string;
+  viewTo: string;
+  viewCategory: string;
+  settled: FriseSettledScope | null;
+}): FriseCoverageStatus {
+  const { settled } = params;
+  if (
+    settled &&
+    settled.from === params.viewFrom &&
+    settled.to === params.viewTo &&
+    settled.category === params.viewCategory
+  ) {
+    return settled.status;
+  }
+  return "pending";
+}
+
+function emptyMonthLabel(status: FriseCoverageStatus): string | null {
+  if (status === "complete") return "Aucune sortie ce mois-ci";
+  if (status === "truncated") return "Couverture incomplète pour ce mois";
+  return null;
+}
 
 function parisParts(isoOrKey: string): {
   year: string;
@@ -233,8 +280,12 @@ export function buildExplorerFrieze(params: {
   window: ExplorerFriezeWindow;
   fetchedCount: number;
   truncatedByCap: boolean;
+  /** Défaut `complete` pour les tests / appels legacy explicites. */
+  coverageStatus?: FriseCoverageStatus;
 }): ExplorerFriezeModel {
   const { window, fetchedCount, truncatedByCap } = params;
+  const coverageStatus = params.coverageStatus ?? "complete";
+  const emptyLabel = emptyMonthLabel(coverageStatus);
 
   const inWindow: EventItem[] = [];
   for (const event of params.events) {
@@ -330,22 +381,25 @@ export function buildExplorerFrieze(params: {
           existing.items.length > 0 &&
           existing.items.every((i) => i.kind === "quiet")
         ) {
-          // Mois sans aucune sortie connue — ou couverture inconnue si tronqué.
-          existing.items = [
-            {
-              kind: "quiet",
-              id: `quiet-empty-${monthKey}`,
-              fromKey: monthStart,
-              toKey: endKeyOfMonth(monthStart),
-              dayCount: daysBetweenKeys(monthStart, endKeyOfMonth(monthStart)) + 1,
-              label: truncatedByCap
-                ? "Couverture incomplète pour ce mois"
-                : "Aucune sortie ce mois-ci",
-            },
-          ];
+          if (emptyLabel) {
+            existing.items = [
+              {
+                kind: "quiet",
+                id: `quiet-empty-${monthKey}`,
+                fromKey: monthStart,
+                toKey: endKeyOfMonth(monthStart),
+                dayCount:
+                  daysBetweenKeys(monthStart, endKeyOfMonth(monthStart)) + 1,
+                label: emptyLabel,
+              },
+            ];
+          } else {
+            // pending / error : pas de faux « Aucune sortie ».
+            existing.items = [];
+          }
         }
         ensured.push(existing);
-      } else {
+      } else if (emptyLabel) {
         const p = parisParts(monthStart);
         const monthEnd = endKeyOfMonth(monthStart);
         ensured.push({
@@ -361,11 +415,19 @@ export function buildExplorerFrieze(params: {
               fromKey: monthStart,
               toKey: monthEnd,
               dayCount: daysBetweenKeys(monthStart, monthEnd) + 1,
-              label: truncatedByCap
-                ? "Couverture incomplète pour ce mois"
-                : "Aucune sortie ce mois-ci",
+              label: emptyLabel,
             },
           ],
+        });
+      } else {
+        const p = parisParts(monthStart);
+        ensured.push({
+          kind: "month",
+          id: `month-${monthKey}`,
+          monthKey,
+          title: capitalize(p?.monthLong ?? ""),
+          yearLabel: p?.year ?? "",
+          items: [],
         });
       }
       monthStart = addParisMonths(monthStart, 1);
@@ -381,6 +443,7 @@ export function buildExplorerFrieze(params: {
     fetchedCount,
     hardCap: EXPLORER_FRIEZE_HARD_CAP,
     truncatedByCap,
+    coverageStatus,
   };
 }
 

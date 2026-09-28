@@ -12,9 +12,11 @@ import {
   EXPLORER_FRIEZE_PAGE_SIZE,
   buildExplorerFrieze,
   parisMonthStartKey,
+  resolveFriseCoverageStatus,
   resolveFriezeWindow,
   shiftFriezeAnchor,
   type ExplorerFriezeModel,
+  type FriseSettledScope,
 } from "@/features/frise/frise-timeline-model";
 import type { CategoryId, EventItem } from "@/data/types";
 import type { V1Commune } from "@/domain/geo/v1-communes";
@@ -129,33 +131,37 @@ export function useFriseEvents({
   const [anchorMonth, setAnchorMonth] = useState(() => parisMonthStartKey());
   const [events, setEvents] = useState<EventItem[]>([]);
   const [fetchedCount, setFetchedCount] = useState(0);
-  const [truncatedByCap, setTruncatedByCap] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [settled, setSettled] = useState<FriseSettledScope | null>(null);
   const loadGenerationRef = useRef(0);
 
   const window = resolveFriezeWindow(anchorMonth);
-  const model: ExplorerFriezeModel = buildExplorerFrieze({
-    events,
-    window,
-    fetchedCount,
-    truncatedByCap,
+  const coverageStatus = resolveFriseCoverageStatus({
+    viewFrom: window.fromKey,
+    viewTo: window.toKey,
+    viewCategory: category,
+    settled,
   });
+  const dataMatchesView = coverageStatus !== "pending";
 
-  const applyError = useCallback((message: string) => {
-    setError(message);
-    setEvents([]);
-    setFetchedCount(0);
-    setTruncatedByCap(false);
-    setTotalCount(0);
-  }, []);
+  const model: ExplorerFriezeModel = buildExplorerFrieze({
+    events: dataMatchesView && coverageStatus !== "error" ? events : [],
+    window,
+    fetchedCount: dataMatchesView ? fetchedCount : 0,
+    truncatedByCap: coverageStatus === "truncated",
+    coverageStatus,
+  });
 
   const reload = useCallback(async () => {
     if (!enabled || category === "tout") return;
 
     const loadId = ++loadGenerationRef.current;
     const isCurrent = () => loadId === loadGenerationRef.current;
+    const requestFrom = window.fromKey;
+    const requestTo = window.toKey;
+    const requestCategory = category;
 
     setError(null);
 
@@ -164,8 +170,8 @@ export function useFriseEvents({
         category,
         city,
         search,
-        from: window.fromKey,
-        to: window.toKey,
+        from: requestFrom,
+        to: requestTo,
         load,
       },
       {
@@ -174,10 +180,27 @@ export function useFriseEvents({
         onSuccess: (data) => {
           setEvents(data.events);
           setFetchedCount(data.fetchedCount);
-          setTruncatedByCap(data.truncatedByCap);
           setTotalCount(data.totalCount);
+          setError(null);
+          setSettled({
+            from: requestFrom,
+            to: requestTo,
+            category: requestCategory,
+            status: data.truncatedByCap ? "truncated" : "complete",
+          });
         },
-        onError: applyError,
+        onError: (message) => {
+          setError(message);
+          setEvents([]);
+          setFetchedCount(0);
+          setTotalCount(0);
+          setSettled({
+            from: requestFrom,
+            to: requestTo,
+            category: requestCategory,
+            status: "error",
+          });
+        },
       },
     );
   }, [
@@ -186,7 +209,6 @@ export function useFriseEvents({
     city,
     search,
     load,
-    applyError,
     window.fromKey,
     window.toKey,
   ]);

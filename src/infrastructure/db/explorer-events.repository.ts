@@ -110,7 +110,12 @@ export type ExplorerKeysetAfter = {
 /** Bornes temporelles déjà résolues (application/domain) — pas de calendrier en SQL. */
 export type ExplorerTemporalFilter =
   | { mode: "bounded"; from: Date; to: Date }
-  | { mode: "upcoming"; now: Date };
+  | { mode: "upcoming"; now: Date }
+  /**
+   * Frise / `upcoming` + from/to : début dans [from, to], encore actif à `now`.
+   * Distinct de `bounded` (intersection d’intervalle Explorer).
+   */
+  | { mode: "startInWindowUpcoming"; from: Date; to: Date; now: Date };
 
 export type ExplorerResolvedFilters = {
   temporal: ExplorerTemporalFilter;
@@ -164,6 +169,16 @@ export function buildExplorerFilterSql(filters: ExplorerResolvedFilters): {
     const toIdx = params.length;
     parts.push(`e.start_at <= $${toIdx}`);
     parts.push(`COALESCE(e.end_at, e.start_at) >= $${fromIdx}`);
+  } else if (filters.temporal.mode === "startInWindowUpcoming") {
+    params.push(filters.temporal.from.toISOString());
+    const fromIdx = params.length;
+    params.push(filters.temporal.to.toISOString());
+    const toIdx = params.length;
+    params.push(filters.temporal.now.toISOString());
+    const nowIdx = params.length;
+    parts.push(`e.start_at >= $${fromIdx}`);
+    parts.push(`e.start_at <= $${toIdx}`);
+    parts.push(`COALESCE(e.end_at, e.start_at) >= $${nowIdx}`);
   } else {
     params.push(filters.temporal.now.toISOString());
     const nowIdx = params.length;

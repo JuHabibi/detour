@@ -150,9 +150,11 @@ describe("buildExplorerFrieze", () => {
       window,
       fetchedCount: 150,
       truncatedByCap: true,
+      coverageStatus: "truncated",
     });
     expect(model.hardCap).toBe(EXPLORER_FRIEZE_HARD_CAP);
     expect(model.truncatedByCap).toBe(true);
+    expect(model.coverageStatus).toBe("truncated");
     const october = model.chapters.find((c) => c.monthKey === "2026-10");
     expect(october?.items[0]?.kind).toBe("quiet");
     if (october?.items[0]?.kind === "quiet") {
@@ -161,6 +163,54 @@ describe("buildExplorerFrieze", () => {
       );
       expect(october.items[0].label).not.toBe("Aucune sortie ce mois-ci");
     }
+  });
+
+  it("pending / error : pas de libellé « Aucune sortie »", () => {
+    for (const coverageStatus of ["pending", "error"] as const) {
+      const model = buildExplorerFrieze({
+        events: [],
+        window,
+        fetchedCount: 0,
+        truncatedByCap: false,
+        coverageStatus,
+      });
+      const labels = model.chapters.flatMap((c) =>
+        c.items.filter((i) => i.kind === "quiet").map((i) => i.label),
+      );
+      expect(labels.some((l) => l.includes("Aucune sortie"))).toBe(false);
+      expect(model.coverageStatus).toBe(coverageStatus);
+    }
+  });
+
+  it("coverage status mismatches other windows", async () => {
+    const { resolveFriseCoverageStatus: resolveCoverage } = await import(
+      "@/features/frise/frise-timeline-model"
+    );
+    const status = resolveCoverage({
+      viewFrom: "2026-12-01",
+      viewTo: "2027-02-28",
+      viewCategory: "Musique",
+      settled: {
+        from: "2026-09-01",
+        to: "2026-11-30",
+        category: "Musique",
+        status: "complete",
+      },
+    });
+    expect(status).toBe("pending");
+
+    const errorStatus = resolveCoverage({
+      viewFrom: "2026-12-01",
+      viewTo: "2027-02-28",
+      viewCategory: "Musique",
+      settled: {
+        from: "2026-12-01",
+        to: "2027-02-28",
+        category: "Musique",
+        status: "error",
+      },
+    });
+    expect(errorStatus).toBe("error");
   });
 
   it("garde des respirations calmes entre clusters", () => {
