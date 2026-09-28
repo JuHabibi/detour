@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import { AccountSignup } from "@/features/account/components/AccountSignup";
 import { AccountShell } from "@/features/account/components/AccountShell";
-import { safeAccountNextPath } from "@/features/account/safe-account-next-path";
+import { safeAccountNextPath } from "@/features/account/auth/safe-account-next-path";
 
 type SignupPageProps = {
   searchParams: Promise<{ next?: string | string[] }>;

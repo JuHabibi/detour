@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { authClient } from "@/features/account/auth-client";
+import { authClient } from "@/features/account/auth/auth-client";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
 
 const fieldClassName =

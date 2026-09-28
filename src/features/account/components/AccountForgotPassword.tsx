@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { authClient } from "@/features/account/auth-client";
+import { authClient } from "@/features/account/auth/auth-client";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
 
 const fieldClassName =

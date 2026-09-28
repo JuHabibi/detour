@@ -3,7 +3,7 @@ import {
   accountLoginHref,
   accountSignupHref,
   safeAccountNextPath,
-} from "@/features/account/safe-account-next-path";
+} from "@/features/account/auth/safe-account-next-path";
 
 describe("safeAccountNextPath", () => {
   it("accepte un chemin interne", () => {

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import { DETOUR_CATEGORIES } from "@/domain/events/classify-event-category";
 import type { DetourCategory } from "@/domain/events/classify-event-category";
-import { accountLoginHref } from "@/features/account/safe-account-next-path";
+import { accountLoginHref } from "@/features/account/auth/safe-account-next-path";
 import { FrisePageClient } from "@/features/frise/components/FrisePageClient";
 
 export const metadata: Metadata = {

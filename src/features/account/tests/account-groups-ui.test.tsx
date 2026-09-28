@@ -6,14 +6,14 @@ import type { EventItem } from "@/data/types";
 import {
   formatGroupDateRange,
   groupEventCountLabel,
-} from "@/features/account/group-display";
+} from "@/features/account/groups/group-display";
 import { takeServerListIfChanged } from "@/features/account/take-server-list-if-changed";
 import {
   nextSelectedIds,
   selectAllIds,
   selectAllToggleLabel,
   shouldShowBulkBar,
-} from "@/features/account/group-selection";
+} from "@/features/account/groups/group-selection";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -61,7 +61,7 @@ vi.mock("@/app/actions/favorites", () => ({
   removeFavorite: vi.fn(),
 }));
 
-vi.mock("@/features/account/auth-client", () => ({
+vi.mock("@/features/account/auth/auth-client", () => ({
   authClient: { signOut: vi.fn() },
 }));
 

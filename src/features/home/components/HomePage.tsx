@@ -20,7 +20,7 @@ import {
 import { FriseAccountTeaser } from "@/features/home/components/FriseAccountTeaser";
 import { Header } from "@/components/layout/Header";
 import { HeroFilters } from "@/features/home/components/HeroFilters";
-import { authClient } from "@/features/account/auth-client";
+import { authClient } from "@/features/account/auth/auth-client";
 import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
 import type { EventItem } from "@/data/types";
 

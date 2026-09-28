@@ -16,7 +16,7 @@ import {
   selectAllIds,
   selectAllToggleLabel,
   shouldShowBulkBar,
-} from "@/features/account/group-selection";
+} from "@/features/account/groups/group-selection";
 import { takeServerListIfChanged } from "@/features/account/take-server-list-if-changed";
 import { cn } from "@/lib/cn";
 

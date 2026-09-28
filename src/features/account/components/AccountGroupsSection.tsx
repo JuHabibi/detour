@@ -8,7 +8,7 @@ import type { GroupSummary } from "@/application/groups";
 import {
   formatGroupDateRange,
   groupEventCountLabel,
-} from "@/features/account/group-display";
+} from "@/features/account/groups/group-display";
 
 type AccountGroupsSectionProps = {
   groups: GroupSummary[];

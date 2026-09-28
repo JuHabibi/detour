@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { AccountAuthState } from "@/features/account/account-auth-state";
+import type { AccountAuthState } from "@/features/account/auth/account-auth-state";
 import { auth } from "@/infrastructure/auth/auth";
 import { headers } from "next/headers";
 
