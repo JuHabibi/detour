@@ -5,10 +5,13 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { EventItem } from "@/data/types";
 import { eventCalendarPath } from "@/domain/calendar/build-event-calendar";
 import { resolveCategoryBadgeTone } from "@/components/event/category-badge-style";
+import type { CarnetBadge } from "@/features/account/groups/membership-index";
+import { carnetCoverTone } from "@/features/account/groups/carnet-cover-tone";
 import { cn } from "@/lib/cn";
 
 type AccountFavoriteCardProps = {
   event: EventItem;
+  carnets?: CarnetBadge[];
   onRemove?: (id: string) => void;
   onAddToGroup?: (id: string) => void;
   /** Libellé du bouton retirer — défaut « Retirer ». */
@@ -18,16 +21,18 @@ type AccountFavoriteCardProps = {
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
   /**
-   * Compacte « Ajouter à un groupe » + retirer dans un menu `…`.
+   * Compacte « Ajouter à un carnet » + retirer dans un menu `…`.
    * Agenda reste visible. Ignoré en selectionMode / sans onAddToGroup+onRemove.
    */
   secondaryInMenu?: boolean;
   /** Affiche le lien ICS (défaut true hors sélection). */
   showAgendaLink?: boolean;
+  onCarnetClick?: (groupId: string) => void;
 };
 
 export function AccountFavoriteCard({
   event,
+  carnets = [],
   onRemove,
   onAddToGroup,
   removeLabel = "Retirer",
@@ -36,6 +41,7 @@ export function AccountFavoriteCard({
   onToggleSelect,
   secondaryInMenu = false,
   showAgendaLink = true,
+  onCarnetClick,
 }: AccountFavoriteCardProps) {
   const whenLabel = event.time
     ? `${event.dateLabel} · ${event.time}`
@@ -135,6 +141,36 @@ export function AccountFavoriteCard({
 
         <p className="mt-1 text-[13px] italic text-sand">{whenLabel}</p>
 
+        {carnets.length > 0 && !selectionMode ? (
+          <ul className="mt-2.5 flex flex-wrap gap-1.5">
+            {carnets.map((carnet) => {
+              const tone = carnetCoverTone(carnet.toneIndex);
+              const className = cn(
+                "max-w-[14rem] truncate px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em]",
+                tone.bg,
+                tone.ink,
+              );
+              return (
+                <li key={carnet.groupId}>
+                  {onCarnetClick ? (
+                    <button
+                      type="button"
+                      onClick={() => onCarnetClick(carnet.groupId)}
+                      className={cn(className, "transition-opacity hover:opacity-80")}
+                    >
+                      {carnet.groupName}
+                    </button>
+                  ) : (
+                    <span className={cn("inline-block", className)}>
+                      {carnet.groupName}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+
         {!selectionMode ? (
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
             {showAgendaLink ? (
@@ -177,7 +213,7 @@ export function AccountFavoriteCard({
                           onAddToGroup(event.id);
                         }}
                       >
-                        Ajouter à un groupe
+                        Ranger dans un carnet
                       </button>
                     ) : null}
                     {onRemove ? (
@@ -206,7 +242,7 @@ export function AccountFavoriteCard({
                     onClick={() => onAddToGroup(event.id)}
                     className="text-[12px] font-medium uppercase tracking-[0.1em] text-ink underline decoration-line underline-offset-4 transition-colors hover:text-coral"
                   >
-                    Ajouter à un groupe
+                    Ranger dans un carnet
                   </button>
                 ) : null}
                 {onRemove ? (

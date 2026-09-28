@@ -120,7 +120,7 @@ export function AccountGroupDetail({
     setNotice(null);
     const trimmed = draftName.trim();
     if (!trimmed) {
-      setError("Indiquez un nom de groupe.");
+      setError("Indiquez un nom de carnet.");
       return;
     }
     if (trimmed === name) {
@@ -133,9 +133,9 @@ export function AccountGroupDetail({
       if (!result.ok) {
         setError(
           result.reason === "not_found"
-            ? "Ce groupe est introuvable."
+            ? "Ce carnet est introuvable."
             : result.reason === "invalid"
-              ? "Indiquez un nom de groupe."
+              ? "Indiquez un nom de carnet."
               : "Impossible de renommer. Réessayez.",
         );
         return;
@@ -153,7 +153,7 @@ export function AccountGroupDetail({
     setNotice(null);
     setSettingsOpen(false);
     const confirmed = window.confirm(
-      `Supprimer le groupe « ${name} » ? Les événements ne seront pas effacés.`,
+      `Supprimer le carnet « ${name} » ? Les favoris ne seront pas effacés.`,
     );
     if (!confirmed) return;
 
@@ -162,7 +162,7 @@ export function AccountGroupDetail({
       if (!result.ok) {
         setError(
           result.reason === "not_found"
-            ? "Ce groupe est introuvable."
+            ? "Ce carnet est introuvable."
             : "Impossible de supprimer. Réessayez.",
         );
         return;
@@ -235,7 +235,7 @@ export function AccountGroupDetail({
 
   function handleExportFullGroup() {
     if (events.length === 0) {
-      setError("Ce groupe est vide — rien à exporter.");
+      setError("Ce carnet est vide — rien à exporter.");
       return;
     }
     setError(null);
@@ -255,7 +255,7 @@ export function AccountGroupDetail({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-sand">
-              Groupe
+              Carnet
             </p>
             <h1 className="mt-2 font-display text-[2rem] leading-[1.02] tracking-tight text-ink md:text-[2.4rem]">
               {name}
@@ -274,7 +274,7 @@ export function AccountGroupDetail({
               onClick={() => setSettingsOpen((open) => !open)}
               disabled={pending}
               className="flex size-8 items-center justify-center text-sand transition-colors hover:text-ink disabled:opacity-60"
-              aria-label="Options du groupe"
+              aria-label="Options du carnet"
             >
               <span aria-hidden className="text-base leading-none tracking-widest">
                 ···
@@ -322,7 +322,7 @@ export function AccountGroupDetail({
               onChange={(e) => setDraftName(e.target.value)}
               maxLength={80}
               autoFocus
-              aria-label="Nouveau nom du groupe"
+              aria-label="Nouveau nom du carnet"
               className="min-w-0 flex-1 border-b border-line bg-transparent px-0 py-1.5 text-sm text-ink outline-none focus:border-ink"
             />
             <div className="flex items-center gap-3">
@@ -361,7 +361,7 @@ export function AccountGroupDetail({
 
       {events.length === 0 ? (
         <p className="mt-12 text-sm leading-6 text-cream-dim">
-          Ce groupe est vide. Ajoutez des favoris depuis Mon compte.
+          Ce carnet est vide. Ajoutez des favoris depuis Mon compte.
         </p>
       ) : (
         <div className="mt-10">
@@ -402,7 +402,7 @@ export function AccountGroupDetail({
                 <>
                   <p className="max-w-sm text-[12px] leading-5 text-sand/70">
                     Ajoutez plusieurs événements à l’agenda ou retirez-les du
-                    groupe.
+                    carnet.
                   </p>
                   <button
                     type="button"
@@ -469,7 +469,7 @@ export function AccountGroupDetail({
                 disabled={pending}
                 className="inline-flex h-8 items-center justify-center px-3 text-[11px] font-medium uppercase tracking-[0.1em] text-sand transition-colors hover:text-coral disabled:opacity-60"
               >
-                Retirer du groupe
+                Retirer du carnet
               </button>
             </div>
           </div>

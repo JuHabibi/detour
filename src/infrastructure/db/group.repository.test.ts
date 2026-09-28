@@ -131,6 +131,31 @@ describe("group.repository — ownership / IDOR", () => {
     expect(params).toEqual([USER_A]);
   });
 
+  it("listEventGroupMembershipsForUser JOIN scoppé user_id", async () => {
+    const { listEventGroupMembershipsForUser } = await import(
+      "@/infrastructure/db/group.repository"
+    );
+    query.mockResolvedValue({
+      rows: [
+        {
+          event_id: "e1",
+          group_id: GROUP_A,
+          group_name: "Week-end",
+        },
+      ],
+    });
+
+    const rows = await listEventGroupMembershipsForUser(USER_A);
+    expect(rows).toEqual([
+      { eventId: "e1", groupId: GROUP_A, groupName: "Week-end" },
+    ]);
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("FROM group_events ge");
+    expect(sql).toContain("INNER JOIN groups g");
+    expect(sql).toContain("WHERE g.user_id = $1");
+    expect(params).toEqual([USER_A]);
+  });
+
   it("getGroupWithEventsForUser refuse implicitement user B (WHERE id + user_id)", async () => {
     query.mockResolvedValueOnce({ rows: [] });
 

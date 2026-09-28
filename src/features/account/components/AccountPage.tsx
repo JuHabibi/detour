@@ -2,19 +2,24 @@ import { Header } from "@/components/layout/Header";
 import type { AccountAuthState } from "@/features/account/account-auth-state";
 import { AccountSignedIn } from "@/features/account/components/AccountSignedIn";
 import { AccountSignedOut } from "@/features/account/components/AccountSignedOut";
-import type { GroupSummary } from "@/application/groups";
+import type {
+  EventGroupMembership,
+  GroupSummary,
+} from "@/application/groups";
 import type { EventItem } from "@/data/types";
 
 type AccountPageProps = {
   auth: AccountAuthState;
   favorites?: EventItem[];
   groups?: GroupSummary[];
+  memberships?: EventGroupMembership[];
 };
 
 export function AccountPage({
   auth,
   favorites = [],
   groups = [],
+  memberships = [],
 }: AccountPageProps) {
   const signedIn = auth.status === "authenticated";
 
@@ -38,6 +43,7 @@ export function AccountPage({
               }}
               initialFavorites={favorites}
               initialGroups={groups}
+              initialMemberships={memberships}
             />
           ) : (
             <AccountSignedOut />
@@ -51,8 +57,8 @@ export function AccountPage({
             Détour<span className="text-coral">.</span>
           </p>
           <p className="max-w-md text-sm leading-6 text-sand">
-            Compte Détour — favoris, groupes personnels, export calendrier (.ics)
-            et mon parcours culturel.
+            Compte Détour — favoris, carnets, export calendrier (.ics) et mon
+            parcours culturel.
           </p>
         </div>
       </footer>

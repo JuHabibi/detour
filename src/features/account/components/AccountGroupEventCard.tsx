@@ -164,7 +164,7 @@ export function AccountGroupEventCard({
                         onRemove(event.id);
                       }}
                     >
-                      Retirer du groupe
+                      Retirer du carnet
                     </button>
                   ) : null}
                 </div>

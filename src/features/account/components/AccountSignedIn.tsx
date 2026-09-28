@@ -1,15 +1,19 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { removeFavorite } from "@/app/actions/favorites";
-import type { GroupSummary } from "@/application/groups";
+import type {
+  EventGroupMembership,
+  GroupSummary,
+} from "@/application/groups";
 import type { EventItem } from "@/data/types";
 import { authClient } from "@/lib/auth-client";
 import { AccountAddToGroupModal } from "@/features/account/components/AccountAddToGroupModal";
+import { AccountCarnetsLibrary } from "@/features/account/components/AccountCarnetsLibrary";
 import { AccountEmptyFavorites } from "@/features/account/components/AccountEmptyFavorites";
 import { AccountFavoriteCard } from "@/features/account/components/AccountFavoriteCard";
-import { AccountGroupsSection } from "@/features/account/components/AccountGroupsSection";
+import { buildMembershipMap, filterFavoriteIds, type FavoriteFilter } from "@/features/account/groups/membership-index";
 import { takeServerListIfChanged } from "@/features/account/take-server-list-if-changed";
 
 export type AccountUserView = {
@@ -21,6 +25,7 @@ type AccountSignedInProps = {
   user: AccountUserView;
   initialFavorites?: EventItem[];
   initialGroups?: GroupSummary[];
+  initialMemberships?: EventGroupMembership[];
 };
 
 type GroupModalTarget =
@@ -31,11 +36,18 @@ export function AccountSignedIn({
   user,
   initialFavorites = [],
   initialGroups = [],
+  initialMemberships = [],
 }: AccountSignedInProps) {
   const router = useRouter();
+  const favoritesRef = useRef<HTMLElement | null>(null);
   const [favorites, setFavorites] = useState(initialFavorites);
   const [groups, setGroups] = useState(initialGroups);
+  const [memberships, setMemberships] = useState(initialMemberships);
   const [groupsPropSnapshot, setGroupsPropSnapshot] = useState(initialGroups);
+  const [membershipsPropSnapshot, setMembershipsPropSnapshot] = useState(
+    initialMemberships,
+  );
+
   const serverGroups = takeServerListIfChanged(
     initialGroups,
     groupsPropSnapshot,
@@ -44,21 +56,57 @@ export function AccountSignedIn({
     setGroupsPropSnapshot(serverGroups);
     setGroups(serverGroups);
   }
+  const serverMemberships = takeServerListIfChanged(
+    initialMemberships,
+    membershipsPropSnapshot,
+  );
+  if (serverMemberships) {
+    setMembershipsPropSnapshot(serverMemberships);
+    setMemberships(serverMemberships);
+  }
+
   const [groupModal, setGroupModal] = useState<GroupModalTarget | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [logoutPending, setLogoutPending] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [filter, setFilter] = useState<FavoriteFilter>({ kind: "all" });
   const [, startTransition] = useTransition();
 
-  const countLabel = useMemo(() => {
-    const n = favorites.length;
-    if (n === 0) return "Aucun favori";
-    return `${n} favori${n > 1 ? "s" : ""}`;
-  }, [favorites.length]);
+  const favoriteIds = useMemo(
+    () => favorites.map((f) => f.id),
+    [favorites],
+  );
+  const membershipMap = useMemo(
+    () => buildMembershipMap(memberships, groups),
+    [memberships, groups],
+  );
 
+  const effectiveFilter = useMemo<FavoriteFilter>(() => {
+    if (filter.kind === "group" && !groups.some((g) => g.id === filter.groupId)) {
+      return { kind: "all" };
+    }
+    return filter;
+  }, [filter, groups]);
+
+  const filteredIds = useMemo(
+    () => new Set(filterFavoriteIds(favoriteIds, memberships, effectiveFilter)),
+    [favoriteIds, memberships, effectiveFilter],
+  );
+  const filteredFavorites = useMemo(
+    () => favorites.filter((f) => filteredIds.has(f.id)),
+    [favorites, filteredIds],
+  );
+
+  const activeGroupId =
+    effectiveFilter.kind === "group" ? effectiveFilter.groupId : null;
   const selectedCount = selectedIds.size;
+  const activeGroupName =
+    activeGroupId != null
+      ? (groups.find((g) => g.id === activeGroupId)?.name ?? null)
+      : null;
 
   function exitSelectionMode() {
     setSelectionMode(false);
@@ -80,10 +128,26 @@ export function AccountSignedIn({
     });
   }
 
+  function scrollToFavorites() {
+    favoritesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  /** Clic couverture / pastille : filtre (re-clic = tous). */
+  function applyGroupFilter(groupId: string) {
+    setFilter((current) =>
+      current.kind === "group" && current.groupId === groupId
+        ? { kind: "all" }
+        : { kind: "group", groupId },
+    );
+    scrollToFavorites();
+  }
+
   function handleRemove(id: string) {
     setRemoveError(null);
     const previous = favorites;
+    const previousMemberships = memberships;
     setFavorites((current) => current.filter((event) => event.id !== id));
+    setMemberships((current) => current.filter((m) => m.eventId !== id));
     setSelectedIds((current) => {
       if (!current.has(id)) return current;
       const next = new Set(current);
@@ -107,6 +171,7 @@ export function AccountSignedIn({
         return;
       }
       setFavorites(previous);
+      setMemberships(previousMemberships);
       setRemoveError("Impossible de retirer ce favori. Réessayez.");
     });
   }
@@ -149,42 +214,48 @@ export function AccountSignedIn({
 
   return (
     <div className={selectionMode && selectedCount > 0 ? "pb-28" : undefined}>
-      <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between md:gap-10">
+      <div className="flex items-start justify-between gap-6">
         <div className="min-w-0 max-w-xl">
           <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-sand">
-            Mon compte
+            Votre collection personnelle
           </p>
-          <h1 className="mt-4 font-display text-[2.1rem] leading-[1.02] tracking-tight text-ink md:mt-5 md:text-[2.75rem] lg:text-[3rem]">
-            Vos détours
+          <h1 className="mt-3 font-display text-[2.1rem] leading-[1.02] tracking-tight text-ink md:mt-4 md:text-[2.75rem] lg:text-[3rem]">
+            Mes carnets.
           </h1>
-          <p className="mt-5 text-sm leading-6 text-cream-dim md:mt-6">
-            Les sorties que vous gardez sous la main — à retrouver ici, ou à
-            glisser dans votre agenda.
+          <p className="mt-4 text-sm leading-6 text-cream-dim md:mt-5">
+            Toutes vos découvertes, vos envies et vos prochaines sorties au même
+            endroit.
           </p>
         </div>
 
-        <div className="shrink-0 md:pb-1 md:text-right">
-          <p className="font-display text-lg tracking-tight text-ink">
-            {user.name}
-          </p>
-          <p className="mt-1 text-[12px] text-sand">{user.email}</p>
-          <p className="mt-3 text-[12px] uppercase tracking-[0.12em] text-sand">
-            {countLabel}
-          </p>
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={logoutPending}
-            className="mt-4 text-[12px] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-ink disabled:opacity-60"
-          >
-            {logoutPending ? "Déconnexion…" : "Se déconnecter"}
-          </button>
-          {logoutError ? (
-            <p className="mt-2 text-sm text-coral" role="alert">
-              {logoutError}
+        <details
+          className="relative shrink-0"
+          open={accountOpen}
+          onToggle={(e) => setAccountOpen(e.currentTarget.open)}
+        >
+          <summary className="cursor-pointer list-none text-[11px] font-medium uppercase tracking-[0.12em] text-sand transition-colors hover:text-ink [&::-webkit-details-marker]:hidden">
+            Compte
+          </summary>
+          <div className="absolute right-0 z-20 mt-2 w-56 border border-line bg-foam p-4 shadow-sm">
+            <p className="font-display text-base tracking-tight text-ink">
+              {user.name}
             </p>
-          ) : null}
-        </div>
+            <p className="mt-1 truncate text-[12px] text-sand">{user.email}</p>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={logoutPending}
+              className="mt-4 text-[12px] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-ink disabled:opacity-60"
+            >
+              {logoutPending ? "Déconnexion…" : "Se déconnecter"}
+            </button>
+            {logoutError ? (
+              <p className="mt-2 text-sm text-coral" role="alert">
+                {logoutError}
+              </p>
+            ) : null}
+          </div>
+        </details>
       </div>
 
       {removeError ? (
@@ -193,63 +264,96 @@ export function AccountSignedIn({
         </p>
       ) : null}
 
-      <AccountGroupsSection groups={groups} onGroupsChange={setGroups} />
+      <AccountCarnetsLibrary
+        groups={groups}
+        memberships={memberships}
+        activeGroupId={activeGroupId}
+        onSelectGroup={applyGroupFilter}
+        onGroupsChange={setGroups}
+        onMembershipsChange={setMemberships}
+      />
 
-      {favorites.length === 0 ? (
-        <div className="mt-10 md:mt-14">
-          <AccountEmptyFavorites />
-        </div>
-      ) : (
-        <div className="mt-10 md:mt-14">
-          <div className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-3">
-            <h2 className="font-display text-[1.35rem] tracking-tight text-ink md:text-[1.5rem]">
-              Favoris
+      <section ref={favoritesRef} className="mt-12 scroll-mt-24 md:mt-16">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="font-display text-[1.45rem] tracking-tight text-ink md:text-[1.65rem]">
+              Mes favoris
             </h2>
-            <div className="flex items-center gap-4">
-              {selectionMode ? (
-                <p
-                  className="text-[12px] uppercase tracking-[0.12em] text-sand"
-                  aria-live="polite"
-                >
-                  {selectedCount === 0
-                    ? "Aucun sélectionné"
-                    : `${selectedCount} sélectionné${selectedCount > 1 ? "s" : ""}`}
-                </p>
-              ) : (
-                <p className="text-[12px] uppercase tracking-[0.12em] text-sand">
-                  {countLabel}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() =>
-                  selectionMode ? exitSelectionMode() : enterSelectionMode()
-                }
-                className="text-[12px] font-medium uppercase tracking-[0.1em] text-ink underline decoration-line underline-offset-4 transition-colors hover:text-coral"
-              >
-                {selectionMode ? "Annuler" : "Sélectionner"}
-              </button>
-            </div>
+            <p className="mt-1.5 text-sm leading-6 text-cream-dim">
+              {activeGroupName
+                ? `Favoris du carnet « ${activeGroupName} ».`
+                : "Tous vos événements sauvegardés, classés ou non."}
+              {activeGroupName ? (
+                <>
+                  {" "}
+                  <button
+                    type="button"
+                    onClick={() => setFilter({ kind: "all" })}
+                    className="underline decoration-line underline-offset-4 transition-colors hover:text-ink"
+                  >
+                    Tout afficher
+                  </button>
+                </>
+              ) : null}
+            </p>
           </div>
-
-          <div>
-            {favorites.map((event) => (
-              <AccountFavoriteCard
-                key={event.id}
-                event={event}
-                onRemove={handleRemove}
-                onAddToGroup={
-                  selectionMode ? undefined : handleOpenAddToGroup
-                }
-                secondaryInMenu
-                selectionMode={selectionMode}
-                selected={selectedIds.has(event.id)}
-                onToggleSelect={toggleSelect}
-              />
-            ))}
-          </div>
+          {favorites.length > 0 ? (
+            <button
+              type="button"
+              onClick={() =>
+                selectionMode ? exitSelectionMode() : enterSelectionMode()
+              }
+              className="text-[12px] font-medium uppercase tracking-[0.1em] text-ink underline decoration-line underline-offset-4 transition-colors hover:text-coral"
+            >
+              {selectionMode ? "Annuler" : "Sélectionner"}
+            </button>
+          ) : null}
         </div>
-      )}
+
+        {favorites.length === 0 ? (
+          <div className="mt-8">
+            <AccountEmptyFavorites />
+          </div>
+        ) : (
+          <>
+            {selectionMode ? (
+              <p
+                className="mt-4 text-[12px] uppercase tracking-[0.12em] text-sand"
+                aria-live="polite"
+              >
+                {selectedCount === 0
+                  ? "Aucun sélectionné"
+                  : `${selectedCount} sélectionné${selectedCount > 1 ? "s" : ""}`}
+              </p>
+            ) : null}
+
+            {filteredFavorites.length === 0 ? (
+              <p className="mt-8 text-sm leading-6 text-cream-dim">
+                Aucun favori dans ce carnet.
+              </p>
+            ) : (
+              <div className="mt-2">
+                {filteredFavorites.map((event) => (
+                  <AccountFavoriteCard
+                    key={event.id}
+                    event={event}
+                    carnets={membershipMap.get(event.id) ?? []}
+                    onRemove={handleRemove}
+                    onAddToGroup={
+                      selectionMode ? undefined : handleOpenAddToGroup
+                    }
+                    onCarnetClick={applyGroupFilter}
+                    secondaryInMenu
+                    selectionMode={selectionMode}
+                    selected={selectedIds.has(event.id)}
+                    onToggleSelect={toggleSelect}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
 
       {selectionMode && selectedCount > 0 ? (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-foam/95 backdrop-blur-sm">
@@ -262,7 +366,7 @@ export function AccountSignedIn({
               onClick={handleOpenBulkAddToGroup}
               className="inline-flex min-h-11 items-center justify-center bg-mint px-5 text-[12px] font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam"
             >
-              Ajouter à un groupe
+              Ranger dans des carnets
             </button>
           </div>
         </div>
@@ -277,8 +381,10 @@ export function AccountSignedIn({
           }
           heading={groupModalHeading}
           groups={groups}
+          memberships={memberships}
           onClose={() => setGroupModal(null)}
           onGroupsChange={setGroups}
+          onMembershipsChange={setMemberships}
           onSuccess={
             groupModal.kind === "bulk" ? exitSelectionMode : undefined
           }

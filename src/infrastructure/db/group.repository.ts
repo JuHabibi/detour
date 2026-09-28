@@ -148,6 +148,45 @@ type GroupSummarySqlRow = GroupSqlRow & {
   latest_start_at: Date | null;
 };
 
+/** Membership event × carnet (groupe) — scoppé user_id. */
+export type EventGroupMembership = {
+  eventId: string;
+  groupId: string;
+  groupName: string;
+};
+
+type EventGroupMembershipSqlRow = {
+  event_id: string;
+  group_id: string;
+  group_name: string;
+};
+
+/** JOIN group_events × groups — pour pastilles / filtres favoris. */
+export async function listEventGroupMembershipsForUser(
+  userId: string,
+  client?: DbQueryable,
+): Promise<EventGroupMembership[]> {
+  const result = await db(client).query<EventGroupMembershipSqlRow>(
+    `
+SELECT
+  ge.event_id,
+  g.id AS group_id,
+  g.name AS group_name
+FROM group_events ge
+INNER JOIN groups g ON g.id = ge.group_id
+WHERE g.user_id = $1
+ORDER BY g.created_at DESC, g.id ASC, ge.event_id ASC
+`.trim(),
+    [userId],
+  );
+
+  return result.rows.map((row) => ({
+    eventId: row.event_id,
+    groupId: row.group_id,
+    groupName: row.group_name,
+  }));
+}
+
 /** Groupes + eventCount / plage start_at — scoppé user_id. */
 export async function listGroupSummariesForUser(
   userId: string,

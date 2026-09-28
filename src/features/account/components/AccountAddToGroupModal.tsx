@@ -1,274 +1,311 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addFavoritesToGroup,
   createGroupWithFavorites,
-  type BulkGroupMutationResult,
+  removeEventFromGroup,
 } from "@/app/actions/groups";
-import type { GroupSummary } from "@/application/groups";
+import type {
+  EventGroupMembership,
+  GroupSummary,
+} from "@/application/groups";
+import { AppModal } from "@/components/ui/AppModal";
+import { replaceEventMemberships } from "@/features/account/groups/membership-index";
 
 type AccountAddToGroupModalProps = {
   eventIds: string[];
-  /** Titre affiché (ex. nom d’un event ou « 3 favoris »). */
   heading: string;
   groups: GroupSummary[];
+  memberships: EventGroupMembership[];
   onClose: () => void;
   onGroupsChange?: (groups: GroupSummary[]) => void;
-  /** Appelé après un ajout réussi (bulk : sortie mode sélection). */
+  onMembershipsChange?: (memberships: EventGroupMembership[]) => void;
   onSuccess?: () => void;
 };
 
-function formatBulkStatus(result: Extract<BulkGroupMutationResult, { ok: true }>): string {
-  const { addedCount, alreadyMemberCount, missingCount } = result;
-  if (addedCount === 0 && alreadyMemberCount > 0 && missingCount === 0) {
-    return alreadyMemberCount === 1
-      ? "Déjà dans ce groupe."
-      : `Déjà dans ce groupe (${alreadyMemberCount}).`;
-  }
-  const parts: string[] = [];
-  if (addedCount > 0) {
-    parts.push(
-      addedCount === 1
-        ? "1 ajouté"
-        : `${addedCount} ajoutés`,
+function initiallyCheckedIds(
+  eventIds: string[],
+  groups: GroupSummary[],
+  memberships: EventGroupMembership[],
+): Set<string> {
+  const checked = new Set<string>();
+  for (const group of groups) {
+    const members = new Set(
+      memberships
+        .filter((m) => m.groupId === group.id)
+        .map((m) => m.eventId),
     );
+    if (eventIds.every((id) => members.has(id))) {
+      checked.add(group.id);
+    }
   }
-  if (alreadyMemberCount > 0) {
-    parts.push(
-      alreadyMemberCount === 1
-        ? "1 déjà présent"
-        : `${alreadyMemberCount} déjà présents`,
-    );
-  }
-  if (missingCount > 0) {
-    parts.push(
-      missingCount === 1
-        ? "1 introuvable"
-        : `${missingCount} introuvables`,
-    );
-  }
-  return parts.length > 0 ? `${parts.join(" · ")}.` : "Aucun changement.";
+  return checked;
 }
 
 export function AccountAddToGroupModal({
   eventIds,
   heading,
   groups,
+  memberships,
   onClose,
   onGroupsChange,
+  onMembershipsChange,
   onSuccess,
 }: AccountAddToGroupModalProps) {
   const router = useRouter();
-  const titleId = useId();
-  const closeRef = useRef<HTMLButtonElement>(null);
   const [newName, setNewName] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    closeRef.current?.focus();
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [onClose]);
-
-  function handleResult(
-    result: BulkGroupMutationResult,
-    options?: { created?: boolean; groupId?: string },
-  ) {
-    if (!result.ok) {
-      setError(
-        result.reason === "not_found" || result.reason === "event_not_found"
-          ? "Impossible d’ajouter à ce groupe."
-          : result.reason === "invalid"
-            ? "Sélection invalide."
-            : "Impossible d’ajouter. Réessayez.",
-      );
-      return;
-    }
-
-    if (result.group) {
-      onGroupsChange?.([
-        {
-          ...result.group,
-          eventCount: result.addedCount,
-          earliestStartAt: null,
-          latestStartAt: null,
-        },
-        ...groups,
-      ]);
-    } else if (options?.groupId && result.addedCount > 0) {
-      onGroupsChange?.(
-        groups.map((group) =>
-          group.id === options.groupId
-            ? {
-                ...group,
-                eventCount: group.eventCount + result.addedCount,
-              }
-            : group,
-        ),
-      );
-    }
-
-    const prefix = options?.created ? "Groupe créé · " : "";
-    setStatus(`${prefix}${formatBulkStatus(result)}`);
-    onSuccess?.();
-    router.refresh();
-  }
-
-  function handlePick(groupId: string) {
-    setError(null);
-    setStatus(null);
-    startTransition(async () => {
-      const result = await addFavoritesToGroup(groupId, eventIds);
-      handleResult(result, { groupId });
-    });
-  }
-
-  function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setStatus(null);
-    const trimmed = newName.trim();
-    if (!trimmed) {
-      setError("Indiquez un nom de groupe.");
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await createGroupWithFavorites(trimmed, eventIds);
-      if (result.ok) setNewName("");
-      handleResult(result, { created: true });
-    });
-  }
+  const [checkedIds, setCheckedIds] = useState(() =>
+    initiallyCheckedIds(eventIds, groups, memberships),
+  );
+  const initialChecked = useMemo(
+    () => initiallyCheckedIds(eventIds, groups, memberships),
+    [eventIds, groups, memberships],
+  );
 
   const countLabel =
     eventIds.length === 1
       ? "1 favori"
       : `${eventIds.length} favoris`;
 
+  function toggleGroup(groupId: string) {
+    setCheckedIds((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  }
+
+  function handleValidate(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    const toAdd = groups.filter(
+      (g) => checkedIds.has(g.id) && !initialChecked.has(g.id),
+    );
+    const toRemove = groups.filter(
+      (g) => !checkedIds.has(g.id) && initialChecked.has(g.id),
+    );
+
+    if (toAdd.length === 0 && toRemove.length === 0) {
+      onClose();
+      return;
+    }
+
+    startTransition(async () => {
+      const addResults = await Promise.all(
+        toAdd.map((g) => addFavoritesToGroup(g.id, eventIds)),
+      );
+      if (addResults.some((r) => !r.ok)) {
+        setError("Impossible de mettre à jour les carnets. Réessayez.");
+        return;
+      }
+
+      const removeResults = await Promise.all(
+        toRemove.flatMap((g) =>
+          eventIds.map((eventId) => removeEventFromGroup(g.id, eventId)),
+        ),
+      );
+      if (removeResults.some((r) => !r.ok)) {
+        setError("Impossible de mettre à jour les carnets. Réessayez.");
+        return;
+      }
+
+      const selectedGroups = groups
+        .filter((g) => checkedIds.has(g.id))
+        .map((g) => ({ groupId: g.id, groupName: g.name }));
+
+      onMembershipsChange?.(
+        replaceEventMemberships(memberships, eventIds, selectedGroups),
+      );
+
+      const eventSet = new Set(eventIds);
+      onGroupsChange?.(
+        groups.map((g) => {
+          const was = initialChecked.has(g.id);
+          const now = checkedIds.has(g.id);
+          if (was === now) return g;
+          if (!was && now) {
+            const alreadyIn = memberships.filter(
+              (m) => m.groupId === g.id && eventSet.has(m.eventId),
+            ).length;
+            const added = eventIds.length - alreadyIn;
+            return {
+              ...g,
+              eventCount: g.eventCount + Math.max(0, added),
+            };
+          }
+          return {
+            ...g,
+            eventCount: Math.max(0, g.eventCount - eventIds.length),
+          };
+        }),
+      );
+
+      onSuccess?.();
+      router.refresh();
+      onClose();
+    });
+  }
+
+  function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      setError("Indiquez un nom de carnet.");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await createGroupWithFavorites(trimmed, eventIds);
+      if (!result.ok) {
+        setError(
+          result.reason === "not_found" || result.reason === "event_not_found"
+            ? "Impossible d’ajouter à ce carnet."
+            : result.reason === "invalid"
+              ? "Sélection invalide."
+              : "Impossible de créer. Réessayez.",
+        );
+        return;
+      }
+
+      if (result.group) {
+        const created = {
+          ...result.group,
+          eventCount: result.addedCount,
+          earliestStartAt: null,
+          latestStartAt: null,
+        };
+        onGroupsChange?.([created, ...groups]);
+        const selectedGroups = [
+          { groupId: created.id, groupName: created.name },
+          ...groups
+            .filter((g) => checkedIds.has(g.id))
+            .map((g) => ({ groupId: g.id, groupName: g.name })),
+        ];
+        const toAdd = groups.filter(
+          (g) => checkedIds.has(g.id) && !initialChecked.has(g.id),
+        );
+        const toRemove = groups.filter(
+          (g) => !checkedIds.has(g.id) && initialChecked.has(g.id),
+        );
+        if (toAdd.length > 0) {
+          await Promise.all(
+            toAdd.map((g) => addFavoritesToGroup(g.id, eventIds)),
+          );
+        }
+        if (toRemove.length > 0) {
+          await Promise.all(
+            toRemove.flatMap((g) =>
+              eventIds.map((eventId) => removeEventFromGroup(g.id, eventId)),
+            ),
+          );
+        }
+        onMembershipsChange?.(
+          replaceEventMemberships(memberships, eventIds, selectedGroups),
+        );
+      }
+
+      setNewName("");
+      onSuccess?.();
+      router.refresh();
+      onClose();
+    });
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
-      <button
-        type="button"
-        aria-label="Fermer"
-        className="absolute inset-0 bg-ink/40"
-        onClick={onClose}
-      />
-
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="relative z-[1] flex max-h-[min(90vh,36rem)] w-full max-w-md flex-col border border-line bg-foam px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:pb-6 sm:pt-6"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-sand">
-            Ajouter à un groupe
-          </p>
+    <AppModal
+      eyebrow="Ranger dans des carnets"
+      title={heading}
+      description={countLabel}
+      onClose={onClose}
+      footer={
+        groups.length > 0 ? (
           <button
-            ref={closeRef}
-            type="button"
-            onClick={onClose}
-            aria-label="Fermer la fenêtre"
-            className="flex size-9 shrink-0 items-center justify-center text-sand transition-colors hover:text-ink"
+            type="submit"
+            form="add-to-carnet-form"
+            disabled={pending}
+            className="inline-flex min-h-11 items-center justify-center bg-mint px-5 text-[12px] font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam disabled:opacity-60"
           >
-            <span aria-hidden className="text-lg leading-none">
-              ×
-            </span>
+            {pending ? "Enregistrement…" : "Valider"}
           </button>
-        </div>
-
-        <h2
-          id={titleId}
-          className="mt-3 font-display text-[1.4rem] font-semibold leading-[1.08] tracking-tight text-ink"
-        >
-          {heading}
-        </h2>
-        <p className="mt-1 text-[12px] uppercase tracking-[0.12em] text-sand">
-          {countLabel}
-        </p>
-
-        <div className="mt-5 min-h-0 flex-1 overflow-y-auto">
-          {groups.length === 0 ? (
-            <p className="text-sm leading-6 text-cream-dim">
-              Aucun groupe pour l’instant. Créez-en un ci-dessous.
-            </p>
-          ) : (
-            <ul className="divide-y divide-line border-y border-line">
-              {groups.map((group) => (
+        ) : null
+      }
+    >
+      <form
+        id="add-to-carnet-form"
+        onSubmit={handleValidate}
+        className="flex min-h-0 flex-col"
+      >
+        {groups.length === 0 ? (
+          <p className="text-sm leading-6 text-cream-dim">
+            Aucun carnet pour l’instant. Créez-en un ci-dessous.
+          </p>
+        ) : (
+          <ul className="divide-y divide-line border-y border-line">
+            {groups.map((group) => {
+              const inputId = `carnet-${group.id}`;
+              return (
                 <li key={group.id}>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => handlePick(group.id)}
-                    className="flex w-full items-center justify-between gap-3 py-3.5 text-left transition-colors hover:text-coral disabled:opacity-60"
+                  <label
+                    htmlFor={inputId}
+                    className="flex cursor-pointer items-center gap-3 py-3.5"
                   >
+                    <input
+                      id={inputId}
+                      type="checkbox"
+                      checked={checkedIds.has(group.id)}
+                      onChange={() => toggleGroup(group.id)}
+                      disabled={pending}
+                      className="size-5 shrink-0 accent-ink"
+                    />
                     <span className="min-w-0 truncate font-display text-[1.05rem] text-ink">
                       {group.name}
                     </span>
-                    <span className="shrink-0 text-[12px] uppercase tracking-[0.1em] text-sand">
-                      Choisir
-                    </span>
-                  </button>
+                  </label>
                 </li>
-              ))}
-            </ul>
-          )}
+              );
+            })}
+          </ul>
+        )}
+      </form>
+
+      <form
+        onSubmit={handleCreate}
+        className="mt-5 border-t border-line pt-5"
+      >
+        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-sand">
+          Créer un carnet
+        </p>
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Nom"
+            maxLength={80}
+            className="min-w-0 flex-1 border border-line bg-paper px-3 py-2.5 text-sm text-ink outline-none placeholder:text-sand focus:border-ink"
+          />
+          <button
+            type="submit"
+            disabled={pending}
+            className="inline-flex min-h-11 items-center justify-center bg-ink px-4 text-[12px] font-medium uppercase tracking-[0.1em] text-foam transition-colors hover:bg-coral disabled:opacity-60"
+          >
+            Créer
+          </button>
         </div>
+      </form>
 
-        <form onSubmit={handleCreate} className="mt-5 border-t border-line pt-5">
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-sand">
-            Créer un groupe
-          </p>
-          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Nom"
-              maxLength={80}
-              className="min-w-0 flex-1 border border-line bg-paper px-3 py-2.5 text-sm text-ink outline-none placeholder:text-sand focus:border-ink"
-            />
-            <button
-              type="submit"
-              disabled={pending}
-              className="inline-flex min-h-11 items-center justify-center bg-mint px-4 text-[12px] font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam disabled:opacity-60"
-            >
-              Créer
-            </button>
-          </div>
-        </form>
-
-        {status ? (
-          <p className="mt-4 text-sm text-sand" role="status" aria-live="polite">
-            {status}{" "}
-            <Link href="/account" className="underline underline-offset-4">
-              Voir Mes groupes
-            </Link>
-          </p>
-        ) : null}
-        {error ? (
-          <p className="mt-4 text-sm text-coral" role="alert">
-            {error}
-          </p>
-        ) : null}
-      </div>
-    </div>
+      {error ? (
+        <p className="mt-4 text-sm text-coral" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </AppModal>
   );
 }
