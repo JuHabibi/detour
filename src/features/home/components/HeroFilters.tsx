@@ -44,10 +44,10 @@ export function HeroFilters() {
 
         <div
           aria-hidden
-          className="relative mx-5 mb-6 h-[9rem] overflow-hidden sm:mx-8 sm:h-[10rem] md:hidden"
+          className="relative aspect-[530/426] overflow-hidden sm:mx-8 md:hidden"
         >
           <Image
-            src="/detour-hero.jpg"
+            src="/new-detour-hero.jpg"
             alt=""
             fill
             priority
