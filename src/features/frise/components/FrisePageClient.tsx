@@ -252,13 +252,8 @@ export function FrisePageClient({
       setFavoriteEvents((prev) => prev.filter((event) => event.id !== id));
     }
 
-    startTransition(async () => {
-      const result = wasFavorite
-        ? await removeFavorite(id)
-        : await addFavorite(id);
-
-      if (result.ok) return;
-
+    /** Rejeu de l’état d’origine depuis l’état courant — autres toggles préservés. */
+    function rollback() {
       patchFavorites((draft) => {
         if (wasFavorite) draft.add(id);
         else draft.delete(id);
@@ -276,6 +271,18 @@ export function FrisePageClient({
         });
       }
       setFavoriteError("Impossible d’enregistrer ce détour. Réessayez.");
+    }
+
+    startTransition(async () => {
+      try {
+        const result = wasFavorite
+          ? await removeFavorite(id)
+          : await addFavorite(id);
+        if (result.ok) return;
+      } catch (error) {
+        console.error("[detour:frise] toggleFavorite failed", error);
+      }
+      rollback();
     });
   }
 
