@@ -42,6 +42,17 @@ import { cn } from "@/lib/cn";
 
 export type FriseCountTone = "sorties" | "favoris" | "carnet";
 
+export function friseDayCountLabel(
+  eventCount: number,
+  tone: FriseCountTone,
+): string | null {
+  const minimum = tone === "sorties" ? 3 : 2;
+  if (eventCount < minimum) return null;
+  return tone === "sorties"
+    ? `${eventCount} sorties`
+    : `${eventCount} événements`;
+}
+
 export type FriseTemporalNav = {
   onToday: () => void;
   onPrev: () => void;
@@ -438,6 +449,7 @@ export function FriseRideTrack({
             {showTrackBody ? (
               <FriseTrackBody
                 model={model}
+                countTone={countTone}
                 favorites={favorites}
                 onToggleFavorite={onToggleFavorite}
                 onOpenDetail={onOpenDetail}
@@ -594,12 +606,14 @@ const FriseScrollChrome = memo(function FriseScrollChrome({
  */
 export const FriseTrackBody = memo(function FriseTrackBody({
   model,
+  countTone,
   favorites,
   onToggleFavorite,
   onOpenDetail,
   onOpenDayPanel,
 }: {
   model: ExplorerFriezeModel;
+  countTone: FriseCountTone;
   favorites?: Set<string>;
   onToggleFavorite?: (id: string) => void;
   onOpenDetail?: OpenEventDetailHandler;
@@ -642,6 +656,7 @@ export const FriseTrackBody = memo(function FriseTrackBody({
                     item={item}
                     monthKey={chapter.monthKey}
                     monthLabel={monthLabel}
+                    countTone={countTone}
                     favorites={favorites}
                     onToggleFavorite={onToggleFavorite}
                     onOpenDetail={onOpenDetail}
@@ -782,6 +797,7 @@ function DayPoster({
   item,
   monthKey,
   monthLabel,
+  countTone,
   favorites,
   onToggleFavorite,
   onOpenDetail,
@@ -790,6 +806,7 @@ function DayPoster({
   item: ExplorerFriezeDayCluster;
   monthKey: string;
   monthLabel: string;
+  countTone: FriseCountTone;
   favorites?: Set<string>;
   onToggleFavorite?: (id: string) => void;
   onOpenDetail?: OpenEventDetailHandler;
@@ -814,6 +831,7 @@ function DayPoster({
   );
   const mobileMoreLabel = friseDayMoreLabel(mobileRest);
   const desktopMoreLabel = friseDayMoreLabel(desktopRest);
+  const dayCountLabel = friseDayCountLabel(preview.total, countTone);
 
   return (
     <div
@@ -843,9 +861,9 @@ function DayPoster({
             {item.monthShort}
           </p>
         </div>
-        {preview.total > 2 ? (
+        {dayCountLabel ? (
           <p className="ml-auto self-center text-[10px] font-medium uppercase tracking-[0.12em] text-sand">
-            {preview.total} sorties
+            {dayCountLabel}
           </p>
         ) : null}
       </div>
