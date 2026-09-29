@@ -1,9 +1,12 @@
 "use server";
 
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
+import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
+import type { EventItem } from "@/data/types";
 import {
   addFavorite as insertFavorite,
   listFavoriteEventIdsForUser,
+  listFavoriteEventsForUser,
   removeFavorite as deleteFavorite,
 } from "@/infrastructure/db/favorite.repository";
 
@@ -13,6 +16,10 @@ export type FavoriteActionResult =
 
 export type ListMyFavoriteEventIdsResult =
   | { ok: true; eventIds: string[] }
+  | { ok: false; reason: "unauthenticated" | "error" };
+
+export type ListMyFavoriteEventsResult =
+  | { ok: true; events: EventItem[] }
   | { ok: false; reason: "unauthenticated" | "error" };
 
 function normalizeEventId(eventId: unknown): string | null {
@@ -36,6 +43,28 @@ export async function listMyFavoriteEventIds(): Promise<ListMyFavoriteEventIdsRe
     return { ok: true, eventIds };
   } catch (error) {
     console.error("[detour:favorites] listMyFavoriteEventIds failed", error);
+    return { ok: false, reason: "error" };
+  }
+}
+
+/**
+ * Favoris complets (EventItem) pour mon parcours culturel.
+ * Inclut les favoris hors carnet — les carnets ne sont pas un prérequis.
+ */
+export async function listMyFavoriteEvents(): Promise<ListMyFavoriteEventsResult> {
+  const auth = await getAccountAuthState();
+  if (auth.status !== "authenticated") {
+    return { ok: false, reason: "unauthenticated" };
+  }
+
+  try {
+    const rows = await listFavoriteEventsForUser(auth.user.id);
+    return {
+      ok: true,
+      events: rows.map(mapDetourEventToEventItem),
+    };
+  } catch (error) {
+    console.error("[detour:favorites] listMyFavoriteEvents failed", error);
     return { ok: false, reason: "error" };
   }
 }

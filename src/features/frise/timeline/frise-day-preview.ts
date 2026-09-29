@@ -47,8 +47,8 @@ export function friseDayTrackRestCount(
 
 export function friseDayMoreLabel(restCount: number): string {
   if (restCount <= 0) return "";
-  if (restCount === 1) return "Voir l’autre événement";
-  return `Voir les ${restCount} autres événements`;
+  if (restCount === 1) return "Voir l’autre";
+  return `Voir les ${restCount} autres`;
 }
 
 export {

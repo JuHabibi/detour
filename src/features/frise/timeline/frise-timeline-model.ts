@@ -263,8 +263,8 @@ export function resolveFriezeWindow(
   const toP = parisParts(toKey);
   const sameYear = fromP?.year === toP?.year;
   const label = sameYear
-    ? `${capitalize(fromP?.monthLong ?? "")} – ${capitalize(toP?.monthLong ?? "")} ${fromP?.year ?? ""}`
-    : `${capitalize(fromP?.monthLong ?? "")} ${fromP?.year ?? ""} – ${capitalize(toP?.monthLong ?? "")} ${toP?.year ?? ""}`;
+    ? `${capitalize(fromP?.monthLong ?? "")} — ${capitalize(toP?.monthLong ?? "")} ${fromP?.year ?? ""}`
+    : `${capitalize(fromP?.monthLong ?? "")} ${fromP?.year ?? ""} — ${capitalize(toP?.monthLong ?? "")} ${toP?.year ?? ""}`;
 
   return { fromKey, toKey, label: label.trim() };
 }

@@ -23,7 +23,7 @@ import type { CategoryId, EventItem } from "@/data/types";
 import type { V1Commune } from "@/domain/geo/v1-communes";
 
 type UseFriseEventsParams = {
-  /** Catégorie produit obligatoire (jamais « tout »). */
+  /** Catégorie produit — `"tout"` = pas de filtre Explorer. */
   category: CategoryId;
   city: V1Commune | null;
   search: string;
@@ -215,7 +215,7 @@ export function useFriseEvents({
   });
 
   const reload = useCallback(async () => {
-    if (!enabled || category === "tout") return;
+    if (!enabled) return;
 
     const loadId = ++loadGenerationRef.current;
     const isCurrent = () => loadId === loadGenerationRef.current;

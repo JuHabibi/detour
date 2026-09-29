@@ -8,12 +8,22 @@ vi.mock("@/infrastructure/db/favorite.repository", () => ({
   addFavorite: vi.fn(),
   removeFavorite: vi.fn(),
   listFavoriteEventIdsForUser: vi.fn(),
+  listFavoriteEventsForUser: vi.fn(),
+}));
+
+vi.mock("@/application/map-detour-event-to-ui", () => ({
+  mapDetourEventToEventItem: (e: { id: string; title?: string }) => ({
+    id: e.id,
+    title: e.title ?? e.id,
+    category: "Musique",
+  }),
 }));
 
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import {
   addFavorite,
   listMyFavoriteEventIds,
+  listMyFavoriteEvents,
   removeFavorite,
 } from "@/app/actions/favorites";
 import * as favoriteRepository from "@/infrastructure/db/favorite.repository";
@@ -119,5 +129,42 @@ describe("favorites actions", () => {
       reason: "invalid",
     });
     expect(getAccountAuthState).not.toHaveBeenCalled();
+  });
+
+  it("listMyFavoriteEvents authenticated → EventItems (y compris hors carnet)", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: {
+        id: "11111111-1111-4111-8111-111111111111",
+        email: "a@exemple.fr",
+        name: "A",
+      },
+    });
+    vi.mocked(favoriteRepository.listFavoriteEventsForUser).mockResolvedValue([
+      { id: "e1", title: "Concert" } as never,
+      { id: "e2", title: "Expo" } as never,
+    ]);
+
+    await expect(listMyFavoriteEvents()).resolves.toEqual({
+      ok: true,
+      events: [
+        { id: "e1", title: "Concert", category: "Musique" },
+        { id: "e2", title: "Expo", category: "Musique" },
+      ],
+    });
+    expect(favoriteRepository.listFavoriteEventsForUser).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+    );
+  });
+
+  it("listMyFavoriteEvents unauthenticated → pas de repository", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "unauthenticated",
+    });
+    await expect(listMyFavoriteEvents()).resolves.toEqual({
+      ok: false,
+      reason: "unauthenticated",
+    });
+    expect(favoriteRepository.listFavoriteEventsForUser).not.toHaveBeenCalled();
   });
 });

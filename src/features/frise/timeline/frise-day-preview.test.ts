@@ -51,7 +51,7 @@ describe("sliceFriseDayPreview", () => {
     expect(EXPLORER_FRIEZE_DAY_PREVIEW_MOBILE).toBe(1);
     expect(p.visible.map((e) => e.id)).toEqual(["a"]);
     expect(p.restCount).toBe(1);
-    expect(friseDayMoreLabel(p.restCount)).toBe("Voir l’autre événement");
+    expect(friseDayMoreLabel(p.restCount)).toBe("Voir l’autre");
   });
 
   it("quinze événements : 2 visibles desktop, 13 en reste", () => {
@@ -88,7 +88,7 @@ describe("friseDayTrackRestCount", () => {
 describe("friseDayMoreLabel", () => {
   it("libellés", () => {
     expect(friseDayMoreLabel(0)).toBe("");
-    expect(friseDayMoreLabel(1)).toBe("Voir l’autre événement");
-    expect(friseDayMoreLabel(13)).toBe("Voir les 13 autres événements");
+    expect(friseDayMoreLabel(1)).toBe("Voir l’autre");
+    expect(friseDayMoreLabel(13)).toBe("Voir les 13 autres");
   });
 });
