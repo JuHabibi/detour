@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { removeFavorite } from "@/app/actions/favorites";
 import type {
@@ -8,7 +8,6 @@ import type {
   GroupSummary,
 } from "@/application/groups";
 import type { EventItem } from "@/data/types";
-import { authClient } from "@/lib/auth-client";
 import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
 import { AccountAddToGroupModal } from "@/features/account/components/AccountAddToGroupModal";
 import { AccountCarnetsLibrary } from "@/features/account/components/AccountCarnetsLibrary";
@@ -24,13 +23,7 @@ import {
 import { takeServerListIfChanged } from "@/features/account/take-server-list-if-changed";
 import { cn } from "@/lib/cn";
 
-export type AccountUserView = {
-  name: string;
-  email: string;
-};
-
 type AccountSignedInProps = {
-  user: AccountUserView;
   initialFavorites?: EventItem[];
   initialGroups?: GroupSummary[];
   initialMemberships?: EventGroupMembership[];
@@ -41,7 +34,6 @@ type GroupModalTarget =
   | { kind: "bulk"; eventIds: string[] };
 
 export function AccountSignedIn({
-  user,
   initialFavorites = [],
   initialGroups = [],
   initialMemberships = [],
@@ -75,13 +67,28 @@ export function AccountSignedIn({
 
   const [groupModal, setGroupModal] = useState<GroupModalTarget | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
-  const [logoutPending, setLogoutPending] = useState(false);
-  const [logoutError, setLogoutError] = useState<string | null>(null);
-  const [accountOpen, setAccountOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [filter, setFilter] = useState<FavoriteFilter>({ kind: "all" });
   const [, startTransition] = useTransition();
+
+  /** Ancre #favoris : filtre Tous + scroll sous le header sticky. */
+  useEffect(() => {
+    function applyFavorisHash() {
+      if (window.location.hash !== "#favoris") return;
+      setFilter({ kind: "all" });
+      requestAnimationFrame(() => {
+        favoritesRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    }
+
+    applyFavorisHash();
+    window.addEventListener("hashchange", applyFavorisHash);
+    return () => window.removeEventListener("hashchange", applyFavorisHash);
+  }, []);
 
   const favoriteIds = useMemo(
     () => favorites.map((f) => f.id),
@@ -243,24 +250,6 @@ export function AccountSignedIn({
     setGroupModal({ kind: "bulk", eventIds: [...selectedIds] });
   }
 
-  async function handleLogout() {
-    setLogoutPending(true);
-    setLogoutError(null);
-    try {
-      const result = await authClient.signOut();
-      if (result.error) {
-        setLogoutError("Impossible de se déconnecter. Réessayez.");
-        return;
-      }
-      router.push("/account");
-      router.refresh();
-    } catch {
-      setLogoutError("Impossible de se déconnecter. Réessayez.");
-    } finally {
-      setLogoutPending(false);
-    }
-  }
-
   const groupModalHeading =
     groupModal?.kind === "bulk"
       ? `${groupModal.eventIds.length} favori${groupModal.eventIds.length > 1 ? "s" : ""}`
@@ -278,48 +267,17 @@ export function AccountSignedIn({
 
   return (
     <div className={selectionMode && selectedCount > 0 ? "pb-28" : undefined}>
-      <div className="flex items-start justify-between gap-6">
-        <div className="min-w-0 max-w-xl">
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-sand">
-            Votre collection personnelle
-          </p>
-          <h1 className="mt-3 font-display text-[2.1rem] leading-[1.02] tracking-tight text-ink md:mt-4 md:text-[2.75rem] lg:text-[3rem]">
-            Mes carnets.
-          </h1>
-          <p className="mt-4 text-sm leading-6 text-cream-dim md:mt-5">
-            Toutes vos découvertes, vos envies et vos prochaines sorties au même
-            endroit.
-          </p>
-        </div>
-
-        <details
-          className="relative shrink-0"
-          open={accountOpen}
-          onToggle={(e) => setAccountOpen(e.currentTarget.open)}
-        >
-          <summary className="cursor-pointer list-none text-[11px] font-medium uppercase tracking-[0.12em] text-sand transition-colors hover:text-ink [&::-webkit-details-marker]:hidden">
-            Compte
-          </summary>
-          <div className="absolute right-0 z-20 mt-2 w-56 border border-line bg-foam p-4 shadow-sm">
-            <p className="font-display text-base tracking-tight text-ink">
-              {user.name}
-            </p>
-            <p className="mt-1 truncate text-[12px] text-sand">{user.email}</p>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={logoutPending}
-              className="mt-4 text-[12px] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-ink disabled:opacity-60"
-            >
-              {logoutPending ? "Déconnexion…" : "Se déconnecter"}
-            </button>
-            {logoutError ? (
-              <p className="mt-2 text-sm text-coral" role="alert">
-                {logoutError}
-              </p>
-            ) : null}
-          </div>
-        </details>
+      <div className="max-w-xl">
+        <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-sand">
+          Votre collection personnelle
+        </p>
+        <h1 className="mt-3 font-display text-[2.1rem] leading-[1.02] tracking-tight text-ink md:mt-4 md:text-[2.75rem] lg:text-[3rem]">
+          Mes carnets.
+        </h1>
+        <p className="mt-4 text-sm leading-6 text-cream-dim md:mt-5">
+          Toutes vos découvertes, vos envies et vos prochaines sorties au même
+          endroit.
+        </p>
       </div>
 
       {removeError ? (
@@ -337,7 +295,11 @@ export function AccountSignedIn({
         onMembershipsChange={setMemberships}
       />
 
-      <section ref={favoritesRef} className="mt-12 scroll-mt-24 md:mt-16">
+      <section
+        id="favoris"
+        ref={favoritesRef}
+        className="mt-12 scroll-mt-24 md:mt-16 md:scroll-mt-28"
+      >
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
             <h2 className="font-display text-[1.45rem] tracking-tight text-ink md:text-[1.65rem]">

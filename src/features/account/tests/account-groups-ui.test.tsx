@@ -702,7 +702,6 @@ describe("AccountSignedIn — Mes carnets", () => {
   it("intro + couvertures + chips Tous / Sans carnet / par carnet", () => {
     const html = renderToStaticMarkup(
       createElement(AccountSignedIn, {
-        user: { name: "A", email: "a@exemple.fr" },
         initialFavorites: [
           eventItem({ id: "e1", title: "Concert" }),
           eventItem({ id: "e2", title: "Expo" }),
@@ -723,6 +722,7 @@ describe("AccountSignedIn — Mes carnets", () => {
     expect(html).toContain("Mes carnets.");
     expect(html).toContain("Votre collection personnelle");
     expect(html).toContain("Mes favoris");
+    expect(html).toContain('id="favoris"');
     expect(html).toContain("Week-end Loire");
     expect(html).toContain("Sélectionner");
     expect(html).toContain("Plus d’actions");
@@ -732,12 +732,13 @@ describe("AccountSignedIn — Mes carnets", () => {
     expect(html).toContain("Tous vos événements sauvegardés");
     expect(html).not.toContain("Vos détours");
     expect(html).not.toContain("La bibliothèque");
+    expect(html).not.toContain(">Compte<");
+    expect(html).not.toContain("Se déconnecter");
   });
 
   it("état vide favoris : pas de Sélectionner", () => {
     const html = renderToStaticMarkup(
       createElement(AccountSignedIn, {
-        user: { name: "A", email: "a@exemple.fr" },
         initialFavorites: [],
         initialGroups: [],
       }),
@@ -745,6 +746,7 @@ describe("AccountSignedIn — Mes carnets", () => {
 
     expect(html).not.toContain(">Sélectionner<");
     expect(html).toContain("Mes carnets.");
+    expect(html).toContain('id="favoris"');
   });
 });
 

@@ -47,5 +47,14 @@ export default async function FrisePage({ searchParams }: FrisePageProps) {
     redirect(accountLoginHref(friseReturnPath(initialCategory)));
   }
 
-  return <FrisePageClient initialCategory={initialCategory} />;
+  return (
+    <FrisePageClient
+      initialCategory={initialCategory}
+      user={
+        auth.status === "authenticated"
+          ? { name: auth.user.name, email: auth.user.email }
+          : null
+      }
+    />
+  );
 }

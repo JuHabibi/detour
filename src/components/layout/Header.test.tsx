@@ -5,9 +5,30 @@ import {
   Header,
   closeMobileMenuOnEscape,
 } from "@/components/layout/Header";
+import { userInitials } from "@/components/layout/user-initials";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    refresh: vi.fn(),
+  }),
+}));
+
+vi.mock("@/lib/auth-client", () => ({
+  authClient: { signOut: vi.fn() },
+}));
+
+describe("userInitials", () => {
+  it("prend prénom + nom, sinon e-mail, sinon ?", () => {
+    expect(userInitials("Julien Habibi", "j@exemple.fr")).toBe("JH");
+    expect(userInitials("Julien", "j@exemple.fr")).toBe("JU");
+    expect(userInitials("", "alice@exemple.fr")).toBe("AL");
+    expect(userInitials("  ", "")).toBe("?");
+  });
+});
 
 describe("Header", () => {
-  it("mobile menu markup : liens de base sans parcours culturel si déconnecté", () => {
+  it("non connecté : Se connecter, pas d’avatar ni de compteur", () => {
     const html = renderToStaticMarkup(
       createElement(Header, { favoriteCount: 0, showFriseNav: false }),
     );
@@ -16,20 +37,28 @@ describe("Header", () => {
     expect(html).toContain("Sur le radar");
     expect(html).toContain("Explorer");
     expect(html).not.toContain("Mon parcours culturel");
+    expect(html).toContain("Se connecter");
+    expect(html).not.toContain("Mon compte");
     expect(html).toContain('href="/account"');
-    expect(html).toContain("Mes détours, 0 enregistré");
+    expect(html).toContain("Voir mes favoris");
+    expect(html).not.toContain("Menu compte");
   });
 
-  it("affiche Mon parcours culturel quand showFriseNav", () => {
+  it("connecté : parcours culturel, avatar, cœur vers #favoris", () => {
     const html = renderToStaticMarkup(
       createElement(Header, {
         favoriteCount: 2,
         showFriseNav: true,
-        accountLabel: "Mon compte",
+        user: { name: "Julien Habibi", email: "j@exemple.fr" },
       }),
     );
     expect(html).toContain("Mon parcours culturel");
-    expect(html).toContain("Mes détours, 2 enregistrés");
+    expect(html).toContain("Voir mes 2 favoris");
+    expect(html).toContain('href="/account#favoris"');
+    expect(html).toContain("Menu compte — Julien Habibi");
+    expect(html).toContain("JH");
+    expect(html).not.toContain("Mon compte");
+    expect(html).not.toContain("Se connecter");
   });
 
   it("Échap restaure le focus puis ferme ; les autres touches n’agissent pas", () => {

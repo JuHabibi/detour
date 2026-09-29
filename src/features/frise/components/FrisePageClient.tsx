@@ -25,6 +25,7 @@ const EMPTY_FAVORITES: ReadonlySet<string> = new Set();
 
 type FrisePageClientProps = {
   initialCategory: DetourCategory | null;
+  user?: { name: string; email: string } | null;
 };
 
 type FavoriteState = {
@@ -32,7 +33,10 @@ type FavoriteState = {
   ids: Set<string>;
 };
 
-export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
+export function FrisePageClient({
+  initialCategory,
+  user = null,
+}: FrisePageClientProps) {
   const router = useRouter();
   const [category, setCategory] = useState<DetourCategory | null>(
     initialCategory,
@@ -161,9 +165,8 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
       <Header
         favoriteCount={favorites.size}
         homeHref="/"
-        accountHref="/account"
-        accountLabel="Mon compte"
-        showFriseNav
+        user={user}
+        showFriseNav={Boolean(user)}
       />
 
       <div className="detour-decor detour-decor--explorer relative overflow-x-clip">
@@ -291,7 +294,7 @@ export function FrisePageClient({ initialCategory }: FrisePageClientProps) {
                       href="/account"
                       className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4"
                     >
-                      Mon compte
+                      Mes carnets
                     </Link>
                     .
                   </p>

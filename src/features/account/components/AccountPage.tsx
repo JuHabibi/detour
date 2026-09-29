@@ -28,8 +28,11 @@ export function AccountPage({
       <Header
         favoriteCount={signedIn ? favorites.length : 0}
         homeHref="/"
-        accountHref="/account"
-        accountLabel={signedIn ? "Mon compte" : "Se connecter"}
+        user={
+          signedIn
+            ? { name: auth.user.name, email: auth.user.email }
+            : null
+        }
         showFriseNav={signedIn}
       />
 
@@ -37,10 +40,6 @@ export function AccountPage({
         <div className="mx-auto min-w-0 max-w-[var(--detour-shell-max)]">
           {signedIn ? (
             <AccountSignedIn
-              user={{
-                name: auth.user.name,
-                email: auth.user.email,
-              }}
               initialFavorites={favorites}
               initialGroups={groups}
               initialMemberships={memberships}

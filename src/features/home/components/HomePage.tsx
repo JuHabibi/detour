@@ -82,7 +82,13 @@ export function HomePage({
   const { data: session, isPending: isSessionPending } = authClient.useSession();
   const userId = session?.user?.id ?? null;
   const isAuthenticated = Boolean(userId);
-  const accountLabel = isAuthenticated ? "Mon compte" : "Se connecter";
+  const headerUser =
+    isAuthenticated && session?.user
+      ? {
+          name: session.user.name ?? "",
+          email: session.user.email ?? "",
+        }
+      : null;
 
   const [favoriteState, setFavoriteState] = useState<FavoriteState | null>(null);
   const [carnetsState, setCarnetsState] = useState<CarnetsState | null>(null);
@@ -252,7 +258,7 @@ export function HomePage({
     <div id="top" className="min-h-screen bg-paper">
       <Header
         favoriteCount={favorites.size}
-        accountLabel={accountLabel}
+        user={headerUser}
         showFriseNav={isAuthenticated}
       />
       <main>

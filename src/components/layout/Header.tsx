@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import {
+  HeaderAccountMenu,
+  type HeaderAccountUser,
+} from "@/components/layout/HeaderAccountMenu";
 import { cn } from "@/lib/cn";
-import { CITY } from "@/config/city";
-
-/** Plus long des deux labels Account — réserve la largeur (anti-CLS). */
-const ACCOUNT_LABEL_WIDTH_SAMPLE = "Se connecter";
 
 /**
  * Échap : restore le focus sur le bouton menu puis ferme.
@@ -24,28 +24,39 @@ export function closeMobileMenuOnEscape(
   return true;
 }
 
+export type { HeaderAccountUser };
+
 type HeaderProps = {
   favoriteCount: number;
   /** Lien logo — `#top` sur la home, `/` ailleurs. */
   homeHref?: string;
-  /** Entrée Account. */
-  accountHref?: string;
-  accountLabel?: string;
+  /**
+   * Utilisateur connecté — avatar + menu.
+   * Absent / null = visiteur → action « Se connecter ».
+   */
+  user?: HeaderAccountUser | null;
   /** Affiche « Mon parcours culturel » dans la nav (compte connecté uniquement). */
   showFriseNav?: boolean;
 };
 
+function favoritesAriaLabel(count: number): string {
+  if (count <= 0) return "Voir mes favoris";
+  if (count === 1) return "Voir mon 1 favori";
+  return `Voir mes ${count} favoris`;
+}
+
 export function Header({
   favoriteCount,
   homeHref = "#top",
-  accountHref = "/account",
-  accountLabel = "Se connecter",
+  user = null,
   showFriseNav = false,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useId();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const firstLinkRef = useRef<HTMLAnchorElement>(null);
+  const isAuthenticated = Boolean(user);
+  const favoritesHref = isAuthenticated ? "/account#favoris" : "/account";
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -86,7 +97,7 @@ export function Header({
           </span>
         </Link>
 
-        <div className="flex min-w-0 items-center gap-2 sm:gap-5 md:gap-6">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-4 md:gap-5 lg:gap-6">
           <nav
             aria-label="Sections"
             className="hidden items-center gap-6 text-[12px] font-medium uppercase tracking-[0.14em] text-ink md:flex"
@@ -103,37 +114,36 @@ export function Header({
               </Link>
             ) : null}
           </nav>
-          <Link
-            href={accountHref}
-            className="inline-grid shrink-0 text-[11px] font-medium uppercase tracking-[0.14em] text-ink transition-colors hover:text-sand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:text-[12px]"
-          >
-            <span
-              className="invisible col-start-1 row-start-1 whitespace-nowrap"
-              aria-hidden="true"
-            >
-              {ACCOUNT_LABEL_WIDTH_SAMPLE}
-            </span>
-            <span className="col-start-1 row-start-1 whitespace-nowrap text-right">
-              {accountLabel}
-            </span>
-          </Link>
 
           <Link
-            href={accountHref}
-            aria-label={`Mes détours, ${favoriteCount} enregistré${favoriteCount > 1 ? "s" : ""}`}
+            href={favoritesHref}
+            aria-label={favoritesAriaLabel(favoriteCount)}
             className="relative flex size-9 shrink-0 items-center justify-center text-ink transition-colors hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:size-10"
           >
             <HeartIcon filled={favoriteCount > 0} />
-            <span
-              aria-hidden="true"
-              className={cn(
-                "absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center bg-coral text-[9px] font-semibold text-ink",
-                favoriteCount > 0 ? "opacity-100" : "opacity-0",
-              )}
-            >
-              {favoriteCount > 0 ? favoriteCount : 0}
-            </span>
+            {isAuthenticated ? (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center bg-coral text-[9px] font-semibold text-ink",
+                  favoriteCount > 0 ? "opacity-100" : "opacity-0",
+                )}
+              >
+                {favoriteCount > 0 ? favoriteCount : 0}
+              </span>
+            ) : null}
           </Link>
+
+          {user ? (
+            <HeaderAccountMenu user={user} />
+          ) : (
+            <Link
+              href="/account"
+              className="shrink-0 text-[11px] font-medium uppercase tracking-[0.14em] text-ink transition-colors hover:text-sand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:text-[12px]"
+            >
+              Se connecter
+            </Link>
+          )}
 
           <button
             ref={menuButtonRef}
