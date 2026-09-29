@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StandardEventCard } from "@/features/home/components/EventCard";
+import { RadarEventCard } from "@/features/home/components/RadarEventCard";
 import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import type { EventItem } from "@/data/types";
 import { cn } from "@/lib/cn";
@@ -105,7 +105,7 @@ export function FeaturedEventsCarousel({
             key={event.id}
             className={cn("flex h-full shrink-0 snap-start flex-col", RADAR_POSTER_WIDTH)}
           >
-            <StandardEventCard
+            <RadarEventCard
               event={event}
               priority={index < 2}
               isFavorite={favorites.has(event.id)}
@@ -113,7 +113,6 @@ export function FeaturedEventsCarousel({
               carnetCount={carnetCounts?.get(event.id) ?? 0}
               onOrganizeCarnets={onOrganizeCarnets}
               rank={index + 1}
-              surface="radar"
               onOpenDetail={onOpenDetail}
             />
           </div>

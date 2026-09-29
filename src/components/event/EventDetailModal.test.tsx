@@ -18,9 +18,10 @@ import {
   resolveOfficialSourceLink,
 } from "@/components/event/EventDetailModal";
 import {
-  StandardEventCard,
   resolveRadarCardCtaLabel,
-} from "@/features/home/components/EventCard";
+  RadarEventCard,
+} from "@/features/home/components/RadarEventCard";
+import { ExplorerEventCard } from "@/features/home/components/ExplorerEventCard";
 
 function baseEvent(overrides: Partial<EventItem> = {}): EventItem {
   return {
@@ -111,12 +112,11 @@ describe("EventDetailModal", () => {
   });
 });
 
-describe("StandardEventCard — CTA Radar (indicateur, pas de bouton)", () => {
+describe("RadarEventCard — CTA Radar (indicateur, pas de bouton)", () => {
   it("affiche « Pourquoi le repérer ? » quand une justification existe", () => {
     const html = renderToStaticMarkup(
-      createElement(StandardEventCard, {
+      createElement(RadarEventCard, {
         event: baseEvent(),
-        surface: "radar",
         rank: 1,
         onOpenDetail: () => undefined,
       }),
@@ -139,12 +139,11 @@ describe("StandardEventCard — CTA Radar (indicateur, pas de bouton)", () => {
 
   it("affiche « Découvrir l’événement » sans justification", () => {
     const html = renderToStaticMarkup(
-      createElement(StandardEventCard, {
+      createElement(RadarEventCard, {
         event: baseEvent({
           id: "openagenda:77305621",
           radarAiReasons: undefined,
         }),
-        surface: "radar",
         onOpenDetail: () => undefined,
       }),
     );
@@ -156,9 +155,8 @@ describe("StandardEventCard — CTA Radar (indicateur, pas de bouton)", () => {
 
   it("n’affiche pas le CTA Radar dans Explorer", () => {
     const html = renderToStaticMarkup(
-      createElement(StandardEventCard, {
+      createElement(ExplorerEventCard, {
         event: baseEvent(),
-        surface: "explorer",
         onOpenDetail: () => undefined,
       }),
     );

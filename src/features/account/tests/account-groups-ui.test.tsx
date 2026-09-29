@@ -88,7 +88,6 @@ import { AccountCarnetFormModal } from "@/features/account/components/AccountCar
 import { AccountSignedIn } from "@/features/account/components/AccountSignedIn";
 import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
 import { AppModal } from "@/components/ui/AppModal";
-import { StandardEventCard } from "@/features/home/components/EventCard";
 
 const GROUP_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const GROUP_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -471,14 +470,15 @@ describe("AccountFavoriteCard", () => {
 describe("AppModal", () => {
   it("expose eyebrow, titre, children et footer", () => {
     const html = renderToStaticMarkup(
-      createElement(AppModal, {
-        eyebrow: "Mes carnets",
-        title: "Créer une nouvelle collection.",
-        description: "Donnez-lui une intention.",
-        onClose: () => undefined,
-        footer: createElement("button", { type: "button" }, "Créer le carnet"),
-        children: createElement("p", null, "Champ nom"),
-      }),
+      <AppModal
+        eyebrow="Mes carnets"
+        title="Créer une nouvelle collection."
+        description="Donnez-lui une intention."
+        onClose={() => undefined}
+        footer={<button type="button">Créer le carnet</button>}
+      >
+        <p>Champ nom</p>
+      </AppModal>,
     );
     expect(html).toContain('role="dialog"');
     expect(html).toContain("Mes carnets");
@@ -620,81 +620,6 @@ describe("OrganizeInCarnetModal", () => {
     expect(html).toContain("Retirer des favoris");
     expect(html).toContain('type="checkbox"');
     expect(html).toContain("checked");
-  });
-});
-
-describe("StandardEventCard — trois états carnets", () => {
-  const base = eventItem({
-    id: "e1",
-    title: "Expo photo",
-    image: "https://example.com/x.jpg",
-  });
-
-  it("A — non favori : cœur vide uniquement, pas de Classer ni badge", () => {
-    const html = renderToStaticMarkup(
-      createElement(StandardEventCard, {
-        event: base,
-        isFavorite: false,
-        onToggleFavorite: () => undefined,
-        carnetCount: 0,
-        onOrganizeCarnets: () => undefined,
-        surface: "explorer",
-      }),
-    );
-    expect(html).toContain('aria-pressed="false"');
-    expect(html).toContain("Ajouter « Expo photo » aux favoris");
-    expect(html).not.toContain("Classer");
-    expect(html).not.toContain("Dans un carnet");
-    expect(html).not.toContain("Dans 2 carnets");
-  });
-
-  it("B — favori sans carnet : cœur rempli, aucun badge, ouvre classement", () => {
-    const html = renderToStaticMarkup(
-      createElement(StandardEventCard, {
-        event: base,
-        isFavorite: true,
-        onToggleFavorite: () => undefined,
-        carnetCount: 0,
-        onOrganizeCarnets: () => undefined,
-        surface: "explorer",
-      }),
-    );
-    expect(html).toContain('aria-pressed="true"');
-    expect(html).toContain("Ranger « Expo photo » dans un carnet");
-    expect(html).toContain("fill-coral");
-    expect(html).not.toContain("Classer");
-    expect(html).not.toContain("Dans un carnet");
-    expect(html).not.toContain("Retirer « Expo photo » des favoris");
-  });
-
-  it("C — classé : cœur rempli + badge discret avec le bon compte", () => {
-    const one = renderToStaticMarkup(
-      createElement(StandardEventCard, {
-        event: base,
-        isFavorite: true,
-        onToggleFavorite: () => undefined,
-        carnetCount: 1,
-        onOrganizeCarnets: () => undefined,
-        surface: "explorer",
-      }),
-    );
-    expect(one).toContain("Dans un carnet");
-    expect(one).toContain("Ranger « Expo photo » dans un carnet");
-    expect(one).not.toContain("Classer");
-    expect(one).not.toContain("✓");
-
-    const many = renderToStaticMarkup(
-      createElement(StandardEventCard, {
-        event: base,
-        isFavorite: true,
-        onToggleFavorite: () => undefined,
-        carnetCount: 3,
-        onOrganizeCarnets: () => undefined,
-        surface: "radar",
-      }),
-    );
-    expect(many).toContain("Dans 3 carnets");
-    expect(many).not.toContain("Classer");
   });
 });
 

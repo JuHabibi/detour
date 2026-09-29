@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { EventCard } from "@/features/home/components/EventCard";
+import { ExplorerEventCard } from "@/features/home/components/ExplorerEventCard";
 import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import type { EventItem } from "@/data/types";
 
@@ -78,7 +78,7 @@ export function EventGrid({
           <>
             <div className="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-2 md:gap-y-7 lg:grid-cols-4 lg:gap-y-8">
               {events.map((event, index) => (
-                <EventCard
+                <ExplorerEventCard
                   key={event.id}
                   event={event}
                   priority={index < 3}
@@ -86,7 +86,6 @@ export function EventGrid({
                   onToggleFavorite={onToggleFavorite}
                   carnetCount={carnetCounts?.get(event.id) ?? 0}
                   onOrganizeCarnets={onOrganizeCarnets}
-                  surface="explorer"
                   onOpenDetail={onOpenDetail}
                 />
               ))}

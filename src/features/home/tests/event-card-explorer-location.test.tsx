@@ -13,7 +13,7 @@ vi.mock("next/image", () => ({
   },
 }));
 
-import { StandardEventCard } from "@/features/home/components/EventCard";
+import { ExplorerEventCard } from "@/features/home/components/ExplorerEventCard";
 
 function explorerEvent(overrides: Partial<EventItem> = {}): EventItem {
   return {
@@ -32,12 +32,11 @@ function explorerEvent(overrides: Partial<EventItem> = {}): EventItem {
   };
 }
 
-describe("StandardEventCard Explorer (avec image)", () => {
+describe("ExplorerEventCard avec image", () => {
   it("affiche la ville (et la distance) quand city est défini", () => {
     const html = renderToStaticMarkup(
-      createElement(StandardEventCard, {
+      createElement(ExplorerEventCard, {
         event: explorerEvent(),
-        surface: "explorer",
       }),
     );
 
@@ -51,9 +50,8 @@ describe("StandardEventCard Explorer (avec image)", () => {
 
   it("n’invente pas de ville quand city est null", () => {
     const html = renderToStaticMarkup(
-      createElement(StandardEventCard, {
+      createElement(ExplorerEventCard, {
         event: explorerEvent({ city: null, distanceKm: undefined }),
-        surface: "explorer",
       }),
     );
 
