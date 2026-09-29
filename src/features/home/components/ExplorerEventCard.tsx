@@ -3,20 +3,22 @@
 import Image from "next/image";
 import { formatWhen } from "@/components/event/format-when";
 import {
-  AvailabilityBadgePill,
   canOpenEventDetail,
   CardFavoriteActions,
+  EventOpenControl,
+  type HomeEventCardProps,
+} from "@/features/home/components/HomeEventCardInteractions";
+import {
+  AvailabilityBadgePill,
   CategoryBadge,
   EditorialBadgePill,
-  EventOpenControl,
   EventPlaceDateLines,
   formatPrice,
-  type HomeEventCardProps,
   LocationLine,
   resolveEventImageAlt,
   resolveNoImageCardTone,
   resolveSignal,
-} from "@/features/home/components/HomeEventCardPrimitives";
+} from "@/features/home/components/HomeEventCardPresentation";
 import { cn } from "@/lib/cn";
 
 export function ExplorerEventCard(props: HomeEventCardProps) {

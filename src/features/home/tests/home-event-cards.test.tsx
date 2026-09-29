@@ -15,10 +15,10 @@ vi.mock("next/image", () => ({
 
 import { ExplorerEventCard } from "@/features/home/components/ExplorerEventCard";
 import {
+  EventOpenControl,
   isolateCardAction,
-  openEventDetail,
   runHomeFavoriteAction,
-} from "@/features/home/components/HomeEventCardPrimitives";
+} from "@/features/home/components/HomeEventCardInteractions";
 import { RadarEventCard } from "@/features/home/components/RadarEventCard";
 
 function event(overrides: Partial<EventItem> = {}): EventItem {
@@ -92,7 +92,14 @@ describe("interactions des cartes home", () => {
     const item = event();
     const trigger = {} as HTMLElement;
 
-    openEventDetail(item, "radar", trigger, onOpenDetail);
+    const control = EventOpenControl({
+      event: item,
+      surface: "radar",
+      onOpenDetail,
+    });
+    expect(control).not.toBeNull();
+    if (!control) throw new Error("Le contrôle d’ouverture est requis.");
+    control.props.onClick({ currentTarget: trigger });
 
     expect(onOpenDetail).toHaveBeenCalledWith(item, "radar", trigger);
   });

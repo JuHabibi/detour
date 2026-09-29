@@ -4,20 +4,22 @@ import Image from "next/image";
 import { formatWhen } from "@/components/event/format-when";
 import type { EventItem } from "@/data/types";
 import {
-  AvailabilityBadgePill,
   canOpenEventDetail,
   CardFavoriteActions,
+  EventOpenControl,
+  type HomeEventCardProps,
+} from "@/features/home/components/HomeEventCardInteractions";
+import {
+  AvailabilityBadgePill,
   CategoryBadge,
   EditorialBadgePill,
-  EventOpenControl,
   EventPlaceDateLines,
   formatPrice,
-  type HomeEventCardProps,
   LocationLine,
   resolveEventImageAlt,
   resolveNoImageCardTone,
   resolveSignal,
-} from "@/features/home/components/HomeEventCardPrimitives";
+} from "@/features/home/components/HomeEventCardPresentation";
 import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import { cn } from "@/lib/cn";
 
