@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
 import { accountLoginHref } from "@/lib/safe-account-next-path";
+import {
+  extractPendingFavoriteIdFromPath,
+  savePendingFavoriteIntent,
+} from "@/lib/pending-favorite";
 
 const fieldClassName =
   "mt-2 h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint";
@@ -26,6 +30,12 @@ export function AccountSignup({ nextPath = "/account" }: AccountSignupProps) {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const pendingFavoriteId = extractPendingFavoriteIdFromPath(nextPath);
+
+  useEffect(() => {
+    if (!pendingFavoriteId) return;
+    savePendingFavoriteIntent(pendingFavoriteId, nextPath);
+  }, [nextPath, pendingFavoriteId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,12 +50,17 @@ export function AccountSignup({ nextPath = "/account" }: AccountSignupProps) {
       return;
     }
 
+    if (pendingFavoriteId) {
+      savePendingFavoriteIntent(pendingFavoriteId, nextPath);
+    }
+
     setPending(true);
     try {
       const result = await authClient.signUp.email({
         name: name.trim(),
         email: email.trim(),
         password,
+        callbackURL: nextPath,
       });
       if (result.error) {
         setError(AUTH_ERROR_MESSAGE);
@@ -60,9 +75,11 @@ export function AccountSignup({ nextPath = "/account" }: AccountSignupProps) {
     }
   }
 
-  const lead = nextPath.startsWith("/frise")
-    ? "Un compte pour mon parcours culturel, vos favoris, et l’export calendrier en fichier .ics."
-    : "Un compte simple pour retrouver vos favoris et les glisser dans votre agenda.";
+  const lead = pendingFavoriteId
+    ? "Créez votre compte pour enregistrer cet événement dans vos favoris."
+    : nextPath.startsWith("/frise")
+      ? "Un compte pour mon parcours culturel, vos favoris, et l’export calendrier en fichier .ics."
+      : "Un compte simple pour retrouver vos favoris et les glisser dans votre agenda.";
 
   return (
     <AccountAuthLayout variant="signup">

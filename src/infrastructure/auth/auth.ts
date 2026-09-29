@@ -12,7 +12,7 @@ function resolveAuthBaseUrl(): string {
   if (process.env.VERCEL_URL?.trim()) {
     return `https://${process.env.VERCEL_URL.trim().replace(/\/$/, "")}`;
   }
-  return "http://localhost:3000";
+  return "http://localhost:3002";
 }
 
 const secret = process.env.BETTER_AUTH_SECRET?.trim();

@@ -2,6 +2,7 @@ import { Header } from "@/components/layout/Header";
 import type { AccountAuthState } from "@/features/account/account-auth-state";
 import { AccountSignedIn } from "@/features/account/components/AccountSignedIn";
 import { AccountSignedOut } from "@/features/account/components/AccountSignedOut";
+import { PendingFavoriteAfterAuthGate } from "@/features/account/components/PendingFavoriteAfterAuthGate";
 import type {
   EventGroupMembership,
   GroupSummary,
@@ -35,6 +36,7 @@ export function AccountPage({
         }
         showFriseNav={signedIn}
       />
+      {signedIn ? <PendingFavoriteAfterAuthGate enabled /> : null}
 
       <main className="px-5 py-11 md:px-8 md:py-16 lg:px-12 lg:py-20 2xl:px-14 2xl:py-20 min-[1920px]:px-16">
         <div className="mx-auto min-w-0 max-w-[var(--detour-shell-max)]">

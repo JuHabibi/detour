@@ -11,6 +11,7 @@ import {
 import { categories } from "@/config/event-categories";
 import type { EventItem } from "@/data/types";
 import { Header } from "@/components/layout/Header";
+import { PendingFavoriteAfterAuthGate } from "@/features/account/components/PendingFavoriteAfterAuthGate";
 import { EventDetailModal } from "@/components/event/EventDetailModal";
 import { FriseRideTrack } from "@/features/frise/components/FriseRideTrack";
 import { useFriseEvents } from "@/features/frise/hooks/useFriseEvents";
@@ -168,6 +169,7 @@ export function FrisePageClient({
         user={user}
         showFriseNav={Boolean(user)}
       />
+      {user ? <PendingFavoriteAfterAuthGate enabled /> : null}
 
       <div className="detour-decor detour-decor--explorer relative overflow-x-clip">
         <div className="relative z-[1] mx-auto max-w-[var(--detour-shell-max)] px-5 pb-16 pt-8 md:px-10 md:pb-20 md:pt-10 lg:px-16 2xl:px-20">

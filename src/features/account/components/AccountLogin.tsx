@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
 import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
 import { accountSignupHref } from "@/lib/safe-account-next-path";
+import {
+  extractPendingFavoriteIdFromPath,
+  savePendingFavoriteIntent,
+} from "@/lib/pending-favorite";
 
 const fieldClassName =
   "mt-2 h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint";
@@ -26,15 +30,27 @@ export function AccountLogin({ nextPath = "/account" }: AccountLoginProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const pendingFavoriteId = extractPendingFavoriteIdFromPath(nextPath);
+
+  useEffect(() => {
+    if (!pendingFavoriteId) return;
+    savePendingFavoriteIntent(pendingFavoriteId, nextPath);
+  }, [nextPath, pendingFavoriteId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    if (pendingFavoriteId) {
+      savePendingFavoriteIntent(pendingFavoriteId, nextPath);
+    }
+
     setPending(true);
     try {
       const result = await authClient.signIn.email({
         email: email.trim(),
         password,
+        callbackURL: nextPath,
       });
       if (result.error) {
         setError(AUTH_ERROR_MESSAGE);
@@ -49,12 +65,14 @@ export function AccountLogin({ nextPath = "/account" }: AccountLoginProps) {
     }
   }
 
-  const heading =
-    nextPath.startsWith("/frise")
+  const heading = pendingFavoriteId
+    ? "Enregistrez cette découverte."
+    : nextPath.startsWith("/frise")
       ? "Mon parcours culturel vous attend."
       : "Retrouvez vos détours.";
-  const lead =
-    nextPath.startsWith("/frise")
+  const lead = pendingFavoriteId
+    ? "Connectez-vous pour ajouter cet événement à vos favoris."
+    : nextPath.startsWith("/frise")
       ? "Connectez-vous pour reprendre mon parcours culturel — favoris et compte inclus."
       : "Connectez-vous pour accéder à vos favoris et les ajouter à votre agenda.";
 
@@ -140,4 +158,3 @@ export function AccountLogin({ nextPath = "/account" }: AccountLoginProps) {
     </AccountAuthLayout>
   );
 }
-

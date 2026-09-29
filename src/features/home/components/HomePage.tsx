@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   addFavorite,
@@ -19,7 +18,8 @@ import {
   type EventDetailSurface,
 } from "@/components/event/EventDetailModal";
 import { Header } from "@/components/layout/Header";
-import { FriseAccountTeaser } from "@/features/home/components/FriseAccountTeaser";
+import { FavoriteAuthModal } from "@/features/account/components/FavoriteAuthModal";
+import { PendingFavoriteAfterAuthGate } from "@/features/account/components/PendingFavoriteAfterAuthGate";
 import { HeroFilters } from "@/features/home/components/HeroFilters";
 import {
   ExplorerSection,
@@ -31,7 +31,6 @@ import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reaso
 import { authClient } from "@/lib/auth-client";
 import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
 import type { EventItem } from "@/data/types";
-
 const HomeDebugSection = dynamic(
   () =>
     import("@/features/home/debug/HomeDebugSection").then((mod) => mod.HomeDebugSection),
@@ -96,7 +95,11 @@ export function HomePage({
   const [organizeTrigger, setOrganizeTrigger] = useState<HTMLElement | null>(
     null,
   );
-  const [authPrompt, setAuthPrompt] = useState(false);
+  const [authFavoriteEventId, setAuthFavoriteEventId] = useState<string | null>(
+    null,
+  );
+  const [authFavoriteTrigger, setAuthFavoriteTrigger] =
+    useState<HTMLElement | null>(null);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [overrideHighlights, setOverrideHighlights] = useState<EventItem[] | null>(
@@ -197,13 +200,26 @@ export function HomePage({
     });
   }
 
+  function openFavoriteAuth(eventId: string) {
+    setAuthFavoriteTrigger(
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null,
+    );
+    setAuthFavoriteEventId(eventId);
+  }
+
+  function closeFavoriteAuth() {
+    setAuthFavoriteEventId(null);
+    setAuthFavoriteTrigger(null);
+  }
+
   function toggleFavorite(id: string) {
     setFavoriteError(null);
 
     if (isSessionPending) return;
-
     if (!isAuthenticated || !userId) {
-      setAuthPrompt(true);
+      openFavoriteAuth(id);
       return;
     }
 
@@ -226,7 +242,7 @@ export function HomePage({
       });
 
       if (result.reason === "unauthenticated") {
-        setAuthPrompt(true);
+        openFavoriteAuth(id);
         return;
       }
       setFavoriteError(
@@ -238,7 +254,7 @@ export function HomePage({
   function handleOrganizeCarnets(event: EventItem) {
     if (isSessionPending) return;
     if (!isAuthenticated || !userId) {
-      setAuthPrompt(true);
+      openFavoriteAuth(event.id);
       return;
     }
     setOrganizeTrigger(
@@ -254,6 +270,16 @@ export function HomePage({
     setOrganizeTrigger(null);
   }
 
+  const handlePendingFavoriteSaved = useCallback((eventId: string) => {
+    if (!userId) return;
+    setFavoriteState((prev) => {
+      const draft =
+        prev?.userId === userId ? new Set(prev.ids) : new Set<string>();
+      draft.add(eventId);
+      return { userId, ids: draft };
+    });
+  }, [userId]);
+
   return (
     <div id="top" className="min-h-screen bg-paper">
       <Header
@@ -261,31 +287,22 @@ export function HomePage({
         user={headerUser}
         showFriseNav={isAuthenticated}
       />
+      {isAuthenticated ? (
+        <PendingFavoriteAfterAuthGate
+          enabled
+          onFavoriteSaved={handlePendingFavoriteSaved}
+        />
+      ) : null}
       <main>
-        {authPrompt || favoriteError ? (
+        {favoriteError ? (
           <div className="border-b border-line px-5 py-3 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">
             <div className="mx-auto flex max-w-[var(--detour-shell-max)] flex-wrap items-center justify-between gap-3">
-              {authPrompt ? (
-                <p className="text-sm text-cream-dim">
-                  Connectez-vous pour enregistrer ce détour.{" "}
-                  <Link
-                    href="/account/login"
-                    className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral"
-                  >
-                    Se connecter
-                  </Link>
-                </p>
-              ) : (
-                <p className="text-sm text-coral" role="alert">
-                  {favoriteError}
-                </p>
-              )}
+              <p className="text-sm text-coral" role="alert">
+                {favoriteError}
+              </p>
               <button
                 type="button"
-                onClick={() => {
-                  setAuthPrompt(false);
-                  setFavoriteError(null);
-                }}
+                onClick={() => setFavoriteError(null)}
                 className="text-[12px] text-sand underline decoration-line underline-offset-4 hover:text-ink"
               >
                 Fermer
@@ -314,7 +331,6 @@ export function HomePage({
           }
           onOpenDetail={openEventDetail}
         />
-        {!isAuthenticated ? <FriseAccountTeaser /> : null}
         {liveDebugMeta && debugEvents ? (
           <HomeDebugSection
             events={debugEvents}
@@ -381,6 +397,14 @@ export function HomePage({
               };
             });
           }}
+        />
+      ) : null}
+      {authFavoriteEventId ? (
+        <FavoriteAuthModal
+          eventId={authFavoriteEventId}
+          returnPath="/"
+          onClose={closeFavoriteAuth}
+          returnFocusTo={authFavoriteTrigger}
         />
       ) : null}
       <footer className="border-t border-line px-5 py-10 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">
