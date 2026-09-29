@@ -478,6 +478,15 @@ Objectif : en ouvrant `features/<feature>/`, retrouver vite composants, hooks, m
 
 Les types locaux restent dans le module propriétaire. Ne pas créer de `types.ts` uniquement pour vider d’autres fichiers.
 
+**Composants de feature**
+
+- Garder à la racine de `components/` les composants de page ou de section. Regrouper dans un dossier nommé une famille cohérente de composants (par exemple `components/cards/`).
+- Nommer les fichiers selon leur rôle réel. Éviter les fichiers fourre-tout `Primitives`, `Utils` ou `Shared` qui réunissent affichage, interactions et règles sans responsabilité claire.
+- Garder les variantes produit explicites lorsque leurs compositions diffèrent. Ne pas créer de composant universel à options pour Radar, Explorer, compte et frise.
+- Extraire une responsabilité lorsqu’un composant cumule plusieurs parcours ou interactions difficiles à modifier ensemble. La longueur du fichier est un **signal de revue**, pas un quota de lignes à contourner par déplacement.
+- Garder les fonctions pures proches de leur propriétaire ; utiliser `.tsx` pour les fichiers contenant du JSX et `.ts` pour ceux qui n’en contiennent pas. Ne pas créer un fichier par petite fonction.
+- Ne promouvoir un composant dans `src/components/` que selon la règle existante des consommateurs réels dans plusieurs features.
+
 **Noms de fichiers**
 
 - Composants React : `PascalCase.tsx` ; préfixe feature déjà en place (`Account*`, `Frise*`) conservé.
