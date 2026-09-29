@@ -5,6 +5,8 @@ import type { DetourEvent } from "@/domain/events/event";
 import type { EventSource } from "@/application/ports/event-source";
 import type { HighlightAssessmentProvider } from "@/application/ports/highlight-assessment";
 import { createMemoryAiAssessmentCacheStore } from "@/application/ai/ai-assessment-cache";
+import { AI_DETOUR_DEFAULT_LIMIT } from "@/domain/editorial/select-ai-detour-highlights";
+import { selectDetourHighlights } from "@/domain/editorial/select-detour-highlights";
 
 function event(id: string, title?: string): DetourEvent {
   return {
@@ -344,5 +346,157 @@ describe("EventService fraîcheur (encore actif)", () => {
     expect(result.highlights.some((item) => item.event.id === "ongoing")).toBe(
       true,
     );
+  });
+});
+
+describe("EventService Radar — complément d’une sélection IA partielle", () => {
+  const from = new Date("2026-09-01");
+  const to = new Date("2026-12-01");
+
+  /** Event Radar éligible, unique en date / venue / ville (ni dedup ni cap). */
+  function radarEvent(id: string, index: number): DetourEvent {
+    const item = event(id, `Soirée singulière ${id} avec Alice Moreau`);
+    item.startAt = `2026-11-${String(index + 1).padStart(2, "0")}T20:00:00+02:00`;
+    item.venue = `MJC ${id}`;
+    item.city = `Ville ${id}`;
+    return item;
+  }
+
+  function failingAssessor(): HighlightAssessmentProvider {
+    return {
+      cacheContext: mockAssessments().cacheContext,
+      assess: vi.fn().mockRejectedValue(new Error("provider down")),
+    };
+  }
+
+  it("quelques hits cache + échec fournisseur → cartes IA gardées, reste complété", async () => {
+    const cacheStore = createMemoryAiAssessmentCacheStore();
+    const cached = [radarEvent("cache-un", 0), radarEvent("cache-deux", 1)];
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    // 1er passage : le fournisseur répond, ces deux events entrent en cache.
+    await new EventService(
+      { fetchUpcomingEvents: async () => cached },
+      mockAssessments(),
+      { aiConfig: autoConfig, cacheStore },
+    ).getUpcomingEvents({ from, to });
+
+    // 2e passage : 10 events de plus, fournisseur en panne → seuls les hits cache sont évalués.
+    const fresh = Array.from({ length: 10 }, (_, i) =>
+      radarEvent(`frais-${i}`, i + 2),
+    );
+    const assessor = failingAssessor();
+    const result = await new EventService(
+      { fetchUpcomingEvents: async () => [...cached, ...fresh] },
+      assessor,
+      { aiConfig: autoConfig, cacheStore },
+    ).getUpcomingEvents({ from, to });
+
+    expect(assessor.assess).toHaveBeenCalled();
+    expect(result.aiMeta.source).toBe("partial");
+    expect(result.aiAssessments.map((item) => item.eventId).sort()).toEqual([
+      "cache-deux",
+      "cache-un",
+    ]);
+
+    const aiCards = result.highlights.filter(
+      (item) => item.selectionSource === "ai",
+    );
+    const fillers = result.highlights.filter(
+      (item) => item.selectionSource === "deterministic",
+    );
+
+    expect(aiCards.map((item) => item.event.id).sort()).toEqual([
+      "cache-deux",
+      "cache-un",
+    ]);
+    expect(result.highlights.slice(0, aiCards.length)).toEqual(aiCards);
+    expect(result.highlights).toHaveLength(AI_DETOUR_DEFAULT_LIMIT);
+    expect(fillers).toHaveLength(AI_DETOUR_DEFAULT_LIMIT - aiCards.length);
+
+    const ids = result.highlights.map((item) => item.event.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(fillers.every((item) => item.aiSelection === undefined)).toBe(true);
+    errorSpy.mockRestore();
+  });
+
+  it("sélection IA complète → aucun complément déterministe", async () => {
+    const events = Array.from({ length: 12 }, (_, i) =>
+      radarEvent(`complet-${i}`, i),
+    );
+    const assessor = mockAssessments();
+
+    const result = await new EventService(
+      { fetchUpcomingEvents: async () => events },
+      assessor,
+      { aiConfig: autoConfig, cacheStore: createMemoryAiAssessmentCacheStore() },
+    ).getUpcomingEvents({ from, to });
+
+    expect(result.aiMeta.source).toBe("fresh");
+    expect(result.highlights).toHaveLength(AI_DETOUR_DEFAULT_LIMIT);
+    expect(result.highlights.every((item) => item.selectionSource === "ai")).toBe(
+      true,
+    );
+  });
+
+  it("sélection IA vide → sélection déterministe complète inchangée", async () => {
+    const events = Array.from({ length: 12 }, (_, i) =>
+      radarEvent(`vide-${i}`, i),
+    );
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await new EventService(
+      { fetchUpcomingEvents: async () => events },
+      failingAssessor(),
+      { aiConfig: autoConfig, cacheStore: createMemoryAiAssessmentCacheStore() },
+    ).getUpcomingEvents({ from, to });
+
+    expect(result.aiAssessments).toEqual([]);
+    expect(result.aiMeta.source).toBe("fallback");
+    expect(result.highlights).toHaveLength(AI_DETOUR_DEFAULT_LIMIT);
+    expect(
+      result.highlights.every((item) => item.selectionSource === "deterministic"),
+    ).toBe(true);
+    expect(
+      result.highlights,
+    ).toEqual(
+      selectDetourHighlights(result.events, {
+        limit: AI_DETOUR_DEFAULT_LIMIT,
+      }).map((highlight) => ({
+        ...highlight,
+        selectionSource: "deterministic" as const,
+      })),
+    );
+    errorSpy.mockRestore();
+  });
+
+  it("vivier insuffisant → pas de forçage du nombre de cartes", async () => {
+    const cacheStore = createMemoryAiAssessmentCacheStore();
+    const cached = [radarEvent("court-un", 0)];
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await new EventService(
+      { fetchUpcomingEvents: async () => cached },
+      mockAssessments(),
+      { aiConfig: autoConfig, cacheStore },
+    ).getUpcomingEvents({ from, to });
+
+    const result = await new EventService(
+      {
+        fetchUpcomingEvents: async () => [...cached, radarEvent("court-deux", 1)],
+      },
+      failingAssessor(),
+      { aiConfig: autoConfig, cacheStore },
+    ).getUpcomingEvents({ from, to });
+
+    expect(result.highlights.map((item) => item.event.id)).toEqual([
+      "court-un",
+      "court-deux",
+    ]);
+    expect(result.highlights.map((item) => item.selectionSource)).toEqual([
+      "ai",
+      "deterministic",
+    ]);
+    errorSpy.mockRestore();
   });
 });

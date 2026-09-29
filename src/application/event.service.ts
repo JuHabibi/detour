@@ -250,17 +250,7 @@ export class EventService {
     const radarFallbackPool = pipeline.events.filter((event) =>
       isRadarEligibleAvailability(event.availabilityStatus),
     );
-    const highlights =
-      aiHighlights.length > 0
-        ? aiHighlights
-        : selectDetourHighlights(radarFallbackPool, {
-            limit: AI_DETOUR_DEFAULT_LIMIT,
-          }).map(
-            (highlight) => ({
-              ...highlight,
-              selectionSource: "deterministic" as const,
-            }),
-          );
+    const highlights = completeRadarHighlights(aiHighlights, radarFallbackPool);
 
     const planningEvents = selectPlanningEvents({
       events: pipeline.events,
@@ -339,4 +329,29 @@ export class EventService {
       },
     });
   }
+}
+
+/**
+ * Sélection IA partielle (ex. quelques hits cache puis échec fournisseur) :
+ * les cartes IA sont conservées telles quelles et les places restantes sous
+ * la limite sont comblées en déterministe. Le vivier n’est jamais complété
+ * au-delà de ce qu’il contient.
+ */
+function completeRadarHighlights(
+  aiHighlights: EventHighlight[],
+  radarEligibleEvents: DetourEvent[],
+): EventHighlight[] {
+  const missing = AI_DETOUR_DEFAULT_LIMIT - aiHighlights.length;
+  if (missing <= 0) return aiHighlights;
+
+  const aiSelectedIds = new Set(aiHighlights.map((item) => item.event.id));
+  const fillers = selectDetourHighlights(
+    radarEligibleEvents.filter((event) => !aiSelectedIds.has(event.id)),
+    { limit: missing },
+  ).map((highlight) => ({
+    ...highlight,
+    selectionSource: "deterministic" as const,
+  }));
+
+  return [...aiHighlights, ...fillers];
 }
