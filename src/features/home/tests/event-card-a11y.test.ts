@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveEventImageAlt } from "@/features/home/components/HomeEventCardPresentation";
+import { resolveEventImageAlt } from "@/features/home/components/cards/HomeEventCardPresentation";
 import { getEditorialBadgeExplanation } from "@/features/home/editorial-badge-copy";
 
 describe("resolveEventImageAlt", () => {

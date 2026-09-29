@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RadarEventCard } from "@/features/home/components/RadarEventCard";
+import { RadarEventCard } from "@/features/home/components/cards/RadarEventCard";
 import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import type { EventItem } from "@/data/types";
 import { cn } from "@/lib/cn";

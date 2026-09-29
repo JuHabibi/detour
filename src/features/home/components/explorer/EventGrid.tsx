@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ExplorerEventCard } from "@/features/home/components/ExplorerEventCard";
+import { ExplorerEventCard } from "@/features/home/components/cards/ExplorerEventCard";
 import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import type { EventItem } from "@/data/types";
 

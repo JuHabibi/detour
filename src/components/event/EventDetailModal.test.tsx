@@ -20,8 +20,8 @@ import {
 import {
   resolveRadarCardCtaLabel,
   RadarEventCard,
-} from "@/features/home/components/RadarEventCard";
-import { ExplorerEventCard } from "@/features/home/components/ExplorerEventCard";
+} from "@/features/home/components/cards/RadarEventCard";
+import { ExplorerEventCard } from "@/features/home/components/cards/ExplorerEventCard";
 
 function baseEvent(overrides: Partial<EventItem> = {}): EventItem {
   return {
