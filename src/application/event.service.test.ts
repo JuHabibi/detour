@@ -470,6 +470,62 @@ describe("EventService Radar — complément d’une sélection IA partielle", (
     errorSpy.mockRestore();
   });
 
+  it("occurrence déjà retenue par l’IA → pas de second exemplaire en complément", async () => {
+    const sharedTitle = "Rétrospective Alice Moreau en grand format";
+    const sharedVenue = "Médiathèque centrale";
+
+    /** Même titre + même lieu = une seule découverte éditoriale Radar. */
+    function occurrence(id: string, index: number): DetourEvent {
+      const item = radarEvent(id, index);
+      item.title = sharedTitle;
+      item.venue = sharedVenue;
+      item.city = "Olivet";
+      return item;
+    }
+
+    const cacheStore = createMemoryAiAssessmentCacheStore();
+    const assessed = occurrence("occ-cache", 0);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await new EventService(
+      { fetchUpcomingEvents: async () => [assessed] },
+      mockAssessments(),
+      { aiConfig: autoConfig, cacheStore },
+    ).getUpcomingEvents({ from, to });
+
+    // La seconde occurrence n’est pas évaluée : date et ID différents, fournisseur en panne.
+    const sibling = occurrence("occ-libre", 1);
+    const others = Array.from({ length: 10 }, (_, i) =>
+      radarEvent(`autre-${i}`, i + 2),
+    );
+    const result = await new EventService(
+      { fetchUpcomingEvents: async () => [assessed, sibling, ...others] },
+      failingAssessor(),
+      { aiConfig: autoConfig, cacheStore },
+    ).getUpcomingEvents({ from, to });
+
+    expect(result.events.map((item) => item.id)).toContain("occ-libre");
+    expect(result.aiAssessments.map((item) => item.eventId)).toEqual([
+      "occ-cache",
+    ]);
+
+    const ids = result.highlights.map((item) => item.event.id);
+    expect(ids).toContain("occ-cache");
+    expect(ids).not.toContain("occ-libre");
+    expect(
+      result.highlights.filter((item) => item.event.title === sharedTitle),
+    ).toHaveLength(1);
+
+    // La place libérée revient à une autre découverte, sans réduire le Radar.
+    expect(result.highlights).toHaveLength(AI_DETOUR_DEFAULT_LIMIT);
+    expect(
+      result.highlights
+        .filter((item) => item.selectionSource === "deterministic")
+        .every((item) => item.event.id.startsWith("autre-")),
+    ).toBe(true);
+    errorSpy.mockRestore();
+  });
+
   it("vivier insuffisant → pas de forçage du nombre de cartes", async () => {
     const cacheStore = createMemoryAiAssessmentCacheStore();
     const cached = [radarEvent("court-un", 0)];

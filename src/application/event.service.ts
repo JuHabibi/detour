@@ -10,6 +10,7 @@ import { filterStillActiveEvents } from "@/domain/events/is-event-still-active";
 import { isRadarEligibleAvailability } from "@/domain/events/event-availability";
 import {
   AI_DETOUR_DEFAULT_LIMIT,
+  buildRadarDiscoveryKey,
   selectAiDetourHighlights,
 } from "@/domain/editorial/select-ai-detour-highlights";
 import {
@@ -336,6 +337,9 @@ export class EventService {
  * les cartes IA sont conservées telles quelles et les places restantes sous
  * la limite sont comblées en déterministe. Le vivier n’est jamais complété
  * au-delà de ce qu’il contient.
+ *
+ * Exclusion par ID et par découverte éditoriale : deux occurrences de même
+ * titre et même lieu comptent pour une seule carte Radar, comme côté IA.
  */
 function completeRadarHighlights(
   aiHighlights: EventHighlight[],
@@ -345,8 +349,15 @@ function completeRadarHighlights(
   if (missing <= 0) return aiHighlights;
 
   const aiSelectedIds = new Set(aiHighlights.map((item) => item.event.id));
+  const aiDiscoveryKeys = new Set(
+    aiHighlights.map((item) => buildRadarDiscoveryKey(item.event)),
+  );
   const fillers = selectDetourHighlights(
-    radarEligibleEvents.filter((event) => !aiSelectedIds.has(event.id)),
+    radarEligibleEvents.filter(
+      (event) =>
+        !aiSelectedIds.has(event.id) &&
+        !aiDiscoveryKeys.has(buildRadarDiscoveryKey(event)),
+    ),
     { limit: missing },
   ).map((highlight) => ({
     ...highlight,
