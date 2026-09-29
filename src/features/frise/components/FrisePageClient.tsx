@@ -236,6 +236,14 @@ export function FrisePageClient({
   function toggleFavorite(id: string) {
     setFavoriteError(null);
     const wasFavorite = favorites.has(id);
+    const removedFavoriteIndex = wasFavorite
+      ? favoriteEvents.findIndex((event) => event.id === id)
+      : -1;
+    const removedFavoriteEvent =
+      removedFavoriteIndex >= 0
+        ? favoriteEvents[removedFavoriteIndex]
+        : undefined;
+
     patchFavorites((draft) => {
       if (wasFavorite) draft.delete(id);
       else draft.add(id);
@@ -255,6 +263,18 @@ export function FrisePageClient({
         if (wasFavorite) draft.add(id);
         else draft.delete(id);
       });
+      if (removedFavoriteEvent) {
+        setFavoriteEvents((current) => {
+          if (current.some((event) => event.id === id)) return current;
+          const restored = [...current];
+          restored.splice(
+            Math.min(removedFavoriteIndex, restored.length),
+            0,
+            removedFavoriteEvent,
+          );
+          return restored;
+        });
+      }
       setFavoriteError("Impossible d’enregistrer ce détour. Réessayez.");
     });
   }
