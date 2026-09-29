@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import { FriseDayPanel } from "@/features/frise/components/FriseDayPanel";
@@ -39,6 +40,17 @@ import {
 } from "@/features/frise/timeline/frise-timeline-model";
 import { cn } from "@/lib/cn";
 
+export type FriseCountTone = "sorties" | "favoris" | "carnet";
+
+export type FriseTemporalNav = {
+  onToday: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  canPrev: boolean;
+  canNext: boolean;
+  loading?: boolean;
+};
+
 type FriseRideTrackProps = {
   model: ExplorerFriezeModel;
   categoryLabel: string;
@@ -51,7 +63,39 @@ type FriseRideTrackProps = {
   onRetry?: () => void;
   /** Erreur favori ponctuelle — bandeau dans le cadre, sans pousser la piste. */
   bannerError?: string | null;
+  /** Libellé du compteur période (défaut : sorties). */
+  countTone?: FriseCountTone;
+  /** Navigation trimestre — associée à la période, pas aux filtres. */
+  temporalNav?: FriseTemporalNav | null;
 };
+
+function emptyPeriodLabel(tone: FriseCountTone): string {
+  if (tone === "favoris") {
+    return "Aucune découverte à retrouver sur cette période.";
+  }
+  if (tone === "carnet") {
+    return "Aucune sortie de votre carnet sur cette période.";
+  }
+  return "Aucune sortie à découvrir sur cette période.";
+}
+
+function singularPeriodLabel(tone: FriseCountTone): string {
+  if (tone === "favoris") return "1 découverte à retrouver sur cette période.";
+  if (tone === "carnet") {
+    return "1 sortie de votre carnet sur cette période.";
+  }
+  return "1 sortie à découvrir sur cette période.";
+}
+
+function pluralPeriodLabel(count: number, tone: FriseCountTone): string {
+  if (tone === "favoris") {
+    return `${count} découvertes à retrouver sur cette période.`;
+  }
+  if (tone === "carnet") {
+    return `${count} sorties de votre carnet sur cette période.`;
+  }
+  return `${count} sorties à découvrir sur cette période.`;
+}
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
@@ -74,13 +118,15 @@ function initialMonthLabel(model: ExplorerFriezeModel): string {
 export function FriseRideTrack({
   model,
   categoryLabel,
-  totalCount: _totalCount,
+  totalCount,
   favorites,
   onToggleFavorite,
   onOpenDetail,
   loadError = null,
   onRetry,
   bannerError = null,
+  countTone = "sorties",
+  temporalNav = null,
 }: FriseRideTrackProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -220,27 +266,31 @@ export function FriseRideTrack({
         : model.eventCountInWindow === 0
           ? model.coverageStatus === "truncated"
             ? "Couverture incomplète : d’autres sorties peuvent exister sur cette période."
-            : "Aucune sortie sur cette période."
+            : emptyPeriodLabel(countTone)
           : model.eventCountInWindow === 1
-            ? "1 sortie sur cette période."
-            : `${model.eventCountInWindow} sorties sur cette période.`;
+            ? singularPeriodLabel(countTone)
+            : pluralPeriodLabel(model.eventCountInWindow, countTone);
   const truncationNote =
     model.coverageStatus === "truncated" && model.eventCountInWindow > 0
-      ? " Affichage partiel (plafond de sécurité)."
+      ? totalCount > model.eventCountInWindow
+        ? ` ${totalCount} sorties sont disponibles au total ; la frise en affiche ${model.eventCountInWindow}.`
+        : " D’autres événements peuvent être disponibles."
       : "";
 
   return (
     <div className="relative">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3 px-1 md:mb-5">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-sand">
-            Mon parcours culturel · {categoryLabel}
-          </p>
-          <p className="mt-1 font-editorial text-2xl leading-none tracking-tight text-ink md:text-3xl">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3 px-1 md:mb-4">
+        <div className="min-w-0">
+          {categoryLabel !== "Toutes les catégories" ? (
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-sand">
+              {categoryLabel}
+            </p>
+          ) : null}
+          <p className="mt-1 font-editorial text-2xl leading-none tracking-tight text-ink md:text-[1.85rem]">
             {model.window.label}
           </p>
           <p
-            className="mt-2 min-h-[2.75rem] text-sm leading-5 text-cream-dim md:min-h-10"
+            className="mt-1.5 text-sm leading-5 text-cream-dim"
             data-frise-status-slot="period-summary"
             aria-live="polite"
           >
@@ -248,17 +298,69 @@ export function FriseRideTrack({
             {truncationNote}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <RideButton label="←" onClick={() => scrollByStep(-1)} />
-          <RideButton label="→" onClick={() => scrollByStep(1)} />
+        <div
+          role="group"
+          aria-label="Navigation entre les trimestres"
+          className="flex flex-wrap items-center gap-1.5"
+        >
+          {temporalNav ? (
+            <>
+              <TemporalButton
+                onClick={temporalNav.onToday}
+                ariaLabel="Revenir au trimestre actuel"
+              >
+                Aujourd’hui
+              </TemporalButton>
+              <TemporalButton
+                onClick={temporalNav.onPrev}
+                disabled={!temporalNav.canPrev}
+                ariaLabel="Trimestre précédent"
+              >
+                <span className="hidden sm:inline">Trimestre précédent</span>
+                <span className="sm:hidden">Précédent</span>
+              </TemporalButton>
+              <TemporalButton
+                onClick={temporalNav.onNext}
+                disabled={!temporalNav.canNext}
+                ariaLabel="Trimestre suivant"
+              >
+                <span className="hidden sm:inline">Trimestre suivant</span>
+                <span className="sm:hidden">Suivant</span>
+              </TemporalButton>
+              <span
+                className={cn(
+                  "text-[12px] text-sand",
+                  !temporalNav.loading && "sr-only",
+                )}
+                aria-live="polite"
+                aria-hidden={!temporalNav.loading}
+                data-frise-status-slot="loading"
+              >
+                Chargement…
+              </span>
+            </>
+          ) : null}
         </div>
       </div>
 
-      <p className="mb-3 text-[12px] text-sand md:mb-4">
-        Faites glisser horizontalement, ou utilisez ← → (Début / Fin).
-      </p>
-
       <div className="relative overflow-hidden border border-line bg-foam/80">
+        <div
+          role="group"
+          aria-label="Défilement horizontal de la frise"
+          className="absolute right-3 top-3 z-30 flex items-center gap-2"
+        >
+          <ScrollButton
+            label="←"
+            onClick={() => scrollByStep(-1)}
+            ariaLabel="Faire défiler la frise vers la gauche"
+          />
+          <ScrollButton
+            label="→"
+            onClick={() => scrollByStep(1)}
+            ariaLabel="Faire défiler la frise vers la droite"
+          />
+        </div>
+
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-[0.4]"
@@ -557,20 +659,47 @@ export const FriseTrackBody = memo(function FriseTrackBody({
   );
 });
 
-function RideButton({
-  label,
+function TemporalButton({
+  children,
   onClick,
+  disabled = false,
+  ariaLabel,
 }: {
-  label: string;
+  children: ReactNode;
   onClick: () => void;
+  disabled?: boolean;
+  ariaLabel: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="min-h-10 min-w-10 border border-line bg-paper px-3 text-sm text-ink transition-colors hover:border-ink/30 hover:bg-foam motion-reduce:transition-none"
+      disabled={disabled}
+      aria-label={ariaLabel}
+      className="min-h-10 border border-line bg-paper px-3 text-[11px] font-medium uppercase tracking-[0.08em] text-ink transition-colors hover:border-ink/40 hover:bg-foam disabled:opacity-40 motion-reduce:transition-none"
     >
-      {label}
+      {children}
+    </button>
+  );
+}
+
+function ScrollButton({
+  label,
+  onClick,
+  ariaLabel,
+}: {
+  label: string;
+  onClick: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="flex size-10 items-center justify-center rounded-full bg-ink text-base text-foam shadow-[2px_3px_0_rgb(17_17_17/0.12)] transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink motion-reduce:transition-none"
+    >
+      <span aria-hidden>{label}</span>
     </button>
   );
 }
@@ -743,24 +872,30 @@ function DayPoster({
       {mobileRest > 0 ? (
         <button
           type="button"
-          className="mt-3 self-start bg-paper/90 px-1.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-ink underline decoration-mint/80 decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:hidden"
+          className="mt-3 inline-flex min-h-10 self-center items-center gap-2 rounded-full bg-ink px-4 py-2 text-[11px] font-medium uppercase tracking-[0.1em] text-foam transition-colors hover:bg-coral hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:hidden"
           aria-haspopup="dialog"
           data-frise-day-more="mobile"
           onClick={(e) => onOpenDayPanel(item, e.currentTarget)}
         >
-          {mobileMoreLabel}
+          <span>{mobileMoreLabel}</span>
+          <span aria-hidden className="text-[12px] leading-none">
+            ↓
+          </span>
         </button>
       ) : null}
 
       {desktopRest > 0 ? (
         <button
           type="button"
-          className="mt-3 hidden self-start bg-paper/90 px-1.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-ink underline decoration-mint/80 decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:inline"
+          className="mt-3 hidden min-h-10 self-center items-center gap-2 rounded-full bg-ink px-4 py-2 text-[11px] font-medium uppercase tracking-[0.1em] text-foam transition-colors hover:bg-coral hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:inline-flex"
           aria-haspopup="dialog"
           data-frise-day-more="desktop"
           onClick={(e) => onOpenDayPanel(item, e.currentTarget)}
         >
-          {desktopMoreLabel}
+          <span>{desktopMoreLabel}</span>
+          <span aria-hidden className="text-[12px] leading-none">
+            ↓
+          </span>
         </button>
       ) : null}
     </div>

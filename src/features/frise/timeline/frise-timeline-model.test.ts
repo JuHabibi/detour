@@ -27,8 +27,7 @@ describe("resolveFriezeWindow", () => {
     const w = resolveFriezeWindow("2026-09-01");
     expect(w.fromKey).toBe("2026-09-01");
     expect(w.toKey).toBe("2026-11-30");
-    expect(w.label).toMatch(/Septembre/i);
-    expect(w.label).toMatch(/Novembre/i);
+    expect(w.label).toBe("Septembre — Novembre 2026");
   });
 
   it("affiche les deux années sur un changement d’année", () => {

@@ -6,15 +6,30 @@ import { useRouter } from "next/navigation";
 import {
   addFavorite,
   listMyFavoriteEventIds,
+  listMyFavoriteEvents,
   removeFavorite,
 } from "@/app/actions/favorites";
+import {
+  getMyCarnetEvents,
+  listMyCarnetsState,
+} from "@/app/actions/groups";
+import type { GroupSummary } from "@/application/groups";
 import { categories } from "@/config/event-categories";
-import type { EventItem } from "@/data/types";
+import type { CategoryId, EventItem } from "@/data/types";
 import { Header } from "@/components/layout/Header";
 import { PendingFavoriteAfterAuthGate } from "@/features/account/components/PendingFavoriteAfterAuthGate";
 import { EventDetailModal } from "@/components/event/EventDetailModal";
+import { CategoryFilter } from "@/features/home/components/explorer/CategoryFilter";
+import { FriseEmptyState } from "@/features/frise/components/FriseEmptyState";
+import { FriseCarnetThumbs } from "@/features/frise/components/FriseCarnetThumbs";
+import { FriseViewNav } from "@/features/frise/components/FriseViewNav";
 import { FriseRideTrack } from "@/features/frise/components/FriseRideTrack";
+import {
+  buildFriseHref,
+  type FriseView,
+} from "@/features/frise/frise-url-state";
 import { useFriseEvents } from "@/features/frise/hooks/useFriseEvents";
+import { useFrisePersonalEvents } from "@/features/frise/hooks/useFrisePersonalEvents";
 import { cn } from "@/lib/cn";
 import type { DetourCategory } from "@/domain/events/classify-event-category";
 
@@ -23,9 +38,12 @@ const RIDE_CATEGORIES = categories.filter(
 );
 
 const EMPTY_FAVORITES: ReadonlySet<string> = new Set();
+const EMPTY_EVENTS: EventItem[] = [];
 
 type FrisePageClientProps = {
-  initialCategory: DetourCategory | null;
+  initialView: FriseView;
+  initialCategory: CategoryId | null;
+  initialNotebookId: string | null;
   user?: { name: string; email: string } | null;
 };
 
@@ -34,13 +52,32 @@ type FavoriteState = {
   ids: Set<string>;
 };
 
+function categoryLabelFor(category: CategoryId | null): string {
+  if (!category || category === "tout") return "Toutes les catégories";
+  return RIDE_CATEGORIES.find((c) => c.id === category)?.label ?? "Catégorie";
+}
+
+function readPreviewFlag(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("preview") === "1"
+  );
+}
+
 export function FrisePageClient({
+  initialView,
   initialCategory,
+  initialNotebookId,
   user = null,
 }: FrisePageClientProps) {
   const router = useRouter();
-  const [category, setCategory] = useState<DetourCategory | null>(
-    initialCategory,
+  const [view, setView] = useState<FriseView>(initialView);
+  const [category, setCategory] = useState<CategoryId | null>(initialCategory);
+  const [discoverCategory, setDiscoverCategory] = useState<CategoryId | null>(
+    initialView === "all" ? initialCategory : null,
+  );
+  const [notebookId, setNotebookId] = useState<string | null>(
+    initialNotebookId,
   );
   const [detail, setDetail] = useState<{
     event: EventItem;
@@ -52,23 +89,139 @@ export function FrisePageClient({
   );
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
-  const [favoritesHydrated, setFavoritesHydrated] = useState(false);
+
+  const [favoriteEvents, setFavoriteEvents] = useState<EventItem[]>([]);
+  const [favoriteEventsLoading, setFavoriteEventsLoading] = useState(false);
+  const [favoriteEventsError, setFavoriteEventsError] = useState<string | null>(
+    null,
+  );
+
+  const [groups, setGroups] = useState<GroupSummary[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [notebookEvents, setNotebookEvents] = useState<EventItem[]>([]);
+  const [notebookLoading, setNotebookLoading] = useState(false);
+  const [notebookError, setNotebookError] = useState<string | null>(null);
+  const [notebookName, setNotebookName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (view === "all") return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("category")) return;
+
+    router.replace(
+      buildFriseHref({
+        view,
+        category: "tout",
+        notebookId,
+        preview: readPreviewFlag(),
+      }),
+      { scroll: false },
+    );
+  }, [notebookId, router, view]);
 
   useEffect(() => {
     let cancelled = false;
     void listMyFavoriteEventIds().then((result) => {
       if (cancelled) return;
-      const ids = new Set(result.ok ? result.eventIds : []);
       setFavoriteState({
         userId: "self",
-        ids,
+        ids: new Set(result.ok ? result.eventIds : []),
       });
-      setFavoritesHydrated(true);
     });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (view !== "favorites") return;
+    let cancelled = false;
+    setFavoriteEventsLoading(true);
+    setFavoriteEventsError(null);
+    void listMyFavoriteEvents().then((result) => {
+      if (cancelled) return;
+      setFavoriteEventsLoading(false);
+      if (!result.ok) {
+        setFavoriteEvents([]);
+        setFavoriteEventsError("Impossible de charger vos favoris.");
+        return;
+      }
+      setFavoriteEvents(result.events);
+      setFavoriteState({
+        userId: "self",
+        ids: new Set(result.events.map((e) => e.id)),
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [view]);
+
+  useEffect(() => {
+    if (view !== "notebook") return;
+    let cancelled = false;
+    setGroupsLoading(true);
+    void listMyCarnetsState().then((result) => {
+      if (cancelled) return;
+      setGroupsLoading(false);
+      if (!result.ok) {
+        setGroups([]);
+        return;
+      }
+      setGroups(result.groups);
+      if (
+        notebookId &&
+        !result.groups.some((group) => group.id === notebookId)
+      ) {
+        setNotebookId(null);
+        replaceUrl({ view: "notebook", category, notebookId: null });
+      } else if (!notebookId && result.groups.length === 1) {
+        const only = result.groups[0]!;
+        setNotebookId(only.id);
+        replaceUrl({ view: "notebook", category, notebookId: only.id });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync on view entry
+  }, [view]);
+
+  useEffect(() => {
+    if (view !== "notebook" || !notebookId) {
+      setNotebookEvents([]);
+      setNotebookName(null);
+      setNotebookError(null);
+      return;
+    }
+    let cancelled = false;
+    setNotebookLoading(true);
+    setNotebookError(null);
+    void getMyCarnetEvents(notebookId).then((result) => {
+      if (cancelled) return;
+      setNotebookLoading(false);
+      if (!result.ok) {
+        setNotebookEvents([]);
+        setNotebookName(null);
+        setNotebookError(
+          result.reason === "not_found"
+            ? "Ce carnet est introuvable."
+            : "Impossible de charger ce carnet.",
+        );
+        if (result.reason === "not_found") {
+          setNotebookId(null);
+          replaceUrl({ view: "notebook", category, notebookId: null });
+        }
+        return;
+      }
+      setNotebookEvents(result.events);
+      setNotebookName(result.group.name);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- notebook fetch
+  }, [view, notebookId]);
 
   const favorites: ReadonlySet<string> = favoriteState?.ids ?? EMPTY_FAVORITES;
 
@@ -87,6 +240,9 @@ export function FrisePageClient({
       if (wasFavorite) draft.delete(id);
       else draft.add(id);
     });
+    if (wasFavorite) {
+      setFavoriteEvents((prev) => prev.filter((event) => event.id !== id));
+    }
 
     startTransition(async () => {
       const result = wasFavorite
@@ -99,21 +255,53 @@ export function FrisePageClient({
         if (wasFavorite) draft.add(id);
         else draft.delete(id);
       });
-
       setFavoriteError("Impossible d’enregistrer ce détour. Réessayez.");
     });
   }
 
-  const enabled = category != null;
-  const frise = useFriseEvents({
-    category: category ?? "Musique",
+  const explorerFrise = useFriseEvents({
+    category:
+      category && category !== "tout"
+        ? category
+        : category === "tout"
+          ? "tout"
+          : "Musique",
     city: null,
     search: "",
-    enabled,
+    enabled: view === "all" && category != null,
   });
 
-  const categoryLabel =
-    RIDE_CATEGORIES.find((c) => c.id === category)?.label ?? "Catégorie";
+  const favoritesFrise = useFrisePersonalEvents({
+    sourceEvents: view === "favorites" ? favoriteEvents : EMPTY_EVENTS,
+    category: "tout",
+    enabled: view === "favorites",
+    sourceLoading: favoriteEventsLoading,
+    sourceError: favoriteEventsError,
+  });
+
+  const notebookFrise = useFrisePersonalEvents({
+    sourceEvents: view === "notebook" ? notebookEvents : EMPTY_EVENTS,
+    category: "tout",
+    enabled: view === "notebook" && Boolean(notebookId),
+    sourceLoading: notebookLoading || groupsLoading,
+    sourceError: notebookError,
+  });
+
+  const activeFrise =
+    view === "favorites"
+      ? favoritesFrise
+      : view === "notebook"
+        ? notebookFrise
+        : explorerFrise;
+
+  const countTone =
+    view === "favorites" ? "favoris" : view === "notebook" ? "carnet" : "sorties";
+  const trackLabel =
+    view === "all"
+      ? categoryLabelFor(category)
+      : view === "favorites"
+        ? "Mes favoris"
+        : notebookName ?? "Mes carnets";
 
   const onOpenDetail = useCallback(
     (
@@ -126,25 +314,75 @@ export function FrisePageClient({
     [],
   );
 
-  function selectCategory(next: DetourCategory) {
-    setCategory(next);
-    const params = new URLSearchParams();
-    params.set("category", next);
-    // Conserve preview=1 en local pour ne pas perdre le bypass auth QA.
-    if (
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("preview") === "1"
-    ) {
-      params.set("preview", "1");
+  function replaceUrl(next: {
+    view: FriseView;
+    category: CategoryId | null;
+    notebookId: string | null;
+  }) {
+    const href = buildFriseHref({
+      view: next.view,
+      category: next.category,
+      notebookId: next.notebookId,
+      preview: readPreviewFlag(),
+    });
+    router.replace(href, { scroll: false });
+  }
+
+  function selectView(next: FriseView) {
+    setView(next);
+    let nextCategory: CategoryId | null =
+      next === "all" ? discoverCategory : "tout";
+    let nextNotebookId = notebookId;
+
+    if (next === "all") {
+      nextNotebookId = null;
+      setNotebookId(null);
     }
-    router.replace(`/frise?${params.toString()}`, {
-      scroll: false,
+    if (next !== "notebook") {
+      nextNotebookId = null;
+      setNotebookId(null);
+    }
+
+    setCategory(nextCategory);
+    replaceUrl({
+      view: next,
+      category: nextCategory,
+      notebookId: nextNotebookId,
     });
   }
 
+  function selectCategory(next: CategoryId) {
+    setCategory(next);
+    if (view === "all") {
+      setDiscoverCategory(next);
+    }
+    replaceUrl({ view, category: next, notebookId });
+  }
+
+  function selectNotebook(nextId: string) {
+    setNotebookId(nextId);
+    replaceUrl({ view: "notebook", category: "tout", notebookId: nextId });
+  }
+
   const backHref = useMemo(() => "/#explorer", []);
-  const showEmptyFavorites =
-    favoritesHydrated && favorites.size === 0 && enabled;
+  const showTrack =
+    view === "all"
+      ? category != null
+      : view === "favorites"
+        ? favoritesFrise.emptyKind === "none" ||
+          favoritesFrise.emptyKind === "trimester_empty"
+        : Boolean(notebookId) &&
+          (notebookFrise.emptyKind === "none" ||
+            notebookFrise.emptyKind === "trimester_empty");
+
+  const showTrimesterNav =
+    view === "all"
+      ? category != null
+      : view === "favorites"
+        ? !favoriteEventsLoading && favoriteEvents.length > 0
+        : Boolean(notebookId) &&
+          !notebookLoading &&
+          notebookEvents.length > 0;
 
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
@@ -153,7 +391,6 @@ export function FrisePageClient({
     };
     w.__friseSetFavoriteIds = (ids: string[]) => {
       setFavoriteState({ userId: "self", ids: new Set(ids) });
-      setFavoritesHydrated(true);
       setFavoriteError(null);
     };
     return () => {
@@ -172,138 +409,219 @@ export function FrisePageClient({
       {user ? <PendingFavoriteAfterAuthGate enabled /> : null}
 
       <div className="detour-decor detour-decor--explorer relative overflow-x-clip">
-        <div className="relative z-[1] mx-auto max-w-[var(--detour-shell-max)] px-5 pb-16 pt-8 md:px-10 md:pb-20 md:pt-10 lg:px-16 2xl:px-20">
-          <div className="mb-8 flex flex-col gap-4 md:mb-10 md:flex-row md:items-end md:justify-between">
-            <div className="min-w-0">
-              <Link
-                href={backHref}
-                className="inline-flex min-h-10 items-center text-[12px] font-medium uppercase tracking-[0.14em] text-sand underline decoration-mint/70 decoration-2 underline-offset-4 transition-colors hover:text-ink motion-reduce:transition-none"
-              >
-                ← Retour à Explorer
-              </Link>
-              <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.16em] text-sand">
-                Mon parcours culturel
-              </p>
-              <h1 className="mt-2 max-w-[16ch] font-display text-[2.15rem] leading-[1.02] tracking-tight text-ink md:text-[3rem]">
-                Prenez le temps de faire un détour.
-              </h1>
-              <p className="mt-3 max-w-lg text-sm leading-6 text-cream-dim md:text-[15px]">
-                Choisissez ce qui vous fait envie, remontez le fil des prochaines
-                semaines et gardez vos découvertes de côté.
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-6 md:mb-8">
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-sand">
-              Choisir une catégorie
-            </p>
-            <div
-              role="group"
-              aria-label="Catégorie de mon parcours culturel"
-              className="scrollbar-none -mx-5 flex gap-1.5 overflow-x-auto px-5 md:mx-0 md:flex-wrap md:overflow-visible md:px-0"
+        <div className="relative z-[1] mx-auto max-w-[var(--detour-shell-max)] px-5 pb-14 pt-3 md:px-10 md:pb-16 md:pt-6 lg:px-16 2xl:px-20">
+          <div className="mb-3 min-w-0 md:mb-4">
+            <Link
+              href={backHref}
+              className="inline-flex min-h-8 items-center text-[11px] font-medium uppercase tracking-[0.14em] text-sand underline decoration-mint/70 decoration-2 underline-offset-4 transition-colors hover:text-ink motion-reduce:transition-none"
             >
-              {RIDE_CATEGORIES.map((item) => {
-                const active = category === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => selectCategory(item.id)}
-                    className={cn(
-                      "h-9 shrink-0 px-3 text-[13px] transition-colors motion-reduce:transition-none",
-                      active
-                        ? "bg-ink text-foam"
-                        : "bg-foam text-cream-dim hover:bg-mint-soft hover:text-ink",
-                    )}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
+              ← Retour à Explorer
+            </Link>
+            <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.16em] text-sand">
+              Mon parcours culturel
+            </p>
+            <h1 className="mt-1 max-w-[18ch] font-display text-[1.75rem] leading-[1.02] tracking-tight text-ink md:text-[2.2rem]">
+              Prenez le temps de faire un détour.
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-cream-dim md:text-base">
+              Parcourez les sorties à venir au fil du temps, retrouvez vos
+              favoris et explorez vos carnets sur une même frise.
+            </p>
           </div>
 
-          {!category ? (
-            <p className="max-w-md font-editorial text-2xl leading-snug text-ink">
+          <div className="mb-3 border-b border-line md:mb-4">
+            <FriseViewNav value={view} onChange={selectView} />
+          </div>
+
+          <div
+            className={cn(
+              "mb-4 flex flex-col gap-3 md:mb-5",
+              view === "notebook"
+                ? "md:gap-3"
+                : "md:flex-row md:items-center md:justify-between md:gap-5",
+            )}
+          >
+            {view === "notebook" ? (
+              <div className="min-w-0">
+                {groupsLoading ? (
+                  <p className="text-sm text-sand">Chargement des carnets…</p>
+                ) : groups.length === 0 ? (
+                  <FriseEmptyState
+                    title="Aucun carnet pour l’instant."
+                    description="Créez jusqu’à quatre collections personnelles pour organiser vos découvertes."
+                    ctaLabel="Voir mes carnets"
+                    ctaHref="/account"
+                  />
+                ) : (
+                  <FriseCarnetThumbs
+                    groups={groups}
+                    selectedId={notebookId}
+                    onSelect={selectNotebook}
+                  />
+                )}
+              </div>
+            ) : null}
+
+            {view === "all" ? (
+              <CategoryFilter
+                category={category}
+                onCategoryChange={selectCategory}
+                presentation="menu"
+                allLabel="Toutes les catégories"
+              />
+            ) : null}
+          </div>
+
+          {view === "all" && !category ? (
+            <p className="mb-6 max-w-md font-editorial text-xl leading-snug text-ink md:text-2xl">
               Choisissez une catégorie pour lancer mon parcours culturel.
             </p>
-          ) : (
-            <>
-              <div className="relative mb-5 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={frise.goToday}
-                  className="min-h-10 border border-line bg-foam px-3 text-[11px] font-medium uppercase tracking-[0.12em] text-ink"
-                >
-                  Maintenant
-                </button>
-                <button
-                  type="button"
-                  disabled={!frise.canPrev}
-                  onClick={frise.goPrev}
-                  className="min-h-10 border border-line bg-foam px-3 text-[11px] font-medium uppercase tracking-[0.12em] text-ink disabled:opacity-40"
-                >
-                  ← Trimestre
-                </button>
-                <button
-                  type="button"
-                  disabled={!frise.canNext}
-                  onClick={frise.goNext}
-                  className="min-h-10 border border-line bg-foam px-3 text-[11px] font-medium uppercase tracking-[0.12em] text-ink disabled:opacity-40"
-                >
-                  Trimestre →
-                </button>
-                <span
-                  className={cn(
-                    "min-w-[6.5rem] text-sm text-sand",
-                    !frise.loading && "invisible",
-                  )}
-                  aria-live="polite"
-                  aria-hidden={!frise.loading}
-                  data-frise-status-slot="loading"
-                >
-                  Chargement…
-                </span>
-              </div>
+          ) : null}
 
-              <FriseRideTrack
-                model={frise.model}
-                categoryLabel={categoryLabel}
-                totalCount={frise.totalCount}
-                favorites={favorites as Set<string>}
-                onToggleFavorite={toggleFavorite}
-                onOpenDetail={onOpenDetail}
-                loadError={frise.error}
-                onRetry={() => void frise.reload()}
-                bannerError={favoriteError}
+          {view === "favorites" &&
+          favoritesFrise.emptyKind === "collection_empty" &&
+          !favoriteEventsLoading ? (
+            <FriseEmptyState
+              title="Votre parcours attend ses premières découvertes."
+              description="Explorez le Radar ou les événements à venir et gardez ceux qui vous intéressent."
+              ctaLabel="Explorer les événements"
+              ctaHref="/#explorer"
+            />
+          ) : null}
+
+          {view === "favorites" &&
+          favoritesFrise.emptyKind === "category_empty" ? (
+            <FriseEmptyState
+              title="Rien dans cette catégorie."
+              description="Vos favoris sont ailleurs — élargissez le filtre ou choisissez Toutes les catégories."
+              ctaLabel="Toutes les catégories"
+              onCtaClick={() => selectCategory("tout")}
+            />
+          ) : null}
+
+          {view === "notebook" &&
+          notebookId &&
+          notebookFrise.emptyKind === "collection_empty" &&
+          !notebookLoading ? (
+            <FriseEmptyState
+              title="Ce carnet attend ses premières sorties."
+              description="Ajoutez-y des événements depuis vos favoris pour commencer à tracer votre parcours."
+              ctaLabel="Voir mes favoris"
+              onCtaClick={() => selectView("favorites")}
+            />
+          ) : null}
+
+          {view === "notebook" &&
+          notebookId &&
+          notebookFrise.emptyKind === "category_empty" ? (
+            <FriseEmptyState
+              title="Rien dans cette catégorie."
+              description={
+                notebookName
+                  ? `Aucune sortie « ${categoryLabelFor(category)} » dans « ${notebookName} » sur vos enregistrements.`
+                  : "Élargissez le filtre pour revoir les sorties de ce carnet."
+              }
+              ctaLabel="Toutes les catégories"
+              onCtaClick={() => selectCategory("tout")}
+            />
+          ) : null}
+
+          {view === "notebook" && groups.length > 0 && !notebookId ? (
+            <p className="mb-6 max-w-md font-editorial text-xl leading-snug text-ink md:text-2xl">
+              Choisissez un carnet pour le parcourir sur la frise.
+            </p>
+          ) : null}
+
+          {view === "favorites" &&
+          favoritesFrise.emptyKind === "trimester_empty" ? (
+            <div className="mb-5">
+              <FriseEmptyState
+                title="Rien à l’horizon pour cette période."
+                description="Essayez le trimestre suivant pour poursuivre votre promenade."
+                ctaLabel="Trimestre suivant"
+                onCtaClick={
+                  favoritesFrise.canNext
+                    ? favoritesFrise.goNext
+                    : favoritesFrise.goToday
+                }
               />
+            </div>
+          ) : null}
 
-              {showEmptyFavorites ? (
-                <div
-                  className="mt-8 border border-line bg-foam px-4 py-4 md:mt-10 md:px-5"
-                  aria-live="polite"
-                  data-frise-status-slot="empty-favorites"
-                >
-                  <p className="font-editorial text-xl leading-snug text-ink">
-                    Aucun favori pour l’instant.
-                  </p>
-                  <p className="mt-2 max-w-lg text-sm leading-6 text-cream-dim">
-                    Parcourez mon parcours culturel et touchez le cœur sur une sortie qui
-                    vous parle — vos détours apparaîtront aussi dans{" "}
-                    <Link
-                      href="/account"
-                      className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4"
-                    >
-                      Mes carnets
-                    </Link>
-                    .
-                  </p>
-                </div>
-              ) : null}
-            </>
-          )}
+          {view === "notebook" &&
+          notebookFrise.emptyKind === "trimester_empty" ? (
+            <div className="mb-5">
+              <FriseEmptyState
+                title="Rien à l’horizon pour cette période."
+                description="Essayez le trimestre suivant pour poursuivre votre promenade."
+                ctaLabel="Trimestre suivant"
+                onCtaClick={
+                  notebookFrise.canNext
+                    ? notebookFrise.goNext
+                    : notebookFrise.goToday
+                }
+              />
+            </div>
+          ) : null}
+
+          {view === "all" &&
+          category != null &&
+          !explorerFrise.loading &&
+          explorerFrise.model.coverageStatus === "complete" &&
+          explorerFrise.model.eventCountInWindow === 0 ? (
+            <div className="mb-5">
+              <FriseEmptyState
+                title="Rien à l’horizon pour cette période."
+                description="Essayez le trimestre suivant pour poursuivre votre promenade."
+                ctaLabel="Trimestre suivant"
+                onCtaClick={
+                  explorerFrise.canNext
+                    ? explorerFrise.goNext
+                    : explorerFrise.goToday
+                }
+              />
+            </div>
+          ) : null}
+
+          {showTrack &&
+          !(
+            (view === "favorites" &&
+              favoritesFrise.emptyKind === "trimester_empty") ||
+            (view === "notebook" &&
+              notebookFrise.emptyKind === "trimester_empty") ||
+            (view === "all" &&
+              category != null &&
+              !explorerFrise.loading &&
+              explorerFrise.model.coverageStatus === "complete" &&
+              explorerFrise.model.eventCountInWindow === 0)
+          ) ? (
+            <FriseRideTrack
+              model={activeFrise.model}
+              categoryLabel={trackLabel}
+              totalCount={activeFrise.totalCount}
+              favorites={favorites as Set<string>}
+              onToggleFavorite={toggleFavorite}
+              onOpenDetail={onOpenDetail}
+              loadError={activeFrise.error}
+              onRetry={
+                view === "all" ? () => void explorerFrise.reload() : undefined
+              }
+              bannerError={favoriteError}
+              countTone={countTone}
+              temporalNav={
+                showTrimesterNav
+                  ? {
+                      onToday: activeFrise.goToday,
+                      onPrev: activeFrise.goPrev,
+                      onNext: activeFrise.goNext,
+                      canPrev: activeFrise.canPrev,
+                      canNext: activeFrise.canNext,
+                      loading: activeFrise.loading,
+                    }
+                  : null
+              }
+            />
+          ) : null}
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import {
   createGroupForUser,
   createGroupWithEventsForUser,
   deleteGroupForUser,
+  getGroupWithEventsForUser,
   listEventGroupMembershipsForUser,
   listGroupSummariesForUser,
   normalizeEventIds,
@@ -16,6 +17,8 @@ import {
   type GroupRow,
   type GroupSummary,
 } from "@/application/groups";
+import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
+import type { EventItem } from "@/data/types";
 
 export type ListMyCarnetsStateResult =
   | {
@@ -268,6 +271,41 @@ export async function removeEventFromGroup(
     return { ok: true };
   } catch (error) {
     console.error("[detour:groups] removeEventFromGroup failed", error);
+    return { ok: false, reason: "error" };
+  }
+}
+
+export type GetMyCarnetEventsResult =
+  | {
+      ok: true;
+      group: { id: string; name: string };
+      events: EventItem[];
+    }
+  | { ok: false; reason: "unauthenticated" | "invalid" | "not_found" | "error" };
+
+/**
+ * Events d’un carnet de la session — ownership SQL (anti-IDOR).
+ * Carnet d’un autre user → not_found, jamais d’events.
+ */
+export async function getMyCarnetEvents(
+  groupId: string,
+): Promise<GetMyCarnetEventsResult> {
+  const gId = normalizeGroupId(groupId);
+  if (!gId) return { ok: false, reason: "invalid" };
+
+  const userId = await requireUserId();
+  if (!userId) return { ok: false, reason: "unauthenticated" };
+
+  try {
+    const group = await getGroupWithEventsForUser(userId, gId);
+    if (!group) return { ok: false, reason: "not_found" };
+    return {
+      ok: true,
+      group: { id: group.id, name: group.name },
+      events: group.events.map(mapDetourEventToEventItem),
+    };
+  } catch (error) {
+    console.error("[detour:groups] getMyCarnetEvents failed", error);
     return { ok: false, reason: "error" };
   }
 }
