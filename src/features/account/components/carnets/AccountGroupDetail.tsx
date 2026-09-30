@@ -10,7 +10,7 @@ import {
 } from "@/app/actions/groups";
 import type { EventItem } from "@/data/types";
 import { groupCalendarPath } from "@/domain/calendar/build-event-calendar";
-import { AccountGroupEventCard } from "@/features/account/components/AccountGroupEventCard";
+import { AccountGroupEventCard } from "@/features/account/components/carnets/AccountGroupEventCard";
 import {
   nextSelectedIds,
   selectAllIds,

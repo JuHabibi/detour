@@ -18,7 +18,7 @@ import { resolveCategoryBadgeTone } from "@/components/event/category-badge-styl
 import { AppModal } from "@/components/ui/AppModal";
 import type { EventItem } from "@/data/types";
 import { carnetCoverTone } from "@/components/carnets/carnet-cover-tone";
-import { replaceEventMemberships } from "@/features/account/groups/membership-index";
+import { replaceEventMemberships } from "@/components/carnets/replace-event-memberships";
 import { cn } from "@/lib/cn";
 
 export type OrganizeInCarnetModalProps = {

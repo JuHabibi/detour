@@ -9,10 +9,10 @@ import type {
 } from "@/application/groups";
 import type { EventItem } from "@/data/types";
 import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
-import { AccountAddToGroupModal } from "@/features/account/components/AccountAddToGroupModal";
-import { AccountCarnetsLibrary } from "@/features/account/components/AccountCarnetsLibrary";
-import { AccountEmptyFavorites } from "@/features/account/components/AccountEmptyFavorites";
-import { AccountFavoriteCard } from "@/features/account/components/AccountFavoriteCard";
+import { AccountAddToGroupModal } from "@/features/account/components/carnets/AccountAddToGroupModal";
+import { AccountCarnetsLibrary } from "@/features/account/components/carnets/AccountCarnetsLibrary";
+import { AccountEmptyFavorites } from "@/features/account/components/favorites/AccountEmptyFavorites";
+import { AccountFavoriteCard } from "@/features/account/components/favorites/AccountFavoriteCard";
 import {
   buildMembershipMap,
   countFavoritesInGroup,

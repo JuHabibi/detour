@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import { getGroupWithEventsForUser } from "@/application/groups";
 import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
-import { AccountGroupDetail } from "@/features/account/components/AccountGroupDetail";
+import { AccountGroupDetail } from "@/features/account/components/carnets/AccountGroupDetail";
 import { AccountShell } from "@/features/account/components/AccountShell";
 
 type GroupPageProps = {

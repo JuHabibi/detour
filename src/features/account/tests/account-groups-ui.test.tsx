@@ -15,10 +15,10 @@ import {
   countFavoritesInGroup,
   countFavoritesWithoutCarnet,
   filterFavoriteIds,
-  replaceEventMemberships,
 } from "@/features/account/groups/membership-index";
 import { countCarnetsByEventId } from "@/components/carnets/count-carnets-by-event-id";
 import { carnetCoverTone } from "@/components/carnets/carnet-cover-tone";
+import { replaceEventMemberships } from "@/components/carnets/replace-event-memberships";
 import { takeServerListIfChanged } from "@/features/account/take-server-list-if-changed";
 import {
   nextSelectedIds,
@@ -78,13 +78,13 @@ vi.mock("@/lib/auth-client", () => ({
   authClient: { signOut: vi.fn() },
 }));
 
-import { AccountFavoriteCard } from "@/features/account/components/AccountFavoriteCard";
-import { AccountGroupDetail } from "@/features/account/components/AccountGroupDetail";
-import { AccountGroupEventCard } from "@/features/account/components/AccountGroupEventCard";
-import { AccountCarnetsLibrary } from "@/features/account/components/AccountCarnetsLibrary";
-import { AccountCarnetCover } from "@/features/account/components/AccountCarnetCover";
-import { AccountAddToGroupModal } from "@/features/account/components/AccountAddToGroupModal";
-import { AccountCarnetFormModal } from "@/features/account/components/AccountCarnetFormModal";
+import { AccountFavoriteCard } from "@/features/account/components/favorites/AccountFavoriteCard";
+import { AccountGroupDetail } from "@/features/account/components/carnets/AccountGroupDetail";
+import { AccountGroupEventCard } from "@/features/account/components/carnets/AccountGroupEventCard";
+import { AccountCarnetsLibrary } from "@/features/account/components/carnets/AccountCarnetsLibrary";
+import { AccountCarnetCover } from "@/features/account/components/carnets/AccountCarnetCover";
+import { AccountAddToGroupModal } from "@/features/account/components/carnets/AccountAddToGroupModal";
+import { AccountCarnetFormModal } from "@/features/account/components/carnets/AccountCarnetFormModal";
 import { AccountSignedIn } from "@/features/account/components/AccountSignedIn";
 import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
 import { AppModal } from "@/components/ui/AppModal";

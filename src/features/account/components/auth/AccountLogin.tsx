@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
-import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
+import { AccountAuthLayout } from "@/features/account/components/auth/AccountAuthLayout";
 import { accountSignupHref } from "@/lib/safe-account-next-path";
 import {
   extractPendingFavoriteIdFromPath,

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
-import { AccountAuthLayout } from "@/features/account/components/AccountAuthLayout";
+import { AccountAuthLayout } from "@/features/account/components/auth/AccountAuthLayout";
 
 const fieldClassName =
   "mt-2 h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint";

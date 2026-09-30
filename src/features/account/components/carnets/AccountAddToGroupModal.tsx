@@ -13,7 +13,7 @@ import type {
 } from "@/application/groups";
 import { MAX_GROUPS_PER_USER } from "@/application/groups/limits";
 import { AppModal } from "@/components/ui/AppModal";
-import { replaceEventMemberships } from "@/features/account/groups/membership-index";
+import { replaceEventMemberships } from "@/components/carnets/replace-event-memberships";
 
 type AccountAddToGroupModalProps = {
   eventIds: string[];

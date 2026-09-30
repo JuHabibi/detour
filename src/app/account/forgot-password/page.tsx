@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AccountForgotPassword } from "@/features/account/components/AccountForgotPassword";
+import { AccountForgotPassword } from "@/features/account/components/auth/AccountForgotPassword";
 import { AccountShell } from "@/features/account/components/AccountShell";
 
 export default function AccountForgotPasswordPage() {

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { AccountResetPassword } from "@/features/account/components/AccountResetPassword";
+import { AccountResetPassword } from "@/features/account/components/auth/AccountResetPassword";
 import { AccountShell } from "@/features/account/components/AccountShell";
 
 export default function AccountResetPasswordPage() {

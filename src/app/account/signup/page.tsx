@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
-import { AccountSignup } from "@/features/account/components/AccountSignup";
+import { AccountSignup } from "@/features/account/components/auth/AccountSignup";
 import { AccountShell } from "@/features/account/components/AccountShell";
 import { safeAccountNextPath } from "@/lib/safe-account-next-path";
 

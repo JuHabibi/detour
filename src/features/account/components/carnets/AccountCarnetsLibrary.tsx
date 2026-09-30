@@ -9,8 +9,8 @@ import type {
 } from "@/application/groups";
 import { MAX_GROUPS_PER_USER } from "@/application/groups/limits";
 import { groupCalendarPath } from "@/domain/calendar/build-event-calendar";
-import { AccountCarnetCover } from "@/features/account/components/AccountCarnetCover";
-import { AccountCarnetFormModal } from "@/features/account/components/AccountCarnetFormModal";
+import { AccountCarnetCover } from "@/features/account/components/carnets/AccountCarnetCover";
+import { AccountCarnetFormModal } from "@/features/account/components/carnets/AccountCarnetFormModal";
 import {
   dropGroupMemberships,
   renameMemberships,
