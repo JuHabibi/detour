@@ -53,7 +53,7 @@ export type EventItem = {
   sourceUrl?: string;
   /** Lien de réservation / inscription, si extrait de registration. */
   registrationUrl?: string;
-  /** Titre de l’agenda source (ex. OpenAgenda). */
+  /**Titre de l’agenda source (ex. OpenAgenda). */
   source?: string;
   /** Conditions / tarifs bruts, si fournis par la source. */
   conditions?: string;

@@ -94,7 +94,7 @@ export function mapDetourHighlightToEventItem(
     missRisk: ai.missRisk,
     confidence: ai.confidence,
     reasons: ai.aiReasons,
-    hasRegistrationUrl: Boolean(highlight.event.registrationUrl),
+    hasRegistrationUrl: Boolean(highlight.event.bookingUrl ?? highlight.event.registrationUrl),
   });
 
   return editorialBadge

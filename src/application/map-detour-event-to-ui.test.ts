@@ -302,6 +302,35 @@ describe("mapDetourHighlightToEventItem — pastille éditoriale", () => {
     expect(item.editorialBadge).toBe("À réserver");
   });
 
+
+  it("attache À réserver depuis assessment + bookingUrl", () => {
+    const assessed = highlight({
+      ai: {
+        formula: "strong",
+        slotScore: 12,
+        appeal: 4,
+        missRisk: 2,
+        planningNeed: 4,
+        localRarity: 5,
+        likelyDemand: 4,
+        confidence: 0.8,
+        aiReasons: [],
+      },
+    });
+    
+    const item = mapDetourHighlightToEventItem({
+      ...assessed,
+      event: {
+        ...assessed.event,
+        registrationUrl: null,
+        bookingUrl: "https://book.example",
+      },
+    });
+    
+    expect(item.registrationUrl).toBe("https://book.example");
+    expect(item.editorialBadge).toBe("À réserver");
+  });
+
   it("sans aiSelection → pas de pastille, mais reasons Radar propagées", () => {
     const item = mapDetourHighlightToEventItem(highlight());
     expect(item.editorialBadge).toBeUndefined();
