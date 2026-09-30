@@ -1,8 +1,8 @@
 import { Header } from "@/components/layout/Header";
+import { PendingFavoriteAfterAuthGate } from "@/components/favorites/PendingFavoriteAfterAuthGate";
 import type { AccountAuthState } from "@/features/account/account-auth-state";
 import { AccountSignedIn } from "@/features/account/components/AccountSignedIn";
 import { AccountSignedOut } from "@/features/account/components/AccountSignedOut";
-import { PendingFavoriteAfterAuthGate } from "@/features/account/components/PendingFavoriteAfterAuthGate";
 import type {
   EventGroupMembership,
   GroupSummary,

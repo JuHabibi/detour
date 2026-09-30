@@ -12,13 +12,13 @@ import {
 } from "@/features/account/groups/group-display";
 import {
   buildMembershipMap,
-  countCarnetsByEventId,
   countFavoritesInGroup,
   countFavoritesWithoutCarnet,
   filterFavoriteIds,
   replaceEventMemberships,
 } from "@/features/account/groups/membership-index";
-import { carnetCoverTone } from "@/features/account/groups/carnet-cover-tone";
+import { countCarnetsByEventId } from "@/components/carnets/count-carnets-by-event-id";
+import { carnetCoverTone } from "@/components/carnets/carnet-cover-tone";
 import { takeServerListIfChanged } from "@/features/account/take-server-list-if-changed";
 import {
   nextSelectedIds,

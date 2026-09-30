@@ -6,7 +6,7 @@ import type { EventItem } from "@/data/types";
 import { eventCalendarPath } from "@/domain/calendar/build-event-calendar";
 import { resolveCategoryBadgeTone } from "@/components/event/category-badge-style";
 import type { CarnetBadge } from "@/features/account/groups/membership-index";
-import { carnetCoverTone } from "@/features/account/groups/carnet-cover-tone";
+import { carnetCoverTone } from "@/components/carnets/carnet-cover-tone";
 import { cn } from "@/lib/cn";
 
 type AccountFavoriteCardProps = {

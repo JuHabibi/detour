@@ -13,20 +13,20 @@ import type {
   GroupSummary,
 } from "@/application/groups";
 import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
+import { countCarnetsByEventId } from "@/components/carnets/count-carnets-by-event-id";
 import {
   EventDetailModal,
   type EventDetailSurface,
 } from "@/components/event/EventDetailModal";
 import { Header } from "@/components/layout/Header";
-import { FavoriteAuthModal } from "@/features/account/components/FavoriteAuthModal";
-import { PendingFavoriteAfterAuthGate } from "@/features/account/components/PendingFavoriteAfterAuthGate";
+import { PendingFavoriteAfterAuthGate } from "@/components/favorites/PendingFavoriteAfterAuthGate";
+import { FavoriteAuthModal } from "@/features/home/components/FavoriteAuthModal";
 import { HeroFilters } from "@/features/home/components/HeroFilters";
 import {
   ExplorerSection,
   type ExplorerInitialPage,
 } from "@/features/home/components/explorer/ExplorerSection";
 import { DetourSection } from "@/features/home/components/radar/DetourSection";
-import { countCarnetsByEventId } from "@/features/account/groups/membership-index";
 import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import { authClient } from "@/lib/auth-client";
 import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";

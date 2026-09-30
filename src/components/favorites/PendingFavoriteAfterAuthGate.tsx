@@ -1,9 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import {
-  PendingFavoriteAfterAuth,
-} from "@/features/account/components/PendingFavoriteAfterAuth";
+import { PendingFavoriteAfterAuth } from "@/components/favorites/PendingFavoriteAfterAuth";
 
 type Props = {
   enabled: boolean;

@@ -1,7 +1,7 @@
 "use client";
 
 import type { GroupSummary } from "@/application/groups";
-import { carnetCoverTone } from "@/features/account/groups/carnet-cover-tone";
+import { carnetCoverTone } from "@/components/carnets/carnet-cover-tone";
 import { cn } from "@/lib/cn";
 
 type FriseCarnetThumbsProps = {

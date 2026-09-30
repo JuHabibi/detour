@@ -5,7 +5,7 @@ import type { GroupSummary } from "@/application/groups";
 import {
   carnetCoverRotation,
   carnetCoverTone,
-} from "@/features/account/groups/carnet-cover-tone";
+} from "@/components/carnets/carnet-cover-tone";
 import { formatGroupDateRange } from "@/features/account/groups/group-display";
 import { cn } from "@/lib/cn";
 

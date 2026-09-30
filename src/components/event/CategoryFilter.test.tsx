@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { CategoryFilter } from "@/features/home/components/explorer/CategoryFilter";
+import { CategoryFilter } from "@/components/event/CategoryFilter";
 
 describe("CategoryFilter", () => {
   it("conserve les boutons Explorer par défaut", () => {
