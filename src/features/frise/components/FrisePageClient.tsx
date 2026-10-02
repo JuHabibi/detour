@@ -18,6 +18,7 @@ import { categories } from "@/config/event-categories";
 import type { CategoryId, EventItem } from "@/data/types";
 import { Header } from "@/components/layout/Header";
 import { PendingFavoriteAfterAuthGate } from "@/components/favorites/PendingFavoriteAfterAuthGate";
+import { RemoveFavoriteConfirmModal } from "@/components/favorites/RemoveFavoriteConfirmModal";
 import { EventDetailModal } from "@/components/event/EventDetailModal";
 import { CategoryFilter } from "@/components/event/CategoryFilter";
 import { FriseEmptyState } from "@/features/frise/components/FriseEmptyState";
@@ -88,7 +89,15 @@ export function FrisePageClient({
     null,
   );
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
+  const [pendingRemove, setPendingRemove] = useState<{
+    eventId: string;
+    returnFocusTo: HTMLElement | null;
+  } | null>(null);
+  /** eventIds présents dans au moins un carnet — pour la confirmation de retrait. */
+  const [carnetEventIds, setCarnetEventIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   const [favoriteEvents, setFavoriteEvents] = useState<EventItem[]>([]);
   const [favoriteEventsLoading, setFavoriteEventsLoading] = useState(false);
@@ -102,6 +111,21 @@ export function FrisePageClient({
   const [notebookLoading, setNotebookLoading] = useState(false);
   const [notebookError, setNotebookError] = useState<string | null>(null);
   const [notebookName, setNotebookName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setCarnetEventIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    void listMyCarnetsState().then((result) => {
+      if (cancelled || !result.ok) return;
+      setCarnetEventIds(new Set(result.memberships.map((m) => m.eventId)));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     if (view === "all") return;
@@ -169,6 +193,7 @@ export function FrisePageClient({
         return;
       }
       setGroups(result.groups);
+      setCarnetEventIds(new Set(result.memberships.map((m) => m.eventId)));
       if (
         notebookId &&
         !result.groups.some((group) => group.id === notebookId)
@@ -236,6 +261,29 @@ export function FrisePageClient({
   function toggleFavorite(id: string) {
     setFavoriteError(null);
     const wasFavorite = favorites.has(id);
+
+    if (wasFavorite) {
+      const inCarnets =
+        carnetEventIds.has(id) || (view === "notebook" && Boolean(notebookId));
+      if (inCarnets) {
+        setPendingRemove({
+          eventId: id,
+          returnFocusTo:
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null,
+        });
+        return;
+      }
+    }
+
+    performFavoriteToggle(id, wasFavorite);
+  }
+
+  function performFavoriteToggle(id: string, wasFavorite: boolean) {
+    setPendingRemove(null);
+    setFavoriteError(null);
+
     const removedFavoriteIndex = wasFavorite
       ? favoriteEvents.findIndex((event) => event.id === id)
       : -1;
@@ -243,6 +291,7 @@ export function FrisePageClient({
       removedFavoriteIndex >= 0
         ? favoriteEvents[removedFavoriteIndex]
         : undefined;
+    const previousCarnetEventIds = carnetEventIds;
 
     patchFavorites((draft) => {
       if (wasFavorite) draft.delete(id);
@@ -250,6 +299,13 @@ export function FrisePageClient({
     });
     if (wasFavorite) {
       setFavoriteEvents((prev) => prev.filter((event) => event.id !== id));
+      if (previousCarnetEventIds.has(id)) {
+        setCarnetEventIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
     }
 
     /** Rejeu de l’état d’origine depuis l’état courant — autres toggles préservés. */
@@ -269,6 +325,9 @@ export function FrisePageClient({
           );
           return restored;
         });
+      }
+      if (wasFavorite) {
+        setCarnetEventIds(previousCarnetEventIds);
       }
       setFavoriteError("Impossible d’enregistrer ce détour. Réessayez.");
     }
@@ -658,6 +717,14 @@ export function FrisePageClient({
           surface="explorer"
           returnFocusTo={detail.returnFocusTo}
           onClose={() => setDetail(null)}
+        />
+      ) : null}
+      {pendingRemove ? (
+        <RemoveFavoriteConfirmModal
+          onCancel={() => setPendingRemove(null)}
+          onConfirm={() => performFavoriteToggle(pendingRemove.eventId, true)}
+          returnFocusTo={pendingRemove.returnFocusTo}
+          pending={pending}
         />
       ) : null}
     </div>

@@ -5,7 +5,11 @@ import {
   mapEventRowToDetourEvent,
   type EventRow,
 } from "@/infrastructure/db/event-row.mapper";
-import { getPool, type DbQueryable } from "@/infrastructure/db/postgres";
+import {
+  getPool,
+  withClient,
+  type DbQueryable,
+} from "@/infrastructure/db/postgres";
 
 function db(client?: DbQueryable): DbQueryable {
   return client ?? getPool();
@@ -89,21 +93,49 @@ ON CONFLICT (user_id, event_id) DO NOTHING
 }
 
 /**
- * Supprime uniquement si ownership (user_id + event_id).
- * @returns true si une ligne a été supprimée.
+ * Retire le favori et ses appartenances aux carnets de l’utilisateur.
+ * Une seule transaction sur la même connexion : group_events puis favorites.
+ * Scoppé user_id (session) + event_id — anti-BOLA.
+ * @returns true si une ligne favorites a été supprimée.
  */
 export async function removeFavorite(
   userId: string,
   eventId: string,
   client?: DbQueryable,
 ): Promise<boolean> {
-  const result = await db(client).query(
-    `
+  const run = async (c: DbQueryable): Promise<boolean> => {
+    await c.query(
+      `
+DELETE FROM group_events ge
+USING groups g
+WHERE ge.group_id = g.id
+  AND g.user_id = $1
+  AND ge.event_id = $2
+`.trim(),
+      [userId, eventId],
+    );
+    const result = await c.query(
+      `
 DELETE FROM favorites
 WHERE user_id = $1
   AND event_id = $2
 `.trim(),
-    [userId, eventId],
-  );
-  return (result.rowCount ?? 0) > 0;
+      [userId, eventId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  };
+
+  if (client) return run(client);
+
+  return withClient(async (c) => {
+    await c.query("BEGIN");
+    try {
+      const removed = await run(c);
+      await c.query("COMMIT");
+      return removed;
+    } catch (error) {
+      await c.query("ROLLBACK");
+      throw error;
+    }
+  });
 }

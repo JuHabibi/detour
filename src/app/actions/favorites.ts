@@ -95,7 +95,8 @@ export async function addFavorite(
 
 /**
  * Retire un favori pour l’utilisateur de la session courante.
- * DELETE scoppé user_id (session) + event_id — anti-BOLA.
+ * Transaction serveur : retire aussi l’événement de tous ses carnets
+ * (group_events des groupes du user), puis favorites — anti-BOLA.
  */
 export async function removeFavorite(
   eventId: string,

@@ -20,6 +20,7 @@ import {
 } from "@/components/event/EventDetailModal";
 import { Header } from "@/components/layout/Header";
 import { PendingFavoriteAfterAuthGate } from "@/components/favorites/PendingFavoriteAfterAuthGate";
+import { RemoveFavoriteConfirmModal } from "@/components/favorites/RemoveFavoriteConfirmModal";
 import { FavoriteAuthModal } from "@/features/home/components/FavoriteAuthModal";
 import { HeroFilters } from "@/features/home/components/HeroFilters";
 import {
@@ -100,8 +101,12 @@ export function HomePage({
   );
   const [authFavoriteTrigger, setAuthFavoriteTrigger] =
     useState<HTMLElement | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<{
+    eventId: string;
+    returnFocusTo: HTMLElement | null;
+  } | null>(null);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
   const [overrideHighlights, setOverrideHighlights] = useState<EventItem[] | null>(
     null,
   );
@@ -224,30 +229,88 @@ export function HomePage({
     }
 
     const wasFavorite = favorites.has(id);
+    if (wasFavorite) {
+      const inCarnets = (carnetCounts.get(id) ?? 0) > 0;
+      if (inCarnets) {
+        setPendingRemove({
+          eventId: id,
+          returnFocusTo:
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null,
+        });
+        return;
+      }
+      performFavoriteToggle(id, true);
+      return;
+    }
+
+    performFavoriteToggle(id, false);
+  }
+
+  function performFavoriteToggle(id: string, wasFavorite: boolean) {
+    setPendingRemove(null);
+    setFavoriteError(null);
+
+    const previousMemberships =
+      wasFavorite && userId && carnetsState?.userId === userId
+        ? carnetsState.memberships
+        : null;
+
     patchFavorites((draft) => {
       if (wasFavorite) draft.delete(id);
       else draft.add(id);
     });
+    if (wasFavorite && userId) {
+      setCarnetsState((prev) => {
+        if (prev?.userId !== userId) return prev;
+        return {
+          ...prev,
+          memberships: prev.memberships.filter((m) => m.eventId !== id),
+        };
+      });
+    }
 
     startTransition(async () => {
-      const result = wasFavorite
-        ? await removeFavorite(id)
-        : await addFavorite(id);
+      try {
+        const result = wasFavorite
+          ? await removeFavorite(id)
+          : await addFavorite(id);
 
-      if (result.ok) return;
+        if (result.ok) return;
 
-      patchFavorites((draft) => {
-        if (wasFavorite) draft.add(id);
-        else draft.delete(id);
-      });
+        patchFavorites((draft) => {
+          if (wasFavorite) draft.add(id);
+          else draft.delete(id);
+        });
+        if (wasFavorite && previousMemberships && userId) {
+          setCarnetsState((prev) =>
+            prev?.userId === userId
+              ? { ...prev, memberships: previousMemberships }
+              : prev,
+          );
+        }
 
-      if (result.reason === "unauthenticated") {
-        openFavoriteAuth(id);
-        return;
+        if (result.reason === "unauthenticated") {
+          openFavoriteAuth(id);
+          return;
+        }
+        setFavoriteError("Impossible d’enregistrer ce détour. Réessayez.");
+      } catch (error) {
+        console.error("[detour:home] toggleFavorite failed", error);
+        patchFavorites((draft) => {
+          if (wasFavorite) draft.add(id);
+          else draft.delete(id);
+        });
+        if (wasFavorite && previousMemberships && userId) {
+          setCarnetsState((prev) =>
+            prev?.userId === userId
+              ? { ...prev, memberships: previousMemberships }
+              : prev,
+          );
+        }
+        setFavoriteError("Impossible d’enregistrer ce détour. Réessayez.");
       }
-      setFavoriteError(
-        "Impossible d’enregistrer ce détour. Réessayez.",
-      );
     });
   }
 
@@ -405,6 +468,14 @@ export function HomePage({
           returnPath="/"
           onClose={closeFavoriteAuth}
           returnFocusTo={authFavoriteTrigger}
+        />
+      ) : null}
+      {pendingRemove ? (
+        <RemoveFavoriteConfirmModal
+          onCancel={() => setPendingRemove(null)}
+          onConfirm={() => performFavoriteToggle(pendingRemove.eventId, true)}
+          returnFocusTo={pendingRemove.returnFocusTo}
+          pending={pending}
         />
       ) : null}
       <footer className="border-t border-line px-5 py-10 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">

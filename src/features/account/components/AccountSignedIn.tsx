@@ -9,6 +9,7 @@ import type {
 } from "@/application/groups";
 import type { EventItem } from "@/data/types";
 import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
+import { RemoveFavoriteConfirmModal } from "@/components/favorites/RemoveFavoriteConfirmModal";
 import { AccountAddToGroupModal } from "@/features/account/components/carnets/AccountAddToGroupModal";
 import { AccountCarnetsLibrary } from "@/features/account/components/carnets/AccountCarnetsLibrary";
 import { AccountEmptyFavorites } from "@/features/account/components/favorites/AccountEmptyFavorites";
@@ -67,10 +68,14 @@ export function AccountSignedIn({
 
   const [groupModal, setGroupModal] = useState<GroupModalTarget | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<{
+    eventId: string;
+    returnFocusTo: HTMLElement | null;
+  } | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [filter, setFilter] = useState<FavoriteFilter>({ kind: "all" });
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
 
   /** Ancre #favoris : filtre Tous + scroll sous le header sticky. */
   useEffect(() => {
@@ -205,7 +210,22 @@ export function AccountSignedIn({
     scrollToFavorites();
   }
 
-  function handleRemove(id: string) {
+  function requestRemove(id: string) {
+    setRemoveError(null);
+    const returnFocusTo =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const inCarnets = memberships.some((m) => m.eventId === id);
+    if (inCarnets) {
+      setPendingRemove({ eventId: id, returnFocusTo });
+      return;
+    }
+    performRemove(id);
+  }
+
+  function performRemove(id: string) {
+    setPendingRemove(null);
     setRemoveError(null);
     const previous = favorites;
     const previousMemberships = memberships;
@@ -228,10 +248,14 @@ export function AccountSignedIn({
     });
 
     startTransition(async () => {
-      const result = await removeFavorite(id);
-      if (result.ok) {
-        router.refresh();
-        return;
+      try {
+        const result = await removeFavorite(id);
+        if (result.ok) {
+          router.refresh();
+          return;
+        }
+      } catch (error) {
+        console.error("[detour:account] removeFavorite failed", error);
       }
       setFavorites(previous);
       setMemberships(previousMemberships);
@@ -397,7 +421,7 @@ export function AccountSignedIn({
                     key={event.id}
                     event={event}
                     carnets={membershipMap.get(event.id) ?? []}
-                    onRemove={handleRemove}
+                    onRemove={requestRemove}
                     onAddToGroup={
                       selectionMode ? undefined : handleOpenAddToGroup
                     }
@@ -453,6 +477,15 @@ export function AccountSignedIn({
           onGroupsChange={setGroups}
           onMembershipsChange={setMemberships}
           onSuccess={exitSelectionMode}
+        />
+      ) : null}
+
+      {pendingRemove ? (
+        <RemoveFavoriteConfirmModal
+          onCancel={() => setPendingRemove(null)}
+          onConfirm={() => performRemove(pendingRemove.eventId)}
+          returnFocusTo={pendingRemove.returnFocusTo}
+          pending={pending}
         />
       ) : null}
     </div>
