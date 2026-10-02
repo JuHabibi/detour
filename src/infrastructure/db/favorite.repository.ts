@@ -96,43 +96,55 @@ ON CONFLICT (user_id, event_id) DO NOTHING
  * Retire le favori et ses appartenances aux carnets de l’utilisateur.
  * Une seule transaction sur la même connexion : group_events puis favorites.
  * Scoppé user_id (session) + event_id — anti-BOLA.
- * @returns true si une ligne favorites a été supprimée.
+ * Renvoie confirmation_required sans modifier les données si un carnet existe.
  */
 export async function removeFavorite(
   userId: string,
   eventId: string,
-  client?: DbQueryable,
-): Promise<boolean> {
-  const run = async (c: DbQueryable): Promise<boolean> => {
-    await c.query(
-      `
+  confirmCarnetRemoval = false,
+): Promise<"removed" | "confirmation_required"> {
+  return withClient(async (c) => {
+    await c.query("BEGIN");
+    try {
+      if (!confirmCarnetRemoval) {
+        const memberships = await c.query<{ in_carnet: boolean }>(
+        `
+SELECT EXISTS (
+  SELECT 1
+  FROM group_events ge
+  JOIN groups g ON g.id = ge.group_id
+  WHERE g.user_id = $1
+    AND ge.event_id = $2
+) AS in_carnet
+`.trim(),
+          [userId, eventId],
+        );
+        if (memberships.rows[0]?.in_carnet) {
+          await c.query("COMMIT");
+          return "confirmation_required";
+        }
+      }
+
+      await c.query(
+        `
 DELETE FROM group_events ge
 USING groups g
 WHERE ge.group_id = g.id
   AND g.user_id = $1
   AND ge.event_id = $2
 `.trim(),
-      [userId, eventId],
-    );
-    const result = await c.query(
-      `
+        [userId, eventId],
+      );
+      await c.query(
+        `
 DELETE FROM favorites
 WHERE user_id = $1
   AND event_id = $2
 `.trim(),
-      [userId, eventId],
-    );
-    return (result.rowCount ?? 0) > 0;
-  };
-
-  if (client) return run(client);
-
-  return withClient(async (c) => {
-    await c.query("BEGIN");
-    try {
-      const removed = await run(c);
+        [userId, eventId],
+      );
       await c.query("COMMIT");
-      return removed;
+      return "removed";
     } catch (error) {
       await c.query("ROLLBACK");
       throw error;

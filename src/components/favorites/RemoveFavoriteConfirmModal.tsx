@@ -6,6 +6,7 @@ type RemoveFavoriteConfirmModalProps = {
   onCancel: () => void;
   onConfirm: () => void;
   returnFocusTo?: HTMLElement | null;
+  fallbackFocusSelector?: string;
   pending?: boolean;
 };
 
@@ -17,6 +18,7 @@ export function RemoveFavoriteConfirmModal({
   onCancel,
   onConfirm,
   returnFocusTo,
+  fallbackFocusSelector,
   pending = false,
 }: RemoveFavoriteConfirmModalProps) {
   return (
@@ -26,6 +28,7 @@ export function RemoveFavoriteConfirmModal({
       description="Cet événement sera aussi retiré de vos carnets."
       onClose={onCancel}
       returnFocusTo={returnFocusTo}
+      fallbackFocusSelector={fallbackFocusSelector}
       footer={
         <>
           <button

@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import {
   addFavorite,
   listMyFavoriteEventIds,
-  removeFavorite,
 } from "@/app/actions/favorites";
 import { listMyCarnetsState } from "@/app/actions/groups";
 import type {
@@ -20,7 +19,7 @@ import {
 } from "@/components/event/EventDetailModal";
 import { Header } from "@/components/layout/Header";
 import { PendingFavoriteAfterAuthGate } from "@/components/favorites/PendingFavoriteAfterAuthGate";
-import { RemoveFavoriteConfirmModal } from "@/components/favorites/RemoveFavoriteConfirmModal";
+import { useRemoveFavorite } from "@/components/favorites/useRemoveFavorite";
 import { FavoriteAuthModal } from "@/features/home/components/FavoriteAuthModal";
 import { HeroFilters } from "@/features/home/components/HeroFilters";
 import {
@@ -101,12 +100,17 @@ export function HomePage({
   );
   const [authFavoriteTrigger, setAuthFavoriteTrigger] =
     useState<HTMLElement | null>(null);
-  const [pendingRemove, setPendingRemove] = useState<{
-    eventId: string;
-    returnFocusTo: HTMLElement | null;
-  } | null>(null);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const {
+    requestRemove,
+    confirmation: removeConfirmation,
+    error: removeError,
+    clearError: clearRemoveError,
+  } = useRemoveFavorite({
+    onRemoved: handleRemoved,
+    onUnauthenticated: openFavoriteAuth,
+  });
   const [overrideHighlights, setOverrideHighlights] = useState<EventItem[] | null>(
     null,
   );
@@ -221,6 +225,7 @@ export function HomePage({
 
   function toggleFavorite(id: string) {
     setFavoriteError(null);
+    clearRemoveError();
 
     if (isSessionPending) return;
     if (!isAuthenticated || !userId) {
@@ -228,68 +233,24 @@ export function HomePage({
       return;
     }
 
-    const wasFavorite = favorites.has(id);
-    if (wasFavorite) {
-      const inCarnets = (carnetCounts.get(id) ?? 0) > 0;
-      if (inCarnets) {
-        setPendingRemove({
-          eventId: id,
-          returnFocusTo:
-            document.activeElement instanceof HTMLElement
-              ? document.activeElement
-              : null,
-        });
-        return;
-      }
-      performFavoriteToggle(id, true);
+    if (favorites.has(id)) {
+      requestRemove(id);
       return;
     }
 
-    performFavoriteToggle(id, false);
-  }
-
-  function performFavoriteToggle(id: string, wasFavorite: boolean) {
-    setPendingRemove(null);
-    setFavoriteError(null);
-
-    const previousMemberships =
-      wasFavorite && userId && carnetsState?.userId === userId
-        ? carnetsState.memberships
-        : null;
-
     patchFavorites((draft) => {
-      if (wasFavorite) draft.delete(id);
-      else draft.add(id);
+      draft.add(id);
     });
-    if (wasFavorite && userId) {
-      setCarnetsState((prev) => {
-        if (prev?.userId !== userId) return prev;
-        return {
-          ...prev,
-          memberships: prev.memberships.filter((m) => m.eventId !== id),
-        };
-      });
-    }
 
     startTransition(async () => {
       try {
-        const result = wasFavorite
-          ? await removeFavorite(id)
-          : await addFavorite(id);
+        const result = await addFavorite(id);
 
         if (result.ok) return;
 
         patchFavorites((draft) => {
-          if (wasFavorite) draft.add(id);
-          else draft.delete(id);
+          draft.delete(id);
         });
-        if (wasFavorite && previousMemberships && userId) {
-          setCarnetsState((prev) =>
-            prev?.userId === userId
-              ? { ...prev, memberships: previousMemberships }
-              : prev,
-          );
-        }
 
         if (result.reason === "unauthenticated") {
           openFavoriteAuth(id);
@@ -299,18 +260,21 @@ export function HomePage({
       } catch (error) {
         console.error("[detour:home] toggleFavorite failed", error);
         patchFavorites((draft) => {
-          if (wasFavorite) draft.add(id);
-          else draft.delete(id);
+          draft.delete(id);
         });
-        if (wasFavorite && previousMemberships && userId) {
-          setCarnetsState((prev) =>
-            prev?.userId === userId
-              ? { ...prev, memberships: previousMemberships }
-              : prev,
-          );
-        }
         setFavoriteError("Impossible d’enregistrer ce détour. Réessayez.");
       }
+    });
+  }
+
+  function handleRemoved(id: string) {
+    patchFavorites((draft) => draft.delete(id));
+    setCarnetsState((prev) => {
+      if (prev?.userId !== userId) return prev;
+      return {
+        ...prev,
+        memberships: prev.memberships.filter((m) => m.eventId !== id),
+      };
     });
   }
 
@@ -357,15 +321,18 @@ export function HomePage({
         />
       ) : null}
       <main>
-        {favoriteError ? (
+        {favoriteError || removeError ? (
           <div className="border-b border-line px-5 py-3 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">
             <div className="mx-auto flex max-w-[var(--detour-shell-max)] flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-coral" role="alert">
-                {favoriteError}
+                {favoriteError || removeError}
               </p>
               <button
                 type="button"
-                onClick={() => setFavoriteError(null)}
+                onClick={() => {
+                  setFavoriteError(null);
+                  clearRemoveError();
+                }}
                 className="text-[12px] text-sand underline decoration-line underline-offset-4 hover:text-ink"
               >
                 Fermer
@@ -470,14 +437,7 @@ export function HomePage({
           returnFocusTo={authFavoriteTrigger}
         />
       ) : null}
-      {pendingRemove ? (
-        <RemoveFavoriteConfirmModal
-          onCancel={() => setPendingRemove(null)}
-          onConfirm={() => performFavoriteToggle(pendingRemove.eventId, true)}
-          returnFocusTo={pendingRemove.returnFocusTo}
-          pending={pending}
-        />
-      ) : null}
+      {removeConfirmation}
       <footer className="border-t border-line px-5 py-10 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">
         <div className="mx-auto flex max-w-[var(--detour-shell-max)] flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <p className="font-display text-4xl tracking-tight">

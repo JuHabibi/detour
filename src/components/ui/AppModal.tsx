@@ -16,10 +16,14 @@ export type AppModalProps = {
   footer?: ReactNode;
   size?: "md" | "lg";
   returnFocusTo?: HTMLElement | null;
+  fallbackFocusSelector?: string;
+  suspended?: boolean;
   className?: string;
   titleId?: string;
 };
 
+let openAppModals = 0;
+let originalBodyOverflow = "";
 
 export function AppModal({
   eyebrow,
@@ -30,38 +34,54 @@ export function AppModal({
   footer,
   size = "md",
   returnFocusTo,
+  fallbackFocusSelector,
+  suspended = false,
   className,
   titleId: titleIdProp,
 }: AppModalProps) {
   const generatedTitleId = useId();
   const titleId = titleIdProp ?? generatedTitleId;
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const returnFocusToRef = useRef(returnFocusTo);
+  const fallbackFocusSelectorRef = useRef(fallbackFocusSelector);
 
   useEffect(() => {
     onCloseRef.current = onClose;
     returnFocusToRef.current = returnFocusTo;
-  }, [onClose, returnFocusTo]);
+    fallbackFocusSelectorRef.current = fallbackFocusSelector;
+  }, [onClose, returnFocusTo, fallbackFocusSelector]);
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
+    if (openAppModals === 0) originalBodyOverflow = document.body.style.overflow;
+    openAppModals += 1;
     document.body.style.overflow = "hidden";
     closeRef.current?.focus();
 
     function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      const dialogs = document.querySelectorAll("[data-app-modal-dialog]");
+      if (dialogs[dialogs.length - 1] !== dialogRef.current) return;
       onStackedDialogEscape(e, () => onCloseRef.current());
     }
     window.addEventListener("keydown", onKeyDown, true);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      openAppModals -= 1;
+      if (openAppModals === 0) document.body.style.overflow = originalBodyOverflow;
       window.removeEventListener("keydown", onKeyDown, true);
-      restoreDialogReturnFocus(returnFocusToRef.current);
+      if (!restoreDialogReturnFocus(returnFocusToRef.current)) {
+        restoreDialogReturnFocus(null, fallbackFocusSelectorRef.current);
+      }
     };
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
+    <div
+      inert={suspended}
+      aria-hidden={suspended || undefined}
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6"
+    >
       <button
         type="button"
         aria-label="Fermer"
@@ -70,8 +90,10 @@ export function AppModal({
       />
 
       <div
+        ref={dialogRef}
+        data-app-modal-dialog
         role="dialog"
-        aria-modal="true"
+        aria-modal={suspended ? undefined : "true"}
         aria-labelledby={titleId}
         className={cn(
           "relative z-[1] flex w-full flex-col border border-line bg-foam",

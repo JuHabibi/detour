@@ -55,7 +55,8 @@ describe("favorite.repository", () => {
   it("removeFavorite : transaction group_events puis favorites, scoppée user", async () => {
     query
       .mockResolvedValueOnce({ rows: [] }) // BEGIN
-      .mockResolvedValueOnce({ rowCount: 2 }) // group_events
+      .mockResolvedValueOnce({ rows: [{ in_carnet: false }] }) // vérification
+      .mockResolvedValueOnce({ rowCount: 0 }) // group_events
       .mockResolvedValueOnce({ rowCount: 1 }) // favorites
       .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
@@ -64,32 +65,32 @@ describe("favorite.repository", () => {
         "11111111-1111-4111-8111-111111111111",
         "openagenda:1",
       ),
-    ).resolves.toBe(true);
+    ).resolves.toBe("removed");
 
     const sqls = query.mock.calls.map(([sql]) => String(sql));
     expect(sqls[0]).toBe("BEGIN");
-    expect(sqls[1]).toContain("DELETE FROM group_events ge");
-    expect(sqls[1]).toContain("g.user_id = $1");
-    expect(sqls[1]).toContain("ge.event_id = $2");
-    expect(query.mock.calls[1]?.[1]).toEqual([
-      "11111111-1111-4111-8111-111111111111",
-      "openagenda:1",
-    ]);
-    expect(sqls[2]).toMatch(
-      /DELETE FROM favorites[\s\S]*WHERE user_id = \$1[\s\S]*AND event_id = \$2/,
-    );
+    expect(sqls[1]).toContain("SELECT EXISTS");
+    expect(sqls[2]).toContain("DELETE FROM group_events ge");
+    expect(sqls[2]).toContain("g.user_id = $1");
+    expect(sqls[2]).toContain("ge.event_id = $2");
     expect(query.mock.calls[2]?.[1]).toEqual([
       "11111111-1111-4111-8111-111111111111",
       "openagenda:1",
     ]);
-    expect(sqls[3]).toBe("COMMIT");
+    expect(sqls[3]).toMatch(
+      /DELETE FROM favorites[\s\S]*WHERE user_id = \$1[\s\S]*AND event_id = \$2/,
+    );
+    expect(query.mock.calls[3]?.[1]).toEqual([
+      "11111111-1111-4111-8111-111111111111",
+      "openagenda:1",
+    ]);
+    expect(sqls[4]).toBe("COMMIT");
   });
 
-  it("removeFavorite retourne false si aucune ligne favorites (autre user / inexistant)", async () => {
+  it("demande une confirmation avant toute écriture si l'événement est dans un carnet", async () => {
     query
       .mockResolvedValueOnce({ rows: [] }) // BEGIN
-      .mockResolvedValueOnce({ rowCount: 0 }) // group_events
-      .mockResolvedValueOnce({ rowCount: 0 }) // favorites
+      .mockResolvedValueOnce({ rows: [{ in_carnet: true }] })
       .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
     await expect(
@@ -97,7 +98,34 @@ describe("favorite.repository", () => {
         "22222222-2222-4222-8222-222222222222",
         "openagenda:1",
       ),
-    ).resolves.toBe(false);
+    ).resolves.toBe("confirmation_required");
+    expect(query.mock.calls.map(([sql]) => String(sql))).toEqual([
+      "BEGIN",
+      expect.stringContaining("SELECT EXISTS"),
+      "COMMIT",
+    ]);
+  });
+
+  it("retire les appartenances et le favori après confirmation", async () => {
+    query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rowCount: 2 })
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      removeFavorite(
+        "11111111-1111-4111-8111-111111111111",
+        "openagenda:1",
+        true,
+      ),
+    ).resolves.toBe("removed");
+    expect(query.mock.calls.map(([sql]) => String(sql))).toEqual([
+      "BEGIN",
+      expect.stringContaining("DELETE FROM group_events ge"),
+      expect.stringContaining("DELETE FROM favorites"),
+      "COMMIT",
+    ]);
   });
 
   it("removeFavorite ROLLBACK si le DELETE favorites échoue", async () => {
@@ -111,6 +139,7 @@ describe("favorite.repository", () => {
       removeFavorite(
         "11111111-1111-4111-8111-111111111111",
         "openagenda:1",
+        true,
       ),
     ).rejects.toThrow("favorites write failed");
 

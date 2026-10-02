@@ -110,7 +110,7 @@ describe("favorites actions", () => {
         name: "B",
       },
     });
-    vi.mocked(favoriteRepository.removeFavorite).mockResolvedValue(false);
+    vi.mocked(favoriteRepository.removeFavorite).mockResolvedValue("removed");
 
     await expect(removeFavorite("openagenda:1")).resolves.toEqual({
       ok: true,
@@ -119,8 +119,33 @@ describe("favorites actions", () => {
     expect(favoriteRepository.removeFavorite).toHaveBeenCalledWith(
       "22222222-2222-4222-8222-222222222222",
       "openagenda:1",
+      false,
     );
     expect(removeFavorite.length).toBe(1);
+  });
+
+  it("renvoie confirmation_required sans masquer l'état au front", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: {
+        id: "11111111-1111-4111-8111-111111111111",
+        email: "a@exemple.fr",
+        name: "A",
+      },
+    });
+    vi.mocked(favoriteRepository.removeFavorite).mockResolvedValue(
+      "confirmation_required",
+    );
+
+    await expect(removeFavorite("openagenda:1")).resolves.toEqual({
+      ok: false,
+      reason: "confirmation_required",
+    });
+    expect(favoriteRepository.removeFavorite).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      "openagenda:1",
+      false,
+    );
   });
 
   it("eventId vide → invalid", async () => {

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addFavorite, removeFavorite } from "@/app/actions/favorites";
+import { addFavorite } from "@/app/actions/favorites";
 import {
   addFavoritesToGroup,
   createGroupWithFavorites,
@@ -19,7 +19,7 @@ import { AppModal } from "@/components/ui/AppModal";
 import type { EventItem } from "@/data/types";
 import { carnetCoverTone } from "@/components/carnets/carnet-cover-tone";
 import { replaceEventMemberships } from "@/components/carnets/replace-event-memberships";
-import { RemoveFavoriteConfirmModal } from "@/components/favorites/RemoveFavoriteConfirmModal";
+import { useRemoveFavorite } from "@/components/favorites/useRemoveFavorite";
 import { cn } from "@/lib/cn";
 
 export type OrganizeInCarnetModalProps = {
@@ -90,8 +90,16 @@ export function OrganizeInCarnetModal({
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [confirmRemove, setConfirmRemove] = useState(false);
-  const [removeTrigger, setRemoveTrigger] = useState<HTMLElement | null>(null);
+  const {
+    requestRemove,
+    confirmation: removeConfirmation,
+    error: removeError,
+    clearError: clearRemoveError,
+    pending: removePending,
+  } = useRemoveFavorite({
+    onRemoved: handleRemoved,
+    fallbackFocusSelector: "#favoris h2",
+  });
 
   const atLimit = localGroups.length >= MAX_GROUPS_PER_USER;
   const whenLabel = event.time
@@ -256,59 +264,30 @@ export function OrganizeInCarnetModal({
 
   function requestRemoveFavorite() {
     setError(null);
-    const inCarnets = memberships.some((m) => m.eventId === event.id);
-    if (inCarnets) {
-      setRemoveTrigger(
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null,
-      );
-      setConfirmRemove(true);
-      return;
-    }
-    performRemoveFavorite();
+    clearRemoveError();
+    requestRemove(event.id);
   }
 
-  function performRemoveFavorite() {
-    setConfirmRemove(false);
-    setError(null);
-    startTransition(async () => {
-      try {
-        const fav = await removeFavorite(event.id);
-        if (!fav.ok) {
-          setError(
-            fav.reason === "unauthenticated"
-              ? "Connectez-vous pour modifier vos favoris."
-              : "Impossible de retirer des favoris. Réessayez.",
-          );
-          return;
-        }
-      } catch (err) {
-        console.error("[detour:organize] removeFavorite failed", err);
-        setError("Impossible de retirer des favoris. Réessayez.");
-        return;
-      }
-
-      const associatedGroupIds = new Set(
-        memberships
-          .filter((m) => m.eventId === event.id)
-          .map((m) => m.groupId),
-      );
-      updateGroups(
-        localGroups.map((g) =>
-          associatedGroupIds.has(g.id)
-            ? { ...g, eventCount: Math.max(0, g.eventCount - 1) }
-            : g,
-        ),
-      );
-      onMembershipsChange?.(
-        memberships.filter((m) => m.eventId !== event.id),
-      );
-      onFavoriteRemoved?.(event.id);
-      onSuccess?.();
-      router.refresh();
-      onClose();
-    });
+  function handleRemoved() {
+    const associatedGroupIds = new Set(
+      memberships
+        .filter((m) => m.eventId === event.id)
+        .map((m) => m.groupId),
+    );
+    updateGroups(
+      localGroups.map((g) =>
+        associatedGroupIds.has(g.id)
+          ? { ...g, eventCount: Math.max(0, g.eventCount - 1) }
+          : g,
+      ),
+    );
+    onMembershipsChange?.(
+      memberships.filter((m) => m.eventId !== event.id),
+    );
+    onFavoriteRemoved?.(event.id);
+    onSuccess?.();
+    router.refresh();
+    onClose();
   }
 
   return (
@@ -319,11 +298,12 @@ export function OrganizeInCarnetModal({
       onClose={onClose}
       size="md"
       returnFocusTo={returnFocusTo}
+      suspended={Boolean(removeConfirmation)}
       footer={
         <button
           type="submit"
           form="organize-carnet-form"
-          disabled={pending}
+          disabled={pending || removePending}
           className="inline-flex min-h-11 items-center justify-center bg-ink px-5 text-[12px] font-medium uppercase tracking-[0.1em] text-foam transition-colors hover:bg-coral disabled:opacity-60"
         >
           {pending ? "Enregistrement…" : "Enregistrer"}
@@ -457,9 +437,9 @@ export function OrganizeInCarnetModal({
         </button>
       )}
 
-      {error ? (
+      {error || removeError ? (
         <p className="mt-4 text-sm text-coral" role="alert">
-          {error}
+          {error || removeError}
         </p>
       ) : null}
 
@@ -467,7 +447,7 @@ export function OrganizeInCarnetModal({
         <div className="mt-6 border-t border-line pt-5">
           <button
             type="button"
-            disabled={pending}
+            disabled={pending || removePending}
             onClick={requestRemoveFavorite}
             className="text-[12px] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-coral disabled:opacity-60"
           >
@@ -479,14 +459,7 @@ export function OrganizeInCarnetModal({
         </div>
       ) : null}
     </AppModal>
-    {confirmRemove ? (
-      <RemoveFavoriteConfirmModal
-        onCancel={() => setConfirmRemove(false)}
-        onConfirm={performRemoveFavorite}
-        returnFocusTo={removeTrigger}
-        pending={pending}
-      />
-    ) : null}
+    {removeConfirmation}
     </>
   );
 }

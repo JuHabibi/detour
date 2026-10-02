@@ -14,6 +14,10 @@ export type FavoriteActionResult =
   | { ok: true }
   | { ok: false; reason: "unauthenticated" | "invalid" | "error" };
 
+export type RemoveFavoriteActionResult =
+  | FavoriteActionResult
+  | { ok: false; reason: "confirmation_required" };
+
 export type ListMyFavoriteEventIdsResult =
   | { ok: true; eventIds: string[] }
   | { ok: false; reason: "unauthenticated" | "error" };
@@ -95,12 +99,13 @@ export async function addFavorite(
 
 /**
  * Retire un favori pour l’utilisateur de la session courante.
- * Transaction serveur : retire aussi l’événement de tous ses carnets
- * (group_events des groupes du user), puis favorites — anti-BOLA.
+ * Le premier appel demande confirmation si l'événement est dans un carnet.
+ * Le second appel confirmé retire les appartenances et le favori en transaction.
  */
 export async function removeFavorite(
   eventId: string,
-): Promise<FavoriteActionResult> {
+  confirmCarnetRemoval = false,
+): Promise<RemoveFavoriteActionResult> {
   const id = normalizeEventId(eventId);
   if (!id) return { ok: false, reason: "invalid" };
 
@@ -110,7 +115,14 @@ export async function removeFavorite(
   }
 
   try {
-    await deleteFavorite(auth.user.id, id);
+    const outcome = await deleteFavorite(
+      auth.user.id,
+      id,
+      confirmCarnetRemoval === true,
+    );
+    if (outcome === "confirmation_required") {
+      return { ok: false, reason: "confirmation_required" };
+    }
     return { ok: true };
   } catch (error) {
     console.error("[detour:favorites] removeFavorite failed", error);

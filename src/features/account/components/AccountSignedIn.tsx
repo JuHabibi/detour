@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { removeFavorite } from "@/app/actions/favorites";
 import type {
   EventGroupMembership,
   GroupSummary,
 } from "@/application/groups";
 import type { EventItem } from "@/data/types";
 import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
-import { RemoveFavoriteConfirmModal } from "@/components/favorites/RemoveFavoriteConfirmModal";
+import { useRemoveFavorite } from "@/components/favorites/useRemoveFavorite";
 import { AccountAddToGroupModal } from "@/features/account/components/carnets/AccountAddToGroupModal";
 import { AccountCarnetsLibrary } from "@/features/account/components/carnets/AccountCarnetsLibrary";
 import { AccountEmptyFavorites } from "@/features/account/components/favorites/AccountEmptyFavorites";
@@ -67,15 +66,17 @@ export function AccountSignedIn({
   }
 
   const [groupModal, setGroupModal] = useState<GroupModalTarget | null>(null);
-  const [removeError, setRemoveError] = useState<string | null>(null);
-  const [pendingRemove, setPendingRemove] = useState<{
-    eventId: string;
-    returnFocusTo: HTMLElement | null;
-  } | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [filter, setFilter] = useState<FavoriteFilter>({ kind: "all" });
-  const [pending, startTransition] = useTransition();
+  const {
+    requestRemove,
+    confirmation: removeConfirmation,
+    error: removeError,
+  } = useRemoveFavorite({
+    onRemoved: handleRemoved,
+    fallbackFocusSelector: "#favoris h2",
+  });
 
   /** Ancre #favoris : filtre Tous + scroll sous le header sticky. */
   useEffect(() => {
@@ -210,25 +211,7 @@ export function AccountSignedIn({
     scrollToFavorites();
   }
 
-  function requestRemove(id: string) {
-    setRemoveError(null);
-    const returnFocusTo =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    const inCarnets = memberships.some((m) => m.eventId === id);
-    if (inCarnets) {
-      setPendingRemove({ eventId: id, returnFocusTo });
-      return;
-    }
-    performRemove(id);
-  }
-
-  function performRemove(id: string) {
-    setPendingRemove(null);
-    setRemoveError(null);
-    const previous = favorites;
-    const previousMemberships = memberships;
+  function handleRemoved(id: string) {
     setFavorites((current) => current.filter((event) => event.id !== id));
     setMemberships((current) => current.filter((m) => m.eventId !== id));
     setSelectedIds((current) => {
@@ -247,20 +230,7 @@ export function AccountSignedIn({
       return current;
     });
 
-    startTransition(async () => {
-      try {
-        const result = await removeFavorite(id);
-        if (result.ok) {
-          router.refresh();
-          return;
-        }
-      } catch (error) {
-        console.error("[detour:account] removeFavorite failed", error);
-      }
-      setFavorites(previous);
-      setMemberships(previousMemberships);
-      setRemoveError("Impossible de retirer ce favori. Réessayez.");
-    });
+    router.refresh();
   }
 
   function handleOpenAddToGroup(id: string) {
@@ -326,7 +296,7 @@ export function AccountSignedIn({
       >
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="font-display text-[1.45rem] tracking-tight text-ink md:text-[1.65rem]">
+            <h2 tabIndex={-1} className="font-display text-[1.45rem] tracking-tight text-ink md:text-[1.65rem]">
               Mes favoris
             </h2>
             <p className="mt-1.5 text-sm leading-6 text-cream-dim">
@@ -480,14 +450,7 @@ export function AccountSignedIn({
         />
       ) : null}
 
-      {pendingRemove ? (
-        <RemoveFavoriteConfirmModal
-          onCancel={() => setPendingRemove(null)}
-          onConfirm={() => performRemove(pendingRemove.eventId)}
-          returnFocusTo={pendingRemove.returnFocusTo}
-          pending={pending}
-        />
-      ) : null}
+      {removeConfirmation}
     </div>
   );
 }
