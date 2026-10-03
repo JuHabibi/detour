@@ -3,7 +3,10 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
-import { applyEventCarnetMembershipsForUser } from "@/infrastructure/db/carnet-memberships.repository";
+import {
+  applyEventCarnetMembershipsForUser,
+  createGroupWithEventCarnetMembershipsForUser,
+} from "@/infrastructure/db/carnet-memberships.repository";
 import type { DbQueryable } from "@/infrastructure/db/postgres";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
@@ -40,7 +43,7 @@ CREATE TABLE favorites (
 );
 
 CREATE TABLE groups (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES "user" (id) ON DELETE CASCADE,
   name text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -291,5 +294,152 @@ INSERT INTO group_events (group_id, event_id) VALUES
       "e2",
     ]);
     expect(await favoriteIds(USER_A)).toEqual(["e1", "e2"]);
+  });
+});
+
+describe("createGroupWithEventCarnetMembershipsForUser (PGlite)", () => {
+  async function groupCount(userId: string): Promise<number> {
+    const r = await engine.query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM groups WHERE user_id = $1`,
+      [userId],
+    );
+    return Number(r.rows[0]?.n ?? 0);
+  }
+
+  async function groupNames(userId: string): Promise<string[]> {
+    const r = await engine.query<{ name: string }>(
+      `SELECT name FROM groups WHERE user_id = $1 ORDER BY name`,
+      [userId],
+    );
+    return r.rows.map((row) => row.name);
+  }
+
+  it("création + favoris + memberships réussis", async () => {
+    const result = await createGroupWithEventCarnetMembershipsForUser({
+      userId: USER_A,
+      name: "Nouveau",
+      eventIds: ["e1"],
+      addGroupIds: [GROUP_B],
+      removeGroupIds: [],
+      client: engine,
+    });
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.group.name).toBe("Nouveau");
+    expect(await favoriteIds(USER_A)).toEqual(["e1"]);
+    expect(await members(result.group.id)).toEqual(["e1"]);
+    expect(await members(GROUP_B)).toEqual(["e1"]);
+    expect(await groupNames(USER_A)).toEqual([
+      "Carnet A",
+      "Carnet B",
+      "Nouveau",
+    ]);
+  });
+
+  it("échec après une première écriture → rollback intégral", async () => {
+    let groupInserts = 0;
+    const failingClient: DbQueryable = {
+      query: async (text, values) => {
+        const sql = text.trim();
+        if (/^INSERT INTO groups/i.test(sql)) {
+          groupInserts += 1;
+        }
+        if (groupInserts > 0 && /^INSERT INTO favorites/i.test(sql)) {
+          throw new Error("simulated failure after group create");
+        }
+        return engine.query(text, values);
+      },
+    };
+
+    await expect(
+      createGroupWithEventCarnetMembershipsForUser({
+        userId: USER_A,
+        name: "Éphémère",
+        eventIds: ["e1"],
+        addGroupIds: [],
+        removeGroupIds: [],
+        client: failingClient,
+      }),
+    ).rejects.toThrow(/simulated failure/);
+
+    expect(await groupNames(USER_A)).toEqual(["Carnet A", "Carnet B"]);
+    expect(await favoriteIds(USER_A)).toEqual([]);
+  });
+
+  it("carnet existant d’un autre utilisateur → refus sans écriture", async () => {
+    const before = await groupCount(USER_A);
+    const result = await createGroupWithEventCarnetMembershipsForUser({
+      userId: USER_A,
+      name: "Hack",
+      eventIds: ["e1"],
+      addGroupIds: [GROUP_OTHER],
+      removeGroupIds: [],
+      client: engine,
+    });
+
+    expect(result).toEqual({ status: "not_found" });
+    expect(await groupCount(USER_A)).toBe(before);
+    expect(await favoriteIds(USER_A)).toEqual([]);
+    expect(await members(GROUP_OTHER)).toEqual([]);
+  });
+
+  it("quota atteint → aucun favori ni membership", async () => {
+    await engine.query(
+      `
+INSERT INTO groups (user_id, name) VALUES
+  ($1, 'Carnet C'),
+  ($1, 'Carnet D')
+`.trim(),
+      [USER_A],
+    );
+    expect(await groupCount(USER_A)).toBe(4);
+
+    const result = await createGroupWithEventCarnetMembershipsForUser({
+      userId: USER_A,
+      name: "Trop",
+      eventIds: ["e1"],
+      addGroupIds: [GROUP_A],
+      removeGroupIds: [],
+      client: engine,
+    });
+
+    expect(result).toEqual({ status: "limit_reached" });
+    expect(await groupCount(USER_A)).toBe(4);
+    expect(await favoriteIds(USER_A)).toEqual([]);
+    expect(await members(GROUP_A)).toEqual([]);
+    expect(await groupNames(USER_A)).not.toContain("Trop");
+  });
+
+  it("E1/E2 : appartenance partielle A intacte lors de la création", async () => {
+    await engine.query(
+      `INSERT INTO favorites (user_id, event_id) VALUES ($1, 'e1'), ($1, 'e2')`,
+      [USER_A],
+    );
+    await engine.query(
+      `INSERT INTO group_events (group_id, event_id) VALUES ($1, 'e1')`,
+      [GROUP_A],
+    );
+
+    const result = await createGroupWithEventCarnetMembershipsForUser({
+      userId: USER_A,
+      name: "Bulk",
+      eventIds: ["e1", "e2"],
+      addGroupIds: [GROUP_B],
+      removeGroupIds: [],
+      client: engine,
+    });
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(await members(GROUP_A)).toEqual(["e1"]);
+    expect(await members(GROUP_B).then((ids) => ids.sort())).toEqual([
+      "e1",
+      "e2",
+    ]);
+    expect(await members(result.group.id).then((ids) => ids.sort())).toEqual([
+      "e1",
+      "e2",
+    ]);
   });
 });

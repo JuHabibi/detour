@@ -2,8 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addFavorite } from "@/app/actions/favorites";
-import { createGroupWithFavorites } from "@/app/actions/groups";
 import type {
   EventGroupMembership,
   GroupSummary,
@@ -14,7 +12,7 @@ import { resolveCategoryBadgeTone } from "@/components/event/category-badge-styl
 import { AppModal } from "@/components/ui/AppModal";
 import type { EventItem } from "@/data/types";
 import { carnetCoverTone } from "@/components/carnets/carnet-cover-tone";
-import { replaceEventMemberships } from "@/components/carnets/replace-event-memberships";
+import { submitCreateCarnetMemberships } from "@/components/carnets/submit-create-carnet-memberships";
 import { submitExistingCarnetMemberships } from "@/components/carnets/submit-existing-carnet-memberships";
 import { useRemoveFavorite } from "@/components/favorites/useRemoveFavorite";
 import { cn } from "@/lib/cn";
@@ -164,6 +162,7 @@ export function OrganizeInCarnetModal({
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (pending || removePending) return;
     setError(null);
     if (atLimit) {
       setError("Vous avez atteint la limite de 4 carnets.");
@@ -175,48 +174,33 @@ export function OrganizeInCarnetModal({
       return;
     }
 
-    startTransition(async () => {
-      if (!isFavorite) {
-        const fav = await addFavorite(event.id);
-        if (!fav.ok) {
-          setError("Impossible d’ajouter aux favoris. Réessayez.");
-          return;
-        }
-        onFavoriteAdded?.(event.id);
-      }
+    const addGroupIds = localGroups
+      .filter((g) => checkedIds.has(g.id) && !initialChecked.has(g.id))
+      .map((g) => g.id);
+    const removeGroupIds = localGroups
+      .filter((g) => !checkedIds.has(g.id) && initialChecked.has(g.id))
+      .map((g) => g.id);
 
-      const result = await createGroupWithFavorites(trimmed, eventIds);
+    startTransition(async () => {
+      const result = await submitCreateCarnetMemberships({
+        name: trimmed,
+        eventIds,
+        addGroupIds,
+        removeGroupIds,
+        groups: localGroups,
+        memberships,
+      });
       if (!result.ok) {
-        setError(
-          result.reason === "limit_reached"
-            ? "Vous avez atteint la limite de 4 carnets."
-            : result.reason === "invalid"
-              ? "Indiquez un nom de carnet."
-              : "Impossible de créer. Réessayez.",
-        );
+        setError(result.message);
         return;
       }
 
-      if (result.group) {
-        const created: GroupSummary = {
-          ...result.group,
-          eventCount: Math.max(1, result.addedCount),
-          earliestStartAt: null,
-          latestStartAt: null,
-        };
-        const nextGroups = [created, ...localGroups];
-        updateGroups(nextGroups);
-        setCheckedIds((current) => new Set(current).add(created.id));
-        onMembershipsChange?.(
-          replaceEventMemberships(memberships, eventIds, [
-            { groupId: created.id, groupName: created.name },
-            ...localGroups
-              .filter((g) => checkedIds.has(g.id))
-              .map((g) => ({ groupId: g.id, groupName: g.name })),
-          ]),
-        );
+      if (!isFavorite) {
+        onFavoriteAdded?.(event.id);
       }
-
+      updateGroups(result.groups);
+      setCheckedIds((current) => new Set(current).add(result.created.id));
+      onMembershipsChange?.(result.memberships);
       setNewName("");
       setCreating(false);
       onSuccess?.();

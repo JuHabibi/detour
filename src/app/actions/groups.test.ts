@@ -29,6 +29,7 @@ vi.mock("@/application/groups", () => ({
 
 vi.mock("@/infrastructure/db/carnet-memberships.repository", () => ({
   applyEventCarnetMembershipsForUser: vi.fn(),
+  createGroupWithEventCarnetMembershipsForUser: vi.fn(),
 }));
 
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
@@ -38,6 +39,7 @@ import {
   addFavoritesToGroup,
   applyEventCarnetMemberships,
   createGroup,
+  createGroupWithEventCarnetMemberships,
   createGroupWithFavorites,
   deleteGroup,
   removeEventFromGroup,
@@ -363,6 +365,55 @@ describe("groups actions", () => {
     ).resolves.toEqual({ ok: false, reason: "unauthenticated" });
     expect(
       carnetMemberships.applyEventCarnetMembershipsForUser,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("createGroupWithEventCarnetMemberships : session userId", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: { id: USER_A, email: "a@exemple.fr", name: "A" },
+    });
+    vi.mocked(
+      carnetMemberships.createGroupWithEventCarnetMembershipsForUser,
+    ).mockResolvedValue({
+      status: "ok",
+      group: {
+        id: GROUP_A,
+        userId: USER_A,
+        name: "Nouveau",
+        createdAt: "2026-09-16T10:00:00.000Z",
+        updatedAt: "2026-09-16T10:00:00.000Z",
+      },
+    });
+
+    await expect(
+      createGroupWithEventCarnetMemberships("Nouveau", ["e1"], [GROUP_A], []),
+    ).resolves.toEqual({
+      ok: true,
+      group: expect.objectContaining({ id: GROUP_A, name: "Nouveau" }),
+    });
+
+    expect(
+      carnetMemberships.createGroupWithEventCarnetMembershipsForUser,
+    ).toHaveBeenCalledWith({
+      userId: USER_A,
+      name: "Nouveau",
+      eventIds: ["e1"],
+      addGroupIds: [GROUP_A],
+      removeGroupIds: [],
+    });
+  });
+
+  it("createGroupWithEventCarnetMemberships unauthenticated → aucun appel", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "unauthenticated",
+    });
+
+    await expect(
+      createGroupWithEventCarnetMemberships("Nouveau", ["e1"], [], []),
+    ).resolves.toEqual({ ok: false, reason: "unauthenticated" });
+    expect(
+      carnetMemberships.createGroupWithEventCarnetMembershipsForUser,
     ).not.toHaveBeenCalled();
   });
 });

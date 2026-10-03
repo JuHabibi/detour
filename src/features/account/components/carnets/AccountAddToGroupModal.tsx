@@ -2,18 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  addFavoritesToGroup,
-  createGroupWithFavorites,
-  removeEventFromGroup,
-} from "@/app/actions/groups";
 import type {
   EventGroupMembership,
   GroupSummary,
 } from "@/application/groups";
 import { MAX_GROUPS_PER_USER } from "@/application/groups/limits";
 import { AppModal } from "@/components/ui/AppModal";
-import { replaceEventMemberships } from "@/components/carnets/replace-event-memberships";
+import { submitCreateCarnetMemberships } from "@/components/carnets/submit-create-carnet-memberships";
 import { submitExistingCarnetMemberships } from "@/components/carnets/submit-existing-carnet-memberships";
 
 type AccountAddToGroupModalProps = {
@@ -123,6 +118,7 @@ export function AccountAddToGroupModal({
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
     setError(null);
     if (atLimit) {
       setError("Vous avez atteint la limite de 4 carnets.");
@@ -134,59 +130,29 @@ export function AccountAddToGroupModal({
       return;
     }
 
+    const addGroupIds = groups
+      .filter((g) => checkedIds.has(g.id) && !initialChecked.has(g.id))
+      .map((g) => g.id);
+    const removeGroupIds = groups
+      .filter((g) => !checkedIds.has(g.id) && initialChecked.has(g.id))
+      .map((g) => g.id);
+
     startTransition(async () => {
-      const result = await createGroupWithFavorites(trimmed, eventIds);
+      const result = await submitCreateCarnetMemberships({
+        name: trimmed,
+        eventIds,
+        addGroupIds,
+        removeGroupIds,
+        groups,
+        memberships,
+      });
       if (!result.ok) {
-        setError(
-          result.reason === "limit_reached"
-            ? "Vous avez atteint la limite de 4 carnets."
-            : result.reason === "not_found" ||
-                result.reason === "event_not_found"
-              ? "Impossible d’ajouter à ce carnet."
-              : result.reason === "invalid"
-                ? "Sélection invalide."
-                : "Impossible de créer. Réessayez.",
-        );
+        setError(result.message);
         return;
       }
 
-      if (result.group) {
-        const created = {
-          ...result.group,
-          eventCount: result.addedCount,
-          earliestStartAt: null,
-          latestStartAt: null,
-        };
-        onGroupsChange?.([created, ...groups]);
-        const selectedGroups = [
-          { groupId: created.id, groupName: created.name },
-          ...groups
-            .filter((g) => checkedIds.has(g.id))
-            .map((g) => ({ groupId: g.id, groupName: g.name })),
-        ];
-        const toAdd = groups.filter(
-          (g) => checkedIds.has(g.id) && !initialChecked.has(g.id),
-        );
-        const toRemove = groups.filter(
-          (g) => !checkedIds.has(g.id) && initialChecked.has(g.id),
-        );
-        if (toAdd.length > 0) {
-          await Promise.all(
-            toAdd.map((g) => addFavoritesToGroup(g.id, eventIds)),
-          );
-        }
-        if (toRemove.length > 0) {
-          await Promise.all(
-            toRemove.flatMap((g) =>
-              eventIds.map((eventId) => removeEventFromGroup(g.id, eventId)),
-            ),
-          );
-        }
-        onMembershipsChange?.(
-          replaceEventMemberships(memberships, eventIds, selectedGroups),
-        );
-      }
-
+      onGroupsChange?.(result.groups);
+      onMembershipsChange?.(result.memberships);
       setNewName("");
       onSuccess?.();
       router.refresh();

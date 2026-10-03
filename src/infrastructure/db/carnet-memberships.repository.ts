@@ -1,13 +1,15 @@
 import "server-only";
 
 /**
- * Applique des ajouts/retraits explicites d’événements dans des carnets,
- * en une seule transaction (favoris + memberships).
+ * Memberships carnets : apply (validation) et create+apply (création),
+ * chacun dans une seule transaction (favoris + appartenances).
  */
 import { addFavorite } from "@/infrastructure/db/favorite.repository";
 import {
   addEventsToGroupForUser,
+  createGroupForUser,
   normalizeEventIds,
+  type GroupRow,
 } from "@/infrastructure/db/group.repository";
 import {
   withClient,
@@ -31,6 +33,24 @@ export type ApplyEventCarnetMembershipsParams = {
   client?: DbQueryable;
 };
 
+export type CreateGroupWithEventCarnetMembershipsParams = {
+  userId: string;
+  name: string;
+  eventIds: string[];
+  /** Carnets existants auxquels ajouter les événements. */
+  addGroupIds: string[];
+  /** Carnets existants dont retirer les événements. */
+  removeGroupIds: string[];
+  client?: DbQueryable;
+};
+
+export type CreateGroupWithEventCarnetMembershipsResult =
+  | { status: "ok"; group: GroupRow }
+  | { status: "invalid" }
+  | { status: "not_found" }
+  | { status: "event_not_found" }
+  | { status: "limit_reached" };
+
 function normalizeGroupIds(groupIds: unknown): string[] {
   if (!Array.isArray(groupIds)) return [];
   const seen = new Set<string>();
@@ -45,7 +65,8 @@ function normalizeGroupIds(groupIds: unknown): string[] {
   return out;
 }
 
-async function applyOnConnection(
+/** Favoris + ajouts/retraits sur une connexion déjà en transaction. */
+async function applyMembershipsOnConnection(
   client: DbQueryable,
   params: {
     userId: string;
@@ -128,6 +149,30 @@ WHERE ge.group_id = g.id
   return { status: "ok" };
 }
 
+async function runInTransaction<T extends { status: string }>(
+  client: DbQueryable | undefined,
+  run: (c: DbQueryable) => Promise<T>,
+): Promise<T> {
+  const exec = async (c: DbQueryable) => {
+    await c.query("BEGIN");
+    try {
+      const result = await run(c);
+      if (result.status !== "ok") {
+        await c.query("ROLLBACK");
+        return result;
+      }
+      await c.query("COMMIT");
+      return result;
+    } catch (error) {
+      await c.query("ROLLBACK");
+      throw error;
+    }
+  };
+
+  if (client) return exec(client);
+  return withClient(exec);
+}
+
 /**
  * Vérifie ownership + events, assure les favoris, applique ajouts/retraits.
  * Commit uniquement si tout réussit — sinon rollback intégral.
@@ -136,23 +181,40 @@ export async function applyEventCarnetMembershipsForUser(
   params: ApplyEventCarnetMembershipsParams,
 ): Promise<ApplyEventCarnetMembershipsResult> {
   const { client: injected, ...body } = params;
+  return runInTransaction(injected, (client) =>
+    applyMembershipsOnConnection(client, body),
+  );
+}
 
-  const run = async (client: DbQueryable) => {
-    await client.query("BEGIN");
-    try {
-      const result = await applyOnConnection(client, body);
-      if (result.status !== "ok") {
-        await client.query("ROLLBACK");
-        return result;
-      }
-      await client.query("COMMIT");
-      return result;
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
+/**
+ * Crée un carnet puis applique favoris + memberships (nouveau + existants)
+ * dans la même transaction. N’appelle pas `createGroupWithEventsForUser`
+ * (qui ouvrirait sa propre transaction).
+ */
+export async function createGroupWithEventCarnetMembershipsForUser(
+  params: CreateGroupWithEventCarnetMembershipsParams,
+): Promise<CreateGroupWithEventCarnetMembershipsResult> {
+  const { client: injected, ...body } = params;
+
+  return runInTransaction(injected, async (client) => {
+    const created = await createGroupForUser(body.userId, body.name, client);
+    if (created.status === "limit_reached") {
+      return { status: "limit_reached" };
     }
-  };
+    if (created.status !== "ok") {
+      return { status: "invalid" };
+    }
 
-  if (injected) return run(injected);
-  return withClient(run);
+    const apply = await applyMembershipsOnConnection(client, {
+      userId: body.userId,
+      eventIds: body.eventIds,
+      addGroupIds: [created.group.id, ...body.addGroupIds],
+      removeGroupIds: body.removeGroupIds,
+    });
+    if (apply.status !== "ok") {
+      return apply;
+    }
+
+    return { status: "ok", group: created.group };
+  });
 }

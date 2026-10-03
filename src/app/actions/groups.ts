@@ -19,7 +19,10 @@ import {
 } from "@/application/groups";
 import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
 import type { EventItem } from "@/data/types";
-import { applyEventCarnetMembershipsForUser } from "@/infrastructure/db/carnet-memberships.repository";
+import {
+  applyEventCarnetMembershipsForUser,
+  createGroupWithEventCarnetMembershipsForUser,
+} from "@/infrastructure/db/carnet-memberships.repository";
 
 export type ListMyCarnetsStateResult =
   | {
@@ -322,6 +325,64 @@ export async function applyEventCarnetMemberships(
     return { ok: true };
   } catch (error) {
     console.error("[detour:groups] applyEventCarnetMemberships failed", error);
+    return { ok: false, reason: "error" };
+  }
+}
+
+export type CreateGroupWithEventCarnetMembershipsActionResult =
+  | { ok: true; group: GroupRow }
+  | {
+      ok: false;
+      reason:
+        | "unauthenticated"
+        | "invalid"
+        | "not_found"
+        | "event_not_found"
+        | "limit_reached"
+        | "error";
+    };
+
+/**
+ * Crée un carnet + favoris + memberships (nouveau et existants) en une transaction.
+ * Session userId uniquement.
+ */
+export async function createGroupWithEventCarnetMemberships(
+  name: string,
+  eventIds: string[],
+  addGroupIds: string[],
+  removeGroupIds: string[],
+): Promise<CreateGroupWithEventCarnetMembershipsActionResult> {
+  const ids = normalizeEventIds(eventIds);
+  if (ids.length === 0) return { ok: false, reason: "invalid" };
+  if (!Array.isArray(addGroupIds) || !Array.isArray(removeGroupIds)) {
+    return { ok: false, reason: "invalid" };
+  }
+
+  const userId = await requireUserId();
+  if (!userId) return { ok: false, reason: "unauthenticated" };
+
+  try {
+    const result = await createGroupWithEventCarnetMembershipsForUser({
+      userId,
+      name,
+      eventIds: ids,
+      addGroupIds,
+      removeGroupIds,
+    });
+    if (result.status === "limit_reached") {
+      return { ok: false, reason: "limit_reached" };
+    }
+    if (result.status === "invalid") return { ok: false, reason: "invalid" };
+    if (result.status === "not_found") return { ok: false, reason: "not_found" };
+    if (result.status === "event_not_found") {
+      return { ok: false, reason: "event_not_found" };
+    }
+    return { ok: true, group: result.group };
+  } catch (error) {
+    console.error(
+      "[detour:groups] createGroupWithEventCarnetMemberships failed",
+      error,
+    );
     return { ok: false, reason: "error" };
   }
 }

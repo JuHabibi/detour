@@ -65,6 +65,7 @@ vi.mock("next/image", () => ({
 vi.mock("@/app/actions/groups", () => ({
   createGroup: vi.fn(),
   createGroupWithFavorites: vi.fn(),
+  createGroupWithEventCarnetMemberships: vi.fn(),
   renameGroup: vi.fn(),
   deleteGroup: vi.fn(),
   addFavoriteToGroup: vi.fn(),
