@@ -9,11 +9,11 @@ import {
   canonicalizeExplorerTitle,
   normalizeExplorerVenue,
 } from "@/application/explorer/explorer-title-canonical";
+import { listExplorerEventsPage } from "@/infrastructure/db/explorer-events.repository";
 import {
   EXPLORER_DEDUPE_SQL_FRAGMENTS,
-  listExplorerEventsPage,
   type ExplorerResolvedFilters,
-} from "@/infrastructure/db/explorer-events.repository";
+} from "@/infrastructure/db/explorer-events.sql";
 import type { DbQueryable } from "@/infrastructure/db/postgres";
 
 type SqlEngine = {

@@ -12,7 +12,7 @@ import { getDateRangeForParisDateKeys, getDateRangeForWhenFilter } from "@/domai
 import {
   buildExplorerFilterSql,
   type ExplorerResolvedFilters,
-} from "@/infrastructure/db/explorer-events.repository";
+} from "@/infrastructure/db/explorer-events.sql";
 import type { DbQueryable } from "@/infrastructure/db/postgres";
 
 function filters(
