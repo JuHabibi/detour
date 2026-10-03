@@ -27,17 +27,23 @@ vi.mock("@/application/groups", () => ({
   },
 }));
 
+vi.mock("@/infrastructure/db/carnet-memberships.repository", () => ({
+  applyEventCarnetMembershipsForUser: vi.fn(),
+}));
+
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import * as groupsApp from "@/application/groups";
 import {
   addFavoriteToGroup,
   addFavoritesToGroup,
+  applyEventCarnetMemberships,
   createGroup,
   createGroupWithFavorites,
   deleteGroup,
   removeEventFromGroup,
   renameGroup,
 } from "@/app/actions/groups";
+import * as carnetMemberships from "@/infrastructure/db/carnet-memberships.repository";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const GROUP_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -319,5 +325,44 @@ describe("groups actions", () => {
       ok: false,
       reason: "limit_reached",
     });
+  });
+
+  it("applyEventCarnetMemberships : session userId, jamais un userId client", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: { id: USER_A, email: "a@exemple.fr", name: "A" },
+    });
+    vi.mocked(
+      carnetMemberships.applyEventCarnetMembershipsForUser,
+    ).mockResolvedValue({
+      status: "ok",
+    });
+
+    await expect(
+      applyEventCarnetMemberships(["e1"], [GROUP_A], []),
+    ).resolves.toEqual({ ok: true });
+
+    expect(
+      carnetMemberships.applyEventCarnetMembershipsForUser,
+    ).toHaveBeenCalledWith({
+      userId: USER_A,
+      eventIds: ["e1"],
+      addGroupIds: [GROUP_A],
+      removeGroupIds: [],
+    });
+    expect(applyEventCarnetMemberships.length).toBe(3);
+  });
+
+  it("applyEventCarnetMemberships unauthenticated → aucun appel repository", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "unauthenticated",
+    });
+
+    await expect(
+      applyEventCarnetMemberships(["e1"], [GROUP_A], []),
+    ).resolves.toEqual({ ok: false, reason: "unauthenticated" });
+    expect(
+      carnetMemberships.applyEventCarnetMembershipsForUser,
+    ).not.toHaveBeenCalled();
   });
 });

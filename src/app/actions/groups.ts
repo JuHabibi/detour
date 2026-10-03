@@ -19,6 +19,7 @@ import {
 } from "@/application/groups";
 import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
 import type { EventItem } from "@/data/types";
+import { applyEventCarnetMembershipsForUser } from "@/infrastructure/db/carnet-memberships.repository";
 
 export type ListMyCarnetsStateResult =
   | {
@@ -271,6 +272,56 @@ export async function removeEventFromGroup(
     return { ok: true };
   } catch (error) {
     console.error("[detour:groups] removeEventFromGroup failed", error);
+    return { ok: false, reason: "error" };
+  }
+}
+
+export type ApplyEventCarnetMembershipsActionResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason:
+        | "unauthenticated"
+        | "invalid"
+        | "not_found"
+        | "event_not_found"
+        | "error";
+    };
+
+/**
+ * Enregistre des événements dans des carnets existants (ajouts + retraits explicites).
+ * Session userId uniquement — une transaction serveur (favoris + memberships).
+ * Ne crée pas de carnet (flow séparé).
+ */
+export async function applyEventCarnetMemberships(
+  eventIds: string[],
+  addGroupIds: string[],
+  removeGroupIds: string[],
+): Promise<ApplyEventCarnetMembershipsActionResult> {
+  const ids = normalizeEventIds(eventIds);
+  if (ids.length === 0) return { ok: false, reason: "invalid" };
+  if (!Array.isArray(addGroupIds) || !Array.isArray(removeGroupIds)) {
+    return { ok: false, reason: "invalid" };
+  }
+
+  const userId = await requireUserId();
+  if (!userId) return { ok: false, reason: "unauthenticated" };
+
+  try {
+    const result = await applyEventCarnetMembershipsForUser({
+      userId,
+      eventIds: ids,
+      addGroupIds,
+      removeGroupIds,
+    });
+    if (result.status === "invalid") return { ok: false, reason: "invalid" };
+    if (result.status === "not_found") return { ok: false, reason: "not_found" };
+    if (result.status === "event_not_found") {
+      return { ok: false, reason: "event_not_found" };
+    }
+    return { ok: true };
+  } catch (error) {
+    console.error("[detour:groups] applyEventCarnetMemberships failed", error);
     return { ok: false, reason: "error" };
   }
 }
