@@ -265,4 +265,31 @@ INSERT INTO group_events (group_id, event_id) VALUES
     ]);
     expect(await favoriteIds(USER_A)).toEqual(["e1", "e2"]);
   });
+
+  it("E1 dans A, E2 hors A : ajout à B sans toucher A", async () => {
+    await engine.query(
+      `INSERT INTO favorites (user_id, event_id) VALUES ($1, 'e1'), ($1, 'e2')`,
+      [USER_A],
+    );
+    await engine.query(
+      `INSERT INTO group_events (group_id, event_id) VALUES ($1, 'e1')`,
+      [GROUP_A],
+    );
+
+    const result = await applyEventCarnetMembershipsForUser({
+      userId: USER_A,
+      eventIds: ["e1", "e2"],
+      addGroupIds: [GROUP_B],
+      removeGroupIds: [],
+      client: engine,
+    });
+
+    expect(result).toEqual({ status: "ok" });
+    expect(await members(GROUP_A)).toEqual(["e1"]);
+    expect(await members(GROUP_B).then((ids) => ids.sort())).toEqual([
+      "e1",
+      "e2",
+    ]);
+    expect(await favoriteIds(USER_A)).toEqual(["e1", "e2"]);
+  });
 });

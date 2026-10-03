@@ -3,11 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addFavorite } from "@/app/actions/favorites";
-import {
-  addFavoritesToGroup,
-  createGroupWithFavorites,
-  removeEventFromGroup,
-} from "@/app/actions/groups";
+import { createGroupWithFavorites } from "@/app/actions/groups";
 import type {
   EventGroupMembership,
   GroupSummary,
@@ -19,6 +15,7 @@ import { AppModal } from "@/components/ui/AppModal";
 import type { EventItem } from "@/data/types";
 import { carnetCoverTone } from "@/components/carnets/carnet-cover-tone";
 import { replaceEventMemberships } from "@/components/carnets/replace-event-memberships";
+import { submitExistingCarnetMemberships } from "@/components/carnets/submit-existing-carnet-memberships";
 import { useRemoveFavorite } from "@/components/favorites/useRemoveFavorite";
 import { cn } from "@/lib/cn";
 
@@ -126,74 +123,39 @@ export function OrganizeInCarnetModal({
 
   function handleValidate(e: React.FormEvent) {
     e.preventDefault();
+    if (pending || removePending) return;
     setError(null);
 
-    const toAdd = localGroups.filter(
-      (g) => checkedIds.has(g.id) && !initialChecked.has(g.id),
-    );
-    const toRemove = localGroups.filter(
-      (g) => !checkedIds.has(g.id) && initialChecked.has(g.id),
-    );
+    const addGroupIds = localGroups
+      .filter((g) => checkedIds.has(g.id) && !initialChecked.has(g.id))
+      .map((g) => g.id);
+    const removeGroupIds = localGroups
+      .filter((g) => !checkedIds.has(g.id) && initialChecked.has(g.id))
+      .map((g) => g.id);
 
-    if (toAdd.length === 0 && toRemove.length === 0 && isFavorite) {
+    if (addGroupIds.length === 0 && removeGroupIds.length === 0 && isFavorite) {
       onClose();
       return;
     }
 
     startTransition(async () => {
+      const result = await submitExistingCarnetMemberships({
+        eventIds,
+        addGroupIds,
+        removeGroupIds,
+        groups: localGroups,
+        memberships,
+      });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+
       if (!isFavorite) {
-        const fav = await addFavorite(event.id);
-        if (!fav.ok) {
-          setError(
-            fav.reason === "unauthenticated"
-              ? "Connectez-vous pour ranger cette découverte."
-              : "Impossible d’ajouter aux favoris. Réessayez.",
-          );
-          return;
-        }
         onFavoriteAdded?.(event.id);
       }
-
-      if (toAdd.length > 0) {
-        const addResults = await Promise.all(
-          toAdd.map((g) => addFavoritesToGroup(g.id, eventIds)),
-        );
-        if (addResults.some((r) => !r.ok)) {
-          setError("Impossible de mettre à jour les carnets. Réessayez.");
-          return;
-        }
-      }
-
-      if (toRemove.length > 0) {
-        const removeResults = await Promise.all(
-          toRemove.map((g) => removeEventFromGroup(g.id, event.id)),
-        );
-        if (removeResults.some((r) => !r.ok)) {
-          setError("Impossible de mettre à jour les carnets. Réessayez.");
-          return;
-        }
-      }
-
-      const selectedGroups = localGroups
-        .filter((g) => checkedIds.has(g.id))
-        .map((g) => ({ groupId: g.id, groupName: g.name }));
-
-      onMembershipsChange?.(
-        replaceEventMemberships(memberships, eventIds, selectedGroups),
-      );
-
-      updateGroups(
-        localGroups.map((g) => {
-          const was = initialChecked.has(g.id);
-          const now = checkedIds.has(g.id);
-          if (was === now) return g;
-          if (!was && now) {
-            return { ...g, eventCount: g.eventCount + 1 };
-          }
-          return { ...g, eventCount: Math.max(0, g.eventCount - 1) };
-        }),
-      );
-
+      onMembershipsChange?.(result.memberships);
+      updateGroups(result.groups);
       onSuccess?.();
       router.refresh();
       onClose();

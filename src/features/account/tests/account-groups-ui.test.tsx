@@ -18,7 +18,10 @@ import {
 } from "@/features/account/groups/membership-index";
 import { countCarnetsByEventId } from "@/components/carnets/count-carnets-by-event-id";
 import { carnetCoverTone } from "@/components/carnets/carnet-cover-tone";
-import { replaceEventMemberships } from "@/components/carnets/replace-event-memberships";
+import {
+  applyEventMembershipDeltas,
+  replaceEventMemberships,
+} from "@/components/carnets/replace-event-memberships";
 import { takeServerListIfChanged } from "@/features/account/take-server-list-if-changed";
 import {
   nextSelectedIds,
@@ -66,6 +69,7 @@ vi.mock("@/app/actions/groups", () => ({
   deleteGroup: vi.fn(),
   addFavoriteToGroup: vi.fn(),
   addFavoritesToGroup: vi.fn(),
+  applyEventCarnetMemberships: vi.fn(),
   removeEventFromGroup: vi.fn(),
 }));
 
@@ -210,6 +214,21 @@ describe("membership-index", () => {
       { eventId: "e1", groupId: GROUP_B, groupName: "Jazz" },
     ]);
     expect(next.filter((m) => m.eventId === "e2")).toHaveLength(1);
+  });
+
+  it("applyEventMembershipDeltas préserve A partiel lors d’un ajout à B", () => {
+    const next = applyEventMembershipDeltas(
+      memberships,
+      ["e1", "e2"],
+      [{ groupId: GROUP_B, groupName: "Jazz" }],
+      [],
+    );
+    expect(
+      next.filter((m) => m.eventId === "e1" && m.groupId === GROUP_A),
+    ).toHaveLength(1);
+    expect(
+      next.filter((m) => m.groupId === GROUP_B).map((m) => m.eventId).sort(),
+    ).toEqual(["e1", "e2"]);
   });
 });
 

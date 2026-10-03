@@ -14,6 +14,7 @@ import type {
 import { MAX_GROUPS_PER_USER } from "@/application/groups/limits";
 import { AppModal } from "@/components/ui/AppModal";
 import { replaceEventMemberships } from "@/components/carnets/replace-event-memberships";
+import { submitExistingCarnetMemberships } from "@/components/carnets/submit-existing-carnet-memberships";
 
 type AccountAddToGroupModalProps = {
   eventIds: string[];
@@ -84,70 +85,36 @@ export function AccountAddToGroupModal({
 
   function handleValidate(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
     setError(null);
 
-    const toAdd = groups.filter(
-      (g) => checkedIds.has(g.id) && !initialChecked.has(g.id),
-    );
-    const toRemove = groups.filter(
-      (g) => !checkedIds.has(g.id) && initialChecked.has(g.id),
-    );
+    const addGroupIds = groups
+      .filter((g) => checkedIds.has(g.id) && !initialChecked.has(g.id))
+      .map((g) => g.id);
+    const removeGroupIds = groups
+      .filter((g) => !checkedIds.has(g.id) && initialChecked.has(g.id))
+      .map((g) => g.id);
 
-    if (toAdd.length === 0 && toRemove.length === 0) {
+    if (addGroupIds.length === 0 && removeGroupIds.length === 0) {
       onClose();
       return;
     }
 
     startTransition(async () => {
-      const addResults = await Promise.all(
-        toAdd.map((g) => addFavoritesToGroup(g.id, eventIds)),
-      );
-      if (addResults.some((r) => !r.ok)) {
-        setError("Impossible de mettre à jour les carnets. Réessayez.");
+      const result = await submitExistingCarnetMemberships({
+        eventIds,
+        addGroupIds,
+        removeGroupIds,
+        groups,
+        memberships,
+      });
+      if (!result.ok) {
+        setError(result.message);
         return;
       }
 
-      const removeResults = await Promise.all(
-        toRemove.flatMap((g) =>
-          eventIds.map((eventId) => removeEventFromGroup(g.id, eventId)),
-        ),
-      );
-      if (removeResults.some((r) => !r.ok)) {
-        setError("Impossible de mettre à jour les carnets. Réessayez.");
-        return;
-      }
-
-      const selectedGroups = groups
-        .filter((g) => checkedIds.has(g.id))
-        .map((g) => ({ groupId: g.id, groupName: g.name }));
-
-      onMembershipsChange?.(
-        replaceEventMemberships(memberships, eventIds, selectedGroups),
-      );
-
-      const eventSet = new Set(eventIds);
-      onGroupsChange?.(
-        groups.map((g) => {
-          const was = initialChecked.has(g.id);
-          const now = checkedIds.has(g.id);
-          if (was === now) return g;
-          if (!was && now) {
-            const alreadyIn = memberships.filter(
-              (m) => m.groupId === g.id && eventSet.has(m.eventId),
-            ).length;
-            const added = eventIds.length - alreadyIn;
-            return {
-              ...g,
-              eventCount: g.eventCount + Math.max(0, added),
-            };
-          }
-          return {
-            ...g,
-            eventCount: Math.max(0, g.eventCount - eventIds.length),
-          };
-        }),
-      );
-
+      onMembershipsChange?.(result.memberships);
+      onGroupsChange?.(result.groups);
       onSuccess?.();
       router.refresh();
       onClose();
