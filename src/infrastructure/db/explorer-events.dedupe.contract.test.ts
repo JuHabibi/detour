@@ -1,14 +1,9 @@
 /**
  * Contrat SQL ↔ TypeScript pour la déduplication Explorer.
- *
- * Exécute le vrai SQL (fragments + `listExplorerEventsPage`) sur un Postgres isolé :
- * - PGlite (Postgres WASM) par défaut — aucune DATABASE_URL / prod ;
- * - ou `EXPLORER_TEST_DATABASE_URL` (Postgres classique dédié aux tests).
- *
- * Ne pas utiliser `.env.local` / `DATABASE_URL` ici.
+ * Exécute le vrai SQL (fragments + `listExplorerEventsPage`) sur PGlite isolé.
+ * Ne pas utiliser `DATABASE_URL` ici.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { Client } from "pg";
 import { PGlite } from "@electric-sql/pglite";
 import {
   canonicalizeExplorerTitle,
@@ -25,8 +20,6 @@ type SqlEngine = {
   query: DbQueryable["query"];
   end: () => Promise<void>;
 };
-
-const TEST_URL = process.env.EXPLORER_TEST_DATABASE_URL?.trim() || null;
 
 const SCHEMA_SQL = `
 CREATE TABLE events (
@@ -71,25 +64,6 @@ CREATE TABLE event_availability (
 `.trim();
 
 async function createEngine(): Promise<SqlEngine> {
-  if (TEST_URL) {
-    if (/neon\.tech|amazonaws\.com|supabase\.co/i.test(TEST_URL)) {
-      throw new Error(
-        "EXPLORER_TEST_DATABASE_URL seems hosted/shared — use an isolated local Postgres URL only.",
-      );
-    }
-    const client = new Client({ connectionString: TEST_URL });
-    await client.connect();
-    await client.query("DROP TABLE IF EXISTS event_availability CASCADE");
-    await client.query("DROP TABLE IF EXISTS events CASCADE");
-    await client.query(SCHEMA_SQL);
-    return {
-      query: (text, values) => client.query(text, values),
-      end: async () => {
-        await client.end();
-      },
-    };
-  }
-
   const db = new PGlite();
   await db.exec(SCHEMA_SQL);
   return {
@@ -197,9 +171,7 @@ beforeEach(async () => {
 });
 
 describe("Explorer dedupe SQL/TS contract", () => {
-  const backend = TEST_URL ? "EXPLORER_TEST_DATABASE_URL" : "PGlite";
-
-  it(`parité clés SQL ↔ TypeScript (${backend})`, async () => {
+  it("parité clés SQL ↔ TypeScript", async () => {
     const cases: Array<{
       label: string;
       title: string;
@@ -284,18 +256,24 @@ describe("Explorer dedupe SQL/TS contract", () => {
     });
     expect(httpsWins.events.map((e) => e.id)).toEqual(["rep-https-noimg"]);
 
+    // Même titre et mêmes critères hors image : sans critère image, id ASC
+    // choisirait `rep-a` — le test exige `rep-z` (image).
     await seed([
       {
-        id: "rep-https-b",
-        title: "Trio Wanderer",
-        registrationUrl: "https://example.com/b",
+        id: "rep-a",
+        title: "Same Title",
+        registrationUrl: "https://example.com/a",
         imageUrl: null,
+        description: "x".repeat(50),
+        conditions: "Payant",
       },
       {
-        id: "rep-https-a",
-        title: "Instants suspendus : Trio Wanderer",
-        registrationUrl: "https://example.com/a",
-        imageUrl: "https://cdn.example/a.jpg",
+        id: "rep-z",
+        title: "Same Title",
+        registrationUrl: "https://example.com/z",
+        imageUrl: "https://cdn.example/z.jpg",
+        description: "x".repeat(50),
+        conditions: "Payant",
       },
     ]);
 
@@ -305,7 +283,7 @@ describe("Explorer dedupe SQL/TS contract", () => {
       client: engine,
       now: NOW,
     });
-    expect(imageWins.events.map((e) => e.id)).toEqual(["rep-https-a"]);
+    expect(imageWins.events.map((e) => e.id)).toEqual(["rep-z"]);
 
     await seed([
       {
