@@ -4,7 +4,13 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { SaintJeanLeBlancEventAdapter } from "./saint-jean-le-blanc.adapter";
 import { parseSjlbDetail } from "./saint-jean-le-blanc.detail-parser";
-import { buildSjlbListPageUrl } from "./saint-jean-le-blanc.html";
+import {
+  assertTrustedSjlbOrigin,
+  buildSjlbListPageUrl,
+  SJLB_ORIGIN,
+  validateSjlbDetailCollectUrl,
+  validateSjlbListCollectUrl,
+} from "./saint-jean-le-blanc.html";
 import { parseSjlbListPage } from "./saint-jean-le-blanc.list-parser";
 import {
   mapSjlbDetailToDetourEvent,
@@ -45,7 +51,7 @@ describe("saint-jean-le-blanc list parser", () => {
 
   it("structure cassée → throw", () => {
     expect(() => parseSjlbListPage(fixture("list-broken.html"))).toThrow(
-      /without detail link|missing Ress/,
+      /without detail link|URL rejected/,
     );
   });
 
@@ -305,5 +311,188 @@ ${Array.from({ length: 2 }, (_, i) => {
         to: new Date("2027-01-01"),
       }),
     ).rejects.toThrow(/detail failed \(1\/2\)/);
+  });
+});
+
+describe("saint-jean-le-blanc URL collect policy", () => {
+  it("accepte relatifs, absolus autorisés et chemins liste", () => {
+    expect(assertTrustedSjlbOrigin(SJLB_ORIGIN)).toBe(SJLB_ORIGIN);
+
+    const relative = validateSjlbDetailCollectUrl(
+      "Ress_3195/BELLE-M-RE-VENDRE.html",
+      SJLB_ORIGIN,
+    );
+    expect(relative.href).toBe(
+      "https://www.saintjeanleblanc.com/Ress_3195/BELLE-M-RE-VENDRE.html",
+    );
+    expect(relative.resourceId).toBe("3195");
+
+    const withSlash = validateSjlbDetailCollectUrl(
+      "/Ress_3219/EN-SC-NE.html",
+      SJLB_ORIGIN,
+    );
+    expect(withSlash.resourceId).toBe("3219");
+
+    const absolute = validateSjlbDetailCollectUrl(
+      "https://www.saintjeanleblanc.com/Ress_3195/BELLE.html",
+      SJLB_ORIGIN,
+    );
+    expect(absolute.href).toBe(
+      "https://www.saintjeanleblanc.com/Ress_3195/BELLE.html",
+    );
+
+    expect(validateSjlbListCollectUrl("/Liste_agenda_1/", SJLB_ORIGIN).href).toBe(
+      "https://www.saintjeanleblanc.com/Liste_agenda_1/",
+    );
+    expect(
+      validateSjlbListCollectUrl(
+        "/ListeAgenda.php?IdRubrique=1&p=2&listeDebut=9&listeFin=18",
+        SJLB_ORIGIN,
+      ).href,
+    ).toContain("ListeAgenda.php?IdRubrique=1&p=2");
+
+    expect(buildSjlbListPageUrl(1)).toBe(
+      "https://www.saintjeanleblanc.com/Liste_agenda_1/",
+    );
+    expect(buildSjlbListPageUrl(2)).toBe(
+      "https://www.saintjeanleblanc.com/ListeAgenda.php?IdRubrique=1&p=2&listeDebut=9&listeFin=18",
+    );
+  });
+
+  it("rejette origines / hrefs interdits sans élargir l’origine", () => {
+    const forbidden = [
+      "https://evil.example/Ress_1/x.html",
+      "//evil.example/Ress_1/x.html",
+      "https://127.0.0.1/Ress_1/x.html",
+      "https://[::1]/Ress_1/x.html",
+      "https://10.0.0.5/Ress_1/x.html",
+      "http://www.saintjeanleblanc.com/Ress_1/x.html",
+      "ftp://www.saintjeanleblanc.com/Ress_1/x.html",
+      "https://user:pass@www.saintjeanleblanc.com/Ress_1/x.html",
+      "https://www.saintjeanleblanc.com:8443/Ress_1/x.html",
+      "https://www.saintjeanleblanc.com.evil.example/Ress_1/x.html",
+      "https://saintjeanleblanc.com.evil.example/Ress_1/x.html",
+      "not a url",
+      "https://www.saintjeanleblanc.com/foo/Ress_1/x.html",
+      "https://www.saintjeanleblanc.com/agenda?x=Ress_1",
+      "https://www.saintjeanleblanc.com/Ress_abc/x.html",
+      "https://www.saintjeanleblanc.com/Ress_1/nested/x.html",
+    ];
+
+    for (const href of forbidden) {
+      expect(() => validateSjlbDetailCollectUrl(href, SJLB_ORIGIN)).toThrow(
+        /URL rejected/,
+      );
+    }
+
+    expect(() =>
+      validateSjlbListCollectUrl("https://evil.example/Liste_agenda_1/", SJLB_ORIGIN),
+    ).toThrow(/URL rejected/);
+
+    expect(() => assertTrustedSjlbOrigin("http://www.saintjeanleblanc.com")).toThrow(
+      /URL rejected/,
+    );
+    expect(() =>
+      assertTrustedSjlbOrigin("https://www.saintjeanleblanc.com/Liste_agenda_1/"),
+    ).toThrow(/URL rejected/);
+  });
+
+  it("lien externe en liste → échec identifiable, aucun fetch vers la cible", () => {
+    const evil =
+      "https://127.0.0.1/Ress_9999/PWN.html";
+    const html = `<!DOCTYPE html><html><body>
+<div class="item_agenda"><div class="content"><span class="thematique">Théâtre</span>
+<div id="A" class="agenda"><h3><a href="${evil}">PWN</a></h3></div></div></div>
+</body></html>`;
+
+    expect(() => parseSjlbListPage(html)).toThrow(/URL rejected/);
+
+    const fetchImpl = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("Liste_agenda")) return htmlResponse(html);
+      return htmlResponse("should-not-be-called", 500);
+    });
+    const adapter = new SaintJeanLeBlancEventAdapter({ fetchImpl });
+
+    return expect(
+      adapter.fetchUpcomingEvents({
+        from: new Date("2026-01-01"),
+        to: new Date("2027-01-01"),
+      }),
+    )
+      .rejects.toThrow(/URL rejected/)
+      .then(() => {
+        const called = fetchImpl.mock.calls.map((c) => String(c[0]));
+        expect(called.some((u) => u.includes("127.0.0.1"))).toBe(false);
+        expect(called.every((u) => u.startsWith(SJLB_ORIGIN))).toBe(true);
+      });
+  });
+
+  it("fetch utilise redirect:error et échoue sur redirection", async () => {
+    const page1 = fixture("list-page.html");
+    const fetchImpl = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      expect(init?.redirect).toBe("error");
+      const url = String(input);
+      if (url.includes("Liste_agenda") || url.includes("ListeAgenda")) {
+        return htmlResponse(page1);
+      }
+      if (url.includes("Ress_3195")) {
+        throw new TypeError("unexpected redirect");
+      }
+      return htmlResponse(fixture("detail-no-horaire.html"));
+    });
+
+    const adapter = new SaintJeanLeBlancEventAdapter({ fetchImpl });
+    await expect(
+      adapter.fetchUpcomingEvents({
+        from: new Date("2026-01-01"),
+        to: new Date("2027-01-01"),
+      }),
+    ).rejects.toThrow(/URL rejected: redirect/);
+
+    for (const call of fetchImpl.mock.calls) {
+      expect(call[1]?.redirect).toBe("error");
+      expect(String(call[0])).toMatch(/^https:\/\/www\.saintjeanleblanc\.com\//);
+    }
+  });
+
+  it("réponse 302 → rejet sans publier de snapshot partiel", async () => {
+    const page1 = `<!DOCTYPE html><html><body>
+<div class="item_agenda"><div class="content"><span class="thematique">Théâtre</span>
+<div id="A" class="agenda"><h3><a href="Ress_3195/BELLE.html">BELLE</a></h3></div></div></div>
+</body></html>`;
+
+    const fetchImpl = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      expect(init?.redirect).toBe("error");
+      const url = String(input);
+      if (url.includes("Liste_agenda")) return htmlResponse(page1);
+      return new Response(null, {
+        status: 302,
+        headers: { Location: "https://evil.example/phish" },
+      });
+    });
+
+    const adapter = new SaintJeanLeBlancEventAdapter({ fetchImpl });
+    await expect(
+      adapter.collectUpcomingEvents({
+        from: new Date("2026-01-01"),
+        to: new Date("2027-01-01"),
+      }),
+    ).rejects.toThrow(/URL rejected: redirect/);
+
+    const targets = fetchImpl.mock.calls.map((c) => String(c[0]));
+    expect(targets.some((u) => u.includes("evil.example"))).toBe(false);
+  });
+
+  it("billetterie Yurplan reste mappée (non fetchée)", () => {
+    const detail = parseSjlbDetail(
+      fixture("detail-complete.html"),
+      "https://www.saintjeanleblanc.com/Ress_3195/BELLE-M-RE-VENDRE.html",
+    );
+    expect(detail.bookingUrl).toContain("yurplan.com");
+    const mapped = mapSjlbDetailToDetourEvent(detail);
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) return;
+    expect(mapped.event.registrationUrl).toContain("yurplan.com");
   });
 });

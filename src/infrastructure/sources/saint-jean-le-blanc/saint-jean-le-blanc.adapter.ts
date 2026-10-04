@@ -3,7 +3,9 @@ import type { EventSource } from "@/application/ports/event-source";
 import { parseSjlbDetail } from "./saint-jean-le-blanc.detail-parser";
 import {
   absoluteSjlbUrl,
+  assertSjlbCollectFetchUrl,
   assertSjlbUsableHtml,
+  assertTrustedSjlbOrigin,
   buildSjlbListPageUrl,
   SJLB_ORIGIN,
   SJLB_PAGE_SIZE,
@@ -161,7 +163,7 @@ export async function collectSjlbEvents(
 
 function resolveSjlbConfig(config: SjlbAdapterConfig): ResolvedSjlbConfig {
   return {
-    origin: config.origin ?? SJLB_ORIGIN,
+    origin: assertTrustedSjlbOrigin(config.origin ?? SJLB_ORIGIN),
     fetchImpl: config.fetchImpl ?? fetch,
     httpTimeoutMs: config.httpTimeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS,
     detailConcurrency: config.detailConcurrency ?? DEFAULT_DETAIL_CONCURRENCY,
@@ -237,24 +239,38 @@ async function fetchSjlbHtml(
   url: string,
   config: ResolvedSjlbConfig,
 ): Promise<string> {
+  const fetchUrl = assertSjlbCollectFetchUrl(url, config.origin);
+
   let response: Response;
   try {
-    response = await config.fetchImpl(url, {
+    response = await config.fetchImpl(fetchUrl, {
       signal: AbortSignal.timeout(config.httpTimeoutMs),
       headers: {
         Accept: "text/html,application/xhtml+xml",
         "User-Agent": "DetourBot/1.0 (+detour; agenda-sync)",
       },
-      redirect: "follow",
+      // Pas de suivi automatique : une redirection contacterait déjà la cible.
+      redirect: "error",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Saint-Jean-le-Blanc HTTP error: ${message} (${url})`);
+    if (/redirect/i.test(message) || /URL rejected/i.test(message)) {
+      throw new Error(
+        `Saint-Jean-le-Blanc URL rejected: redirect (${fetchUrl})`,
+      );
+    }
+    throw new Error(`Saint-Jean-le-Blanc HTTP error: ${message} (${fetchUrl})`);
+  }
+
+  if (response.status >= 300 && response.status < 400) {
+    throw new Error(
+      `Saint-Jean-le-Blanc URL rejected: redirect (${fetchUrl})`,
+    );
   }
 
   if (!response.ok) {
     throw new Error(
-      `Saint-Jean-le-Blanc HTTP error: ${response.status} ${response.statusText} (${url})`,
+      `Saint-Jean-le-Blanc HTTP error: ${response.status} ${response.statusText} (${fetchUrl})`,
     );
   }
 

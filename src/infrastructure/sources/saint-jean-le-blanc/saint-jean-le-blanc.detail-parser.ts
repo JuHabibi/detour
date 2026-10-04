@@ -1,9 +1,11 @@
 import {
   absoluteSjlbUrl,
   assertSjlbUsableHtml,
+  assertTrustedSjlbOrigin,
   decodeSjlbHtmlEntities,
   SJLB_ORIGIN,
   stripSjlbTags,
+  validateSjlbDetailCollectUrl,
 } from "./saint-jean-le-blanc.html";
 import type { SjlbDetail } from "./saint-jean-le-blanc.types";
 
@@ -19,18 +21,11 @@ export function parseSjlbDetail(
   detailUrl: string,
   options: { origin?: string } = {},
 ): SjlbDetail {
-  const origin = options.origin ?? SJLB_ORIGIN;
+  const origin = assertTrustedSjlbOrigin(options.origin ?? SJLB_ORIGIN);
   assertSjlbUsableHtml(html, "detail");
 
-  const resourceId = detailUrl.match(/Ress_(\d+)/i)?.[1];
-  if (!resourceId) {
-    throw new Error(
-      `Saint-Jean-le-Blanc detail: URL missing Ress_id (${detailUrl})`,
-    );
-  }
-
-  const detailPath =
-    detailUrl.match(/Ress_\d+\/[^?#]+/i)?.[0] ?? `Ress_${resourceId}`;
+  const validated = validateSjlbDetailCollectUrl(detailUrl, origin);
+  const { resourceId, detailPath, href: normalizedDetailUrl } = validated;
 
   const texte = extractTexte(html);
   const h1 = (html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1];
@@ -80,7 +75,7 @@ export function parseSjlbDetail(
   return {
     resourceId,
     detailPath,
-    detailUrl: absoluteSjlbUrl(detailUrl, origin),
+    detailUrl: normalizedDetailUrl,
     title,
     theme,
     dateRaw: info.date,
@@ -88,6 +83,7 @@ export function parseSjlbDetail(
     lieu: info.lieu,
     adresse: info.adresse,
     descriptionText: descriptionText.length > 0 ? descriptionText : null,
+    // Images / billetterie externes : pas fetchées par le transport SJLB.
     imageUrl: imgSrc ? absoluteSjlbUrl(imgSrc, origin) : null,
     bookingUrl: bookingLinks[0] ?? null,
     organisateurMention:

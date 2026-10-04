@@ -1,9 +1,11 @@
 import {
   absoluteSjlbUrl,
   assertSjlbUsableHtml,
+  assertTrustedSjlbOrigin,
   decodeSjlbHtmlEntities,
   SJLB_ORIGIN,
   stripSjlbTags,
+  validateSjlbDetailCollectUrl,
 } from "./saint-jean-le-blanc.html";
 import type {
   SjlbListItem,
@@ -29,7 +31,7 @@ export function parseSjlbListPage(
   html: string,
   options: { origin?: string; requireItems?: boolean } = {},
 ): SjlbListPage {
-  const origin = options.origin ?? SJLB_ORIGIN;
+  const origin = assertTrustedSjlbOrigin(options.origin ?? SJLB_ORIGIN);
   assertSjlbUsableHtml(html, "list");
 
   const items: SjlbListItem[] = [];
@@ -43,19 +45,14 @@ export function parseSjlbListPage(
         "Saint-Jean-le-Blanc list: .item_agenda without detail link",
       );
     }
-    const detailPath = hrefMatch[1]!.replace(/^\//, "");
-    const resourceId = detailPath.match(/Ress_(\d+)/i)?.[1];
-    if (!resourceId) {
-      throw new Error(
-        `Saint-Jean-le-Blanc list: detail href missing Ress_id (${detailPath})`,
-      );
-    }
+    const rawHref = hrefMatch[1]!;
+    const validated = validateSjlbDetailCollectUrl(rawHref, origin);
 
     const titleInner = TITLE_INNER_RE.exec(chunk)?.[1] ?? "";
     const title = decodeSjlbHtmlEntities(stripSjlbTags(titleInner));
     if (!title) {
       throw new Error(
-        `Saint-Jean-le-Blanc list: empty title for Ress_${resourceId}`,
+        `Saint-Jean-le-Blanc list: empty title for Ress_${validated.resourceId}`,
       );
     }
 
@@ -71,14 +68,15 @@ export function parseSjlbListPage(
     const listAnchor = ANCHOR_RE.exec(chunk)?.[1] ?? null;
 
     items.push({
-      resourceId,
+      resourceId: validated.resourceId,
       listAnchor,
       title,
       theme,
       dayLabel,
       monthLabel,
-      detailPath,
-      detailUrl: absoluteSjlbUrl(detailPath, origin),
+      detailPath: validated.detailPath,
+      detailUrl: validated.href,
+      // Images non fetchées par ce transport — résolution affichage uniquement.
       imageUrl: imgSrc ? absoluteSjlbUrl(imgSrc, origin) : null,
     });
   }
