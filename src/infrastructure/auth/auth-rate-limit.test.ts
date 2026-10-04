@@ -237,10 +237,17 @@ describe.runIf(Boolean(process.env.DATABASE_URL?.trim()))(
   "Better Auth rateLimit concurrence PostgreSQL (DATABASE_URL)",
   () => {
     const schema = `rl_s2_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    const directUrl = neonDirectUrl(process.env.DATABASE_URL!);
-    let adminPool: pg.Pool;
+    let directUrl: string | undefined;
+    let adminPool: pg.Pool | undefined;
 
     beforeAll(async () => {
+      const databaseUrl = process.env.DATABASE_URL?.trim();
+      if (!databaseUrl) {
+        throw new Error(
+          "DATABASE_URL is required for PostgreSQL rate-limit concurrency tests",
+        );
+      }
+      directUrl = neonDirectUrl(databaseUrl);
       adminPool = new pg.Pool({
         connectionString: directUrl,
         options: `-c search_path=${schema}`,
@@ -250,16 +257,20 @@ describe.runIf(Boolean(process.env.DATABASE_URL?.trim()))(
     });
 
     afterAll(async () => {
+      if (!directUrl) return;
       const cleanup = new pg.Pool({ connectionString: directUrl });
       try {
         await cleanup.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
       } finally {
         await cleanup.end();
-        await adminPool.end();
+        await adminPool?.end();
       }
     });
 
     it("n'autorise pas plus de max requêtes concurrentes pour la même clé", async () => {
+      if (!directUrl) {
+        throw new Error("PostgreSQL fixture was not initialized");
+      }
       const scopedPool = new pg.Pool({
         connectionString: directUrl,
         max: 8,

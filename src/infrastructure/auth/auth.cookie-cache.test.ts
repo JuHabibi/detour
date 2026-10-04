@@ -1,28 +1,41 @@
-import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import path from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { PGlite } from "@electric-sql/pglite";
+import { PGliteDialect } from "kysely";
+import { createAuth } from "@/infrastructure/auth/create-auth";
 
 describe("auth cookieCache config", () => {
-  const source = readFileSync(
-    path.join(process.cwd(), "src/infrastructure/auth/auth.ts"),
-    "utf8",
-  );
+  let db: PGlite;
+  let auth: ReturnType<typeof createAuth>;
+
+  beforeAll(async () => {
+    db = new PGlite();
+    auth = createAuth({
+      database: { dialect: new PGliteDialect({ pglite: db }), type: "postgres" },
+      secret: "test-secret-at-least-32-characters-long!!",
+      baseURL: "http://localhost:3002",
+    });
+    await auth.$context;
+  });
+
+  afterAll(async () => {
+    await db.close();
+  });
 
   it("active session.cookieCache compact 5 min, sans refreshCache", () => {
-    expect(source).toMatch(/session:\s*\{/);
-    expect(source).toMatch(/cookieCache:\s*\{/);
-    expect(source).toMatch(/enabled:\s*true/);
-    expect(source).toMatch(/maxAge:\s*5\s*\*\s*60/);
-    expect(source).toMatch(/strategy:\s*"compact"/);
-    expect(source).not.toMatch(/refreshCache/);
-    expect(source).not.toMatch(/disableSessionRefresh/);
-    expect(source).not.toMatch(/updateAge/);
+    expect(auth.options.session?.cookieCache).toEqual({
+      enabled: true,
+      maxAge: 300,
+      strategy: "compact",
+    });
+    expect(auth.options.session).not.toHaveProperty("refreshCache");
+    expect(auth.options.session).not.toHaveProperty("disableSessionRefresh");
+    expect(auth.options.session).not.toHaveProperty("updateAge");
   });
 
   it("conserve nextCookies et email/password, sans plugin JWT", () => {
-    expect(source).toContain("nextCookies()");
-    expect(source).toContain("emailAndPassword");
-    expect(source).not.toMatch(/from ["']better-auth\/plugins\/jwt["']/);
-    expect(source).not.toMatch(/\bjwt\(/);
+    expect(auth.options.emailAndPassword?.enabled).toBe(true);
+    const pluginIds = (auth.options.plugins ?? []).map((plugin) => plugin.id);
+    expect(pluginIds).toContain("next-cookies");
+    expect(pluginIds).not.toContain("jwt");
   });
 });
