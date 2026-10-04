@@ -80,6 +80,160 @@ export function explorerAppendErrorMessage(
   return EXPLORER_LOAD_FALLBACK_ERROR;
 }
 
+
+export function appendExplorerEventsUnique(
+  previous: EventItem[],
+  incoming: EventItem[],
+): EventItem[] {
+  const seen = new Set(previous.map((event) => event.id));
+  const added: EventItem[] = [];
+  for (const event of incoming) {
+    if (seen.has(event.id)) continue;
+    seen.add(event.id);
+    added.push(event);
+  }
+  return added.length === 0 ? previous : [...previous, ...added];
+}
+
+type ExplorerPageOneHandle = {
+  isCurrent: () => boolean;
+};
+
+type ExplorerLoadMoreHandle = {
+  isCurrent: () => boolean;
+  release: () => void;
+};
+
+
+export function createExplorerLoadSession() {
+  let generation = 0;
+  let loadMoreLocked = false;
+
+  return {
+   
+    beginPageOne(): ExplorerPageOneHandle {
+      const id = ++generation;
+      loadMoreLocked = false;
+      return { isCurrent: () => id === generation };
+    },
+   
+    invalidate() {
+      generation += 1;
+      loadMoreLocked = false;
+    },
+ 
+    beginLoadMore(): ExplorerLoadMoreHandle | null {
+      if (loadMoreLocked) return null;
+      loadMoreLocked = true;
+      const gen = generation;
+      return {
+        isCurrent: () => gen === generation,
+        release: () => {
+          if (gen === generation) loadMoreLocked = false;
+        },
+      };
+    },
+  };
+}
+
+type ExplorerLoadFn = typeof loadExplorerEvents;
+
+export async function runExplorerPageOneLoad(
+  params: {
+    filters: FilterStamp;
+    load: ExplorerLoadFn;
+  },
+  handlers: {
+    isCurrent: () => boolean;
+    onLoading: (loading: boolean) => void;
+    onSettled: (snapshot: ExplorerListSnapshot) => void;
+  },
+): Promise<void> {
+  const { isCurrent, onLoading, onSettled } = handlers;
+  if (!isCurrent()) return;
+
+  onLoading(true);
+
+  try {
+    let snapshot: ExplorerListSnapshot;
+    try {
+      const result = await params.load({
+        when: params.filters.when,
+        search: params.filters.search || undefined,
+        category: categoryIdToExplorerFilter(params.filters.category),
+        city: cityToExplorerFilter(params.filters.city),
+        cursor: null,
+      });
+      snapshot = explorerPageOneSnapshotFromResult(result);
+    } catch {
+      snapshot = explorerPageOneSnapshotFromRejection();
+    }
+
+    if (!isCurrent()) return;
+    onSettled(snapshot);
+  } finally {
+    if (isCurrent()) onLoading(false);
+  }
+}
+
+export async function runExplorerLoadMore(
+  params: {
+    filters: FilterStamp;
+    cursor: string;
+    load: ExplorerLoadFn;
+  },
+  handlers: {
+    isCurrent: () => boolean;
+    release: () => void;
+    onLoadingMore: (loading: boolean) => void;
+    onAppend: (data: {
+      events: EventItem[];
+      totalCount: number;
+      nextCursor: string | null;
+    }) => void;
+    onError: (message: string) => void;
+  },
+): Promise<void> {
+  const { isCurrent, release, onLoadingMore, onAppend, onError } = handlers;
+  if (!isCurrent()) {
+    release();
+    return;
+  }
+
+  onLoadingMore(true);
+
+  try {
+    const result = await params.load({
+      when: params.filters.when,
+      search: params.filters.search || undefined,
+      category: categoryIdToExplorerFilter(params.filters.category),
+      city: cityToExplorerFilter(params.filters.city),
+      cursor: params.cursor,
+    });
+
+    if (!isCurrent()) return;
+
+    if (!result.ok) {
+      onError(explorerAppendErrorMessage(result));
+      return;
+    }
+
+    onAppend({
+      events: result.events,
+      totalCount: result.totalCount,
+      nextCursor: result.nextCursor,
+    });
+  } catch {
+    if (!isCurrent()) return;
+    onError(explorerAppendErrorMessage(null));
+  } finally {
+    if (isCurrent()) {
+      release();
+      onLoadingMore(false);
+    }
+  }
+}
+
 type UseExplorerEventsParams = {
   initial: ExplorerInitialPage;
   when: WhenFilter;
@@ -89,10 +243,7 @@ type UseExplorerEventsParams = {
   load?: typeof loadExplorerEvents;
 };
 
-/**
- * Orchestration async Explorer — page 1 / retry / pagination.
- * Pas d’analytics produit ici.
- */
+
 export function useExplorerEvents({
   initial,
   when,
@@ -111,10 +262,21 @@ export function useExplorerEvents({
   const filters: FilterStamp = { when, category, city, search };
   const committedFilters = useRef(filters);
   const latestFilters = useRef(filters);
+  const sessionRef = useRef(createExplorerLoadSession());
+  const nextCursorRef = useRef(nextCursor);
+  const loadingRef = useRef(loading);
 
   useEffect(() => {
     latestFilters.current = filters;
   });
+
+  useEffect(() => {
+    nextCursorRef.current = nextCursor;
+  }, [nextCursor]);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
 
   function applyPageOne(snapshot: ExplorerListSnapshot) {
     setEvents(snapshot.events);
@@ -124,92 +286,79 @@ export function useExplorerEvents({
   }
 
   useEffect(() => {
+    const session = sessionRef.current;
     const next: FilterStamp = { when, category, city, search };
-    if (sameFilters(committedFilters.current, next)) return;
-    committedFilters.current = next;
 
-    let ignore = false;
-    setLoading(true);
+    if (sameFilters(committedFilters.current, next)) {
+      return () => {
+        session.invalidate();
+      };
+    }
+
+    committedFilters.current = next;
+    const page = session.beginPageOne();
+    setLoadingMore(false);
     setError(null);
 
-    void (async () => {
-      let snapshot: ExplorerListSnapshot;
-      try {
-        const result = await load({
-          when: next.when,
-          search: next.search || undefined,
-          category: categoryIdToExplorerFilter(next.category),
-          city: cityToExplorerFilter(next.city),
-          cursor: null,
-        });
-        snapshot = explorerPageOneSnapshotFromResult(result);
-      } catch {
-        snapshot = explorerPageOneSnapshotFromRejection();
-      }
-      if (ignore) return;
-      applyPageOne(snapshot);
-      setLoading(false);
-    })();
+    void runExplorerPageOneLoad(
+      { filters: next, load },
+      {
+        isCurrent: page.isCurrent,
+        onLoading: setLoading,
+        onSettled: applyPageOne,
+      },
+    );
 
     return () => {
-      ignore = true;
+      session.invalidate();
     };
   }, [when, category, city, search, load]);
 
   async function reload() {
+    const session = sessionRef.current;
     const stamp = latestFilters.current;
-    setLoading(true);
+    const page = session.beginPageOne();
+    setLoadingMore(false);
     setError(null);
-    let snapshot: ExplorerListSnapshot;
-    try {
-      const result = await load({
-        when: stamp.when,
-        search: stamp.search || undefined,
-        category: categoryIdToExplorerFilter(stamp.category),
-        city: cityToExplorerFilter(stamp.city),
-        cursor: null,
-      });
-      snapshot = explorerPageOneSnapshotFromResult(result);
-    } catch {
-      snapshot = explorerPageOneSnapshotFromRejection();
-    }
-    if (!sameFilters(latestFilters.current, stamp)) return;
-    applyPageOne(snapshot);
-    setLoading(false);
+
+    await runExplorerPageOneLoad(
+      { filters: stamp, load },
+      {
+        isCurrent: page.isCurrent,
+        onLoading: setLoading,
+        onSettled: applyPageOne,
+      },
+    );
   }
 
   async function loadMore() {
-    if (!nextCursor || loading || loadingMore) return;
-    const cursor = nextCursor;
+    const cursor = nextCursorRef.current;
+    if (!cursor || loadingRef.current) return;
+
+    const session = sessionRef.current;
+    const handle = session.beginLoadMore();
+    if (!handle) return;
+
     const stamp = latestFilters.current;
-    setLoadingMore(true);
     setError(null);
 
-    try {
-      const result = await load({
-        when: stamp.when,
-        search: stamp.search || undefined,
-        category: categoryIdToExplorerFilter(stamp.category),
-        city: cityToExplorerFilter(stamp.city),
-        cursor,
-      });
-      if (!sameFilters(latestFilters.current, stamp)) return;
-
-      if (!result.ok) {
-        setError(explorerAppendErrorMessage(result));
-        return;
-      }
-
-      setEvents((prev) => [...prev, ...result.events]);
-      setTotalCount(result.totalCount);
-      setNextCursor(result.nextCursor);
-      setError(null);
-    } catch {
-      if (!sameFilters(latestFilters.current, stamp)) return;
-      setError(explorerAppendErrorMessage(null));
-    } finally {
-      setLoadingMore(false);
-    }
+    await runExplorerLoadMore(
+      { filters: stamp, cursor, load },
+      {
+        isCurrent: handle.isCurrent,
+        release: handle.release,
+        onLoadingMore: setLoadingMore,
+        onAppend: (data) => {
+          setEvents((prev) => appendExplorerEventsUnique(prev, data.events));
+          setTotalCount(data.totalCount);
+          setNextCursor(data.nextCursor);
+          setError(null);
+        },
+        onError: (message) => {
+          setError(message);
+        },
+      },
+    );
   }
 
   return {
