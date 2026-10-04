@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 import { addFavorite } from "@/app/actions/favorites";
 import type { GroupSummary } from "@/application/groups";
@@ -51,6 +58,20 @@ function readPreviewFlag(): boolean {
   );
 }
 
+/** Sélection carnet après hydratation — pur, sans navigation ni setState. */
+function resolveNotebookSelectionAfterGroupsLoad(
+  currentId: string | null,
+  groups: readonly Pick<GroupSummary, "id">[],
+): string | null {
+  if (currentId && !groups.some((group) => group.id === currentId)) {
+    return null;
+  }
+  if (!currentId && groups.length === 1) {
+    return groups[0]!.id;
+  }
+  return currentId;
+}
+
 export function FrisePageClient({
   initialView,
   initialCategory,
@@ -66,6 +87,7 @@ export function FrisePageClient({
   const [notebookId, setNotebookId] = useState<string | null>(
     initialNotebookId,
   );
+  const notebookIdRef = useRef(notebookId);
   const [detail, setDetail] = useState<{
     event: EventItem;
     returnFocusTo: HTMLElement | null;
@@ -73,6 +95,10 @@ export function FrisePageClient({
 
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    notebookIdRef.current = notebookId;
+  }, [notebookId]);
 
   const replaceUrl = useCallback(
     (next: {
@@ -93,18 +119,12 @@ export function FrisePageClient({
 
   const onGroupsLoaded = useCallback(
     (nextGroups: GroupSummary[]) => {
-      setNotebookId((current) => {
-        if (current && !nextGroups.some((group) => group.id === current)) {
-          replaceUrl({ view: "notebook", category, notebookId: null });
-          return null;
-        }
-        if (!current && nextGroups.length === 1) {
-          const only = nextGroups[0]!;
-          replaceUrl({ view: "notebook", category, notebookId: only.id });
-          return only.id;
-        }
-        return current;
-      });
+      const current = notebookIdRef.current;
+      const next = resolveNotebookSelectionAfterGroupsLoad(current, nextGroups);
+      if (next === current) return;
+      notebookIdRef.current = next;
+      setNotebookId(next);
+      replaceUrl({ view: "notebook", category, notebookId: next });
     },
     [category, replaceUrl],
   );

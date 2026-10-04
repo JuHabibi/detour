@@ -162,6 +162,28 @@ export type CarnetEventsLoadFailure = {
   missing: boolean;
 };
 
+/** Transformation locale utilisée par `removeEventLocally`. */
+export function removeEventFromPersonalCorpora(
+  id: string,
+  corpora: {
+    ids: ReadonlySet<string>;
+    favoriteEvents: EventItem[];
+    notebookEvents: EventItem[];
+  },
+): {
+  ids: Set<string>;
+  favoriteEvents: EventItem[];
+  notebookEvents: EventItem[];
+} {
+  const ids = new Set(corpora.ids);
+  ids.delete(id);
+  return {
+    ids,
+    favoriteEvents: corpora.favoriteEvents.filter((event) => event.id !== id),
+    notebookEvents: corpora.notebookEvents.filter((event) => event.id !== id),
+  };
+}
+
 export async function runCarnetEventsLoad(
   notebookId: string,
   load: (groupId: string) => Promise<GetMyCarnetEventsResult>,
@@ -273,12 +295,27 @@ export function useFrisePersonalData({
     (id: string) => {
       bumpFavoriteIdsAuthority();
       setFavoriteState((prev) => {
-        const draft = prev ? new Set(prev.ids) : new Set<string>();
-        draft.delete(id);
-        return { userId: prev?.userId ?? "self", ids: draft };
+        const next = removeEventFromPersonalCorpora(id, {
+          ids: prev?.ids ?? EMPTY_FAVORITES,
+          favoriteEvents: EMPTY_EVENTS,
+          notebookEvents: EMPTY_EVENTS,
+        });
+        return { userId: prev?.userId ?? "self", ids: next.ids };
       });
-      setFavoriteEvents((current) => current.filter((event) => event.id !== id));
-      setNotebookEvents((current) => current.filter((event) => event.id !== id));
+      setFavoriteEvents((current) =>
+        removeEventFromPersonalCorpora(id, {
+          ids: EMPTY_FAVORITES,
+          favoriteEvents: current,
+          notebookEvents: EMPTY_EVENTS,
+        }).favoriteEvents,
+      );
+      setNotebookEvents((current) =>
+        removeEventFromPersonalCorpora(id, {
+          ids: EMPTY_FAVORITES,
+          favoriteEvents: EMPTY_EVENTS,
+          notebookEvents: current,
+        }).notebookEvents,
+      );
     },
     [bumpFavoriteIdsAuthority],
   );

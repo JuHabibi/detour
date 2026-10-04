@@ -23,6 +23,7 @@ import type {
 import {
   createFavoriteIdsAuthority,
   createRequestGate,
+  removeEventFromPersonalCorpora,
   runCarnetEventsLoad,
   runCarnetsListLoad,
   runFavoriteEventsLoad,
@@ -467,25 +468,22 @@ describe("runCarnetEventsLoad — concurrence", () => {
 });
 
 describe("cohérence locale des favoris (helpers utilisés par le hook)", () => {
-  it("retrait confirmé : IDs + corpus favoris + corpus carnet", () => {
+  it("removeEventFromPersonalCorpora : IDs + corpus favoris + corpus carnet", () => {
     const authority = createFavoriteIdsAuthority();
-    let ids = new Set(["keep", "gone"]);
-    let favoriteEvents = [event("keep"), event("gone")];
-    let notebookEvents = [event("gone"), event("other")];
+    const authBefore = authority.capture();
 
+    // Même ordre que removeEventLocally : bump puis transformation des corpora.
     authority.bump();
-    ids = new Set(ids);
-    ids.delete("gone");
-    favoriteEvents = favoriteEvents.filter((e) => e.id !== "gone");
-    notebookEvents = notebookEvents.filter((e) => e.id !== "gone");
+    const next = removeEventFromPersonalCorpora("gone", {
+      ids: new Set(["keep", "gone"]),
+      favoriteEvents: [event("keep"), event("gone")],
+      notebookEvents: [event("gone"), event("other")],
+    });
 
-    expect([...ids]).toEqual(["keep"]);
-    expect(favoriteEvents.map((e) => e.id)).toEqual(["keep"]);
-    expect(notebookEvents.map((e) => e.id)).toEqual(["other"]);
-
-    const staleAuth = authority.capture();
-    authority.bump();
-    expect(staleAuth.isAuthoritative()).toBe(false);
+    expect(authBefore.isAuthoritative()).toBe(false);
+    expect([...next.ids]).toEqual(["keep"]);
+    expect(next.favoriteEvents.map((e) => e.id)).toEqual(["keep"]);
+    expect(next.notebookEvents.map((e) => e.id)).toEqual(["other"]);
   });
 
   it("gates indépendantes : carnets n’invalide pas les favoris", async () => {
