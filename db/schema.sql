@@ -105,6 +105,18 @@ CREATE TABLE public.favorites (
 
 
 --
+-- Name: rateLimit; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."rateLimit" (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    key text NOT NULL,
+    count integer NOT NULL,
+    "lastRequest" bigint NOT NULL
+);
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -220,6 +232,14 @@ ALTER TABLE ONLY public.favorites
 
 
 --
+-- Name: rateLimit rateLimit_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."rateLimit"
+    ADD CONSTRAINT "rateLimit_pkey" PRIMARY KEY (id);
+
+
+--
 -- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -313,6 +333,20 @@ CREATE INDEX events_adapter_last_seen_idx ON public.events USING btree (adapter_
 --
 
 CREATE INDEX favorites_user_id_created_at_idx ON public.favorites USING btree (user_id, created_at DESC);
+
+
+--
+-- Name: rateLimit_key_uidx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX "rateLimit_key_uidx" ON public."rateLimit" USING btree (key);
+
+
+--
+-- Name: rateLimit_lastRequest_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "rateLimit_lastRequest_idx" ON public."rateLimit" USING btree ("lastRequest");
 
 
 --

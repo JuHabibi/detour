@@ -222,6 +222,26 @@ Migrations : `db/migrations/` (dbmate). Client : `pg` standard (`infrastructure/
 
 Auth sync : Bearer timing-safe (`CRON_SECRET` / `EVENT_SYNC_SECRET`).
 
+### Better Auth — rate limiting (S2)
+
+Stockage natif Better Auth **1.7.4** : `rateLimit.storage: "database"` (table `"rateLimit"`). Compteurs partagés entre instances ; un redémarrage n’efface pas le budget. Pas de Redis / `customStorage` / limiteur maison. Activation inchangée : **activé en production** (défaut BA), désactivé hors prod sauf override tests.
+
+**Seuils natifs conservés** (pas de politique custom dans ce lot) :
+
+| Routes (chemins Better Auth) | Fenêtre | Max |
+|------------------------------|---------|-----|
+| Défaut (autres endpoints `/api/auth/*`) | 10 s | 100 |
+| `/sign-in*`, `/sign-up*`, `/change-password*`, `/change-email*` | 10 s | 3 |
+| `/request-password-reset`, `/forget-password*`, `/send-verification-email`, OTP reset associés | 60 s | 3 |
+
+UI compte → client BA : `signIn.email`, `signUp.email`, `requestPasswordReset` (handler `/api/auth/[...all]`).
+
+**IP (Vercel)** : `advanced.ipAddress.ipAddressHeaders = ["x-vercel-forwarded-for", "x-real-ip"]` (en-têtes fournis/normalisés par Vercel ; BA n’accepte une chaîne multi-valeurs que via `trustedProxies`, non configuré). Local / test sans ces en-têtes → fallback BA `127.0.0.1`. **À vérifier sur Vercel** : présence réelle de ces en-têtes sur `/api/auth/*` et clé de budget par IP client.
+
+**Nettoyage** : BA prune les lignes dont `lastRequest` est hors de la plus longue fenêtre configurée ; index `"rateLimit_lastRequest_idx"` pour ce DELETE.
+
+**Déploiement** : **1)** appliquer la migration `20261004180000_create_better_auth_rate_limit` **avant** de déployer le code qui active `storage: "database"` ; **2)** déployer l’app. Retour arrière : redéployer une version `storage: "memory"` (ou sans `rateLimit` database) puis, si besoin, `dbmate down` / DROP `"rateLimit"` — les compteurs mémoire redeviennent per-instance. Ne pas activer le code database sans table.
+
 ## 9. Ajouter une nouvelle source
 
 Exemple Ingré :
