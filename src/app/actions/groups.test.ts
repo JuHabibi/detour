@@ -12,6 +12,7 @@ vi.mock("@/application/groups", () => ({
   addEventToGroupForUser: vi.fn(),
   addEventsToGroupForUser: vi.fn(),
   removeEventFromGroupForUser: vi.fn(),
+  removeEventsFromGroupForUser: vi.fn(),
   normalizeEventIds: (ids: unknown) => {
     if (!Array.isArray(ids)) return [];
     const seen = new Set<string>();
@@ -43,6 +44,7 @@ import {
   createGroupWithFavorites,
   deleteGroup,
   removeEventFromGroup,
+  removeEventsFromGroup,
   renameGroup,
 } from "@/app/actions/groups";
 import * as carnetMemberships from "@/infrastructure/db/carnet-memberships.repository";
@@ -415,5 +417,52 @@ describe("groups actions", () => {
     expect(
       carnetMemberships.createGroupWithEventCarnetMembershipsForUser,
     ).not.toHaveBeenCalled();
+  });
+
+  it("removeEventsFromGroup : session + un seul lot", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: { id: USER_A, email: "a@exemple.fr", name: "A" },
+    });
+    vi.mocked(groupsApp.removeEventsFromGroupForUser).mockResolvedValue({
+      status: "ok",
+      removedCount: 2,
+    });
+
+    await expect(
+      removeEventsFromGroup(GROUP_A, ["e1", "e2", "e1"]),
+    ).resolves.toEqual({ ok: true, removedCount: 2 });
+
+    expect(groupsApp.removeEventsFromGroupForUser).toHaveBeenCalledTimes(1);
+    expect(groupsApp.removeEventsFromGroupForUser).toHaveBeenCalledWith(
+      USER_A,
+      GROUP_A,
+      ["e1", "e2"],
+    );
+  });
+
+  it("removeEventsFromGroup sélection vide → invalid", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "authenticated",
+      user: { id: USER_A, email: "a@exemple.fr", name: "A" },
+    });
+
+    await expect(removeEventsFromGroup(GROUP_A, [])).resolves.toEqual({
+      ok: false,
+      reason: "invalid",
+    });
+    expect(groupsApp.removeEventsFromGroupForUser).not.toHaveBeenCalled();
+  });
+
+  it("removeEventsFromGroup unauthenticated → aucun appel", async () => {
+    vi.mocked(getAccountAuthState).mockResolvedValue({
+      status: "unauthenticated",
+    });
+
+    await expect(removeEventsFromGroup(GROUP_A, ["e1"])).resolves.toEqual({
+      ok: false,
+      reason: "unauthenticated",
+    });
+    expect(groupsApp.removeEventsFromGroupForUser).not.toHaveBeenCalled();
   });
 });

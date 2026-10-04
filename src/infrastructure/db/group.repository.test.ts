@@ -16,6 +16,7 @@ import {
   normalizeEventIds,
   normalizeGroupName,
   removeEventFromGroupForUser,
+  removeEventsFromGroupForUser,
   renameGroupForUser,
 } from "@/infrastructure/db/group.repository";
 import { getPool, withClient } from "@/infrastructure/db/postgres";
@@ -358,6 +359,38 @@ describe("group.repository — ownership / IDOR", () => {
     await expect(
       removeEventFromGroupForUser(USER_B, GROUP_A, "openagenda:1"),
     ).resolves.toBe(false);
+  });
+
+  it("removeEventsFromGroupForUser bulk scoppé ownership + ANY", async () => {
+    query.mockResolvedValue({
+      rows: [{ owned: true, removed_count: 2 }],
+    });
+
+    await expect(
+      removeEventsFromGroupForUser(USER_A, GROUP_A, ["e1", "e2", "e1"]),
+    ).resolves.toEqual({ status: "ok", removedCount: 2 });
+
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("DELETE FROM group_events ge");
+    expect(sql).toContain("EXISTS (SELECT 1 FROM owned)");
+    expect(sql).toContain("ANY($3::text[])");
+    expect(params).toEqual([GROUP_A, USER_A, ["e1", "e2"]]);
+  });
+
+  it("removeEventsFromGroupForUser user B → not_found", async () => {
+    query.mockResolvedValue({
+      rows: [{ owned: false, removed_count: 0 }],
+    });
+    await expect(
+      removeEventsFromGroupForUser(USER_B, GROUP_A, ["e1"]),
+    ).resolves.toEqual({ status: "not_found" });
+  });
+
+  it("removeEventsFromGroupForUser liste vide → invalid", async () => {
+    await expect(
+      removeEventsFromGroupForUser(USER_A, GROUP_A, ["  ", ""]),
+    ).resolves.toEqual({ status: "invalid" });
+    expect(query).not.toHaveBeenCalled();
   });
 
   it("addEventsToGroupForUser bulk scoppé ownership + unnest", async () => {

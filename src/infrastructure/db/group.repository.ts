@@ -589,3 +589,53 @@ WHERE ge.group_id = g.id
   );
   return (result.rowCount ?? 0) > 0;
 }
+
+export type RemoveEventsFromGroupResult =
+  | { status: "invalid" }
+  | { status: "not_found" }
+  | { status: "ok"; removedCount: number };
+
+/**
+ * Retrait multiple en une requête — ownership via CTE.
+ * Carnet inaccessible → not_found ; déjà retirés sur un carnet owned → ok.
+ */
+export async function removeEventsFromGroupForUser(
+  userId: string,
+  groupId: string,
+  eventIds: string[],
+  client?: DbQueryable,
+): Promise<RemoveEventsFromGroupResult> {
+  const ids = normalizeEventIds(eventIds);
+  if (ids.length === 0) return { status: "invalid" };
+
+  const result = await db(client).query<{
+    owned: boolean;
+    removed_count: string | number;
+  }>(
+    `
+WITH owned AS (
+  SELECT id
+  FROM groups
+  WHERE id = $1
+    AND user_id = $2
+),
+deleted AS (
+  DELETE FROM group_events ge
+  WHERE ge.group_id = (SELECT id FROM owned)
+    AND ge.event_id = ANY($3::text[])
+  RETURNING ge.event_id
+)
+SELECT
+  EXISTS (SELECT 1 FROM owned) AS owned,
+  (SELECT COUNT(*)::int FROM deleted) AS removed_count
+`.trim(),
+    [groupId, userId, ids],
+  );
+
+  const row = result.rows[0];
+  if (!row?.owned) return { status: "not_found" };
+  return {
+    status: "ok",
+    removedCount: Number(row.removed_count),
+  };
+}

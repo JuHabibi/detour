@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   deleteGroup,
   removeEventFromGroup,
+  removeEventsFromGroup,
   renameGroup,
 } from "@/app/actions/groups";
 import type { EventItem } from "@/data/types";
@@ -200,7 +201,7 @@ export function AccountGroupDetail({
   }
 
   function handleBulkRemove() {
-    if (selectedList.length === 0) return;
+    if (selectedList.length === 0 || pending) return;
     setError(null);
     setNotice(null);
     const ids = selectedList.map((event) => event.id);
@@ -209,15 +210,22 @@ export function AccountGroupDetail({
     exitSelectionMode();
 
     startTransition(async () => {
-      const results = await Promise.all(
-        ids.map((id) => removeEventFromGroup(groupId, id)),
-      );
-      if (results.every((result) => result.ok)) {
-        router.refresh();
-        return;
+      try {
+        const result = await removeEventsFromGroup(groupId, ids);
+        if (result.ok) {
+          router.refresh();
+          return;
+        }
+        setEvents(previous);
+        setError(
+          result.reason === "not_found"
+            ? "Impossible de retirer ces événements."
+            : "Impossible de retirer certains événements. Réessayez.",
+        );
+      } catch {
+        setEvents(previous);
+        setError("Impossible de retirer certains événements. Réessayez.");
       }
-      setEvents(previous);
-      setError("Impossible de retirer certains événements. Réessayez.");
     });
   }
 

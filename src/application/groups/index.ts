@@ -23,6 +23,7 @@ export {
   normalizeEventIds,
   normalizeGroupName,
   removeEventFromGroupForUser,
+  removeEventsFromGroupForUser,
   renameGroupForUser,
   type AddEventToGroupResult,
   type AddEventsToGroupResult,
@@ -32,4 +33,5 @@ export {
   type GroupRow,
   type GroupSummary,
   type GroupWithEvents,
+  type RemoveEventsFromGroupResult,
 } from "@/infrastructure/db/group.repository";

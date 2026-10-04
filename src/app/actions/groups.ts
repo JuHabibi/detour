@@ -12,6 +12,7 @@ import {
   listGroupSummariesForUser,
   normalizeEventIds,
   removeEventFromGroupForUser,
+  removeEventsFromGroupForUser,
   renameGroupForUser,
   type EventGroupMembership,
   type GroupRow,
@@ -275,6 +276,39 @@ export async function removeEventFromGroup(
     return { ok: true };
   } catch (error) {
     console.error("[detour:groups] removeEventFromGroup failed", error);
+    return { ok: false, reason: "error" };
+  }
+}
+
+export type RemoveEventsFromGroupActionResult =
+  | { ok: true; removedCount: number }
+  | {
+      ok: false;
+      reason: "unauthenticated" | "invalid" | "not_found" | "error";
+    };
+
+/**
+ * Retrait multiple d’événements d’un carnet — une opération SQL, session userId.
+ * Ne touche pas aux favoris.
+ */
+export async function removeEventsFromGroup(
+  groupId: string,
+  eventIds: string[],
+): Promise<RemoveEventsFromGroupActionResult> {
+  const gId = normalizeGroupId(groupId);
+  const ids = normalizeEventIds(eventIds);
+  if (!gId || ids.length === 0) return { ok: false, reason: "invalid" };
+
+  const userId = await requireUserId();
+  if (!userId) return { ok: false, reason: "unauthenticated" };
+
+  try {
+    const result = await removeEventsFromGroupForUser(userId, gId, ids);
+    if (result.status === "invalid") return { ok: false, reason: "invalid" };
+    if (result.status === "not_found") return { ok: false, reason: "not_found" };
+    return { ok: true, removedCount: result.removedCount };
+  } catch (error) {
+    console.error("[detour:groups] removeEventsFromGroup failed", error);
     return { ok: false, reason: "error" };
   }
 }

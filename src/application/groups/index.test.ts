@@ -13,6 +13,7 @@ describe("application/groups", () => {
     expect(typeof groups.addEventsToGroupForUser).toBe("function");
     expect(typeof groups.createGroupWithEventsForUser).toBe("function");
     expect(typeof groups.removeEventFromGroupForUser).toBe("function");
+    expect(typeof groups.removeEventsFromGroupForUser).toBe("function");
     expect(typeof groups.normalizeEventIds).toBe("function");
   });
 });
