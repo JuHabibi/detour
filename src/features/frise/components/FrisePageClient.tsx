@@ -3,15 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  addFavorite,
-  listMyFavoriteEventIds,
-  listMyFavoriteEvents,
-} from "@/app/actions/favorites";
-import {
-  getMyCarnetEvents,
-  listMyCarnetsState,
-} from "@/app/actions/groups";
+import { addFavorite } from "@/app/actions/favorites";
 import type { GroupSummary } from "@/application/groups";
 import { categories } from "@/config/event-categories";
 import type { CategoryId, EventItem } from "@/data/types";
@@ -29,6 +21,7 @@ import {
   type FriseView,
 } from "@/features/frise/frise-url-state";
 import { useFriseEvents } from "@/features/frise/hooks/useFriseEvents";
+import { useFrisePersonalData } from "@/features/frise/hooks/useFrisePersonalData";
 import { useFrisePersonalEvents } from "@/features/frise/hooks/useFrisePersonalEvents";
 import { cn } from "@/lib/cn";
 import type { DetourCategory } from "@/domain/events/classify-event-category";
@@ -37,7 +30,6 @@ const RIDE_CATEGORIES = categories.filter(
   (c): c is { id: DetourCategory; label: string } => c.id !== "tout",
 );
 
-const EMPTY_FAVORITES: ReadonlySet<string> = new Set();
 const EMPTY_EVENTS: EventItem[] = [];
 
 type FrisePageClientProps = {
@@ -45,11 +37,6 @@ type FrisePageClientProps = {
   initialCategory: CategoryId | null;
   initialNotebookId: string | null;
   user?: { name: string; email: string } | null;
-};
-
-type FavoriteState = {
-  userId: string;
-  ids: Set<string>;
 };
 
 function categoryLabelFor(category: CategoryId | null): string {
@@ -84,34 +71,80 @@ export function FrisePageClient({
     returnFocusTo: HTMLElement | null;
   } | null>(null);
 
-  const [favoriteState, setFavoriteState] = useState<FavoriteState | null>(
-    null,
-  );
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  const replaceUrl = useCallback(
+    (next: {
+      view: FriseView;
+      category: CategoryId | null;
+      notebookId: string | null;
+    }) => {
+      const href = buildFriseHref({
+        view: next.view,
+        category: next.category,
+        notebookId: next.notebookId,
+        preview: readPreviewFlag(),
+      });
+      router.replace(href, { scroll: false });
+    },
+    [router],
+  );
+
+  const onGroupsLoaded = useCallback(
+    (nextGroups: GroupSummary[]) => {
+      setNotebookId((current) => {
+        if (current && !nextGroups.some((group) => group.id === current)) {
+          replaceUrl({ view: "notebook", category, notebookId: null });
+          return null;
+        }
+        if (!current && nextGroups.length === 1) {
+          const only = nextGroups[0]!;
+          replaceUrl({ view: "notebook", category, notebookId: only.id });
+          return only.id;
+        }
+        return current;
+      });
+    },
+    [category, replaceUrl],
+  );
+
+  const onNotebookMissing = useCallback(() => {
+    setNotebookId(null);
+    replaceUrl({ view: "notebook", category, notebookId: null });
+  }, [category, replaceUrl]);
+
+  const {
+    favoriteIds,
+    favoriteEvents,
+    favoriteEventsLoading,
+    favoriteEventsError,
+    groups,
+    groupsLoading,
+    notebookEvents,
+    notebookLoading,
+    notebookError,
+    notebookName,
+    patchFavoriteIds,
+    setFavoriteIds,
+    removeEventLocally,
+  } = useFrisePersonalData({
+    view,
+    notebookId,
+    onGroupsLoaded,
+    onNotebookMissing,
+  });
+
   const {
     requestRemove,
     confirmation: removeConfirmation,
     error: removeError,
     clearError: clearRemoveError,
   } = useRemoveFavorite({
-    onRemoved: handleRemoved,
+    onRemoved: removeEventLocally,
     fallbackFocusSelector:
       'nav[aria-label="Mode de mon parcours culturel"] button[aria-current="page"]',
   });
-
-  const [favoriteEvents, setFavoriteEvents] = useState<EventItem[]>([]);
-  const [favoriteEventsLoading, setFavoriteEventsLoading] = useState(false);
-  const [favoriteEventsError, setFavoriteEventsError] = useState<string | null>(
-    null,
-  );
-
-  const [groups, setGroups] = useState<GroupSummary[]>([]);
-  const [groupsLoading, setGroupsLoading] = useState(false);
-  const [notebookEvents, setNotebookEvents] = useState<EventItem[]>([]);
-  const [notebookLoading, setNotebookLoading] = useState(false);
-  const [notebookError, setNotebookError] = useState<string | null>(null);
-  const [notebookName, setNotebookName] = useState<string | null>(null);
 
   useEffect(() => {
     if (view === "all") return;
@@ -129,129 +162,15 @@ export function FrisePageClient({
     );
   }, [notebookId, router, view]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void listMyFavoriteEventIds().then((result) => {
-      if (cancelled) return;
-      setFavoriteState({
-        userId: "self",
-        ids: new Set(result.ok ? result.eventIds : []),
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (view !== "favorites") return;
-    let cancelled = false;
-    setFavoriteEventsLoading(true);
-    setFavoriteEventsError(null);
-    void listMyFavoriteEvents().then((result) => {
-      if (cancelled) return;
-      setFavoriteEventsLoading(false);
-      if (!result.ok) {
-        setFavoriteEvents([]);
-        setFavoriteEventsError("Impossible de charger vos favoris.");
-        return;
-      }
-      setFavoriteEvents(result.events);
-      setFavoriteState({
-        userId: "self",
-        ids: new Set(result.events.map((e) => e.id)),
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [view]);
-
-  useEffect(() => {
-    if (view !== "notebook") return;
-    let cancelled = false;
-    setGroupsLoading(true);
-    void listMyCarnetsState().then((result) => {
-      if (cancelled) return;
-      setGroupsLoading(false);
-      if (!result.ok) {
-        setGroups([]);
-        return;
-      }
-      setGroups(result.groups);
-      if (
-        notebookId &&
-        !result.groups.some((group) => group.id === notebookId)
-      ) {
-        setNotebookId(null);
-        replaceUrl({ view: "notebook", category, notebookId: null });
-      } else if (!notebookId && result.groups.length === 1) {
-        const only = result.groups[0]!;
-        setNotebookId(only.id);
-        replaceUrl({ view: "notebook", category, notebookId: only.id });
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync on view entry
-  }, [view]);
-
-  useEffect(() => {
-    if (view !== "notebook" || !notebookId) {
-      setNotebookEvents([]);
-      setNotebookName(null);
-      setNotebookError(null);
-      return;
-    }
-    let cancelled = false;
-    setNotebookLoading(true);
-    setNotebookError(null);
-    void getMyCarnetEvents(notebookId).then((result) => {
-      if (cancelled) return;
-      setNotebookLoading(false);
-      if (!result.ok) {
-        setNotebookEvents([]);
-        setNotebookName(null);
-        setNotebookError(
-          result.reason === "not_found"
-            ? "Ce carnet est introuvable."
-            : "Impossible de charger ce carnet.",
-        );
-        if (result.reason === "not_found") {
-          setNotebookId(null);
-          replaceUrl({ view: "notebook", category, notebookId: null });
-        }
-        return;
-      }
-      setNotebookEvents(result.events);
-      setNotebookName(result.group.name);
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- notebook fetch
-  }, [view, notebookId]);
-
-  const favorites: ReadonlySet<string> = favoriteState?.ids ?? EMPTY_FAVORITES;
-
-  function patchFavorites(mutator: (draft: Set<string>) => void) {
-    setFavoriteState((prev) => {
-      const draft = prev ? new Set(prev.ids) : new Set<string>();
-      mutator(draft);
-      return { userId: prev?.userId ?? "self", ids: draft };
-    });
-  }
-
   function toggleFavorite(id: string) {
     setFavoriteError(null);
     clearRemoveError();
-    if (favorites.has(id)) {
+    if (favoriteIds.has(id)) {
       requestRemove(id);
       return;
     }
 
-    patchFavorites((draft) => draft.add(id));
+    patchFavoriteIds((draft) => draft.add(id));
 
     startTransition(async () => {
       try {
@@ -260,15 +179,9 @@ export function FrisePageClient({
       } catch (error) {
         console.error("[detour:frise] toggleFavorite failed", error);
       }
-      patchFavorites((draft) => draft.delete(id));
+      patchFavoriteIds((draft) => draft.delete(id));
       setFavoriteError("Impossible d’enregistrer ce détour. Réessayez.");
     });
-  }
-
-  function handleRemoved(id: string) {
-    patchFavorites((draft) => draft.delete(id));
-    setFavoriteEvents((current) => current.filter((event) => event.id !== id));
-    setNotebookEvents((current) => current.filter((event) => event.id !== id));
   }
 
   const explorerFrise = useFriseEvents({
@@ -326,23 +239,9 @@ export function FrisePageClient({
     [],
   );
 
-  function replaceUrl(next: {
-    view: FriseView;
-    category: CategoryId | null;
-    notebookId: string | null;
-  }) {
-    const href = buildFriseHref({
-      view: next.view,
-      category: next.category,
-      notebookId: next.notebookId,
-      preview: readPreviewFlag(),
-    });
-    router.replace(href, { scroll: false });
-  }
-
   function selectView(next: FriseView) {
     setView(next);
-    let nextCategory: CategoryId | null =
+    const nextCategory: CategoryId | null =
       next === "all" ? discoverCategory : "tout";
     let nextNotebookId = notebookId;
 
@@ -402,18 +301,18 @@ export function FrisePageClient({
       __friseSetFavoriteIds?: (ids: string[]) => void;
     };
     w.__friseSetFavoriteIds = (ids: string[]) => {
-      setFavoriteState({ userId: "self", ids: new Set(ids) });
+      setFavoriteIds(ids);
       setFavoriteError(null);
     };
     return () => {
       delete w.__friseSetFavoriteIds;
     };
-  }, []);
+  }, [setFavoriteIds]);
 
   return (
     <div className="min-h-screen bg-paper">
       <Header
-        favoriteCount={favorites.size}
+        favoriteCount={favoriteIds.size}
         homeHref="/"
         user={user}
         showFriseNav={Boolean(user)}
@@ -611,7 +510,7 @@ export function FrisePageClient({
               model={activeFrise.model}
               categoryLabel={trackLabel}
               totalCount={activeFrise.totalCount}
-              favorites={favorites as Set<string>}
+              favorites={favoriteIds as Set<string>}
               onToggleFavorite={toggleFavorite}
               onOpenDetail={onOpenDetail}
               loadError={activeFrise.error}
