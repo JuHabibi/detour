@@ -99,8 +99,12 @@ describe("POST /api/internal/event-sync", () => {
     expect(runDetourEventSyncMock).toHaveBeenCalledTimes(1);
     expect(runDetourAvailabilityEnrichmentMock).toHaveBeenCalledTimes(1);
     expect(revalidatePathMock).not.toHaveBeenCalled();
-    expect(revalidateTagMock).toHaveBeenCalledTimes(1);
+    expect(revalidateTagMock).toHaveBeenCalledTimes(2);
     expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", "max");
+    expect(revalidateTagMock).toHaveBeenCalledWith(
+      "public-explorer:orleans",
+      "max",
+    );
     expect(updateTagMock).not.toHaveBeenCalled();
   });
 
@@ -114,6 +118,10 @@ describe("POST /api/internal/event-sync", () => {
     expect(body.availabilityError).toBe("mapado down");
     expect(revalidatePathMock).not.toHaveBeenCalled();
     expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", "max");
+    expect(revalidateTagMock).toHaveBeenCalledWith(
+      "public-explorer:orleans",
+      "max",
+    );
     expect(updateTagMock).not.toHaveBeenCalled();
   });
 

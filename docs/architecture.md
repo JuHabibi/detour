@@ -91,23 +91,39 @@ Si un sync a déjà des événements actifs (`previousActiveCount > 0`) et qu’
 
 Fichiers : `src/application/event-sync/*`, `src/infrastructure/create-detour-sync-sources.ts`, `src/infrastructure/db/*`, `src/app/api/cron|internal/event-sync/`.
 
-### B. Lecture Home
+### B. Lecture Home et Explorer
 
-Trois caches complémentaires — aucun user / session / favori dans les couches publiques.
+Caches publics complémentaires — aucun user / session / favori dans ces couches.
 
 ```
 GET /
   → ISR / Full Route Cache (revalidate 6h)     # HTML public CDN
   → loadHomePage()                             # pas de headers()/session
        → getCachedPublicHomeData()             # Data Cache tag public-home:orleans (6h)
-            → unstable_cache(getPublicHomeSnapshot)   # SQL + pipeline + explorer
+            → unstable_cache(getPublicHomeSnapshot)   # SQL + pipeline Radar (clé slim-v2)
             → materializePublicHomeData(snapshot)     # IA hors nest (cache IA 7j)
-  → <HomePage /> public
+  → <HomePage /> : hero, Radar, CTA #explorer → /explorer, debug
   → client : useSession
-       → usePersonalData                       # favoris IDs + carnets (hors cache public)
-            → listMyFavoriteEventIds
-            → listMyCarnetsState               # dès connexion (loadCarnets)
+       → usePersonalData + useEventPersonalActions(returnPath: "/")
+            → listMyFavoriteEventIds / listMyCarnetsState
 ```
+
+```
+GET /explorer
+  → ISR / Full Route Cache (revalidate 6h)
+  → loadExplorerPage()                         # pas de session / favoris / Radar / IA
+       → getCachedPublicExplorerInitialPage()  # tag public-explorer:orleans (6h)
+            → getPublicExplorerInitialPage()   # listExplorerEvents(weekend, 12)
+            # module indépendant de next-public-home-cache / get-public-home-data
+  → <ExplorerPage /> : filtres, cartes, pagination (h1 « Explorer les sorties »)
+  → client : useSession
+       → usePersonalData + useEventPersonalActions(returnPath: "/explorer")
+  → append filtres : server action loadExplorerEvents (totalCount: null ; client garde le total initial)
+```
+
+Slug territoire commun aux tags / clés : `src/config/public-territory.ts`
+(`PUBLIC_TERRITORY_SLUG`) — config pure, sans I/O ni wiring Radar / IA.
+Les deux caches l’importent directement ; Explorer ne charge pas le module Home.
 
 Données personnelles partagées (client) :
 
@@ -115,7 +131,7 @@ Données personnelles partagées (client) :
 - Les données exposées (favoris, carnets, appartenances, compteurs) appartiennent au compte courant **dès le rendu** : un changement A→B n’affiche pas un frame des favoris de A.
 - `replaceMemberships(eventIds, memberships)` ne touche que les événements listés : une ligne absente hors scope n’est pas une suppression ; un retrait dans le scope résiste au snapshot initial tardif.
 - Échec du chargement carnets (`ok: false` / rejet) : conserve l’état local valide de la session (pas d’effacement).
-- **Home** consomme le hook directement (`loadCarnets: true` dès la connexion) et passe l’`eventId` de la modale à `replaceMemberships`. Affichage, modales et interactions restent dans `HomePage`.
+- **Home** et **Explorer** consomment chacun une instance de `usePersonalData` (`loadCarnets: true`) + `useEventPersonalActions` (favoris, détail, carnets, auth différée). Pas de provider global ni de copie de l’orchestration complète de `HomePage`.
 - **Frise** : `useFrisePersonalData` délègue IDs + état carnets à `usePersonalData` (`loadCarnets` seulement en vue Carnets) et garde l’orchestration propre — contenu favoris, contenu du carnet sélectionné, loading/erreurs associés, callbacks de sélection. Navigation / URL / affichage restent dans `FrisePageClient`.
 - Une réponse initiale **tardive** est **fusionnée** avec les modifications locales ciblées (ex. ajout favori `C` pendant le load de `[A,B]` → `[A,B,C]` ; création de carnet G2 pendant le load de G1 → G1∪G2). Le contenu favoris récemment chargé (ou `__friseSetFavoriteIds`) prime sur une ancienne réponse d’IDs.
 - Pas d’import croisé d’internals entre features ; pas de provider / cache global pour ce partage.
@@ -129,15 +145,18 @@ Post-sync (cron / internal) :
 
 ```
 invalidatePublicHomeCache()
-  → revalidateTag("public-home:orleans", "max")   # SWR : stale immédiat + regen background
-# pas de revalidatePath("/") — expire soft tags → premier GET bloquant
+  → revalidateTag("public-home:orleans", "max")
+invalidatePublicExplorerCache()
+  → revalidateTag("public-explorer:orleans", "max")
+# pas de revalidatePath — expire soft tags → premier GET bloquant
 ```
 
 Le cache IA per-event **n’est pas** invalidé au sync : clés content-addressed
 (input IA + model + promptVersion). Event inchangé → hit ; event modifié → nouvelle clé.
 
-`page.tsx` reste un point d’entrée minimal. L’orchestration métier vit dans
-`get-public-home-data` (snapshot + materialize).
+`app/page.tsx` et `app/explorer/page.tsx` restent des points d’entrée minimaux.
+L’orchestration métier vit dans `get-public-home-data` (snapshot + materialize)
+et `get-public-explorer-initial-page` (1ʳᵉ page Explorer seule).
 
 En mode **`database`** :
 
@@ -293,7 +312,9 @@ Les nouvelles sources **alimentent la DB**. La home ne doit pas appeler leur API
 | Schéma / SQL | `infrastructure/db/` + `db/migrations/` |
 | Source spécifique | `infrastructure/sources/<source>/` |
 | Chargement home | `app/_server/load-home-page.ts` |
+| Chargement explorer | `app/_server/load-explorer-page.ts` |
 | UI home | `features/home/` |
+| UI explorer | `features/explorer/` |
 | Shell layout | `components/layout/` |
 
 ## 11. Dette / écarts code actuel ↔ conventions
@@ -318,16 +339,24 @@ Ce sont des **écarts au modèle cible** (§13). Ils **ne constituent pas** des 
 | Fichier | Rôle |
 |---------|------|
 | `src/app/page.tsx` | Point d’entrée home minimal + `revalidate` ISR 6h |
-| `src/app/_server/load-home-page.ts` | Page loader public (cache Home) — pas d’auth |
-| `src/application/home/get-public-home-data.ts` | Snapshot slim + materialize IA |
+| `src/app/explorer/page.tsx` | Point d’entrée Explorer + `revalidate` ISR 6h |
+| `src/app/_server/load-home-page.ts` | Page loader public Home (cache) — pas d’auth ni Explorer |
+| `src/app/_server/load-explorer-page.ts` | Page loader public Explorer (cache) — pas Radar / IA |
+| `src/application/home/get-public-home-data.ts` | Snapshot slim Radar + materialize IA |
+| `src/application/explorer/get-public-explorer-initial-page.ts` | Première page Explorer (weekend, 12) |
+| `src/config/public-territory.ts` | Slug territoire V1 partagé (caches publics, sans effets de bord) |
 | `src/infrastructure/next-public-home-cache.ts` | Data Cache Home + invalidation tag |
-| `src/features/home/components/HomePage.tsx` | Composition UI home (Radar, Explorer, session, modales) |
-| `src/components/personal/usePersonalData.ts` | Favoris IDs + état carnets partagés Home/frise : loads, fusion, ops locales |
+| `src/infrastructure/next-public-explorer-cache.ts` | Data Cache Explorer + invalidation tag (indépendant du module Home) |
+| `src/features/home/components/HomePage.tsx` | Composition UI home (hero, Radar, CTA Explorer, session, modales) |
+| `src/features/home/components/HomeExplorerCta.tsx` | CTA Home → `/explorer` (`id="explorer"` pour anciens `/#explorer`) |
+| `src/features/explorer/components/ExplorerPage.tsx` | Composition UI Explorer (filtres, grille, session, modales) |
+| `src/components/personal/usePersonalData.ts` | Favoris IDs + état carnets partagés Home/Explorer/frise : loads, fusion, ops locales |
+| `src/components/personal/useEventPersonalActions.ts` | Interactions favoris / détail / carnets / auth différée (Home ↔ Explorer) |
 | `src/features/frise/hooks/useFrisePersonalData.ts` | Orchestration frise : contenus favoris/carnet, loading ; délègue IDs/carnets |
 | `src/lib/stacked-dialog.ts` | Pile Escape + scroll lock partagés ; restauration de focus |
 | `src/lib/use-stacked-dialog-lifecycle.ts` | Hook cycle de vie modales/panneaux (F2 it.1 : scroll, Échap, focus) |
-| `src/components/event/` | UI événement partagée (modal, formatWhen, pastilles catégorie) |
-| `src/features/home/hooks/useExplorerEvents.ts` | Orchestration async Explorer (client) |
+| `src/components/event/` | UI événement partagée (modal, formatWhen, pastilles, cards helpers) |
+| `src/features/explorer/hooks/useExplorerEvents.ts` | Orchestration async Explorer (client) |
 | `src/app/actions/load-explorer-events.ts` | Server action Explorer (filtres + pagination) |
 | `src/application/event.service.ts` | Orchestrateur métier / IA |
 | `src/application/event-sync/run-detour-event-sync.ts` | Entrée sync Detour |
@@ -483,7 +512,7 @@ src/
 
 | Emplacement | Contenu |
 |-------------|---------|
-| `features/<feature>/components` | Composants spécifiques à une feature (ex. `ExplorerSection`, `EventCard` tant qu’ils ne servent que la home) |
+| `features/<feature>/components` | Composants spécifiques à une feature (ex. `ExplorerSection`, `RadarEventCard`) |
 | `features/<feature>/hooks` | Hooks spécifiques (ex. `useExplorerEvents`) — **pas** mélangés dans `components/` |
 | `features/<feature>/debug` | Debug UI de la feature (ex. `EventsDebugPanel`) |
 | `features/<feature>/tests` | Tests UI / intégration de la feature |

@@ -30,7 +30,7 @@ export function AccountEmptyFavorites() {
           favoris apparaîtront ici.
         </p>
         <Link
-          href="/#explorer"
+          href="/explorer"
           className="mt-6 inline-flex min-h-11 items-center bg-mint px-5 text-sm font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam md:mt-7"
         >
           Explorer les sorties

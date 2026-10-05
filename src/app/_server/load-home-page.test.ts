@@ -15,7 +15,6 @@ describe("loadHomePage", () => {
     getCachedPublicHomeData.mockResolvedValue({
       highlights: [{ id: "h1" }],
       planningEvents: [],
-      explorer: { events: [{ id: "e1" }], totalCount: 1, nextCursor: null },
     });
   });
 
@@ -28,10 +27,10 @@ describe("loadHomePage", () => {
     expect(result).toEqual({
       highlights: [{ id: "h1" }],
       planningEvents: [],
-      explorer: { events: [{ id: "e1" }], totalCount: 1, nextCursor: null },
       debugEvents: undefined,
       debugMeta: undefined,
     });
+    expect(result).not.toHaveProperty("explorer");
     expect(result).not.toHaveProperty("isAuthenticated");
     expect(result).not.toHaveProperty("favoriteEventIds");
     expect(result).not.toHaveProperty("accountLabel");

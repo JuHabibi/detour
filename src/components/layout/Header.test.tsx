@@ -35,13 +35,27 @@ describe("Header", () => {
     expect(html).toContain("Ouvrir le menu");
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain("Sur le radar");
+    expect(html).toContain('href="/"');
     expect(html).toContain("Explorer");
+    expect(html).toContain('href="/explorer"');
     expect(html).not.toContain("Mon parcours culturel");
     expect(html).toContain("Se connecter");
     expect(html).not.toContain("Mon compte");
     expect(html).toContain('href="/account"');
     expect(html).toContain("Voir mes favoris");
     expect(html).not.toContain("Menu compte");
+  });
+
+  it("logo depuis Explorer pointe vers la Home", () => {
+    const html = renderToStaticMarkup(
+      createElement(Header, {
+        favoriteCount: 0,
+        homeHref: "/",
+        showFriseNav: false,
+      }),
+    );
+    expect(html).toContain('href="/"');
+    expect(html).not.toContain('href="#top"');
   });
 
   it("connecté : parcours culturel, avatar, cœur vers #favoris", () => {

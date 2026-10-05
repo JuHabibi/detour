@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
 import { EventDetailModal } from "@/components/event/EventDetailModal";
 import { Header } from "@/components/layout/Header";
@@ -8,46 +7,17 @@ import { PendingFavoriteAfterAuthGate } from "@/components/favorites/PendingFavo
 import { FavoriteAuthModal } from "@/components/favorites/FavoriteAuthModal";
 import { usePersonalData } from "@/components/personal/usePersonalData";
 import { useEventPersonalActions } from "@/components/personal/useEventPersonalActions";
-import { HeroFilters } from "@/features/home/components/HeroFilters";
-import { HomeExplorerCta } from "@/features/home/components/HomeExplorerCta";
-import { DetourSection } from "@/features/home/components/radar/DetourSection";
-import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
+import {
+  ExplorerSection,
+  type ExplorerInitialPage,
+} from "@/features/explorer/components/ExplorerSection";
 import { authClient } from "@/lib/auth-client";
-import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
-import type { EventItem } from "@/data/types";
-import { useState } from "react";
 
-const HomeDebugSection = dynamic(
-  () =>
-    import("@/features/home/debug/HomeDebugSection").then(
-      (mod) => mod.HomeDebugSection,
-    ),
-  { ssr: false },
-);
-
-type HomePageProps = {
-  /** Highlights radar — indépendants des filtres d’exploration. */
-  highlights: EventItem[];
-  /**
-   * Sélection planning métier — conservée (debug / futurs usages).
-   * Section publique masquée temporairement.
-   */
-  planningEvents: EventItem[];
-  /**
-   * Corpus complet pour le panneau debug uniquement.
-   * Absent en production (`shouldExposeHomeDebug` false).
-   */
-  debugEvents?: EventItem[];
-  /** Absent en production — panneau debug non monté. */
-  debugMeta?: EventsDebugMeta;
+type ExplorerPageProps = {
+  explorer: ExplorerInitialPage;
 };
 
-export function HomePage({
-  highlights,
-  planningEvents: _planningEvents,
-  debugEvents,
-  debugMeta,
-}: HomePageProps) {
+export function ExplorerPage({ explorer }: ExplorerPageProps) {
   const { data: session, isPending: isSessionPending } = authClient.useSession();
   const userId = session?.user?.id ?? null;
   const headerUser =
@@ -67,34 +37,17 @@ export function HomePage({
   const actions = useEventPersonalActions({
     userId,
     isSessionPending,
-    returnPath: "/",
+    returnPath: "/explorer",
     favorites: personal.favorites,
     addFavoriteLocally: personal.addFavoriteLocally,
     rollbackFavoriteAdd: personal.rollbackFavoriteAdd,
     removeFavoriteLocally: personal.removeFavoriteLocally,
   });
 
-  const [overrideHighlights, setOverrideHighlights] = useState<EventItem[] | null>(
-    null,
-  );
-  const [overridePlanning, setOverridePlanning] = useState<EventItem[] | null>(
-    null,
-  );
-  const [liveDebugMeta, setLiveDebugMeta] = useState(debugMeta);
-  const [prevDebugMeta, setPrevDebugMeta] = useState(debugMeta);
-
-  if (debugMeta !== prevDebugMeta) {
-    setPrevDebugMeta(debugMeta);
-    setLiveDebugMeta(debugMeta);
-    setOverrideHighlights(null);
-    setOverridePlanning(null);
-  }
-
-  const displayedHighlights = overrideHighlights ?? highlights;
-
   return (
     <div id="top" className="min-h-screen bg-paper">
       <Header
+        homeHref="/"
         favoriteCount={personal.favorites.size}
         user={headerUser}
         showFriseNav={actions.isAuthenticated}
@@ -122,9 +75,8 @@ export function HomePage({
             </div>
           </div>
         ) : null}
-        <HeroFilters />
-        <DetourSection
-          events={displayedHighlights}
+        <ExplorerSection
+          initial={explorer}
           favorites={personal.favorites as Set<string>}
           onToggleFavorite={actions.toggleFavorite}
           carnetCounts={personal.carnetCounts as Map<string, number>}
@@ -133,22 +85,6 @@ export function HomePage({
           }
           onOpenDetail={actions.openEventDetail}
         />
-        <HomeExplorerCta />
-        {liveDebugMeta && debugEvents ? (
-          <HomeDebugSection
-            events={debugEvents}
-            meta={liveDebugMeta}
-            onManualAiResult={({
-              highlights: nextHighlights,
-              planningEvents: nextPlanning,
-              debugMeta: nextMeta,
-            }) => {
-              setOverrideHighlights(nextHighlights);
-              setOverridePlanning(nextPlanning);
-              setLiveDebugMeta(nextMeta);
-            }}
-          />
-        ) : null}
       </main>
       {actions.detail ? (
         <EventDetailModal
@@ -156,11 +92,6 @@ export function HomePage({
           surface={actions.detail.surface}
           onClose={actions.closeEventDetail}
           returnFocusTo={actions.detail.trigger}
-          radarPickReason={
-            actions.detail.surface === "radar"
-              ? resolveRadarPickReason(actions.detail.event)
-              : null
-          }
         />
       ) : null}
       {actions.organizeEvent && personal.hasCarnetsState && userId ? (
@@ -194,8 +125,8 @@ export function HomePage({
             Détour<span className="text-coral">.</span>
           </p>
           <p className="max-w-md text-sm leading-6 text-sand">
-            Radar culturel local, pour repérer ce qui mérite votre attention,
-            pas pour tout lister.
+            Explorer les sorties autour d’Orléans — filtres, recherche et
+            pagination.
           </p>
         </div>
       </footer>

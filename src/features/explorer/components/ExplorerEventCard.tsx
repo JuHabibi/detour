@@ -7,7 +7,7 @@ import {
   CardFavoriteActions,
   EventOpenControl,
   type HomeEventCardProps,
-} from "@/features/home/components/cards/HomeEventCardInteractions";
+} from "@/components/event/EventCardInteractions";
 import {
   AvailabilityBadgePill,
   CategoryBadge,
@@ -18,7 +18,7 @@ import {
   resolveEventImageAlt,
   resolveNoImageCardTone,
   resolveSignal,
-} from "@/features/home/components/cards/HomeEventCardPresentation";
+} from "@/components/event/EventCardPresentation";
 import { cn } from "@/lib/cn";
 
 export function ExplorerEventCard(props: HomeEventCardProps) {

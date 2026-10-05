@@ -296,7 +296,7 @@ export function FrisePageClient({
     replaceUrl({ view: "notebook", category: "tout", notebookId: nextId });
   }
 
-  const backHref = useMemo(() => "/#explorer", []);
+  const backHref = useMemo(() => "/explorer", []);
   const showTrack =
     view === "all"
       ? category != null
@@ -417,7 +417,7 @@ export function FrisePageClient({
               title="Votre parcours attend ses premières découvertes."
               description="Explorez le Radar ou les événements à venir et gardez ceux qui vous intéressent."
               ctaLabel="Explorer les événements"
-              ctaHref="/#explorer"
+              ctaHref="/explorer"
             />
           ) : null}
 
