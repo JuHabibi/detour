@@ -16,6 +16,7 @@ import type {
 } from "@/application/groups";
 import { countCarnetsByEventId } from "@/components/carnets/count-carnets-by-event-id";
 import {
+  applyScopedMembershipsLocally,
   carnetMembershipKey,
   createFavoriteIdsAuthority,
   createPersonalSessionGate,
@@ -63,6 +64,7 @@ function emptyOverlay(
     upsertedGroups: Map<string, GroupSummary>;
     upsertedMemberships: Map<string, EventGroupMembership>;
     removedMembershipKeys: Set<string>;
+    replacedMembershipEventIds: Set<string>;
     excludedEventIds: Set<string>;
   }>,
 ): CarnetsOverlay {
@@ -70,6 +72,8 @@ function emptyOverlay(
     upsertedGroups: partial?.upsertedGroups ?? new Map(),
     upsertedMemberships: partial?.upsertedMemberships ?? new Map(),
     removedMembershipKeys: partial?.removedMembershipKeys ?? new Set(),
+    replacedMembershipEventIds:
+      partial?.replacedMembershipEventIds ?? new Set(),
     excludedEventIds: partial?.excludedEventIds ?? new Set(),
   };
 }
@@ -396,9 +400,8 @@ describe("runCarnetsLoad", () => {
     ).toEqual({ A: 1, B: 1, C: 1 });
   });
 
-  it("erreur de chargement : ne vide pas via onMerged ; onFailure + fin loading", async () => {
+  it("erreur de chargement : ne vide pas via onMerged ; fin loading", async () => {
     const onMerged = vi.fn();
-    const onFailure = vi.fn();
     const loading: boolean[] = [];
     await runCarnetsLoad(
       async () => ({ ok: false, reason: "unauthenticated" }),
@@ -407,12 +410,10 @@ describe("runCarnetsLoad", () => {
         getOverlay: () => emptyOverlay(),
         onServerSnapshot: vi.fn(),
         onMerged,
-        onFailure,
         onLoading: (v) => loading.push(v),
       },
     );
     expect(onMerged).not.toHaveBeenCalled();
-    expect(onFailure).toHaveBeenCalledOnce();
     expect(loading).toEqual([true, false]);
   });
 
@@ -423,6 +424,40 @@ describe("runCarnetsLoad", () => {
       isSessionPending: false,
     });
     expect(shouldStart).toBe(false);
+  });
+});
+
+describe("applyScopedMembershipsLocally", () => {
+  it("retire A→G1 dans le scope A sans toucher B→G1 ; résiste au serveur tardif", () => {
+    const overlay = {
+      upsertedGroups: new Map<string, GroupSummary>(),
+      upsertedMemberships: new Map<string, EventGroupMembership>(),
+      removedMembershipKeys: new Set<string>(),
+      replacedMembershipEventIds: new Set<string>(),
+      excludedEventIds: new Set<string>(),
+    };
+
+    applyScopedMembershipsLocally(
+      overlay,
+      { groups: [], memberships: [] },
+      ["A"],
+      [membership("B", "g1", "G1")],
+    );
+
+    const late = mergeCarnetsSnapshot(
+      {
+        groups: [group("g1", "G1")],
+        memberships: [
+          membership("A", "g1", "G1"),
+          membership("B", "g1", "G1"),
+        ],
+      },
+      overlay,
+    );
+
+    expect(
+      late.memberships.map((m) => `${m.eventId}→${m.groupId}`).sort(),
+    ).toEqual(["B→g1"]);
   });
 });
 

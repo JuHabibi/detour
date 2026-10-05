@@ -111,8 +111,11 @@ GET /
 
 Données personnelles partagées (client) :
 
-- `usePersonalData` (`src/components/personal/`) porte les IDs favoris et l’état des carnets : chargements, fusion des réponses tardives, ops locales (ajout / rollback / retrait favori, upsert groupes & appartenances), compteurs, gate de session (démontage / A→B→A), autorité des IDs face au contenu favoris / debug.
-- **Home** consomme le hook directement (`loadCarnets: true` dès la connexion). Affichage, modales et interactions restent dans `HomePage`.
+- `usePersonalData` (`src/components/personal/`) porte les IDs favoris et l’état des carnets : chargements, fusion des réponses tardives, ops locales (ajout / rollback / retrait favori, upsert groupes & **appartenances scopées par événement**), compteurs, génération de session liée aux callbacks (démontage / A→B→A / logout), autorité des IDs face au contenu favoris / debug.
+- Les données exposées (favoris, carnets, appartenances, compteurs) appartiennent au compte courant **dès le rendu** : un changement A→B n’affiche pas un frame des favoris de A.
+- `replaceMemberships(eventIds, memberships)` ne touche que les événements listés : une ligne absente hors scope n’est pas une suppression ; un retrait dans le scope résiste au snapshot initial tardif.
+- Échec du chargement carnets (`ok: false` / rejet) : conserve l’état local valide de la session (pas d’effacement).
+- **Home** consomme le hook directement (`loadCarnets: true` dès la connexion) et passe l’`eventId` de la modale à `replaceMemberships`. Affichage, modales et interactions restent dans `HomePage`.
 - **Frise** : `useFrisePersonalData` délègue IDs + état carnets à `usePersonalData` (`loadCarnets` seulement en vue Carnets) et garde l’orchestration propre — contenu favoris, contenu du carnet sélectionné, loading/erreurs associés, callbacks de sélection. Navigation / URL / affichage restent dans `FrisePageClient`.
 - Une réponse initiale **tardive** est **fusionnée** avec les modifications locales ciblées (ex. ajout favori `C` pendant le load de `[A,B]` → `[A,B,C]` ; création de carnet G2 pendant le load de G1 → G1∪G2). Le contenu favoris récemment chargé (ou `__friseSetFavoriteIds`) prime sur une ancienne réponse d’IDs.
 - Pas d’import croisé d’internals entre features ; pas de provider / cache global pour ce partage.

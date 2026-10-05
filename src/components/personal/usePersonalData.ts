@@ -32,6 +32,12 @@ export type CarnetsOverlay = {
   upsertedMemberships: ReadonlyMap<string, EventGroupMembership>;
   /** Appartenances retirées explicitement (hors exclusion totale d’événement). */
   removedMembershipKeys: ReadonlySet<string>;
+  /**
+   * Événements dont les appartenances ont été réalignées localement (modale).
+   * Les lignes serveur pour ces IDs sont ignorées au profit de l’overlay
+   * (y compris une liste vide = tout retiré pour l’événement).
+   */
+  replacedMembershipEventIds: ReadonlySet<string>;
   /** Événements dont toutes les appartenances ont été retirées (retrait favori). */
   excludedEventIds: ReadonlySet<string>;
 };
@@ -45,6 +51,7 @@ type MutableCarnetsOverlay = {
   upsertedGroups: Map<string, GroupSummary>;
   upsertedMemberships: Map<string, EventGroupMembership>;
   removedMembershipKeys: Set<string>;
+  replacedMembershipEventIds: Set<string>;
   excludedEventIds: Set<string>;
 };
 
@@ -62,6 +69,7 @@ function emptyCarnetsOverlay(): MutableCarnetsOverlay {
     upsertedGroups: new Map(),
     upsertedMemberships: new Map(),
     removedMembershipKeys: new Set(),
+    replacedMembershipEventIds: new Set(),
     excludedEventIds: new Set(),
   };
 }
@@ -75,7 +83,7 @@ export function createPersonalSessionGate() {
   return {
     begin() {
       const id = ++generation;
-      return { isCurrent: () => id === generation };
+      return { id, isCurrent: () => id === generation };
     },
     invalidate() {
       generation += 1;
@@ -137,6 +145,7 @@ export function mergeCarnetsSnapshot(
   const membershipsByKey = new Map<string, EventGroupMembership>();
   for (const row of server.memberships) {
     if (overlay.excludedEventIds.has(row.eventId)) continue;
+    if (overlay.replacedMembershipEventIds.has(row.eventId)) continue;
     const key = carnetMembershipKey(row.eventId, row.groupId);
     if (overlay.removedMembershipKeys.has(key)) continue;
     membershipsByKey.set(key, row);
@@ -151,6 +160,51 @@ export function mergeCarnetsSnapshot(
     groups: [...groupsById.values()],
     memberships: [...membershipsByKey.values()],
   };
+}
+
+/**
+ * Aligne l’overlay sur les appartenances des `eventIds` ciblés uniquement.
+ * Une ligne absente du payload pour un autre événement n’est pas retirée.
+ * Les retraits du scope résistent à une fusion ultérieure du snapshot serveur.
+ */
+export function applyScopedMembershipsLocally(
+  overlay: MutableCarnetsOverlay,
+  server: CarnetsSnapshot,
+  eventIds: readonly string[],
+  nextMemberships: readonly EventGroupMembership[],
+): void {
+  const eventSet = new Set(eventIds);
+  const desired = nextMemberships.filter((row) => eventSet.has(row.eventId));
+  const desiredKeys = new Set(
+    desired.map((row) => carnetMembershipKey(row.eventId, row.groupId)),
+  );
+
+  for (const eventId of eventIds) {
+    overlay.replacedMembershipEventIds.add(eventId);
+  }
+
+  const current = mergeCarnetsSnapshot(server, {
+    upsertedGroups: overlay.upsertedGroups,
+    upsertedMemberships: overlay.upsertedMemberships,
+    removedMembershipKeys: overlay.removedMembershipKeys,
+    replacedMembershipEventIds: overlay.replacedMembershipEventIds,
+    excludedEventIds: overlay.excludedEventIds,
+  });
+
+  for (const row of current.memberships) {
+    if (!eventSet.has(row.eventId)) continue;
+    const key = carnetMembershipKey(row.eventId, row.groupId);
+    if (desiredKeys.has(key)) continue;
+    overlay.removedMembershipKeys.add(key);
+    overlay.upsertedMemberships.delete(key);
+  }
+
+  for (const row of desired) {
+    const key = carnetMembershipKey(row.eventId, row.groupId);
+    overlay.upsertedMemberships.set(key, row);
+    overlay.removedMembershipKeys.delete(key);
+    overlay.excludedEventIds.delete(row.eventId);
+  }
 }
 
 export async function runFavoriteIdsLoad(
@@ -184,7 +238,6 @@ export async function runCarnetsLoad(
     onServerSnapshot: (server: CarnetsSnapshot) => void;
     onMerged: (snapshot: CarnetsSnapshot) => void;
     onLoading?: (loading: boolean) => void;
-    onFailure?: () => void;
   },
 ): Promise<void> {
   const {
@@ -193,7 +246,6 @@ export async function runCarnetsLoad(
     onServerSnapshot,
     onMerged,
     onLoading,
-    onFailure,
   } = handlers;
   if (!isCurrent()) return;
 
@@ -203,7 +255,6 @@ export async function runCarnetsLoad(
     const result = await load();
     if (!isCurrent()) return;
     if (!result.ok) {
-      onFailure?.();
       return;
     }
     const server: CarnetsSnapshot = {
@@ -214,7 +265,6 @@ export async function runCarnetsLoad(
     onMerged(mergeCarnetsSnapshot(server, getOverlay()));
   } catch {
     if (!isCurrent()) return;
-    onFailure?.();
   } finally {
     if (isCurrent()) onLoading?.(false);
   }
@@ -249,8 +299,12 @@ export function usePersonalData({
   const [favoriteIds, setFavoriteIds] = useState<Set<string> | null>(null);
   const [carnets, setCarnets] = useState<CarnetsSnapshot | null>(null);
   const [carnetsLoading, setCarnetsLoading] = useState(false);
+  /** Compte propriétaire des données exposées — aligné dès le rendu, pas seulement après effet. */
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
+  /** Génération liée aux callbacks locaux (A→B→A, logout, démontage). */
+  const [sessionEpoch, setSessionEpoch] = useState(0);
 
-  const sessionGateRef = useRef(createPersonalSessionGate());
+  const sessionEpochRef = useRef(0);
   const carnetsGateRef = useRef(createPersonalSessionGate());
   const favoriteIdsAuthorityRef = useRef(createFavoriteIdsAuthority());
   const favoriteOverlayRef = useRef<FavoriteOverlay>({
@@ -262,24 +316,49 @@ export function usePersonalData({
     groups: [],
     memberships: [],
   });
-  const activeUserIdRef = useRef<string | null>(null);
   const onCarnetsLoadedRef = useRef(onCarnetsLoaded);
+  const listFavoriteIdsRef = useRef(listFavoriteIds);
+  const listCarnetsRef = useRef(listCarnets);
 
   useEffect(() => {
     onCarnetsLoadedRef.current = onCarnetsLoaded;
   }, [onCarnetsLoaded]);
 
-  const resetLocalOverlays = useCallback(() => {
+  useEffect(() => {
+    listFavoriteIdsRef.current = listFavoriteIds;
+  }, [listFavoriteIds]);
+
+  useEffect(() => {
+    listCarnetsRef.current = listCarnets;
+  }, [listCarnets]);
+
+  // Isolation synchrone du compte : le 1er rendu de B n’expose plus les données de A.
+  if (!isSessionPending && userId !== ownerUserId) {
+    const nextEpoch = sessionEpoch + 1;
+    setSessionEpoch(nextEpoch);
+    setOwnerUserId(userId);
+    setFavoriteIds(null);
+    setCarnets(null);
+    setCarnetsLoading(false);
+  }
+
+  // Epoch / overlays : synchronisés après le rendu qui a changé de compte.
+  useEffect(() => {
+    sessionEpochRef.current = sessionEpoch;
     favoriteOverlayRef.current = { added: new Set(), removed: new Set() };
     carnetsOverlayRef.current = emptyCarnetsOverlay();
     lastServerCarnetsRef.current = { groups: [], memberships: [] };
-  }, []);
+    favoriteIdsAuthorityRef.current.bump();
+    carnetsGateRef.current.invalidate();
+  }, [sessionEpoch]);
 
   const readCarnetsOverlay = useCallback(
     (): CarnetsOverlay => ({
       upsertedGroups: carnetsOverlayRef.current.upsertedGroups,
       upsertedMemberships: carnetsOverlayRef.current.upsertedMemberships,
       removedMembershipKeys: carnetsOverlayRef.current.removedMembershipKeys,
+      replacedMembershipEventIds:
+        carnetsOverlayRef.current.replacedMembershipEventIds,
       excludedEventIds: carnetsOverlayRef.current.excludedEventIds,
     }),
     [],
@@ -291,103 +370,94 @@ export function usePersonalData({
     );
   }, [readCarnetsOverlay]);
 
-  // Session + IDs favoris (toujours dès connexion).
+  const isOpsSessionCurrent = useCallback((boundEpoch: number) => {
+    return (
+      sessionEpochRef.current === boundEpoch &&
+      Boolean(userId) &&
+      userId === ownerUserId
+    );
+  }, [userId, ownerUserId]);
+
+  // Démontage : invalide les callbacks et requêtes de cette instance.
   useEffect(() => {
-    const gate = sessionGateRef.current;
+    const carnetsGate = carnetsGateRef.current;
+    const favoriteAuthority = favoriteIdsAuthorityRef.current;
+    return () => {
+      sessionEpochRef.current += 1;
+      carnetsGate.invalidate();
+      favoriteAuthority.bump();
+    };
+  }, []);
 
-    if (isSessionPending) return;
+  // IDs favoris dès connexion (session courante uniquement).
+  useEffect(() => {
+    if (isSessionPending || !userId || userId !== ownerUserId) return;
 
-    if (!userId) {
-      gate.invalidate();
-      carnetsGateRef.current.invalidate();
-      favoriteIdsAuthorityRef.current.bump();
-      activeUserIdRef.current = null;
-      resetLocalOverlays();
-      queueMicrotask(() => {
-        setFavoriteIds(null);
-        setCarnets(null);
-        setCarnetsLoading(false);
-      });
-      return;
-    }
-
-    activeUserIdRef.current = userId;
-    resetLocalOverlays();
-    favoriteIdsAuthorityRef.current.bump();
-
-    const session = gate.begin();
-    const loadUserId = userId;
+    const epoch = sessionEpoch;
     const authority = favoriteIdsAuthorityRef.current.capture();
+    let cancelled = false;
 
     queueMicrotask(() => {
-      if (!session.isCurrent()) return;
-      setFavoriteIds(null);
-      setCarnets(null);
-      setCarnetsLoading(false);
+      if (cancelled || sessionEpochRef.current !== epoch) return;
 
-      void runFavoriteIdsLoad(listFavoriteIds, {
-        isCurrent: () => session.isCurrent() && authority.isAuthoritative(),
+      void runFavoriteIdsLoad(() => listFavoriteIdsRef.current(), {
+        isCurrent: () =>
+          sessionEpochRef.current === epoch && authority.isAuthoritative(),
         getDelta: () => ({
           added: favoriteOverlayRef.current.added,
           removed: favoriteOverlayRef.current.removed,
         }),
         onMerged: (ids) => {
-          if (!session.isCurrent()) return;
+          if (sessionEpochRef.current !== epoch) return;
           if (!authority.isAuthoritative()) return;
-          if (activeUserIdRef.current !== loadUserId) return;
           setFavoriteIds(ids);
         },
       });
     });
 
     return () => {
-      gate.invalidate();
+      cancelled = true;
     };
-  }, [isSessionPending, userId, listFavoriteIds, resetLocalOverlays]);
+  }, [isSessionPending, userId, ownerUserId, sessionEpoch]);
 
   // Carnets : activation explicite (Home true ; frise vue notebook).
   useEffect(() => {
     const requestGate = carnetsGateRef.current;
 
     if (
-      !isCarnetsLoadActive({ loadCarnets, userId, isSessionPending })
+      !isCarnetsLoadActive({ loadCarnets, userId, isSessionPending }) ||
+      userId !== ownerUserId
     ) {
       requestGate.invalidate();
       queueMicrotask(() => setCarnetsLoading(false));
       return;
     }
 
-    const loadUserId = userId;
+    const epoch = sessionEpoch;
     const gate = requestGate.begin();
     let cancelled = false;
 
     queueMicrotask(() => {
       if (cancelled || !gate.isCurrent()) return;
-      if (activeUserIdRef.current !== loadUserId) return;
+      if (sessionEpochRef.current !== epoch) return;
 
       // Snapshot vide dès l’activation (Home : modale organisable pendant le load)
-      // sans écraser un état déjà hydraté (ré-entrée frise).
+      // sans écraser un état déjà hydraté (ré-entrée frise / mods locales).
       setCarnets((prev) => prev ?? { groups: [], memberships: [] });
 
-      void runCarnetsLoad(listCarnets, {
+      void runCarnetsLoad(() => listCarnetsRef.current(), {
         isCurrent: () =>
-          gate.isCurrent() && activeUserIdRef.current === loadUserId,
+          gate.isCurrent() && sessionEpochRef.current === epoch,
         getOverlay: readCarnetsOverlay,
         onLoading: setCarnetsLoading,
         onServerSnapshot: (server) => {
-          if (!gate.isCurrent()) return;
+          if (!gate.isCurrent() || sessionEpochRef.current !== epoch) return;
           lastServerCarnetsRef.current = server;
         },
         onMerged: (snapshot) => {
-          if (!gate.isCurrent()) return;
-          if (activeUserIdRef.current !== loadUserId) return;
+          if (!gate.isCurrent() || sessionEpochRef.current !== epoch) return;
           setCarnets(snapshot);
           onCarnetsLoadedRef.current?.(snapshot);
-        },
-        onFailure: () => {
-          if (!gate.isCurrent()) return;
-          if (activeUserIdRef.current !== loadUserId) return;
-          setCarnets({ groups: [], memberships: [] });
         },
       });
     });
@@ -399,26 +469,30 @@ export function usePersonalData({
   }, [
     loadCarnets,
     userId,
+    ownerUserId,
+    sessionEpoch,
     isSessionPending,
-    listCarnets,
     readCarnetsOverlay,
   ]);
 
-  const favorites: ReadonlySet<string> =
-    userId && favoriteIds ? favoriteIds : EMPTY_FAVORITES;
+  const sessionReady =
+    !isSessionPending && Boolean(userId) && userId === ownerUserId;
 
-  const groups = userId && carnets ? carnets.groups : EMPTY_GROUPS;
+  const favorites: ReadonlySet<string> =
+    sessionReady && favoriteIds ? favoriteIds : EMPTY_FAVORITES;
+
+  const groups = sessionReady && carnets ? carnets.groups : EMPTY_GROUPS;
   const memberships =
-    userId && carnets ? carnets.memberships : EMPTY_MEMBERSHIPS;
+    sessionReady && carnets ? carnets.memberships : EMPTY_MEMBERSHIPS;
 
   const carnetCounts = useMemo(() => {
-    if (!userId || !carnets) return EMPTY_CARNET_COUNTS;
+    if (!sessionReady || !carnets) return EMPTY_CARNET_COUNTS;
     return countCarnetsByEventId(carnets.memberships);
-  }, [userId, carnets]);
+  }, [sessionReady, carnets]);
 
   const addFavoriteLocally = useCallback(
     (eventId: string) => {
-      if (!userId || activeUserIdRef.current !== userId) return;
+      if (!isOpsSessionCurrent(sessionEpoch)) return;
       const overlay = favoriteOverlayRef.current;
       overlay.removed.delete(eventId);
       overlay.added.add(eventId);
@@ -428,12 +502,12 @@ export function usePersonalData({
         return next;
       });
     },
-    [userId],
+    [isOpsSessionCurrent, sessionEpoch],
   );
 
   const rollbackFavoriteAdd = useCallback(
     (eventId: string) => {
-      if (!userId || activeUserIdRef.current !== userId) return;
+      if (!isOpsSessionCurrent(sessionEpoch)) return;
       const overlay = favoriteOverlayRef.current;
       overlay.added.delete(eventId);
       setFavoriteIds((prev) => {
@@ -443,12 +517,12 @@ export function usePersonalData({
         return next;
       });
     },
-    [userId],
+    [isOpsSessionCurrent, sessionEpoch],
   );
 
   const removeFavoriteLocally = useCallback(
     (eventId: string) => {
-      if (!userId || activeUserIdRef.current !== userId) return;
+      if (!isOpsSessionCurrent(sessionEpoch)) return;
       const favOverlay = favoriteOverlayRef.current;
       favOverlay.added.delete(eventId);
       favOverlay.removed.add(eventId);
@@ -469,7 +543,7 @@ export function usePersonalData({
       });
       publishCarnetsFromOverlay();
     },
-    [userId, publishCarnetsFromOverlay],
+    [isOpsSessionCurrent, sessionEpoch, publishCarnetsFromOverlay],
   );
 
   /**
@@ -478,39 +552,44 @@ export function usePersonalData({
    */
   const setFavoriteIdsAuthoritative = useCallback(
     (ids: readonly string[]) => {
-      if (!userId || activeUserIdRef.current !== userId) return;
+      if (!isOpsSessionCurrent(sessionEpoch)) return;
       favoriteIdsAuthorityRef.current.bump();
       favoriteOverlayRef.current = { added: new Set(), removed: new Set() };
       setFavoriteIds(new Set(ids));
     },
-    [userId],
+    [isOpsSessionCurrent, sessionEpoch],
   );
 
   const replaceGroups = useCallback(
     (nextGroups: GroupSummary[]) => {
-      if (!userId || activeUserIdRef.current !== userId) return;
+      if (!isOpsSessionCurrent(sessionEpoch)) return;
       const overlay = carnetsOverlayRef.current;
       for (const group of nextGroups) {
         overlay.upsertedGroups.set(group.id, group);
       }
       publishCarnetsFromOverlay();
     },
-    [userId, publishCarnetsFromOverlay],
+    [isOpsSessionCurrent, sessionEpoch, publishCarnetsFromOverlay],
   );
 
+  /**
+   * Remplace les appartenances des `eventIds` ciblés.
+   * `nextMemberships` peut être une liste plus large : seules les lignes
+   * de ces événements comptent ; leur absence = retrait local (fusion-safe).
+   */
   const replaceMemberships = useCallback(
-    (nextMemberships: EventGroupMembership[]) => {
-      if (!userId || activeUserIdRef.current !== userId) return;
-      const overlay = carnetsOverlayRef.current;
-      for (const row of nextMemberships) {
-        const key = carnetMembershipKey(row.eventId, row.groupId);
-        overlay.upsertedMemberships.set(key, row);
-        overlay.removedMembershipKeys.delete(key);
-        overlay.excludedEventIds.delete(row.eventId);
-      }
+    (eventIds: readonly string[], nextMemberships: EventGroupMembership[]) => {
+      if (!isOpsSessionCurrent(sessionEpoch)) return;
+      if (eventIds.length === 0) return;
+      applyScopedMembershipsLocally(
+        carnetsOverlayRef.current,
+        lastServerCarnetsRef.current,
+        eventIds,
+        nextMemberships,
+      );
       publishCarnetsFromOverlay();
     },
-    [userId, publishCarnetsFromOverlay],
+    [isOpsSessionCurrent, sessionEpoch, publishCarnetsFromOverlay],
   );
 
   return {
@@ -518,9 +597,10 @@ export function usePersonalData({
     groups,
     memberships,
     carnetCounts,
-    hasCarnetsState: Boolean(userId && carnets),
+    hasCarnetsState: Boolean(sessionReady && carnets),
     carnetsLoading: Boolean(
-      userId && isCarnetsLoadActive({ loadCarnets, userId, isSessionPending })
+      sessionReady &&
+        isCarnetsLoadActive({ loadCarnets, userId, isSessionPending })
         ? carnetsLoading
         : false,
     ),

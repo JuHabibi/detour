@@ -310,7 +310,9 @@ export function HomePage({
           onClose={closeOrganizeModal}
           returnFocusTo={organizeTrigger}
           onGroupsChange={replaceGroups}
-          onMembershipsChange={replaceMemberships}
+          onMembershipsChange={(next) =>
+            replaceMemberships([organizeEvent.id], next)
+          }
           onFavoriteAdded={addFavoriteLocally}
           onFavoriteRemoved={removeFavoriteLocally}
         />
