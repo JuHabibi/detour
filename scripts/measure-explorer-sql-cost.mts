@@ -3,7 +3,8 @@
  *
  * Ne choisit PAS automatiquement DATABASE_URL.
  * Usage :
- *   npx tsx scripts/measure-explorer-sql-cost.mts \
+ *   node --conditions=react-server --import tsx \
+ *     scripts/measure-explorer-sql-cost.mts \
  *     --database-url "$EXPLORER_SQL_BENCH_DATABASE_URL"
  *
  * Options :
@@ -13,18 +14,23 @@
  *   --now <iso>            horloge figée (défaut : maintenant)
  *   --out <path>           écrit la note markdown (défaut stdout + scripts/…)
  *
- * Réutilise les builders SQL produit (`explorer-events.sql.ts`) et la même
- * résolution de filtres que `listExplorerEvents` (when / from-to / search).
+ * Réutilise les builders SQL produit (`explorer-events.sql.ts`) et appelle
+ * réellement `listExplorerEvents` pour le parcours applicatif (1ʳᵉ page / append).
  * Aucune écriture ; connexions fermées dans tous les cas.
+ *
+ * `--conditions=react-server` autorise l’import `server-only` hors Next ;
+ * le client injectable évite `getPool()` / DATABASE_URL.
  */
 import { writeFileSync } from "node:fs";
-import { performance } from "node:perf_hooks";
 import { resolve } from "node:path";
+import { performance } from "node:perf_hooks";
 import pg from "pg";
-import { encodeExplorerCursor } from "../src/application/explorer/explorer-cursor";
+import { encodeExplorerCursor, decodeExplorerCursor } from "../src/application/explorer/explorer-cursor";
 import { normalizeExplorerSearch } from "../src/application/explorer/normalize-explorer-search";
 import {
   EXPLORER_DEFAULT_PAGE_SIZE,
+  type ListExplorerEventsQuery,
+  type ListExplorerEventsResult,
 } from "../src/application/explorer/types";
 import {
   getDateRangeForParisDateKeys,
@@ -38,7 +44,17 @@ import {
   type ExplorerKeysetAfter,
   type ExplorerResolvedFilters,
 } from "../src/infrastructure/db/explorer-events.sql";
+import { listExplorerEvents } from "../src/application/explorer/list-explorer-events";
 
+/** Aligné sur `DbQueryable` sans réexporter `postgres.ts`. */
+type BenchDbQueryable = {
+  query: <T extends pg.QueryResultRow = pg.QueryResultRow>(
+    text: string,
+    values?: unknown[],
+  ) => Promise<pg.QueryResult<T>>;
+};
+
+type ListExplorerEventsFn = typeof listExplorerEvents;
 const DEFAULT_REPEATS = 5;
 const DEFAULT_TIMEOUT_MS = 30_000;
 /** Rapport APRES le levier produit (ne pas écraser le rapport AVANT commité). */
@@ -72,7 +88,8 @@ type OpKind = "count" | "page" | "combined";
 function usageAndExit(message?: string): never {
   if (message) console.error(message);
   console.error(`Usage:
-  npx tsx scripts/measure-explorer-sql-cost.mts --database-url <postgres-url> [--repeats 5] [--timeout-ms 30000] [--now <iso>] [--out path]`);
+  node --conditions=react-server --import tsx \\
+    scripts/measure-explorer-sql-cost.mts --database-url <postgres-url> [--repeats 5] [--timeout-ms 30000] [--now <iso>] [--out path]`);
   process.exit(1);
 }
 
@@ -378,6 +395,318 @@ async function measureOp(
   return { ...summarize(firstMs, samples), rowHint };
 }
 
+/** SET / BEGIN / ROLLBACK / SHOW — hors compteur métier. */
+function isTechnicalSql(text: string): boolean {
+  const head = text.trimStart().slice(0, 32).toUpperCase();
+  return (
+    head.startsWith("BEGIN") ||
+    head.startsWith("COMMIT") ||
+    head.startsWith("ROLLBACK") ||
+    head.startsWith("SET ") ||
+    head.startsWith("SET\n") ||
+    head.startsWith("SHOW ") ||
+    head.startsWith("SHOW\n") ||
+    head.startsWith("EXPLAIN")
+  );
+}
+
+type ObservedListRun = {
+  ms: number;
+  businessQueryCount: number;
+  result: ListExplorerEventsResult;
+};
+
+/**
+ * Deux clients déjà en transaction READ ONLY : dispatch parallèle
+ * (count+page) sans sérialiser sur une seule connexion.
+ */
+function createParallelQueryable(
+  clients: [pg.PoolClient, pg.PoolClient],
+  onBusinessQuery: () => void,
+): BenchDbQueryable {
+  const free: pg.PoolClient[] = [...clients];
+  const waiters: Array<(client: pg.PoolClient) => void> = [];
+
+  async function checkout(): Promise<pg.PoolClient> {
+    const ready = free.pop();
+    if (ready) return ready;
+    return new Promise((resolveCheckout) => {
+      waiters.push(resolveCheckout);
+    });
+  }
+
+  function checkin(client: pg.PoolClient): void {
+    const waiter = waiters.shift();
+    if (waiter) waiter(client);
+    else free.push(client);
+  }
+
+  return {
+    async query(text, values) {
+      if (!isTechnicalSql(text)) onBusinessQuery();
+      const client = await checkout();
+      try {
+        return await client.query(text, values);
+      } finally {
+        checkin(client);
+      }
+    },
+  };
+}
+
+async function prepareReadOnlyPair(
+  pool: pg.Pool,
+  timeoutMs: number,
+): Promise<{ clientA: pg.PoolClient; clientB: pg.PoolClient }> {
+  const { clientA, clientB } = await acquirePair(pool);
+  try {
+    await configureReadOnlySession(clientA, timeoutMs);
+    await configureReadOnlySession(clientB, timeoutMs);
+    await beginReadOnlyTx(clientA);
+    await beginReadOnlyTx(clientB);
+    return { clientA, clientB };
+  } catch (error) {
+    await endTx(clientA);
+    await endTx(clientB);
+    clientA.release();
+    clientB.release();
+    throw error;
+  }
+}
+
+async function releaseReadOnlyPair(
+  clientA: pg.PoolClient,
+  clientB: pg.PoolClient,
+): Promise<void> {
+  try {
+    await endTx(clientA);
+    await endTx(clientB);
+  } finally {
+    clientA.release();
+    clientB.release();
+  }
+}
+
+/**
+ * Chronomètre uniquement `listExplorerEvents` : acquisition / SET / BEGIN
+ * hors chrono ; ROLLBACK / release après (y compris en erreur).
+ * Deux connexions prêtes pour le Promise.all count+page.
+ */
+async function runListExplorerEventsObserved(
+  pool: pg.Pool,
+  timeoutMs: number,
+  listFn: ListExplorerEventsFn,
+  query: ListExplorerEventsQuery,
+  now: Date,
+): Promise<ObservedListRun> {
+  const { clientA, clientB } = await prepareReadOnlyPair(pool, timeoutMs);
+  let businessQueryCount = 0;
+  try {
+    const client = createParallelQueryable([clientA, clientB], () => {
+      businessQueryCount += 1;
+    });
+    const start = performance.now();
+    const result = await listFn(query, { client, now });
+    const ms = performance.now() - start;
+    return { ms, businessQueryCount, result };
+  } finally {
+    await releaseReadOnlyPair(clientA, clientB);
+  }
+}
+
+function assertProductContract(
+  label: string,
+  run: ObservedListRun,
+  expected: { businessQueries: number; totalCountKind: "number" | "null" },
+): void {
+  const totalOk =
+    expected.totalCountKind === "number"
+      ? typeof run.result.totalCount === "number"
+      : run.result.totalCount === null;
+  if (run.businessQueryCount !== expected.businessQueries || !totalOk) {
+    throw new Error(
+      `Contrat produit violé (${label}): requêtes métier=${run.businessQueryCount} (attendu ${expected.businessQueries}), totalCount=${String(run.result.totalCount)} (attendu ${expected.totalCountKind})`,
+    );
+  }
+}
+
+/**
+ * Témoin SQL historique : préparation hors chrono, Promise.all(count, page)
+ * chronométré, nettoyage après.
+ */
+async function runHistoricalSqlAppend(
+  pool: pg.Pool,
+  timeoutMs: number,
+  countQ: { text: string; values: unknown[] },
+  pageQ: { text: string; values: unknown[] },
+): Promise<{ ms: number; businessQueryCount: number }> {
+  const { clientA, clientB } = await prepareReadOnlyPair(pool, timeoutMs);
+  let businessQueryCount = 0;
+  try {
+    const start = performance.now();
+    await Promise.all([
+      clientA.query(countQ.text, countQ.values).then(() => {
+        businessQueryCount += 1;
+      }),
+      clientB.query(pageQ.text, pageQ.values).then(() => {
+        businessQueryCount += 1;
+      }),
+    ]);
+    return { ms: performance.now() - start, businessQueryCount };
+  } finally {
+    await releaseReadOnlyPair(clientA, clientB);
+  }
+}
+
+type ProductPathMeasure = {
+  page1: TimingStats & { businessQueries: number; totalCount: number };
+  appendApp: TimingStats & { businessQueries: number };
+  appendHistoricalSql: TimingStats & { businessQueries: number };
+  cursor: string;
+};
+
+/**
+ * Parcours applicatif réel + témoin SQL historique, mêmes conditions,
+ * variantes alternées, 1ʳᵉ exécution distincte des répétitions.
+ */
+async function measureProductPath(
+  pool: pg.Pool,
+  timeoutMs: number,
+  repeats: number,
+  listExplorerEvents: ListExplorerEventsFn,
+  now: Date,
+  limit: number,
+): Promise<ProductPathMeasure | null> {
+  const page1Query: ListExplorerEventsQuery = {
+    when: "upcoming",
+    limit,
+  };
+
+  const page1First = await runListExplorerEventsObserved(
+    pool,
+    timeoutMs,
+    listExplorerEvents,
+    page1Query,
+    now,
+  );
+  assertProductContract("listExplorerEvents 1ʳᵉ page", page1First, {
+    businessQueries: 2,
+    totalCountKind: "number",
+  });
+
+  const cursor = page1First.result.nextCursor;
+  if (!cursor) return null;
+
+  const page1Samples: number[] = [];
+  let page1Queries = page1First.businessQueryCount;
+  for (let i = 0; i < repeats; i += 1) {
+    const run = await runListExplorerEventsObserved(
+      pool,
+      timeoutMs,
+      listExplorerEvents,
+      page1Query,
+      now,
+    );
+    assertProductContract(`listExplorerEvents 1ʳᵉ page (rep ${i + 1})`, run, {
+      businessQueries: 2,
+      totalCountKind: "number",
+    });
+    page1Samples.push(run.ms);
+    page1Queries = run.businessQueryCount;
+  }
+
+  const appendQuery: ListExplorerEventsQuery = {
+    when: "upcoming",
+    limit,
+    cursor,
+  };
+
+  const decoded = decodeExplorerCursor(cursor);
+  const filters = resolveFilters({ when: "upcoming", now });
+  const after: ExplorerKeysetAfter = {
+    startAt: new Date(decoded.startAt),
+    id: decoded.id,
+  };
+  const countQ = buildCountQuery(filters);
+  const pageQ = buildPageQuery(filters, after, limit);
+
+  let appFirstMs = 0;
+  let histFirstMs = 0;
+  const appSamples: number[] = [];
+  const histSamples: number[] = [];
+  let appQueries = 0;
+  let histQueries = 0;
+
+  for (let i = 0; i < repeats + 1; i += 1) {
+    const appFirst = i % 2 === 0;
+
+    let app: ObservedListRun;
+    let hist: { ms: number; businessQueryCount: number };
+
+    if (appFirst) {
+      app = await runListExplorerEventsObserved(
+        pool,
+        timeoutMs,
+        listExplorerEvents,
+        appendQuery,
+        now,
+      );
+      hist = await runHistoricalSqlAppend(pool, timeoutMs, countQ, pageQ);
+    } else {
+      hist = await runHistoricalSqlAppend(pool, timeoutMs, countQ, pageQ);
+      app = await runListExplorerEventsObserved(
+        pool,
+        timeoutMs,
+        listExplorerEvents,
+        appendQuery,
+        now,
+      );
+    }
+
+    assertProductContract(`listExplorerEvents append (iter ${i})`, app, {
+      businessQueries: 1,
+      totalCountKind: "null",
+    });
+    if (hist.businessQueryCount !== 2) {
+      throw new Error(
+        `Scénario SQL historique : attendu 2 requêtes métier, observé ${hist.businessQueryCount}`,
+      );
+    }
+
+    if (i === 0) {
+      appFirstMs = app.ms;
+      histFirstMs = hist.ms;
+    } else {
+      appSamples.push(app.ms);
+      histSamples.push(hist.ms);
+    }
+    appQueries = app.businessQueryCount;
+    histQueries = hist.businessQueryCount;
+  }
+
+  const page1Total = page1First.result.totalCount;
+  if (typeof page1Total !== "number") {
+    throw new Error("Contrat produit : totalCount numérique attendu après assert");
+  }
+
+  return {
+    page1: {
+      ...summarize(page1First.ms, page1Samples),
+      businessQueries: page1Queries,
+      totalCount: page1Total,
+    },
+    appendApp: {
+      ...summarize(appFirstMs, appSamples),
+      businessQueries: appQueries,
+    },
+    appendHistoricalSql: {
+      ...summarize(histFirstMs, histSamples),
+      businessQueries: histQueries,
+    },
+    cursor,
+  };
+}
+
 type PageRow = { start_at: Date; id: string };
 
 async function fetchPageCursor(
@@ -661,7 +990,7 @@ async function main(): Promise<void> {
     log("");
     log("```bash");
     log(
-      `npx tsx scripts/measure-explorer-sql-cost.mts --database-url \"$EXPLORER_SQL_BENCH_DATABASE_URL\" --repeats ${args.repeats} --timeout-ms ${args.timeoutMs}`,
+      `node --conditions=react-server --import tsx scripts/measure-explorer-sql-cost.mts --database-url \"$EXPLORER_SQL_BENCH_DATABASE_URL\" --repeats ${args.repeats} --timeout-ms ${args.timeoutMs}`,
     );
     log("```");
     log("");
@@ -960,128 +1289,79 @@ async function main(): Promise<void> {
       fmtPlan("PAGE", pagePlan);
     }
 
-    // Analyse pour recommandation + parcours produit (AFTER)
-    const upcoming = results.find((r) => r.spec.id === "upcoming");
-    const appendCost = upcoming?.append;
+    // Parcours applicatif réel (listExplorerEvents) + témoin SQL historique
+    const productPath = await measureProductPath(
+      pool,
+      args.timeoutMs,
+      args.repeats,
+      listExplorerEvents,
+      args.now,
+      limit,
+    );
 
-    log("## Parcours produit (AFTER) — append historique vs optimisé");
+    log("## Parcours produit — listExplorerEvents (observé)");
     log("");
     log(
-      "Même cible, `now`, filtres upcoming, curseur et limite. Compte le **nombre de requêtes SQL** du parcours applicatif (pas seulement la page seule).",
+      "Appels réels à `listExplorerEvents` via client injectable. **Durées** = uniquement l’appel applicatif (requêtes métier) : acquisition, SET, BEGIN READ ONLY, ROLLBACK et release sont **hors** chrono. Comptage des requêtes métier sur la même exécution chronométrée ; SET/BEGIN/ROLLBACK exclus du compteur.",
     );
     log("");
 
-    if (upcoming?.append && upcoming.page1) {
-      const page1Data = await fetchPageCursor(
-        pool,
-        args.timeoutMs,
-        upcoming.spec.filters,
-        null,
-        limit,
+    if (!productPath) {
+      log(
+        "- Pas de curseur append disponible après la 1ʳᵉ page upcoming : comparaison append non exécutée.",
       );
-      if (!page1Data.nextAfter) {
-        log("- Pas de curseur append disponible pour la comparaison produit.");
-      } else {
-        const after = page1Data.nextAfter;
-        const countQ = buildCountQuery(upcoming.spec.filters);
-        const pageQ = buildPageQuery(upcoming.spec.filters, after, limit);
-
-        // Historique : Promise.all count+page (2 requêtes)
-        const legacy = await measureOp(
-          pool,
-          args.timeoutMs,
-          "combined",
-          countQ,
-          pageQ,
-          args.repeats,
-        );
-        // Optimisé : page seule (1 requête) — branche curseur de listExplorerEvents
-        const optimized = await measureOp(
-          pool,
-          args.timeoutMs,
-          "page",
-          countQ,
-          pageQ,
-          args.repeats,
-        );
-
-        // Vérifier le nombre de requêtes via un wrapper comptant
-        let legacyQueries = 0;
-        let optimizedQueries = 0;
-        {
-          const { clientA, clientB } = await acquirePair(pool);
-          try {
-            await configureReadOnlySession(clientA, args.timeoutMs);
-            await configureReadOnlySession(clientB, args.timeoutMs);
-            await beginReadOnlyTx(clientA);
-            await beginReadOnlyTx(clientB);
-            try {
-              await Promise.all([
-                clientA.query(countQ.text, countQ.values).then(() => {
-                  legacyQueries += 1;
-                }),
-                clientB.query(pageQ.text, pageQ.values).then(() => {
-                  legacyQueries += 1;
-                }),
-              ]);
-            } finally {
-              await endTx(clientA);
-              await endTx(clientB);
-            }
-          } finally {
-            clientA.release();
-            clientB.release();
-          }
-        }
-        {
-          await withConfiguredClient(pool, args.timeoutMs, async (client) => {
-            await client.query(pageQ.text, pageQ.values);
-            optimizedQueries += 1;
-          });
-        }
-
-        log(
-          `| Variante append | requêtes SQL | 1ʳᵉ | n | médiane | min | max |`,
-        );
-        log(`|---|---:|---:|---:|---:|---:|---:|`);
-        log(
-          `| historique count+page | ${legacyQueries} | ${legacy.firstMs} | ${legacy.samplesMs.length} | ${legacy.medianMs} | ${legacy.minMs} | ${legacy.maxMs} |`,
-        );
-        log(
-          `| optimisé page seule | ${optimizedQueries} | ${optimized.firstMs} | ${optimized.samplesMs.length} | ${optimized.medianMs} | ${optimized.minMs} | ${optimized.maxMs} |`,
-        );
-        log("");
-        log(
-          `- Connexion de **cette** exécution : **${connectionMode}** (ne pas croiser avec un rapport AVANT sur un autre endpoint).`,
-        );
-        log(
-          `- Delta médiane (historique − optimisé) ≈ **${Math.round((legacy.medianMs - optimized.medianMs) * 10) / 10} ms** sur le même endpoint.`,
-        );
-        if (appendCost) {
-          log(
-            `- Pour référence locale append upcoming (section Mesures) : count=${appendCost.count.medianMs}ms, page=${appendCost.page.medianMs}ms, combiné=${appendCost.combined.medianMs}ms.`,
-          );
-        }
-      }
     } else {
-      log("- Scénario upcoming sans append : comparaison produit non exécutée.");
+      const cursorLabel = productPath.cursor.slice(0, 12);
+      log(
+        `| Variante | requêtes métier observées | totalCount | 1ʳᵉ (ms) | n | médiane | min | max |`,
+      );
+      log(`|---|---:|---|---:|---:|---:|---:|---:|`);
+      log(
+        `| listExplorerEvents 1ʳᵉ page | ${productPath.page1.businessQueries} | ${productPath.page1.totalCount} | ${productPath.page1.firstMs} | ${productPath.page1.samplesMs.length} | ${productPath.page1.medianMs} | ${productPath.page1.minMs} | ${productPath.page1.maxMs} |`,
+      );
+      log(
+        `| listExplorerEvents append (curseur \`${cursorLabel}…\`) | ${productPath.appendApp.businessQueries} | null | ${productPath.appendApp.firstMs} | ${productPath.appendApp.samplesMs.length} | ${productPath.appendApp.medianMs} | ${productPath.appendApp.minMs} | ${productPath.appendApp.maxMs} |`,
+      );
+      log(
+        `| scénario SQL historique count+page (témoin, même curseur) | ${productPath.appendHistoricalSql.businessQueries} | — | ${productPath.appendHistoricalSql.firstMs} | ${productPath.appendHistoricalSql.samplesMs.length} | ${productPath.appendHistoricalSql.medianMs} | ${productPath.appendHistoricalSql.minMs} | ${productPath.appendHistoricalSql.maxMs} |`,
+      );
+      log("");
+      log(
+        `- Contrôle banc : 1ʳᵉ page = **2** requêtes + total numérique ; append = **1** requête + \`totalCount: null\` (échec dur si divergence).`,
+      );
+      log(
+        `- Append : variantes **alternées** (app ↔ historique) sous même cible, filtres upcoming, limite, curseur et \`now\`.`,
+      );
+      log(
+        `- Connexion de **cette** exécution : **${connectionMode}** (ne pas croiser avec un rapport AVANT sur un autre endpoint).`,
+      );
+      log(
+        `- Delta médiane append (historique SQL − listExplorerEvents) ≈ **${Math.round((productPath.appendHistoricalSql.medianMs - productPath.appendApp.medianMs) * 10) / 10} ms** — latence observée sur ce banc uniquement, pas un gain UX extrapolé.`,
+      );
     }
+
+    const upcoming = results.find((r) => r.spec.id === "upcoming");
+    const appendCost = upcoming?.append;
 
     log("");
     log("## Lecture des résultats");
     log("");
-    if (upcoming && appendCost) {
+    if (productPath) {
       log(
-        `- Upcoming append : count médiane **${appendCost.count.medianMs} ms**, page **${appendCost.page.medianMs} ms**, combiné **${appendCost.combined.medianMs} ms**.`,
-      );
-      const estimatedSavingsMs = Math.max(
-        0,
-        appendCost.combined.medianMs - appendCost.page.medianMs,
+        `- Parcours app (upcoming) : 1ʳᵉ page médiane **${productPath.page1.medianMs} ms** (${productPath.page1.businessQueries} req), append médiane **${productPath.appendApp.medianMs} ms** (${productPath.appendApp.businessQueries} req) — hors setup/teardown de session.`,
       );
       log(
-        `- Si append = page seule, latence attendue ≈ **${appendCost.page.medianMs} ms** (gain observé vs combiné ≈ **${Math.round(estimatedSavingsMs * 10) / 10} ms**). Le ratio des médianes ne prouve pas à lui seul une saturation CPU.`,
+        `- Témoin SQL historique append : médiane **${productPath.appendHistoricalSql.medianMs} ms** (${productPath.appendHistoricalSql.businessQueries} req) — mêmes frontières de chrono.`,
       );
     }
+    if (upcoming && appendCost) {
+      log(
+        `- Section Mesures SQL (builders, hors listExplorerEvents) — append upcoming : count médiane **${appendCost.count.medianMs} ms**, page **${appendCost.page.medianMs} ms**, combiné **${appendCost.combined.medianMs} ms**.`,
+      );
+    }
+    log(
+      `- Le ratio des médianes ne prouve pas à lui seul une saturation CPU ; pas d’extrapolation UX.`,
+    );
 
     log("");
     log("## Limites");
@@ -1093,24 +1373,24 @@ async function main(): Promise<void> {
       "- Première exécution isolée ; médiane sur répétitions bornées uniquement.",
     );
     log(
-      "- Frise / Explorer : total capturé en 1ʳᵉ page ; append ne recalcule plus le count.",
+      "- Parcours produit : deux connexions READ ONLY pré-ouvertes pour ne pas sérialiser count+page ; le chrono n’inclut pas connect / SET / BEGIN / ROLLBACK / release.",
     );
     log(
       "- Ne pas comparer en % un rapport AVANT (souvent endpoint direct) et une mesure pooler sans le préciser.",
     );
     log("");
-    log("## Contrat produit (AFTER)");
+    log("## Contrat produit (observé)");
     log("");
     log(
-      "- Première page / filtres / reload : **2 requêtes** (count + page), `totalCount: number`.",
+      "- Première page / filtres / reload : **2 requêtes** métier, `totalCount: number`.",
     );
     log(
-      "- Append (curseur valide) : **1 requête** (page), `totalCount: null` ; le client conserve le total.",
+      "- Append (curseur valide) : **1 requête** métier, `totalCount: null` ; le client conserve le total.",
     );
 
     log("");
     log(
-      "_Note : rapport APRES du levier « skip count » sur append. SQL de page inchangé ; le parcours produit n’exécute plus le count avec un curseur valide._",
+      "_Note : rapport APRES — parcours mesuré via `listExplorerEvents` ; le témoin « scénario SQL historique » rejoue count+page sans l’action applicative._",
     );
 
     const outFile = resolve(process.cwd(), args.outPath);

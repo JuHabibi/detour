@@ -3,12 +3,12 @@
 ## Reproduction
 
 ```bash
-npx tsx scripts/measure-explorer-sql-cost.mts --database-url "$EXPLORER_SQL_BENCH_DATABASE_URL" --repeats 5 --timeout-ms 30000
+node --conditions=react-server --import tsx scripts/measure-explorer-sql-cost.mts --database-url "$EXPLORER_SQL_BENCH_DATABASE_URL" --repeats 3 --timeout-ms 30000
 ```
 
 ## Environnement
 
-- now figé : `2026-10-05T13:58:46.812Z`
+- now figé : `2026-10-05T15:19:23.001Z`
 - PostgreSQL : 18.6 (4e955f5)
 - connexion : postgres-pooler (URL non journalisée)
 - statement_timeout : 30000 ms ; transaction read-only
@@ -23,19 +23,19 @@ La colonne **combiné** chronomètre `Promise.all([count, page])` comme l’app 
 
 | Scénario | Étape | totalCount | count | page | combiné (parallèle) |
 |---|---|---:|---|---|---|
-| 1. À venir, sans autre filtre | page 1 | 778 | 1ʳᵉ=161ms · n=5 · médiane=151ms · min=146.7ms · max=154.5ms | 1ʳᵉ=149.7ms · n=5 · médiane=152.8ms · min=148.3ms · max=158ms | 1ʳᵉ=315ms · n=5 · médiane=331.9ms · min=301.7ms · max=787.9ms |
-| 1. À venir, sans autre filtre | append (curseur `eyJzdGFydEF0…`) | 778 | 1ʳᵉ=161.2ms · n=5 · médiane=151.6ms · min=145.9ms · max=152.2ms | 1ʳᵉ=150.4ms · n=5 · médiane=151.7ms · min=147.6ms · max=156.7ms | 1ʳᵉ=294.2ms · n=5 · médiane=315.2ms · min=278.5ms · max=345.2ms |
-| 1. À venir, sans autre filtre | page éloignée (~5) | 778 | 1ʳᵉ=148.2ms · n=5 · médiane=147.1ms · min=142.1ms · max=152.8ms | 1ʳᵉ=164.7ms · n=5 · médiane=166.2ms · min=148.1ms · max=170.3ms | 1ʳᵉ=304.3ms · n=5 · médiane=290.6ms · min=282.5ms · max=304.2ms |
-| 2. Période bornée avec résultats (this-month) | page 1 | 379 | 1ʳᵉ=75.2ms · n=5 · médiane=83.1ms · min=78.8ms · max=164ms | 1ʳᵉ=82.5ms · n=5 · médiane=87.7ms · min=84.7ms · max=204ms | 1ʳᵉ=168.5ms · n=5 · médiane=139.6ms · min=138ms · max=143.2ms |
-| 2. Période bornée avec résultats (this-month) | append (curseur `eyJzdGFydEF0…`) | 379 | 1ʳᵉ=79.5ms · n=5 · médiane=83.5ms · min=78.3ms · max=149.7ms | 1ʳᵉ=81.4ms · n=5 · médiane=91ms · min=81.7ms · max=711.9ms | 1ʳᵉ=213.6ms · n=5 · médiane=106.7ms · min=84.2ms · max=157.3ms |
-| 2. Période bornée avec résultats (this-month) | page éloignée (~5) | 379 | 1ʳᵉ=77.2ms · n=5 · médiane=79.5ms · min=77.3ms · max=83.1ms | 1ʳᵉ=85.1ms · n=5 · médiane=80.7ms · min=80.5ms · max=84.2ms | 1ʳᵉ=99ms · n=5 · médiane=85.5ms · min=81.3ms · max=365.7ms |
-| 3. Ville et/ou catégorie (Orléans / Atelier) | page 1 | 122 | 1ʳᵉ=44.4ms · n=5 · médiane=44.1ms · min=43.2ms · max=65.7ms | 1ʳᵉ=45.7ms · n=5 · médiane=46.8ms · min=44.3ms · max=50.4ms | 1ʳᵉ=60.4ms · n=5 · médiane=50.1ms · min=45.5ms · max=54.7ms |
-| 3. Ville et/ou catégorie (Orléans / Atelier) | append (curseur `eyJzdGFydEF0…`) | 122 | 1ʳᵉ=42.5ms · n=5 · médiane=44ms · min=43.7ms · max=46.5ms | 1ʳᵉ=45.5ms · n=5 · médiane=46.2ms · min=45.8ms · max=50.4ms | 1ʳᵉ=51.8ms · n=5 · médiane=50.2ms · min=48.5ms · max=55.5ms |
-| 3. Ville et/ou catégorie (Orléans / Atelier) | page éloignée (~5) | 122 | 1ʳᵉ=44ms · n=5 · médiane=43.8ms · min=42.6ms · max=45.2ms | 1ʳᵉ=47.2ms · n=5 · médiane=46.9ms · min=46.2ms · max=47.6ms | 1ʳᵉ=51.2ms · n=5 · médiane=60.8ms · min=50.2ms · max=86.2ms |
-| 4. Recherche textuelle fréquente (« atelier ») | page 1 | 123 | 1ʳᵉ=39.9ms · n=5 · médiane=40.4ms · min=39ms · max=41.9ms | 1ʳᵉ=42.6ms · n=5 · médiane=41.9ms · min=40.9ms · max=43.2ms | 1ʳᵉ=47.5ms · n=5 · médiane=44.5ms · min=43.5ms · max=46.6ms |
-| 4. Recherche textuelle fréquente (« atelier ») | append (curseur `eyJzdGFydEF0…`) | 123 | 1ʳᵉ=42.8ms · n=5 · médiane=39.4ms · min=35.2ms · max=40.3ms | 1ʳᵉ=42.1ms · n=5 · médiane=41ms · min=38.7ms · max=42.6ms | 1ʳᵉ=46.7ms · n=5 · médiane=45.5ms · min=42ms · max=48.2ms |
-| 4. Recherche textuelle fréquente (« atelier ») | page éloignée (~5) | 123 | 1ʳᵉ=39.1ms · n=5 · médiane=39.4ms · min=37.1ms · max=39.9ms | 1ʳᵉ=41.1ms · n=5 · médiane=41.6ms · min=40.8ms · max=74ms | 1ʳᵉ=220.5ms · n=5 · médiane=46.3ms · min=45.6ms · max=56ms |
-| 5. Recherche rare / sans résultat (« zzzxqdetourrare ») | page 1 | 0 | 1ʳᵉ=23.8ms · n=5 · médiane=23.6ms · min=22ms · max=25.1ms | 1ʳᵉ=21.2ms · n=5 · médiane=23.5ms · min=21.9ms · max=24.1ms | 1ʳᵉ=26.1ms · n=5 · médiane=25.6ms · min=24.2ms · max=27.9ms |
+| 1. À venir, sans autre filtre | page 1 | 778 | 1ʳᵉ=161.2ms · n=3 · médiane=155.2ms · min=149.3ms · max=161.2ms | 1ʳᵉ=160.5ms · n=3 · médiane=157.9ms · min=151.1ms · max=162ms | 1ʳᵉ=391.6ms · n=3 · médiane=322ms · min=282.8ms · max=496.2ms |
+| 1. À venir, sans autre filtre | append (curseur `eyJzdGFydEF0…`) | 778 | 1ʳᵉ=146.6ms · n=3 · médiane=147.5ms · min=143.2ms · max=227.6ms | 1ʳᵉ=150.5ms · n=3 · médiane=178.3ms · min=170.6ms · max=186.3ms | 1ʳᵉ=278.4ms · n=3 · médiane=298.1ms · min=284ms · max=346.7ms |
+| 1. À venir, sans autre filtre | page éloignée (~5) | 778 | 1ʳᵉ=154.1ms · n=3 · médiane=154.2ms · min=147.5ms · max=154.6ms | 1ʳᵉ=163.8ms · n=3 · médiane=160.4ms · min=158.1ms · max=161.4ms | 1ʳᵉ=374.9ms · n=3 · médiane=352ms · min=327ms · max=631.6ms |
+| 2. Période bornée avec résultats (this-month) | page 1 | 379 | 1ʳᵉ=81.5ms · n=3 · médiane=82.3ms · min=81.1ms · max=83ms | 1ʳᵉ=87.7ms · n=3 · médiane=84.6ms · min=84.1ms · max=85.4ms | 1ʳᵉ=145.4ms · n=3 · médiane=143.9ms · min=143.1ms · max=144.6ms |
+| 2. Période bornée avec résultats (this-month) | append (curseur `eyJzdGFydEF0…`) | 379 | 1ʳᵉ=82.1ms · n=3 · médiane=78.5ms · min=77ms · max=79.6ms | 1ʳᵉ=82.8ms · n=3 · médiane=83.3ms · min=81.7ms · max=85.2ms | 1ʳᵉ=146.7ms · n=3 · médiane=150.8ms · min=140.4ms · max=161.2ms |
+| 2. Période bornée avec résultats (this-month) | page éloignée (~5) | 379 | 1ʳᵉ=80.6ms · n=3 · médiane=82.5ms · min=81.2ms · max=83ms | 1ʳᵉ=84.7ms · n=3 · médiane=85.2ms · min=81.7ms · max=86.4ms | 1ʳᵉ=167.2ms · n=3 · médiane=297.9ms · min=141.8ms · max=491.5ms |
+| 3. Ville et/ou catégorie (Orléans / Atelier) | page 1 | 122 | 1ʳᵉ=65ms · n=3 · médiane=45ms · min=44.8ms · max=48.3ms | 1ʳᵉ=49.6ms · n=3 · médiane=53.7ms · min=51.5ms · max=56.2ms | 1ʳᵉ=73.4ms · n=3 · médiane=69.9ms · min=69.7ms · max=74ms |
+| 3. Ville et/ou catégorie (Orléans / Atelier) | append (curseur `eyJzdGFydEF0…`) | 122 | 1ʳᵉ=46.2ms · n=3 · médiane=43.3ms · min=43.3ms · max=47.3ms | 1ʳᵉ=45.9ms · n=3 · médiane=49ms · min=45.4ms · max=53ms | 1ʳᵉ=73.2ms · n=3 · médiane=72.2ms · min=68.6ms · max=73ms |
+| 3. Ville et/ou catégorie (Orléans / Atelier) | page éloignée (~5) | 122 | 1ʳᵉ=51ms · n=3 · médiane=47.1ms · min=46.4ms · max=49.9ms | 1ʳᵉ=50.5ms · n=3 · médiane=47.1ms · min=46.8ms · max=49.4ms | 1ʳᵉ=73ms · n=3 · médiane=197ms · min=75.6ms · max=280.7ms |
+| 4. Recherche textuelle fréquente (« atelier ») | page 1 | 123 | 1ʳᵉ=40.5ms · n=3 · médiane=40.4ms · min=39ms · max=40.6ms | 1ʳᵉ=47ms · n=3 · médiane=45.1ms · min=44.2ms · max=48.9ms | 1ʳᵉ=66.7ms · n=3 · médiane=115.3ms · min=63.5ms · max=453.7ms |
+| 4. Recherche textuelle fréquente (« atelier ») | append (curseur `eyJzdGFydEF0…`) | 123 | 1ʳᵉ=41.3ms · n=3 · médiane=43.8ms · min=40.3ms · max=47ms | 1ʳᵉ=43.8ms · n=3 · médiane=44.1ms · min=42.4ms · max=44.7ms | 1ʳᵉ=61.2ms · n=3 · médiane=68ms · min=67.1ms · max=69.6ms |
+| 4. Recherche textuelle fréquente (« atelier ») | page éloignée (~5) | 123 | 1ʳᵉ=42.1ms · n=3 · médiane=41.5ms · min=40.3ms · max=42.8ms | 1ʳᵉ=45.5ms · n=3 · médiane=44.3ms · min=40.4ms · max=47.2ms | 1ʳᵉ=71.1ms · n=3 · médiane=66.4ms · min=63.5ms · max=71.5ms |
+| 5. Recherche rare / sans résultat (« zzzxqdetourrare ») | page 1 | 0 | 1ʳᵉ=25ms · n=3 · médiane=23.9ms · min=22.9ms · max=26.9ms | 1ʳᵉ=23.9ms · n=3 · médiane=23.7ms · min=23.1ms · max=24.4ms | 1ʳᵉ=27ms · n=3 · médiane=29ms · min=26.8ms · max=29.4ms |
 | 5. Recherche rare / sans résultat (« zzzxqdetourrare ») | append | — | (pas de page suivante) | — | — |
 
 ## EXPLAIN (ANALYZE, BUFFERS) — cas les plus coûteux
@@ -44,7 +44,7 @@ Plans distincts des chronométrages ordinaires (une exécution ANALYZE chacun).
 
 ### 1. À venir, sans autre filtre — COUNT
 
-- planning=1.149 ms · execution=130.838 ms
+- planning=0.702 ms · execution=123.741 ms
 - WindowAgg×1 · Seq Scan: events · Sort: quicksort
 - buffers shared hit=181 read=0
 - pas de temp blocks observés
@@ -52,7 +52,7 @@ Plans distincts des chronométrages ordinaires (une exécution ANALYZE chacun).
 
 ### 1. À venir, sans autre filtre — PAGE
 
-- planning=1.059 ms · execution=123.957 ms
+- planning=0.79 ms · execution=125.622 ms
 - WindowAgg×1 · Seq Scan: events, event_availability · Sort: top-N heapsort, quicksort
 - buffers shared hit=182 read=0
 - pas de temp blocks observés
@@ -60,7 +60,7 @@ Plans distincts des chronométrages ordinaires (une exécution ANALYZE chacun).
 
 ### 2. Période bornée avec résultats (this-month) — COUNT
 
-- planning=0.703 ms · execution=58.145 ms
+- planning=0.719 ms · execution=56.754 ms
 - WindowAgg×1 · Seq Scan: events · Sort: quicksort
 - buffers shared hit=173 read=0
 - pas de temp blocks observés
@@ -68,40 +68,44 @@ Plans distincts des chronométrages ordinaires (une exécution ANALYZE chacun).
 
 ### 2. Période bornée avec résultats (this-month) — PAGE
 
-- planning=1.053 ms · execution=59.733 ms
+- planning=1.07 ms · execution=56.82 ms
 - WindowAgg×1 · Seq Scan: events, event_availability · Sort: top-N heapsort, quicksort
 - buffers shared hit=174 read=0
 - pas de temp blocks observés
 - nœuds (ordre parcours): Limit → Sort → Subquery Scan → WindowAgg → Hash Join → Seq Scan → Hash
 
-## Parcours produit (AFTER) — append historique vs optimisé
+## Parcours produit — listExplorerEvents (observé)
 
-Même cible, `now`, filtres upcoming, curseur et limite. Compte le **nombre de requêtes SQL** du parcours applicatif (pas seulement la page seule).
+Appels réels à `listExplorerEvents` via client injectable. **Durées** = uniquement l’appel applicatif (requêtes métier) : acquisition, SET, BEGIN READ ONLY, ROLLBACK et release sont **hors** chrono. Comptage des requêtes métier sur la même exécution chronométrée ; SET/BEGIN/ROLLBACK exclus du compteur.
 
-| Variante append | requêtes SQL | 1ʳᵉ | n | médiane | min | max |
-|---|---:|---:|---:|---:|---:|---:|
-| historique count+page | 2 | 153.1 | 5 | 156.2 | 147.7 | 160.7 |
-| optimisé page seule | 1 | 149.2 | 5 | 149.5 | 146.3 | 153.3 |
+| Variante | requêtes métier observées | totalCount | 1ʳᵉ (ms) | n | médiane | min | max |
+|---|---:|---|---:|---:|---:|---:|---:|
+| listExplorerEvents 1ʳᵉ page | 2 | 778 | 281.8 | 3 | 350.7 | 299.5 | 392.2 |
+| listExplorerEvents append (curseur `eyJzdGFydEF0…`) | 1 | null | 334.3 | 3 | 297.4 | 160 | 339.6 |
+| scénario SQL historique count+page (témoin, même curseur) | 2 | — | 348.3 | 3 | 347.6 | 274 | 347.9 |
 
+- Contrôle banc : 1ʳᵉ page = **2** requêtes + total numérique ; append = **1** requête + `totalCount: null` (échec dur si divergence).
+- Append : variantes **alternées** (app ↔ historique) sous même cible, filtres upcoming, limite, curseur et `now`.
 - Connexion de **cette** exécution : **postgres-pooler** (ne pas croiser avec un rapport AVANT sur un autre endpoint).
-- Delta médiane (historique − optimisé) ≈ **6.7 ms** sur le même endpoint.
-- Pour référence locale append upcoming (section Mesures) : count=151.6ms, page=151.7ms, combiné=315.2ms.
+- Delta médiane append (historique SQL − listExplorerEvents) ≈ **50.2 ms** — latence observée sur ce banc uniquement, pas un gain UX extrapolé.
 
 ## Lecture des résultats
 
-- Upcoming append : count médiane **151.6 ms**, page **151.7 ms**, combiné **315.2 ms**.
-- Si append = page seule, latence attendue ≈ **151.7 ms** (gain observé vs combiné ≈ **163.5 ms**). Le ratio des médianes ne prouve pas à lui seul une saturation CPU.
+- Parcours app (upcoming) : 1ʳᵉ page médiane **350.7 ms** (2 req), append médiane **297.4 ms** (1 req) — hors setup/teardown de session.
+- Témoin SQL historique append : médiane **347.6 ms** (2 req) — mêmes frontières de chrono.
+- Section Mesures SQL (builders, hors listExplorerEvents) — append upcoming : count médiane **147.5 ms**, page **178.3 ms**, combiné **298.1 ms**.
+- Le ratio des médianes ne prouve pas à lui seul une saturation CPU ; pas d’extrapolation UX.
 
 ## Limites
 
 - Banc unique, corpus existant ; **pas** un cache froid ni un p95 production.
 - Première exécution isolée ; médiane sur répétitions bornées uniquement.
-- Frise / Explorer : total capturé en 1ʳᵉ page ; append ne recalcule plus le count.
+- Parcours produit : deux connexions READ ONLY pré-ouvertes pour ne pas sérialiser count+page ; le chrono n’inclut pas connect / SET / BEGIN / ROLLBACK / release.
 - Ne pas comparer en % un rapport AVANT (souvent endpoint direct) et une mesure pooler sans le préciser.
 
-## Contrat produit (AFTER)
+## Contrat produit (observé)
 
-- Première page / filtres / reload : **2 requêtes** (count + page), `totalCount: number`.
-- Append (curseur valide) : **1 requête** (page), `totalCount: null` ; le client conserve le total.
+- Première page / filtres / reload : **2 requêtes** métier, `totalCount: number`.
+- Append (curseur valide) : **1 requête** métier, `totalCount: null` ; le client conserve le total.
 
-_Note : rapport APRES du levier « skip count » sur append. SQL de page inchangé ; le parcours produit n’exécute plus le count avec un curseur valide._
+_Note : rapport APRES — parcours mesuré via `listExplorerEvents` ; le témoin « scénario SQL historique » rejoue count+page sans l’action applicative._
