@@ -5,6 +5,11 @@ import type {
 } from "@/application/ports/highlight-assessment";
 import type { DetourEvent } from "@/domain/events/event";
 import { toAiHighlightEventInput } from "@/application/ai/highlight-assessment-input";
+import {
+  AI_HTTP_TIMEOUT_MS,
+  isAbortOrTimeoutError,
+  withHttpTimeout,
+} from "@/infrastructure/http/http-timeout";
 import { parseAiHighlightAssessments } from "@/infrastructure/ai/highlight-assessment-parser";
 
 /** Taille de batch HTTP OpenAI (séquentiel). */
@@ -18,6 +23,8 @@ export type OpenAiHighlightAssessmentConfig = {
   temperature?: number;
   batchSize?: number;
   fetchImpl?: typeof fetch;
+  /** Délai par batch HTTP (fetch + body). Défaut 30s. */
+  httpTimeoutMs?: number;
 };
 
 /**
@@ -147,6 +154,7 @@ export class OpenAiHighlightAssessmentProvider
   readonly cacheContext: AiAssessmentCacheContext;
   private readonly batchSize: number;
   private readonly fetchImpl: typeof fetch;
+  private readonly httpTimeoutMs: number;
 
   constructor(config: OpenAiHighlightAssessmentConfig) {
     this.apiKey = config.apiKey;
@@ -164,6 +172,7 @@ export class OpenAiHighlightAssessmentProvider
     };
     this.batchSize = config.batchSize ?? AI_HIGHLIGHT_BATCH_SIZE;
     this.fetchImpl = config.fetchImpl ?? fetch;
+    this.httpTimeoutMs = config.httpTimeoutMs ?? AI_HTTP_TIMEOUT_MS;
   }
 
   async assess(events: DetourEvent[]): Promise<AiHighlightAssessment[]> {
@@ -186,36 +195,52 @@ export class OpenAiHighlightAssessmentProvider
     const inputs = events.map(toAiHighlightEventInput);
     const expectedIds = inputs.map((item) => item.eventId);
 
-    const response = await this.fetchImpl(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: this.model,
-        temperature: this.temperature,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: OPENAI_HIGHLIGHT_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: JSON.stringify({ events: inputs }),
-          },
-        ],
+    const response = await this.fetchImpl(
+      `${this.baseUrl}/chat/completions`,
+      withHttpTimeout(this.httpTimeoutMs, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: this.model,
+          temperature: this.temperature,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: OPENAI_HIGHLIGHT_SYSTEM_PROMPT },
+            {
+              role: "user",
+              content: JSON.stringify({ events: inputs }),
+            },
+          ],
+        }),
       }),
-    });
+    );
 
     if (!response.ok) {
-      const body = await response.text().catch(() => "");
+      let body = "";
+      try {
+        body = await response.text();
+      } catch (error) {
+        if (isAbortOrTimeoutError(error)) throw error;
+      }
       throw new Error(
         `AI highlight assessment failed (${response.status}): ${body.slice(0, 200)}`,
       );
     }
 
-    const payload = (await response.json()) as {
+    let payload: {
       choices?: Array<{ message?: { content?: string } }>;
     };
+    try {
+      payload = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+    } catch (error) {
+      if (isAbortOrTimeoutError(error)) throw error;
+      throw new Error("AI highlight assessment returned invalid JSON");
+    }
     const content = payload.choices?.[0]?.message?.content;
     if (!content) {
       throw new Error("AI highlight assessment returned empty content");

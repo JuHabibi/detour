@@ -1,5 +1,10 @@
 import type { DetourEvent } from "@/domain/events/event";
 import type { EventSource } from "@/application/ports/event-source";
+import {
+  isAbortOrTimeoutError,
+  SOURCE_HTTP_TIMEOUT_MS,
+  withHttpTimeout,
+} from "@/infrastructure/http/http-timeout";
 import { mapOrleansEventToDetourEvent } from "./orleans-event.mapper";
 import type { OrleansApiResponse, OrleansRawEvent } from "./orleans-event.types";
 
@@ -26,7 +31,21 @@ const SELECT_FIELDS = [
 
 const PAGE_SIZE = 100;
 
+export type OrleansEventAdapterConfig = {
+  fetchImpl?: typeof fetch;
+  /** Délai par page (fetch + JSON). Défaut 15s. */
+  httpTimeoutMs?: number;
+};
+
 export class OrleansEventAdapter implements EventSource {
+  private readonly fetchImpl: typeof fetch | undefined;
+  private readonly httpTimeoutMs: number;
+
+  constructor(config: OrleansEventAdapterConfig = {}) {
+    this.fetchImpl = config.fetchImpl;
+    this.httpTimeoutMs = config.httpTimeoutMs ?? SOURCE_HTTP_TIMEOUT_MS;
+  }
+
   async fetchUpcomingEvents(params: {
     from: Date;
     to: Date;
@@ -36,7 +55,7 @@ export class OrleansEventAdapter implements EventSource {
     let expectedTotalCount: number | null = null;
 
     while (true) {
-      const page = await fetchOrleansPage(params.from, params.to, offset);
+      const page = await this.fetchOrleansPage(params.from, params.to, offset);
 
       if (expectedTotalCount === null) {
         expectedTotalCount = page.total_count;
@@ -81,28 +100,32 @@ export class OrleansEventAdapter implements EventSource {
       }
     }
   }
-}
 
-async function fetchOrleansPage(
-  from: Date,
-  to: Date,
-  offset: number,
-): Promise<OrleansApiResponse> {
-  const url = buildOrleansUrl(from, to, offset);
-  const response = await fetch(url);
+  private async fetchOrleansPage(
+    from: Date,
+    to: Date,
+    offset: number,
+  ): Promise<OrleansApiResponse> {
+    const url = buildOrleansUrl(from, to, offset);
+    const fetchImpl = this.fetchImpl ?? globalThis.fetch;
+    const response = await fetchImpl(url, withHttpTimeout(this.httpTimeoutMs));
 
-  if (!response.ok) {
-    throw new Error(`Orleans API error: ${response.status} ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(
+        `Orleans API error: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    let raw: unknown;
+    try {
+      raw = await response.json();
+    } catch (error) {
+      if (isAbortOrTimeoutError(error)) throw error;
+      throw new Error("Orleans API error: invalid JSON");
+    }
+
+    return parseOrleansApiResponse(raw);
   }
-
-  let raw: unknown;
-  try {
-    raw = await response.json();
-  } catch {
-    throw new Error("Orleans API error: invalid JSON");
-  }
-
-  return parseOrleansApiResponse(raw);
 }
 
 function parseOrleansApiResponse(raw: unknown): OrleansApiResponse {

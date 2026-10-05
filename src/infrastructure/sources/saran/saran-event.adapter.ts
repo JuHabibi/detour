@@ -1,6 +1,10 @@
 import type { DetourEvent } from "@/domain/events/event";
 import type { EventSource } from "@/application/ports/event-source";
 import {
+  SOURCE_HTTP_TIMEOUT_MS,
+  withHttpTimeout,
+} from "@/infrastructure/http/http-timeout";
+import {
   mapSaranIcalEventToDetourEvent,
   saranEventIntersectsWindow,
 } from "@/infrastructure/sources/saran/saran-ical.mapper";
@@ -20,6 +24,8 @@ export type SaranEventAdapterConfig = {
    */
   icalUrl?: string;
   fetchImpl?: typeof fetch;
+  /** Délai par fichier iCal (fetch + text). Défaut 15s. */
+  httpTimeoutMs?: number;
 };
 
 export function buildSaranIcalUrl(yearMonth: string): string {
@@ -79,10 +85,12 @@ export function saranIcalMonthsForWindow(from: Date, to: Date): string[] {
 export class SaranEventAdapter implements EventSource {
   private readonly icalUrl: string | null;
   private readonly fetchImpl: typeof fetch;
+  private readonly httpTimeoutMs: number;
 
   constructor(config: SaranEventAdapterConfig = {}) {
     this.icalUrl = config.icalUrl ?? null;
     this.fetchImpl = config.fetchImpl ?? fetch;
+    this.httpTimeoutMs = config.httpTimeoutMs ?? SOURCE_HTTP_TIMEOUT_MS;
   }
 
   async fetchUpcomingEvents(params: {
@@ -96,7 +104,10 @@ export class SaranEventAdapter implements EventSource {
 
     const bodies = await Promise.all(
       urls.map(async (url) => {
-        const response = await this.fetchImpl(url);
+        const response = await this.fetchImpl(
+          url,
+          withHttpTimeout(this.httpTimeoutMs),
+        );
         if (!response.ok) {
           throw new Error(
             `Saran iCal error: ${response.status} ${response.statusText} (${url})`,

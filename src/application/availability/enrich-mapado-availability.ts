@@ -1,5 +1,9 @@
 import type { DetourEvent } from "@/domain/events/event";
 import type { EventAvailabilityStatus } from "@/domain/events/event-availability";
+import {
+  SOURCE_HTTP_TIMEOUT_MS,
+  withHttpTimeout,
+} from "@/infrastructure/http/http-timeout";
 import { matchMapadoCatalogEntry } from "@/infrastructure/ticketing/mapado/mapado-catalog-match";
 import { parseMapadoEventAvailabilityStatus } from "@/infrastructure/ticketing/mapado/mapado-event-status";
 import { parseMapadoPortalCatalog } from "@/infrastructure/ticketing/mapado/mapado-portal-catalog";
@@ -34,6 +38,8 @@ export type EnrichMapadoAvailabilityOptions = {
   tenant: MapadoTenantConfig;
   events: DetourEvent[];
   fetchImpl?: typeof fetch;
+  /** Délai par requête portail / fiche (fetch + text). Défaut 15s. */
+  httpTimeoutMs?: number;
   dryRun?: boolean;
   now?: Date;
 };
@@ -47,6 +53,7 @@ export async function enrichMapadoAvailability(
 ): Promise<MapadoEnrichmentResult> {
   const { tenant } = options;
   const fetchImpl = options.fetchImpl ?? fetch;
+  const httpTimeoutMs = options.httpTimeoutMs ?? SOURCE_HTTP_TIMEOUT_MS;
   const dryRun = options.dryRun ?? false;
   const now = options.now ?? new Date();
   const candidates = options.events.filter((event) =>
@@ -76,10 +83,13 @@ export async function enrichMapadoAvailability(
 
   let portalHtml: string;
   try {
-    const response = await fetchImpl(tenant.portalUrl, {
-      headers: { "user-agent": "DetourAvailabilityBot/1.0" },
-      redirect: "follow",
-    });
+    const response = await fetchImpl(
+      tenant.portalUrl,
+      withHttpTimeout(httpTimeoutMs, {
+        headers: { "user-agent": "DetourAvailabilityBot/1.0" },
+        redirect: "follow",
+      }),
+    );
     if (!response.ok) {
       result.errors.push(`portal_http_${response.status}`);
       return result;
@@ -114,10 +124,13 @@ export async function enrichMapadoAvailability(
     let status: EventAvailabilityStatus | null = null;
 
     try {
-      const response = await fetchImpl(eventUrl, {
-        headers: { "user-agent": "DetourAvailabilityBot/1.0" },
-        redirect: "follow",
-      });
+      const response = await fetchImpl(
+        eventUrl,
+        withHttpTimeout(httpTimeoutMs, {
+          headers: { "user-agent": "DetourAvailabilityBot/1.0" },
+          redirect: "follow",
+        }),
+      );
       if (!response.ok) {
         result.errors.push(`event_http_${response.status}:${event.id}`);
         result.unknownCount += 1;

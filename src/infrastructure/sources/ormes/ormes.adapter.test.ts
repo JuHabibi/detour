@@ -287,6 +287,93 @@ describe("ormes adapter fetch", () => {
     expect(result.stats.discovered).toBe(0);
     expect(result.stats.published).toBe(0);
   });
+
+  it("délai couvre le corps HTML et le timer est nettoyé", async () => {
+    const clearSpy = vi.spyOn(globalThis, "clearTimeout");
+    const setSpy = vi.spyOn(globalThis, "setTimeout");
+
+    const fetchImpl = vi.fn(
+      async (_input: string | URL, init?: RequestInit) => {
+        const signal = init?.signal;
+        expect(signal).toBeInstanceOf(AbortSignal);
+        return {
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          text: async () => {
+            expect(signal?.aborted).toBe(false);
+            return `
+              <!doctype html><html><body>
+              <div class="em-category-single">
+                <h3>Évènement à venir</h3>
+                <ul></ul>
+              </div>
+              <script src="/wp-content/plugins/events-manager/js.js"></script>
+              </body></html>`;
+          },
+        } as unknown as Response;
+      },
+    );
+
+    await collectOrmesEvents(
+      {
+        from: new Date("2026-09-01T00:00:00.000Z"),
+        to: new Date("2027-03-01T00:00:00.000Z"),
+      },
+      {
+        fetchImpl,
+        httpTimeoutMs: 5_000,
+        minIntervalMs: 0,
+        sleep: async () => undefined,
+      },
+    );
+
+    expect(setSpy).toHaveBeenCalled();
+    expect(clearSpy).toHaveBeenCalled();
+    clearSpy.mockRestore();
+    setSpy.mockRestore();
+  });
+
+  it("corps bloqué après headers → abort réel", async () => {
+    const fetchImpl = vi.fn(
+      async (_input: string | URL, init?: RequestInit) =>
+        ({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          text: () =>
+            new Promise<string>((_, reject) => {
+              const signal = init?.signal;
+              const onAbort = () => {
+                reject(
+                  signal?.reason ??
+                    new DOMException(
+                      "The operation was aborted.",
+                      "AbortError",
+                    ),
+                );
+              };
+              if (signal?.aborted) onAbort();
+              else signal?.addEventListener("abort", onAbort, { once: true });
+            }),
+        }) as unknown as Response,
+    );
+
+    await expect(
+      collectOrmesEvents(
+        {
+          from: new Date("2026-09-01T00:00:00.000Z"),
+          to: new Date("2027-03-01T00:00:00.000Z"),
+        },
+        {
+          fetchImpl,
+          httpTimeoutMs: 40,
+          minIntervalMs: 0,
+          sleep: async () => undefined,
+        },
+      ),
+    ).rejects.toMatchObject({ name: expect.stringMatching(/AbortError|TimeoutError/) });
+  });
 });
 
 function hash(value: string): number {

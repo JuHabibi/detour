@@ -172,34 +172,56 @@ async function fetchOrmesHtml(
   pace: PaceGate,
 ): Promise<string> {
   await pace.wait();
-  let response = await fetchWithTimeout(url, config);
+  let attempt = await startOrmesAttempt(url, config);
 
-  if (response.status === 429) {
-    await config.sleep(10_000);
-    await pace.wait();
-    response = await fetchWithTimeout(url, config);
-    if (!response.ok) {
+  try {
+    if (attempt.response.status === 429) {
+      attempt.finish();
+      await config.sleep(10_000);
+      await pace.wait();
+      attempt = await startOrmesAttempt(url, config);
+      if (!attempt.response.ok) {
+        throw new Error(
+          `Ormes HTTP error: ${attempt.response.status} ${attempt.response.statusText} (${url})`,
+        );
+      }
+    } else if (!attempt.response.ok) {
       throw new Error(
-        `Ormes HTTP error: ${response.status} ${response.statusText} (${url})`,
+        `Ormes HTTP error: ${attempt.response.status} ${attempt.response.statusText} (${url})`,
       );
     }
-  } else if (!response.ok) {
-    throw new Error(
-      `Ormes HTTP error: ${response.status} ${response.statusText} (${url})`,
-    );
-  }
 
-  return response.text();
+    return await attempt.response.text();
+  } finally {
+    attempt.finish();
+  }
 }
 
-async function fetchWithTimeout(
+type OrmesAttempt = {
+  response: Response;
+  /** Nettoie le timer — idempotent. */
+  finish: () => void;
+};
+
+/**
+ * Démarre une tentative : le timer reste actif jusqu’à `finish()`,
+ * y compris pendant `response.text()`.
+ */
+async function startOrmesAttempt(
   url: string,
   config: ResolvedOrmesConfig,
-): Promise<Response> {
+): Promise<OrmesAttempt> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.httpTimeoutMs);
+  let cleared = false;
+  const finish = () => {
+    if (cleared) return;
+    cleared = true;
+    clearTimeout(timer);
+  };
+
   try {
-    return await config.fetchImpl(url, {
+    const response = await config.fetchImpl(url, {
       signal: controller.signal,
       headers: {
         accept: "text/html,application/xhtml+xml",
@@ -207,8 +229,10 @@ async function fetchWithTimeout(
       },
       redirect: "follow",
     });
-  } finally {
-    clearTimeout(timer);
+    return { response, finish };
+  } catch (error) {
+    finish();
+    throw error;
   }
 }
 
