@@ -56,6 +56,14 @@ export function explorerPageOneSnapshotFromResult(
       error: result.error,
     };
   }
+  if (typeof result.totalCount !== "number") {
+    return {
+      events: [],
+      totalCount: 0,
+      nextCursor: null,
+      error: EXPLORER_LOAD_FALLBACK_ERROR,
+    };
+  }
   return {
     events: result.events,
     totalCount: result.totalCount,
@@ -188,7 +196,6 @@ export async function runExplorerLoadMore(
     onLoadingMore: (loading: boolean) => void;
     onAppend: (data: {
       events: EventItem[];
-      totalCount: number;
       nextCursor: string | null;
     }) => void;
     onError: (message: string) => void;
@@ -220,7 +227,6 @@ export async function runExplorerLoadMore(
 
     onAppend({
       events: result.events,
-      totalCount: result.totalCount,
       nextCursor: result.nextCursor,
     });
   } catch {
@@ -350,7 +356,6 @@ export function useExplorerEvents({
         onLoadingMore: setLoadingMore,
         onAppend: (data) => {
           setEvents((prev) => appendExplorerEventsUnique(prev, data.events));
-          setTotalCount(data.totalCount);
           setNextCursor(data.nextCursor);
           setError(null);
         },

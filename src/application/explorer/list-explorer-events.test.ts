@@ -204,13 +204,13 @@ describe("listExplorerEvents — pagination", () => {
     expect(pageCall![1]).toEqual([now.toISOString(), 3]);
   });
 
-  it("page suivante : keyset, pas de doublon", async () => {
+  it("page suivante : keyset, pas de doublon, sans count", async () => {
     const cursor = encodeExplorerCursor({
       startAt: "2026-11-01T18:00:00.000Z",
       id: "b",
     });
     const { query, client } = mockClient((sql, params) => {
-      if (sql.includes("count(*)")) return { rows: [{ count: "4" }] };
+      expect(sql).not.toContain("count(*)");
       expect(sql).toContain("start_at > $2");
       expect(sql).toContain("id > $3");
       expect(params[1]).toBe("2026-11-01T18:00:00.000Z");
@@ -229,8 +229,59 @@ describe("listExplorerEvents — pagination", () => {
       { client, now },
     );
     expect(result.events.map((e) => e.id)).toEqual(["c", "d"]);
+    expect(result.totalCount).toBeNull();
     expect(result.nextCursor).toBeNull();
-    expect(query).toHaveBeenCalled();
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it("première page : deux requêtes (count + page), total numérique y compris 0", async () => {
+    const { query, client } = mockClient((sql) => {
+      if (sql.includes("count(*)")) return { rows: [{ count: "0" }] };
+      return { rows: [] };
+    });
+
+    const result = await listExplorerEvents(
+      { when: "upcoming", limit: 2 },
+      { client, now },
+    );
+    expect(result).toEqual({ events: [], totalCount: 0, nextCursor: null });
+    expect(query.mock.calls.filter((c) => String(c[0]).includes("count(*)"))).toHaveLength(1);
+    expect(query.mock.calls.filter((c) => String(c[0]).includes("LIMIT"))).toHaveLength(1);
+  });
+
+  it("curseur invalide : aucune requête exécutée", async () => {
+    const { query, client } = mockClient(() => ({ rows: [] }));
+    await expect(
+      listExplorerEvents(
+        { when: "upcoming", cursor: "not-a-valid-cursor", limit: 2 },
+        { client, now },
+      ),
+    ).rejects.toThrow();
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("page suivante : même ordre / curseur que la requête page seule", async () => {
+    const cursor = encodeExplorerCursor({
+      startAt: "2026-11-01T18:00:00.000Z",
+      id: "b",
+    });
+    const pageRows = [
+      dbRow("c", "2026-11-01T19:00:00.000Z"),
+      dbRow("d", "2026-11-02T10:00:00.000Z"),
+      dbRow("e", "2026-11-03T10:00:00.000Z"),
+    ];
+    const { client } = mockClient(() => ({ rows: pageRows }));
+
+    const result = await listExplorerEvents(
+      { when: "upcoming", cursor, limit: 2 },
+      { client, now },
+    );
+    expect(result.events.map((e) => e.id)).toEqual(["c", "d"]);
+    expect(result.totalCount).toBeNull();
+    expect(decodeExplorerCursor(result.nextCursor!)).toEqual({
+      startAt: "2026-11-02T10:00:00.000Z",
+      id: "d",
+    });
   });
 
   it("fin de pagination : nextCursor null", async () => {
@@ -493,7 +544,7 @@ describe("listExplorerEvents — SEARCH", () => {
   });
 
   it("recherche vide / espaces → aucun filtre search", async () => {
-    const { query, client } = mockClient((sql, params) => {
+    const { client } = mockClient((sql, params) => {
       if (sql.includes("count(*)")) {
         expect(sql).not.toContain("ILIKE");
         expect(params).toEqual([now.toISOString()]);
@@ -522,7 +573,7 @@ describe("listExplorerEvents — SEARCH", () => {
 });
 
 describe("listExplorerEvents — combinaison when + search + pagination", () => {
-  it("même WHERE count/page ; cursor après filtres ; pas de doublon", async () => {
+  it("append filtré : page seule, curseur après filtres, pas de doublon", async () => {
     const now = new Date("2026-09-10T12:00:00+02:00");
     const range = getDateRangeForWhenFilter("weekend", now);
     const page1Cursor = encodeExplorerCursor({
@@ -530,18 +581,11 @@ describe("listExplorerEvents — combinaison when + search + pagination", () => 
       id: "jazz-1",
     });
 
-    let countSql = "";
     let pageSql = "";
+    let queryCount = 0;
     const { client } = mockClient((sql, params) => {
-      if (sql.includes("count(*)")) {
-        countSql = sql;
-        expect(params).toEqual([
-          range.from.toISOString(),
-          range.to!.toISOString(),
-          "%jazz%",
-        ]);
-        return { rows: [{ count: "3" }] };
-      }
+      queryCount += 1;
+      expect(sql).not.toContain("count(*)");
       pageSql = sql;
       expect(params[0]).toBe(range.from.toISOString());
       expect(params[1]).toBe(range.to!.toISOString());
@@ -562,12 +606,11 @@ describe("listExplorerEvents — combinaison when + search + pagination", () => 
       { client, now },
     );
 
-    expect(countSql).toContain("ILIKE");
-    expect(countSql).not.toContain("e.start_at >");
+    expect(queryCount).toBe(1);
     expect(pageSql).toContain("ILIKE");
     expect(pageSql).toContain("start_at > $");
     expect(pageSql).toContain("ROW_NUMBER()");
-    expect(result.totalCount).toBe(3);
+    expect(result.totalCount).toBeNull();
     expect(result.events.map((e) => e.id)).toEqual(["jazz-2", "jazz-3"]);
     expect(result.events.map((e) => e.id)).not.toContain("jazz-1");
     expect(result.nextCursor).toBeNull();
@@ -740,21 +783,11 @@ describe("listExplorerEvents — combinaison complète", () => {
       id: "a",
     });
 
-    let countSql = "";
     let pageSql = "";
+    let queryCount = 0;
     const { client } = mockClient((sql, params) => {
-      if (sql.includes("count(*)")) {
-        countSql = sql;
-        expect(params).toEqual([
-          range.from.toISOString(),
-          range.to!.toISOString(),
-          "%jazz%",
-          "Musique",
-          "Orléans",
-        ]);
-        expect(sql).not.toContain("e.start_at >");
-        return { rows: [{ count: "4" }] };
-      }
+      queryCount += 1;
+      expect(sql).not.toContain("count(*)");
       pageSql = sql;
       expect(params).toEqual([
         range.from.toISOString(),
@@ -787,11 +820,12 @@ describe("listExplorerEvents — combinaison complète", () => {
       { client, now },
     );
 
-    expect(countSql).toContain("product_category");
-    expect(countSql).toContain("city_key");
-    expect(countSql).toContain("ILIKE");
+    expect(queryCount).toBe(1);
+    expect(pageSql).toContain("product_category");
+    expect(pageSql).toContain("city_key");
+    expect(pageSql).toContain("ILIKE");
     expect(pageSql).toContain("start_at > $");
-    expect(result.totalCount).toBe(4);
+    expect(result.totalCount).toBeNull();
     expect(result.events.map((e) => e.id)).toEqual(["b", "c"]);
     expect(result.events.map((e) => e.id)).not.toContain("a");
     expect(decodeExplorerCursor(result.nextCursor!)).toEqual({

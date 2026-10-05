@@ -32,7 +32,7 @@ function event(id: string): EventItem {
 
 function okPage(
   events: EventItem[],
-  totalCount = events.length,
+  totalCount: number | null = events.length,
   nextCursor: string | null = null,
 ): LoadExplorerEventsResult {
   return { ok: true, events, totalCount, nextCursor };
@@ -374,5 +374,89 @@ describe("runExplorerLoadMore — pagination", () => {
     expect(onAppend).not.toHaveBeenCalled();
     expect(onError).toHaveBeenCalledWith("Timeout source.");
     expect(session.beginLoadMore()).not.toBeNull();
+  });
+
+  it("append : n’expose pas totalCount (conservation côté hook)", async () => {
+    const session = createExplorerLoadSession();
+    session.beginPageOne();
+    const handle = session.beginLoadMore();
+    const onAppend = vi.fn();
+
+    await runExplorerLoadMore(
+      {
+        filters: baseFilters,
+        cursor: "c1",
+        load: async () => okPage([event("p2")], null, "c2"),
+      },
+      {
+        isCurrent: handle!.isCurrent,
+        release: handle!.release,
+        onLoadingMore: vi.fn(),
+        onAppend,
+        onError: vi.fn(),
+      },
+    );
+
+    expect(onAppend).toHaveBeenCalledWith({
+      events: [event("p2")],
+      nextCursor: "c2",
+    });
+    expect(onAppend.mock.calls[0]?.[0]).not.toHaveProperty("totalCount");
+  });
+});
+
+describe("runExplorerPageOneLoad — totalCount requis", () => {
+  it("totalCount absent sur première page → erreur contrôlée", async () => {
+    const session = createExplorerLoadSession();
+    const page = session.beginPageOne();
+    const settled: ExplorerListSnapshot[] = [];
+
+    await runExplorerPageOneLoad(
+      {
+        filters: baseFilters,
+        load: async () => ({
+          ok: true,
+          events: [event("x")],
+          totalCount: null,
+          nextCursor: null,
+        }),
+      },
+      {
+        isCurrent: page.isCurrent,
+        onLoading: vi.fn(),
+        onSettled: (snapshot) => settled.push(snapshot),
+      },
+    );
+
+    expect(settled).toEqual([
+      {
+        events: [],
+        totalCount: 0,
+        nextCursor: null,
+        error: EXPLORER_LOAD_FALLBACK_ERROR,
+      },
+    ]);
+  });
+
+  it("totalCount 0 est un succès valide", async () => {
+    const session = createExplorerLoadSession();
+    const page = session.beginPageOne();
+    const settled: ExplorerListSnapshot[] = [];
+
+    await runExplorerPageOneLoad(
+      {
+        filters: baseFilters,
+        load: async () => okPage([], 0, null),
+      },
+      {
+        isCurrent: page.isCurrent,
+        onLoading: vi.fn(),
+        onSettled: (snapshot) => settled.push(snapshot),
+      },
+    );
+
+    expect(settled).toEqual([
+      { events: [], totalCount: 0, nextCursor: null, error: null },
+    ]);
   });
 });

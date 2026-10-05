@@ -64,7 +64,11 @@ function resolveFilters(
   };
 }
 
-
+/**
+ * Liste Explorer paginée.
+ * - Sans curseur : count (groupes dédupliqués) + page en parallèle.
+ * - Avec curseur valide : page seule ; `totalCount` est `null`.
+ */
 export async function listExplorerEvents(
   query: ListExplorerEventsQuery,
   options?: { client?: DbQueryable; now?: Date },
@@ -73,12 +77,33 @@ export async function listExplorerEvents(
   const limit = clampLimit(query.limit);
   const filters = resolveFilters(query, now);
 
+  // Décoder / valider le curseur avant toute requête SQL.
   const after = query.cursor
     ? (() => {
         const decoded = decodeExplorerCursor(query.cursor);
         return { startAt: new Date(decoded.startAt), id: decoded.id };
       })()
     : null;
+
+  if (after) {
+    const page = await listExplorerEventsPage({
+      filters,
+      after,
+      limit,
+      client: options?.client,
+      now,
+    });
+    return {
+      events: page.events,
+      totalCount: null,
+      nextCursor: page.nextAfter
+        ? encodeExplorerCursor({
+            startAt: page.nextAfter.startAt.toISOString(),
+            id: page.nextAfter.id,
+          })
+        : null,
+    };
+  }
 
   const [totalCount, page] = await Promise.all([
     countExplorerEvents({
@@ -87,23 +112,21 @@ export async function listExplorerEvents(
     }),
     listExplorerEventsPage({
       filters,
-      after,
+      after: null,
       limit,
       client: options?.client,
       now,
     }),
   ]);
 
-  const nextCursor = page.nextAfter
-    ? encodeExplorerCursor({
-        startAt: page.nextAfter.startAt.toISOString(),
-        id: page.nextAfter.id,
-      })
-    : null;
-
   return {
     events: page.events,
     totalCount,
-    nextCursor,
+    nextCursor: page.nextAfter
+      ? encodeExplorerCursor({
+          startAt: page.nextAfter.startAt.toISOString(),
+          id: page.nextAfter.id,
+        })
+      : null,
   };
 }

@@ -41,7 +41,8 @@ import {
 
 const DEFAULT_REPEATS = 5;
 const DEFAULT_TIMEOUT_MS = 30_000;
-const DEFAULT_OUT = "scripts/measure-explorer-sql-cost.report.md";
+/** Rapport APRES le levier produit (ne pas écraser le rapport AVANT commité). */
+const DEFAULT_OUT = "scripts/measure-explorer-sql-cost.after.report.md";
 const DISTANT_PAGE_INDEX = 4; // 5ᵉ page (0-based après 4 appends) si corpus le permet
 
 type CliArgs = {
@@ -245,9 +246,20 @@ async function configureReadOnlySession(
   client: pg.PoolClient,
   timeoutMs: number,
 ): Promise<void> {
-  await client.query("SET default_transaction_read_only = on");
   await client.query(`SET statement_timeout = ${Math.floor(timeoutMs)}`);
   await client.query("SET application_name = 'detour-explorer-sql-bench'");
+}
+
+async function beginReadOnlyTx(client: pg.PoolClient): Promise<void> {
+  await client.query("BEGIN READ ONLY");
+}
+
+async function endTx(client: pg.PoolClient): Promise<void> {
+  try {
+    await client.query("ROLLBACK");
+  } catch {
+    // connexion déjà fermée / hors transaction
+  }
 }
 
 async function withConfiguredClient<T>(
@@ -258,10 +270,29 @@ async function withConfiguredClient<T>(
   const client = await pool.connect();
   try {
     await configureReadOnlySession(client, timeoutMs);
-    return await fn(client);
+    await beginReadOnlyTx(client);
+    try {
+      return await fn(client);
+    } finally {
+      await endTx(client);
+    }
   } finally {
     client.release();
   }
+}
+
+async function acquirePair(
+  pool: pg.Pool,
+): Promise<{ clientA: pg.PoolClient; clientB: pg.PoolClient }> {
+  const clientA = await pool.connect();
+  let clientB: pg.PoolClient;
+  try {
+    clientB = await pool.connect();
+  } catch (error) {
+    clientA.release();
+    throw error;
+  }
+  return { clientA, clientB };
 }
 
 async function timeQuery(
@@ -286,21 +317,27 @@ async function timeCombined(
   count: { text: string; values: unknown[] },
   page: { text: string; values: unknown[] },
 ): Promise<{ ms: number; countRows: number; pageRows: number }> {
-  const clientA = await pool.connect();
-  const clientB = await pool.connect();
+  const { clientA, clientB } = await acquirePair(pool);
   try {
     await configureReadOnlySession(clientA, timeoutMs);
     await configureReadOnlySession(clientB, timeoutMs);
-    const start = performance.now();
-    const [countResult, pageResult] = await Promise.all([
-      clientA.query(count.text, count.values),
-      clientB.query(page.text, page.values),
-    ]);
-    return {
-      ms: performance.now() - start,
-      countRows: countResult.rowCount ?? countResult.rows.length,
-      pageRows: pageResult.rowCount ?? pageResult.rows.length,
-    };
+    await beginReadOnlyTx(clientA);
+    await beginReadOnlyTx(clientB);
+    try {
+      const start = performance.now();
+      const [countResult, pageResult] = await Promise.all([
+        clientA.query(count.text, count.values),
+        clientB.query(page.text, page.values),
+      ]);
+      return {
+        ms: performance.now() - start,
+        countRows: countResult.rowCount ?? countResult.rows.length,
+        pageRows: pageResult.rowCount ?? pageResult.rows.length,
+      };
+    } finally {
+      await endTx(clientA);
+      await endTx(clientB);
+    }
   } finally {
     clientA.release();
     clientB.release();
@@ -356,23 +393,30 @@ async function fetchPageCursor(
 }> {
   const countQ = buildCountQuery(filters);
   const pageQ = buildPageQuery(filters, after, limit);
-  const clientA = await pool.connect();
-  const clientB = await pool.connect();
+  const clientPair = await acquirePair(pool);
+  const { clientA, clientB } = clientPair;
   try {
     await configureReadOnlySession(clientA, timeoutMs);
     await configureReadOnlySession(clientB, timeoutMs);
-    const [countResult, pageResult] = await Promise.all([
-      clientA.query<{ count: string }>(countQ.text, countQ.values),
-      clientB.query<PageRow>(pageQ.text, pageQ.values),
-    ]);
-    const totalCount = Number(countResult.rows[0]?.count ?? 0);
-    const rows = pageResult.rows;
-    const hasMore = rows.length > limit;
-    const pageRows = hasMore ? rows.slice(0, limit) : rows;
-    const last = pageRows[pageRows.length - 1];
-    const nextAfter =
-      hasMore && last ? { startAt: last.start_at, id: last.id } : null;
-    return { events: pageRows, nextAfter, totalCount };
+    await beginReadOnlyTx(clientA);
+    await beginReadOnlyTx(clientB);
+    try {
+      const [countResult, pageResult] = await Promise.all([
+        clientA.query<{ count: string }>(countQ.text, countQ.values),
+        clientB.query<PageRow>(pageQ.text, pageQ.values),
+      ]);
+      const totalCount = Number(countResult.rows[0]?.count ?? 0);
+      const rows = pageResult.rows;
+      const hasMore = rows.length > limit;
+      const pageRows = hasMore ? rows.slice(0, limit) : rows;
+      const last = pageRows[pageRows.length - 1];
+      const nextAfter =
+        hasMore && last ? { startAt: last.start_at, id: last.id } : null;
+      return { events: pageRows, nextAfter, totalCount };
+    } finally {
+      await endTx(clientA);
+      await endTx(clientB);
+    }
   } finally {
     clientA.release();
     clientB.release();
@@ -393,6 +437,7 @@ type ExplainSummary = {
 function walkPlan(
   node: Record<string, unknown>,
   acc: ExplainSummary,
+  isRoot = false,
 ): void {
   const nodeType = String(node["Node Type"] ?? "");
   if (nodeType) acc.nodeTypes.push(nodeType);
@@ -402,25 +447,23 @@ function walkPlan(
   if (nodeType === "Sort") acc.sorts.push(String(node["Sort Method"] ?? "?"));
   if (nodeType === "WindowAgg") acc.windowAggs += 1;
 
-  const sharedHit = Number(node["Shared Hit Blocks"] ?? 0);
-  const sharedRead = Number(node["Shared Read Blocks"] ?? 0);
-  if (!acc.sharedBlocks) acc.sharedBlocks = { hit: 0, read: 0 };
-  acc.sharedBlocks.hit += sharedHit;
-  acc.sharedBlocks.read += sharedRead;
-
-  const tempRead = Number(node["Temp Read Blocks"] ?? 0);
-  const tempWritten = Number(node["Temp Written Blocks"] ?? 0);
-  if (tempRead || tempWritten) {
-    if (!acc.tempBlocks) acc.tempBlocks = { read: 0, written: 0 };
-    acc.tempBlocks.read += tempRead;
-    acc.tempBlocks.written += tempWritten;
+  // Les compteurs Shared/Temp d’un nœud incluent déjà ses enfants : total = racine.
+  if (isRoot) {
+    const sharedHit = Number(node["Shared Hit Blocks"] ?? 0);
+    const sharedRead = Number(node["Shared Read Blocks"] ?? 0);
+    acc.sharedBlocks = { hit: sharedHit, read: sharedRead };
+    const tempRead = Number(node["Temp Read Blocks"] ?? 0);
+    const tempWritten = Number(node["Temp Written Blocks"] ?? 0);
+    if (tempRead || tempWritten) {
+      acc.tempBlocks = { read: tempRead, written: tempWritten };
+    }
   }
 
   const plans = node["Plans"];
   if (Array.isArray(plans)) {
     for (const child of plans) {
       if (child && typeof child === "object") {
-        walkPlan(child as Record<string, unknown>, acc);
+        walkPlan(child as Record<string, unknown>, acc, false);
       }
     }
   }
@@ -445,7 +488,7 @@ function summarizeExplain(raw: unknown): ExplainSummary {
     typeof root["Execution Time"] === "number" ? root["Execution Time"] : null;
   const plan = root["Plan"];
   if (plan && typeof plan === "object") {
-    walkPlan(plan as Record<string, unknown>, acc);
+    walkPlan(plan as Record<string, unknown>, acc, true);
   }
   return acc;
 }
@@ -917,45 +960,126 @@ async function main(): Promise<void> {
       fmtPlan("PAGE", pagePlan);
     }
 
-    // Analyse pour recommandation
+    // Analyse pour recommandation + parcours produit (AFTER)
     const upcoming = results.find((r) => r.spec.id === "upcoming");
     const appendCost = upcoming?.append;
-    const countShare =
-      appendCost && appendCost.combined.medianMs > 0
-        ? appendCost.count.medianMs / appendCost.combined.medianMs
-        : null;
-    const parallelFactor =
-      appendCost && Math.max(appendCost.count.medianMs, appendCost.page.medianMs) > 0
-        ? appendCost.combined.medianMs /
-          Math.max(appendCost.count.medianMs, appendCost.page.medianMs)
-        : null;
-    const estimatedSavingsMs =
-      appendCost != null
-        ? Math.max(0, appendCost.combined.medianMs - appendCost.page.medianMs)
-        : 0;
-    const savingsRatio =
-      appendCost && appendCost.combined.medianMs > 0
-        ? estimatedSavingsMs / appendCost.combined.medianMs
-        : 0;
 
+    log("## Parcours produit (AFTER) — append historique vs optimisé");
+    log("");
+    log(
+      "Même cible, `now`, filtres upcoming, curseur et limite. Compte le **nombre de requêtes SQL** du parcours applicatif (pas seulement la page seule).",
+    );
+    log("");
+
+    if (upcoming?.append && upcoming.page1) {
+      const page1Data = await fetchPageCursor(
+        pool,
+        args.timeoutMs,
+        upcoming.spec.filters,
+        null,
+        limit,
+      );
+      if (!page1Data.nextAfter) {
+        log("- Pas de curseur append disponible pour la comparaison produit.");
+      } else {
+        const after = page1Data.nextAfter;
+        const countQ = buildCountQuery(upcoming.spec.filters);
+        const pageQ = buildPageQuery(upcoming.spec.filters, after, limit);
+
+        // Historique : Promise.all count+page (2 requêtes)
+        const legacy = await measureOp(
+          pool,
+          args.timeoutMs,
+          "combined",
+          countQ,
+          pageQ,
+          args.repeats,
+        );
+        // Optimisé : page seule (1 requête) — branche curseur de listExplorerEvents
+        const optimized = await measureOp(
+          pool,
+          args.timeoutMs,
+          "page",
+          countQ,
+          pageQ,
+          args.repeats,
+        );
+
+        // Vérifier le nombre de requêtes via un wrapper comptant
+        let legacyQueries = 0;
+        let optimizedQueries = 0;
+        {
+          const { clientA, clientB } = await acquirePair(pool);
+          try {
+            await configureReadOnlySession(clientA, args.timeoutMs);
+            await configureReadOnlySession(clientB, args.timeoutMs);
+            await beginReadOnlyTx(clientA);
+            await beginReadOnlyTx(clientB);
+            try {
+              await Promise.all([
+                clientA.query(countQ.text, countQ.values).then(() => {
+                  legacyQueries += 1;
+                }),
+                clientB.query(pageQ.text, pageQ.values).then(() => {
+                  legacyQueries += 1;
+                }),
+              ]);
+            } finally {
+              await endTx(clientA);
+              await endTx(clientB);
+            }
+          } finally {
+            clientA.release();
+            clientB.release();
+          }
+        }
+        {
+          await withConfiguredClient(pool, args.timeoutMs, async (client) => {
+            await client.query(pageQ.text, pageQ.values);
+            optimizedQueries += 1;
+          });
+        }
+
+        log(
+          `| Variante append | requêtes SQL | 1ʳᵉ | n | médiane | min | max |`,
+        );
+        log(`|---|---:|---:|---:|---:|---:|---:|`);
+        log(
+          `| historique count+page | ${legacyQueries} | ${legacy.firstMs} | ${legacy.samplesMs.length} | ${legacy.medianMs} | ${legacy.minMs} | ${legacy.maxMs} |`,
+        );
+        log(
+          `| optimisé page seule | ${optimizedQueries} | ${optimized.firstMs} | ${optimized.samplesMs.length} | ${optimized.medianMs} | ${optimized.minMs} | ${optimized.maxMs} |`,
+        );
+        log("");
+        log(
+          `- Connexion de **cette** exécution : **${connectionMode}** (ne pas croiser avec un rapport AVANT sur un autre endpoint).`,
+        );
+        log(
+          `- Delta médiane (historique − optimisé) ≈ **${Math.round((legacy.medianMs - optimized.medianMs) * 10) / 10} ms** sur le même endpoint.`,
+        );
+        if (appendCost) {
+          log(
+            `- Pour référence locale append upcoming (section Mesures) : count=${appendCost.count.medianMs}ms, page=${appendCost.page.medianMs}ms, combiné=${appendCost.combined.medianMs}ms.`,
+          );
+        }
+      }
+    } else {
+      log("- Scénario upcoming sans append : comparaison produit non exécutée.");
+    }
+
+    log("");
     log("## Lecture des résultats");
     log("");
     if (upcoming && appendCost) {
       log(
-        `- Upcoming append : count médiane **${appendCost.count.medianMs} ms**, page **${appendCost.page.medianMs} ms**, combiné parallèle **${appendCost.combined.medianMs} ms**.`,
+        `- Upcoming append : count médiane **${appendCost.count.medianMs} ms**, page **${appendCost.page.medianMs} ms**, combiné **${appendCost.combined.medianMs} ms**.`,
       );
-      if (countShare != null) {
-        log(
-          `- Rapport count/combiné (append) ≈ **${Math.round(countShare * 100)} %** — ce n’est pas directement la latence économisable.`,
-        );
-      }
-      if (parallelFactor != null) {
-        log(
-          `- Facteur parallélisme combiné/max(count,page) ≈ **${Math.round(parallelFactor * 100) / 100}** (≈1 = bon overlap, ≈2 = sérialisation CPU/I/O).`,
-        );
-      }
+      const estimatedSavingsMs = Math.max(
+        0,
+        appendCost.combined.medianMs - appendCost.page.medianMs,
+      );
       log(
-        `- Si on saute le count en append, latence attendue ≈ page seule (**${appendCost.page.medianMs} ms**), gain estimé sur le combiné ≈ **${Math.round(estimatedSavingsMs * 10) / 10} ms** (${Math.round(savingsRatio * 100)} %) — pas un ÷2 automatique du parcours utilisateur.`,
+        `- Si append = page seule, latence attendue ≈ **${appendCost.page.medianMs} ms** (gain observé vs combiné ≈ **${Math.round(estimatedSavingsMs * 10) / 10} ms**). Le ratio des médianes ne prouve pas à lui seul une saturation CPU.`,
       );
     }
 
@@ -963,48 +1087,30 @@ async function main(): Promise<void> {
     log("## Limites");
     log("");
     log(
-      "- Banc unique, corpus existant, connexion éventuellement pooled ; **pas** un cache froid ni un p95 production.",
+      "- Banc unique, corpus existant ; **pas** un cache froid ni un p95 production.",
     );
     log(
       "- Première exécution isolée ; médiane sur répétitions bornées uniquement.",
     );
     log(
-      "- Frise partage `loadExplorerEvents` (fenêtre `from`/`to` + pagination jusqu’au cap) : tout changement de contrat count/total doit rester compatible.",
+      "- Frise / Explorer : total capturé en 1ʳᵉ page ; append ne recalcule plus le count.",
+    );
+    log(
+      "- Ne pas comparer en % un rapport AVANT (souvent endpoint direct) et une mesure pooler sans le préciser.",
     );
     log("");
-    log("## Recommandation (une seule)");
+    log("## Contrat produit (AFTER)");
     log("");
-
-    // Si le combiné ≈ somme (peu d’overlap) et le count pèse, skip count en append
-    // est le levier produit le plus petit. Sinon le CTE partagé domine vraiment.
-    if (
-      appendCost &&
-      parallelFactor != null &&
-      parallelFactor >= 1.6 &&
-      savingsRatio >= 0.35
-    ) {
-      log(
-        "**Compter à la première page, conserver `totalCount` pendant les appends (mêmes filtres).** Sur ce banc, count et page coûtent à peu près autant et le `Promise.all` se comporte presque comme une somme (peu d’overlap) : retirer le count aux appends rapproche la latence de la page seule (~" +
-          `${Math.round(savingsRatio * 100)} %` +
-          " du combiné mesuré), sans changer le SQL de dédup. Implications : total figé jusqu’au changement de filtres/reload ; recalcul dès reload/filtre ; frise, qui pagine déjà une fenêtre `from`/`to` via le même contrat, doit continuer à traiter `totalCount` comme un snapshot de première réponse (pas un compteur live à chaque page). Ne pas promettre une latence ÷2 côté UX globale.",
-      );
-    } else if (
-      appendCost &&
-      appendCost.page.medianMs >= appendCost.count.medianMs * 1.5 &&
-      savingsRatio < 0.35
-    ) {
-      log(
-        "**Ne pas commencer par supprimer le count aux appends.** Sur ce banc, la page domine et/ou le parallélisme absorbe déjà le count ; le gain latence serait faible. **Prochaine modification : réduire le coût du CTE partagé `normalized`/`ranked` (expressions `translate`/`regexp` + `WindowAgg`/`Sort`, aujourd’hui en Seq Scan) qui pèse sur count **et** page.**",
-      );
-    } else {
-      log(
-        "**Compter à la première page, conserver `totalCount` pendant les appends**, sauf si un banc ultérieur montre un overlap parallèle fort (combiné ≈ max). Sur les mesures actuelles, c’est le plus petit levier produit avant une refonte du CTE de déduplication. Implications frise/Explorer : total snapshot jusqu’au reload/filtre.",
-      );
-    }
+    log(
+      "- Première page / filtres / reload : **2 requêtes** (count + page), `totalCount: number`.",
+    );
+    log(
+      "- Append (curseur valide) : **1 requête** (page), `totalCount: null` ; le client conserve le total.",
+    );
 
     log("");
     log(
-      "_Note : cette itération ne modifie pas le SQL produit, les actions, les hooks ni les index._",
+      "_Note : rapport APRES du levier « skip count » sur append. SQL de page inchangé ; le parcours produit n’exécute plus le count avec un curseur valide._",
     );
 
     const outFile = resolve(process.cwd(), args.outPath);

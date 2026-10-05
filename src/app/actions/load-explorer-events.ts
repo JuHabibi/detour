@@ -14,7 +14,11 @@ export type LoadExplorerEventsResult =
   | {
       ok: true;
       events: EventItem[];
-      totalCount: number;
+      /**
+       * `number` sans curseur ; `null` sur append (compte non recalculé).
+       * Ne jamais substituer `0` / `events.length` côté client.
+       */
+      totalCount: number | null;
       nextCursor: string | null;
     }
   | {

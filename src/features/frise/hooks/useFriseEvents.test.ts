@@ -46,7 +46,7 @@ function event(
 
 function okPage(
   events: EventItem[],
-  totalCount = events.length,
+  totalCount: number | null = events.length,
   nextCursor: string | null = null,
 ): LoadExplorerEventsResult {
   return { ok: true, events, totalCount, nextCursor };
@@ -87,6 +87,97 @@ function recordHandlers(isCurrent: () => boolean) {
 }
 
 describe("runFriseEventsReload — fenêtre visible", () => {
+  it("capture totalCount une seule fois (1ʳᵉ page), conserve pendant les suivantes", async () => {
+    const gen = { current: 0 };
+    const isCurrent = () => gen.current === 1;
+    gen.current = 1;
+
+    const load = vi.fn<LoadFn>(async (input) => {
+      if (!input.cursor) {
+        return okPage(
+          [event("p1", "Musique", "2026-09-05T20:00:00+02:00")],
+          42,
+          "cursor-2",
+        );
+      }
+      expect(input.cursor).toBe("cursor-2");
+      return okPage(
+        [event("p2", "Musique", "2026-09-06T20:00:00+02:00")],
+        null,
+        null,
+      );
+    });
+
+    const recorded = recordHandlers(isCurrent);
+    await runFriseEventsReload(
+      {
+        category: "Musique",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
+      recorded.handlers,
+    );
+
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(recorded.calls.success).toHaveLength(1);
+    expect(recorded.calls.success[0]?.totalCount).toBe(42);
+    expect(recorded.calls.success[0]?.events.map((e) => e.id)).toEqual([
+      "p1",
+      "p2",
+    ]);
+  });
+
+  it("recalcul total sur un nouveau chargement (reload)", async () => {
+    const isCurrent = () => true;
+    let wave = 0;
+    const load = vi.fn<LoadFn>(async () => {
+      wave += 1;
+      if (wave === 1) {
+        return okPage(
+          [event("a", "Musique", "2026-09-05T20:00:00+02:00")],
+          10,
+          null,
+        );
+      }
+      return okPage(
+        [event("b", "Musique", "2026-09-06T20:00:00+02:00")],
+        3,
+        null,
+      );
+    });
+
+    const first = recordHandlers(isCurrent);
+    await runFriseEventsReload(
+      {
+        category: "Musique",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
+      first.handlers,
+    );
+    expect(first.calls.success[0]?.totalCount).toBe(10);
+
+    const second = recordHandlers(isCurrent);
+    await runFriseEventsReload(
+      {
+        category: "Musique",
+        city: null,
+        search: "",
+        from: "2026-09-01",
+        to: "2026-11-30",
+        load,
+      },
+      second.handlers,
+    );
+    expect(second.calls.success[0]?.totalCount).toBe(3);
+  });
+
   it("affiche une sortie dans la fenêtre même si >150 expos spanning précèdent", async () => {
     const gen = { current: 0 };
     const isCurrent = () => gen.current === 1;

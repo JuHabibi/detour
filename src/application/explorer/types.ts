@@ -27,7 +27,12 @@ export type ListExplorerEventsQuery = {
 
 export type ListExplorerEventsResult = {
   events: DetourEvent[];
-  totalCount: number;
+  /**
+   * Compte des groupes dédupliqués.
+   * - `number` sur la première page (sans curseur), y compris `0`.
+   * - `null` sur une page suivante : le compte n’est pas recalculé.
+   */
+  totalCount: number | null;
   nextCursor: string | null;
 };
 

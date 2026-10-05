@@ -128,7 +128,7 @@ export async function runFriseEventsReload(
   try {
     const collected: EventItem[] = [];
     let cursor: string | null = null;
-    let total = 0;
+    let totalCount: number | null = null;
     let truncated = false;
 
     while (collected.length < EXPLORER_FRIEZE_HARD_CAP) {
@@ -152,7 +152,14 @@ export async function runFriseEventsReload(
         return;
       }
 
-      total = result.totalCount;
+      if (cursor === null) {
+        if (typeof result.totalCount !== "number") {
+          onError("Impossible de charger mon parcours culturel.");
+          return;
+        }
+        totalCount = result.totalCount;
+      }
+
       collected.push(...result.events);
 
       if (!result.nextCursor) break;
@@ -165,11 +172,16 @@ export async function runFriseEventsReload(
 
     if (!isCurrent()) return;
 
+    if (typeof totalCount !== "number") {
+      onError("Impossible de charger mon parcours culturel.");
+      return;
+    }
+
     onSuccess({
       events: collected.slice(0, EXPLORER_FRIEZE_HARD_CAP),
       fetchedCount: Math.min(collected.length, EXPLORER_FRIEZE_HARD_CAP),
       truncatedByCap: truncated,
-      totalCount: total,
+      totalCount,
     });
   } catch {
     if (!isCurrent()) return;

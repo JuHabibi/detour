@@ -164,6 +164,12 @@ function toPublicHomeData(
   explorerPage: ListExplorerEventsResult,
   exposeDebug: boolean,
 ): PublicHomeData {
+  if (typeof explorerPage.totalCount !== "number") {
+    throw new Error(
+      "Public home explorer initial page requires a numeric totalCount",
+    );
+  }
+
   return {
     highlights: result.highlights.map((highlight) =>
       mapDetourHighlightToEventItem(highlight),
