@@ -114,11 +114,16 @@ GET /explorer
   → loadExplorerPage()                         # pas de session / favoris / Radar / IA
        → getCachedPublicExplorerInitialPage()  # tag public-explorer:orleans (6h)
             → getPublicExplorerInitialPage()   # listExplorerEvents(weekend, 12)
-  → <ExplorerPage /> : filtres, cartes, pagination
+            # module indépendant de next-public-home-cache / get-public-home-data
+  → <ExplorerPage /> : filtres, cartes, pagination (h1 « Explorer les sorties »)
   → client : useSession
        → usePersonalData + useEventPersonalActions(returnPath: "/explorer")
   → append filtres : server action loadExplorerEvents (totalCount: null ; client garde le total initial)
 ```
+
+Slug territoire commun aux tags / clés : `src/config/public-territory.ts`
+(`PUBLIC_TERRITORY_SLUG`) — config pure, sans I/O ni wiring Radar / IA.
+Les deux caches l’importent directement ; Explorer ne charge pas le module Home.
 
 Données personnelles partagées (client) :
 
@@ -339,8 +344,9 @@ Ce sont des **écarts au modèle cible** (§13). Ils **ne constituent pas** des 
 | `src/app/_server/load-explorer-page.ts` | Page loader public Explorer (cache) — pas Radar / IA |
 | `src/application/home/get-public-home-data.ts` | Snapshot slim Radar + materialize IA |
 | `src/application/explorer/get-public-explorer-initial-page.ts` | Première page Explorer (weekend, 12) |
+| `src/config/public-territory.ts` | Slug territoire V1 partagé (caches publics, sans effets de bord) |
 | `src/infrastructure/next-public-home-cache.ts` | Data Cache Home + invalidation tag |
-| `src/infrastructure/next-public-explorer-cache.ts` | Data Cache Explorer + invalidation tag |
+| `src/infrastructure/next-public-explorer-cache.ts` | Data Cache Explorer + invalidation tag (indépendant du module Home) |
 | `src/features/home/components/HomePage.tsx` | Composition UI home (hero, Radar, CTA Explorer, session, modales) |
 | `src/features/home/components/HomeExplorerCta.tsx` | CTA Home → `/explorer` (`id="explorer"` pour anciens `/#explorer`) |
 | `src/features/explorer/components/ExplorerPage.tsx` | Composition UI Explorer (filtres, grille, session, modales) |

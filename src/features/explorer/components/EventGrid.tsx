@@ -4,7 +4,7 @@ import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal
 import type { EventItem } from "@/data/types";
 
 type EventGridProps = {
-  /** Titre de section (exploration secondaire). */
+  /** Titre principal de la page Explorer. */
   title?: string;
   /** Sous-titre dynamique selon le filtre temporel. */
   resultTitle?: string;
@@ -52,9 +52,9 @@ export function EventGrid({
               <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-sand md:mb-2.5">
                 Parcourir
               </p>
-              <h2 className="font-display text-[1.75rem] leading-[1.02] tracking-tight text-ink md:text-[2.25rem] lg:text-[2.5rem]">
+              <h1 className="font-display text-[1.75rem] leading-[1.02] tracking-tight text-ink md:text-[2.25rem] lg:text-[2.5rem]">
                 {title}
-              </h2>
+              </h1>
               {resultTitle ? (
                 <p className="mt-3 max-w-lg text-sm leading-6 text-cream-dim md:mt-3.5">
                   {resultTitle}

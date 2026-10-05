@@ -6,12 +6,14 @@ import {
   type PublicHomeData,
 } from "@/application/home/get-public-home-data";
 import { shouldExposeHomeDebug } from "@/config/home-debug";
+import { PUBLIC_TERRITORY_SLUG } from "@/config/public-territory";
 
 /**
  * Scope cache Home publique — slug territoire futur-proof
  * (`public-home:tours` demain) sans modèle Territory aujourd’hui.
+ * Valeur : `config/public-territory` (partagée avec Explorer, sans couplage module).
  */
-export const PUBLIC_HOME_TERRITORY_SLUG = "orleans";
+export const PUBLIC_HOME_TERRITORY_SLUG = PUBLIC_TERRITORY_SLUG;
 
 export const PUBLIC_HOME_CACHE_TAG = `public-home:${PUBLIC_HOME_TERRITORY_SLUG}`;
 
