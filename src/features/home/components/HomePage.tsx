@@ -1,18 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import {
-  addFavorite,
-  listMyFavoriteEventIds,
-} from "@/app/actions/favorites";
-import { listMyCarnetsState } from "@/app/actions/groups";
-import type {
-  EventGroupMembership,
-  GroupSummary,
-} from "@/application/groups";
+import { useCallback, useState, useTransition } from "react";
+import { addFavorite } from "@/app/actions/favorites";
 import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
-import { countCarnetsByEventId } from "@/components/carnets/count-carnets-by-event-id";
 import {
   EventDetailModal,
   type EventDetailSurface,
@@ -27,19 +18,19 @@ import {
   type ExplorerInitialPage,
 } from "@/features/home/components/explorer/ExplorerSection";
 import { DetourSection } from "@/features/home/components/radar/DetourSection";
+import { usePersonalData } from "@/components/personal/usePersonalData";
 import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import { authClient } from "@/lib/auth-client";
 import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
 import type { EventItem } from "@/data/types";
+
 const HomeDebugSection = dynamic(
   () =>
-    import("@/features/home/debug/HomeDebugSection").then((mod) => mod.HomeDebugSection),
+    import("@/features/home/debug/HomeDebugSection").then(
+      (mod) => mod.HomeDebugSection,
+    ),
   { ssr: false },
 );
-
-/** Jamais muté — état public initial / anonyme. */
-const EMPTY_FAVORITES: ReadonlySet<string> = new Set();
-const EMPTY_CARNET_COUNTS: ReadonlyMap<string, number> = new Map();
 
 type HomePageProps = {
   /** Highlights radar — indépendants des filtres d’exploration. */
@@ -60,17 +51,6 @@ type HomePageProps = {
   debugMeta?: EventsDebugMeta;
 };
 
-type FavoriteState = {
-  userId: string;
-  ids: Set<string>;
-};
-
-type CarnetsState = {
-  userId: string;
-  groups: GroupSummary[];
-  memberships: EventGroupMembership[];
-};
-
 export function HomePage({
   highlights,
   planningEvents: _planningEvents,
@@ -89,8 +69,19 @@ export function HomePage({
         }
       : null;
 
-  const [favoriteState, setFavoriteState] = useState<FavoriteState | null>(null);
-  const [carnetsState, setCarnetsState] = useState<CarnetsState | null>(null);
+  const {
+    favorites,
+    groups,
+    memberships,
+    carnetCounts,
+    hasCarnetsState,
+    addFavoriteLocally,
+    rollbackFavoriteAdd,
+    removeFavoriteLocally,
+    replaceGroups,
+    replaceMemberships,
+  } = usePersonalData({ userId, isSessionPending, loadCarnets: true });
+
   const [organizeEvent, setOrganizeEvent] = useState<EventItem | null>(null);
   const [organizeTrigger, setOrganizeTrigger] = useState<HTMLElement | null>(
     null,
@@ -108,7 +99,7 @@ export function HomePage({
     error: removeError,
     clearError: clearRemoveError,
   } = useRemoveFavorite({
-    onRemoved: handleRemoved,
+    onRemoved: removeFavoriteLocally,
     onUnauthenticated: openFavoriteAuth,
   });
   const [overrideHighlights, setOverrideHighlights] = useState<EventItem[] | null>(
@@ -140,43 +131,6 @@ export function HomePage({
     setDetail(null);
   }, []);
 
-  useEffect(() => {
-    if (isSessionPending || !userId) {
-      setCarnetsState(null);
-      return;
-    }
-
-    let cancelled = false;
-    setCarnetsState((prev) =>
-      prev?.userId === userId ? prev : { userId, groups: [], memberships: [] },
-    );
-
-    void listMyFavoriteEventIds().then((result) => {
-      if (cancelled) return;
-      setFavoriteState({
-        userId,
-        ids: new Set(result.ok ? result.eventIds : []),
-      });
-    });
-
-    void listMyCarnetsState().then((result) => {
-      if (cancelled) return;
-      if (!result.ok) {
-        setCarnetsState({ userId, groups: [], memberships: [] });
-        return;
-      }
-      setCarnetsState({
-        userId,
-        groups: result.groups,
-        memberships: result.memberships,
-      });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isSessionPending, userId]);
-
   if (debugMeta !== prevDebugMeta) {
     setPrevDebugMeta(debugMeta);
     setLiveDebugMeta(debugMeta);
@@ -184,30 +138,7 @@ export function HomePage({
     setOverridePlanning(null);
   }
 
-  const favorites: ReadonlySet<string> =
-    userId && favoriteState?.userId === userId
-      ? favoriteState.ids
-      : EMPTY_FAVORITES;
-
-  const sessionCarnets =
-    userId && carnetsState?.userId === userId ? carnetsState : null;
-
-  const carnetCounts = useMemo(() => {
-    if (!sessionCarnets) return EMPTY_CARNET_COUNTS;
-    return countCarnetsByEventId(sessionCarnets.memberships);
-  }, [sessionCarnets]);
-
   const displayedHighlights = overrideHighlights ?? highlights;
-
-  function patchFavorites(mutator: (draft: Set<string>) => void) {
-    if (!userId) return;
-    setFavoriteState((prev) => {
-      const draft =
-        prev?.userId === userId ? new Set(prev.ids) : new Set<string>();
-      mutator(draft);
-      return { userId, ids: draft };
-    });
-  }
 
   function openFavoriteAuth(eventId: string) {
     setAuthFavoriteTrigger(
@@ -238,9 +169,7 @@ export function HomePage({
       return;
     }
 
-    patchFavorites((draft) => {
-      draft.add(id);
-    });
+    addFavoriteLocally(id);
 
     startTransition(async () => {
       try {
@@ -248,9 +177,7 @@ export function HomePage({
 
         if (result.ok) return;
 
-        patchFavorites((draft) => {
-          draft.delete(id);
-        });
+        rollbackFavoriteAdd(id);
 
         if (result.reason === "unauthenticated") {
           openFavoriteAuth(id);
@@ -259,22 +186,9 @@ export function HomePage({
         setFavoriteError("Impossible d’enregistrer ce détour. Réessayez.");
       } catch (error) {
         console.error("[detour:home] toggleFavorite failed", error);
-        patchFavorites((draft) => {
-          draft.delete(id);
-        });
+        rollbackFavoriteAdd(id);
         setFavoriteError("Impossible d’enregistrer ce détour. Réessayez.");
       }
-    });
-  }
-
-  function handleRemoved(id: string) {
-    patchFavorites((draft) => draft.delete(id));
-    setCarnetsState((prev) => {
-      if (prev?.userId !== userId) return prev;
-      return {
-        ...prev,
-        memberships: prev.memberships.filter((m) => m.eventId !== id),
-      };
     });
   }
 
@@ -297,15 +211,12 @@ export function HomePage({
     setOrganizeTrigger(null);
   }
 
-  const handlePendingFavoriteSaved = useCallback((eventId: string) => {
-    if (!userId) return;
-    setFavoriteState((prev) => {
-      const draft =
-        prev?.userId === userId ? new Set(prev.ids) : new Set<string>();
-      draft.add(eventId);
-      return { userId, ids: draft };
-    });
-  }, [userId]);
+  const handlePendingFavoriteSaved = useCallback(
+    (eventId: string) => {
+      addFavoriteLocally(eventId);
+    },
+    [addFavoriteLocally],
+  );
 
   return (
     <div id="top" className="min-h-screen bg-paper">
@@ -390,43 +301,18 @@ export function HomePage({
           }
         />
       ) : null}
-      {organizeEvent && sessionCarnets && userId ? (
+      {organizeEvent && hasCarnetsState && userId ? (
         <OrganizeInCarnetModal
           event={organizeEvent}
-          groups={sessionCarnets.groups}
-          memberships={sessionCarnets.memberships}
+          groups={groups}
+          memberships={memberships}
           isFavorite={favorites.has(organizeEvent.id)}
           onClose={closeOrganizeModal}
           returnFocusTo={organizeTrigger}
-          onGroupsChange={(groups) =>
-            setCarnetsState((prev) =>
-              prev?.userId === userId ? { ...prev, groups } : prev,
-            )
-          }
-          onMembershipsChange={(memberships) =>
-            setCarnetsState((prev) =>
-              prev?.userId === userId ? { ...prev, memberships } : prev,
-            )
-          }
-          onFavoriteAdded={(eventId) => {
-            patchFavorites((draft) => {
-              draft.add(eventId);
-            });
-          }}
-          onFavoriteRemoved={(eventId) => {
-            patchFavorites((draft) => {
-              draft.delete(eventId);
-            });
-            setCarnetsState((prev) => {
-              if (prev?.userId !== userId) return prev;
-              return {
-                ...prev,
-                memberships: prev.memberships.filter(
-                  (m) => m.eventId !== eventId,
-                ),
-              };
-            });
-          }}
+          onGroupsChange={replaceGroups}
+          onMembershipsChange={replaceMemberships}
+          onFavoriteAdded={addFavoriteLocally}
+          onFavoriteRemoved={removeFavoriteLocally}
         />
       ) : null}
       {authFavoriteEventId ? (

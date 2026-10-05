@@ -145,7 +145,8 @@ export function FrisePageClient({
     notebookLoading,
     notebookError,
     notebookName,
-    patchFavoriteIds,
+    addFavoriteLocally,
+    rollbackFavoriteAdd,
     setFavoriteIds,
     removeEventLocally,
   } = useFrisePersonalData({
@@ -190,7 +191,7 @@ export function FrisePageClient({
       return;
     }
 
-    patchFavoriteIds((draft) => draft.add(id));
+    addFavoriteLocally(id);
 
     startTransition(async () => {
       try {
@@ -199,7 +200,7 @@ export function FrisePageClient({
       } catch (error) {
         console.error("[detour:frise] toggleFavorite failed", error);
       }
-      patchFavoriteIds((draft) => draft.delete(id));
+      rollbackFavoriteAdd(id);
       setFavoriteError("Impossible d’enregistrer ce détour. Réessayez.");
     });
   }

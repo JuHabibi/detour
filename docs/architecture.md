@@ -103,8 +103,19 @@ GET /
             → unstable_cache(getPublicHomeSnapshot)   # SQL + pipeline + explorer
             → materializePublicHomeData(snapshot)     # IA hors nest (cache IA 7j)
   → <HomePage /> public
-  → client : useSession + listMyFavoriteEventIds   # hors cache public
+  → client : useSession
+       → usePersonalData                       # favoris IDs + carnets (hors cache public)
+            → listMyFavoriteEventIds
+            → listMyCarnetsState               # dès connexion (loadCarnets)
 ```
+
+Données personnelles partagées (client) :
+
+- `usePersonalData` (`src/components/personal/`) porte les IDs favoris et l’état des carnets : chargements, fusion des réponses tardives, ops locales (ajout / rollback / retrait favori, upsert groupes & appartenances), compteurs, gate de session (démontage / A→B→A), autorité des IDs face au contenu favoris / debug.
+- **Home** consomme le hook directement (`loadCarnets: true` dès la connexion). Affichage, modales et interactions restent dans `HomePage`.
+- **Frise** : `useFrisePersonalData` délègue IDs + état carnets à `usePersonalData` (`loadCarnets` seulement en vue Carnets) et garde l’orchestration propre — contenu favoris, contenu du carnet sélectionné, loading/erreurs associés, callbacks de sélection. Navigation / URL / affichage restent dans `FrisePageClient`.
+- Une réponse initiale **tardive** est **fusionnée** avec les modifications locales ciblées (ex. ajout favori `C` pendant le load de `[A,B]` → `[A,B,C]` ; création de carnet G2 pendant le load de G1 → G1∪G2). Le contenu favoris récemment chargé (ou `__friseSetFavoriteIds`) prime sur une ancienne réponse d’IDs.
+- Pas d’import croisé d’internals entre features ; pas de provider / cache global pour ce partage.
 
 Post-sync (cron / internal) :
 
@@ -302,7 +313,9 @@ Ce sont des **écarts au modèle cible** (§13). Ils **ne constituent pas** des 
 | `src/app/_server/load-home-page.ts` | Page loader public (cache Home) — pas d’auth |
 | `src/application/home/get-public-home-data.ts` | Snapshot slim + materialize IA |
 | `src/infrastructure/next-public-home-cache.ts` | Data Cache Home + invalidation tag |
-| `src/features/home/components/HomePage.tsx` | Composition UI home (Radar, Explorer, hydratation auth/favoris) |
+| `src/features/home/components/HomePage.tsx` | Composition UI home (Radar, Explorer, session, modales) |
+| `src/components/personal/usePersonalData.ts` | Favoris IDs + état carnets partagés Home/frise : loads, fusion, ops locales |
+| `src/features/frise/hooks/useFrisePersonalData.ts` | Orchestration frise : contenus favoris/carnet, loading ; délègue IDs/carnets |
 | `src/components/event/` | UI événement partagée (modal, formatWhen, pastilles catégorie) |
 | `src/features/home/hooks/useExplorerEvents.ts` | Orchestration async Explorer (client) |
 | `src/app/actions/load-explorer-events.ts` | Server action Explorer (filtres + pagination) |
@@ -447,7 +460,9 @@ src/
 │       ├── tests/               → tests UI / wiring multi-composants
 │       └── <rôle>/              → modules non-React du même rôle (≥ 2 fichiers)
 ├── components/
-│   └── layout/                  → shell global uniquement (Header, …)
+│   ├── layout/                  → shell global (Header, …)
+│   ├── personal/                → données perso partagées (favoris IDs + carnets)
+│   ├── favorites/ · carnets/ · event/  → UI / hooks transverses
 ├── lib/                         → utilitaires techniques transverses
 ├── application/                 → use cases / mapping / orchestration métier
 ├── domain/                      → métier pur (aucun React)

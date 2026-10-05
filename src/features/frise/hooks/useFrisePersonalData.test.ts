@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { EventItem } from "@/data/types";
-import type { GroupSummary } from "@/application/groups";
+import { createFavoriteIdsAuthority } from "@/components/personal/usePersonalData";
 
 vi.mock("@/app/actions/favorites", () => ({
   listMyFavoriteEventIds: vi.fn(),
@@ -12,22 +12,23 @@ vi.mock("@/app/actions/groups", () => ({
   listMyCarnetsState: vi.fn(),
 }));
 
+vi.mock("@/lib/auth-client", () => ({
+  authClient: {
+    useSession: () => ({ data: null, isPending: false }),
+  },
+}));
+
 import type {
-  ListMyFavoriteEventIdsResult,
   ListMyFavoriteEventsResult,
 } from "@/app/actions/favorites";
 import type {
   GetMyCarnetEventsResult,
-  ListMyCarnetsStateResult,
 } from "@/app/actions/groups";
 import {
-  createFavoriteIdsAuthority,
   createRequestGate,
   removeEventFromPersonalCorpora,
   runCarnetEventsLoad,
-  runCarnetsListLoad,
   runFavoriteEventsLoad,
-  runFavoriteIdsLoad,
 } from "@/features/frise/hooks/useFrisePersonalData";
 
 function event(id: string): EventItem {
@@ -41,19 +42,6 @@ function event(id: string): EventItem {
     date: "2026-10-05",
     dateLabel: "2026-10-05",
     time: "20h00",
-  };
-}
-
-function group(id: string, name: string): GroupSummary {
-  return {
-    id,
-    userId: "user-1",
-    name,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-    eventCount: 0,
-    earliestStartAt: null,
-    latestStartAt: null,
   };
 }
 
@@ -78,80 +66,6 @@ describe("createRequestGate", () => {
     a.invalidate();
     expect(a1.isCurrent()).toBe(false);
     expect(b1.isCurrent()).toBe(true);
-  });
-});
-
-describe("runFavoriteIdsLoad", () => {
-  it("succès → IDs", async () => {
-    const gate = createRequestGate().begin();
-    const onSuccess = vi.fn();
-    await runFavoriteIdsLoad(
-      async () => ({ ok: true, eventIds: ["e1", "e2"] }),
-      { isCurrent: gate.isCurrent, onLoading: vi.fn(), onSuccess },
-    );
-    expect(onSuccess).toHaveBeenCalledWith(["e1", "e2"]);
-  });
-
-  it("ok:false → tableau vide", async () => {
-    const gate = createRequestGate().begin();
-    const onSuccess = vi.fn();
-    await runFavoriteIdsLoad(
-      async () => ({ ok: false, reason: "error" }),
-      { isCurrent: gate.isCurrent, onLoading: vi.fn(), onSuccess },
-    );
-    expect(onSuccess).toHaveBeenCalledWith([]);
-  });
-
-  it("rejet réseau → tableau vide", async () => {
-    const gate = createRequestGate().begin();
-    const onSuccess = vi.fn();
-    await runFavoriteIdsLoad(
-      async () => {
-        throw new Error("network");
-      },
-      { isCurrent: gate.isCurrent, onLoading: vi.fn(), onSuccess },
-    );
-    expect(onSuccess).toHaveBeenCalledWith([]);
-  });
-
-  it("réponse obsolète après invalidate → aucun commit", async () => {
-    const requestGate = createRequestGate();
-    const gate = requestGate.begin();
-    const pending = deferred<ListMyFavoriteEventIdsResult>();
-    const onSuccess = vi.fn();
-
-    const load = runFavoriteIdsLoad(() => pending.promise, {
-      isCurrent: gate.isCurrent,
-      onLoading: vi.fn(),
-      onSuccess,
-    });
-
-    requestGate.invalidate();
-    pending.resolve({ ok: true, eventIds: ["stale"] });
-    await load;
-
-    expect(onSuccess).not.toHaveBeenCalled();
-  });
-
-  it("autorité bumpée (contenu / mutation) → IDs tardifs ignorés", async () => {
-    const requestGate = createRequestGate();
-    const authority = createFavoriteIdsAuthority();
-    const gate = requestGate.begin();
-    const auth = authority.capture();
-    const pending = deferred<ListMyFavoriteEventIdsResult>();
-    const onSuccess = vi.fn();
-
-    const load = runFavoriteIdsLoad(() => pending.promise, {
-      isCurrent: () => gate.isCurrent() && auth.isAuthoritative(),
-      onLoading: vi.fn(),
-      onSuccess,
-    });
-
-    authority.bump();
-    pending.resolve({ ok: true, eventIds: ["stale-ids"] });
-    await load;
-
-    expect(onSuccess).not.toHaveBeenCalled();
   });
 });
 
@@ -243,62 +157,6 @@ describe("runFavoriteEventsLoad", () => {
     expect(onSuccess).not.toHaveBeenCalled();
     expect(onError).not.toHaveBeenCalled();
     expect(loading).toEqual([true]);
-  });
-});
-
-describe("runCarnetsListLoad", () => {
-  it("succès → groups", async () => {
-    const gate = createRequestGate().begin();
-    const onSuccess = vi.fn();
-    await runCarnetsListLoad(
-      async () => ({
-        ok: true,
-        groups: [group("g1", "Automne")],
-        memberships: [],
-      }),
-      {
-        isCurrent: gate.isCurrent,
-        onLoading: vi.fn(),
-        onSuccess,
-        onError: vi.fn(),
-      },
-    );
-    expect(onSuccess).toHaveBeenCalledWith([group("g1", "Automne")]);
-  });
-
-  it("ok:false et rejet → onError + fin de chargement", async () => {
-    const gate = createRequestGate().begin();
-    const loading: boolean[] = [];
-    const onError = vi.fn();
-
-    await runCarnetsListLoad(
-      async () => ({ ok: false, reason: "error" }),
-      {
-        isCurrent: gate.isCurrent,
-        onLoading: (v) => loading.push(v),
-        onSuccess: vi.fn(),
-        onError,
-      },
-    );
-    expect(onError).toHaveBeenCalledOnce();
-    expect(loading).toEqual([true, false]);
-
-    const gate2 = createRequestGate().begin();
-    const loading2: boolean[] = [];
-    const onError2 = vi.fn();
-    await runCarnetsListLoad(
-      async () => {
-        throw new Error("net");
-      },
-      {
-        isCurrent: gate2.isCurrent,
-        onLoading: (v) => loading2.push(v),
-        onSuccess: vi.fn(),
-        onError: onError2,
-      },
-    );
-    expect(onError2).toHaveBeenCalledOnce();
-    expect(loading2).toEqual([true, false]);
   });
 });
 
@@ -472,7 +330,8 @@ describe("cohérence locale des favoris (helpers utilisés par le hook)", () => 
     const authority = createFavoriteIdsAuthority();
     const authBefore = authority.capture();
 
-    // Même ordre que removeEventLocally : bump puis transformation des corpora.
+    // Même ordre que removeEventLocally : bump autorité (via removeFavoriteLocally /
+    // setFavoriteIdsAuthoritative côté partagé) puis transformation des corpora.
     authority.bump();
     const next = removeEventFromPersonalCorpora("gone", {
       ids: new Set(["keep", "gone"]),
@@ -486,14 +345,14 @@ describe("cohérence locale des favoris (helpers utilisés par le hook)", () => 
     expect(next.notebookEvents.map((e) => e.id)).toEqual(["other"]);
   });
 
-  it("gates indépendantes : carnets n’invalide pas les favoris", async () => {
+  it("gates indépendantes : contenu favoris n’invalide pas le contenu carnet", async () => {
     const favoritesGate = createRequestGate();
-    const carnetsGate = createRequestGate();
+    const carnetEventsGate = createRequestGate();
     const fav = favoritesGate.begin();
-    const car = carnetsGate.begin();
+    const car = carnetEventsGate.begin();
 
     const pendingFav = deferred<ListMyFavoriteEventsResult>();
-    const pendingCar = deferred<ListMyCarnetsStateResult>();
+    const pendingCar = deferred<GetMyCarnetEventsResult>();
     const favSuccess = vi.fn();
     const carSuccess = vi.fn();
 
@@ -503,18 +362,18 @@ describe("cohérence locale des favoris (helpers utilisés par le hook)", () => 
       onSuccess: favSuccess,
       onError: vi.fn(),
     });
-    const loadCar = runCarnetsListLoad(() => pendingCar.promise, {
+    const loadCar = runCarnetEventsLoad("g1", () => pendingCar.promise, {
       isCurrent: car.isCurrent,
       onLoading: vi.fn(),
       onSuccess: carSuccess,
       onError: vi.fn(),
     });
 
-    carnetsGate.invalidate();
+    carnetEventsGate.invalidate();
     pendingCar.resolve({
       ok: true,
-      groups: [group("g1", "G")],
-      memberships: [],
+      group: { id: "g1", name: "G" },
+      events: [],
     });
     await loadCar;
     expect(carSuccess).not.toHaveBeenCalled();
