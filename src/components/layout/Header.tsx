@@ -102,10 +102,10 @@ export function Header({
             aria-label="Sections"
             className="hidden items-center gap-6 text-[12px] font-medium uppercase tracking-[0.14em] text-ink md:flex"
           >
-            <Link href="/#detour" className={linkClass}>
+            <Link href="/" className={linkClass}>
               Sur le radar
             </Link>
-            <Link href="/#explorer" className={linkClass}>
+            <Link href="/explorer" className={linkClass}>
               Explorer
             </Link>
             {showFriseNav ? (
@@ -169,7 +169,7 @@ export function Header({
             <li>
               <Link
                 ref={firstLinkRef}
-                href="/#detour"
+                href="/"
                 className={cn("block py-2.5", linkClass)}
                 onClick={closeMenu}
               >
@@ -178,7 +178,7 @@ export function Header({
             </li>
             <li>
               <Link
-                href="/#explorer"
+                href="/explorer"
                 className={cn("block py-2.5", linkClass)}
                 onClick={closeMenu}
               >

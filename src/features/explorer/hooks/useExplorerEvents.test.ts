@@ -11,7 +11,7 @@ import {
   runExplorerLoadMore,
   runExplorerPageOneLoad,
   type ExplorerListSnapshot,
-} from "@/features/home/hooks/useExplorerEvents";
+} from "@/features/explorer/hooks/useExplorerEvents";
 
 type LoadFn = (
   input: LoadExplorerEventsInput,

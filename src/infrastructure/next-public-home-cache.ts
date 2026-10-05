@@ -22,9 +22,10 @@ export const PUBLIC_HOME_CACHE_REVALIDATE_SECONDS = 60 * 60 * 6;
  * Read model public Home via Data Cache Next (`unstable_cache` + tag).
  * Ne doit jamais recevoir de userId / session / favoris.
  *
- * Snapshot (SQL / pipeline / explorer) dans `unstable_cache`.
+ * Snapshot (SQL / pipeline Radar) dans `unstable_cache`.
  * Assessment IA matérialisé **après**, hors nest — sinon Next bypass
  * les reads du cache IA per-event (unstable_cache imbriqué).
+ * Explorer initial : cache distinct (`next-public-explorer-cache`).
  */
 export async function getCachedPublicHomeData(): Promise<PublicHomeData> {
   const cachedSnapshot = unstable_cache(
@@ -36,7 +37,7 @@ export async function getCachedPublicHomeData(): Promise<PublicHomeData> {
         exposeDebug: shouldExposeHomeDebug(),
       });
     },
-    ["detour-public-home", PUBLIC_HOME_TERRITORY_SLUG, "pre-ai-snapshot-slim-v1"],
+    ["detour-public-home", PUBLIC_HOME_TERRITORY_SLUG, "pre-ai-snapshot-slim-v2"],
     {
       tags: [PUBLIC_HOME_CACHE_TAG],
       revalidate: PUBLIC_HOME_CACHE_REVALIDATE_SECONDS,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveEventAction } from "@/features/home/components/cards/HomeEventCardInteractions";
+import { resolveEventAction } from "@/components/event/EventCardInteractions";
 import type { EventItem } from "@/data/types";
 
 function item(partial: Partial<EventItem> & Pick<EventItem, "id" | "title">): EventItem {

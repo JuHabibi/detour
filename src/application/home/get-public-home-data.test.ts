@@ -89,7 +89,7 @@ describe("getPublicHomeData — invariants public", () => {
     expect(source).not.toMatch(/favorite/);
     expect(source).toContain("buildUpcomingPipeline");
     expect(source).toContain("finalizeUpcomingWithAutoAi");
-    expect(source).toContain("listExplorerEvents");
+    expect(source).not.toContain("listExplorerEvents");
     expect(source).toContain("toPublicHomeSnapshotSlim");
   });
 });
@@ -103,7 +103,6 @@ describe("PublicHomeSnapshot slim", () => {
     const snapshot = toPublicHomeSnapshotSlim({
       events,
       aiShortlist: ranked.slice(0, 2),
-      explorerPage: { events: [events[0]!], totalCount: 1, nextCursor: null },
       exposeDebug: false,
     });
 
@@ -111,7 +110,6 @@ describe("PublicHomeSnapshot slim", () => {
     expect(keys).toEqual([
       "aiShortlist",
       "events",
-      "explorerPage",
       "exposeDebug",
     ]);
     expect(snapshot).not.toHaveProperty("ingestion");
@@ -138,7 +136,6 @@ describe("PublicHomeSnapshot slim", () => {
     const snapshot = toPublicHomeSnapshotSlim({
       events,
       aiShortlist: shortlist,
-      explorerPage: { events: [], totalCount: 0, nextCursor: null },
       exposeDebug: false,
     });
 
@@ -192,7 +189,6 @@ describe("PublicHomeSnapshot slim", () => {
     const snapshot = toPublicHomeSnapshotSlim({
       events: pipeline.events,
       aiShortlist: pipeline.aiShortlist,
-      explorerPage: { events: [], totalCount: 0, nextCursor: null },
       exposeDebug: false,
     });
     const revived = reviveUpcomingPipelineFromSlim(snapshot);
@@ -224,11 +220,6 @@ describe("PublicHomeSnapshot slim", () => {
     const slim = toPublicHomeSnapshotSlim({
       events,
       aiShortlist,
-      explorerPage: {
-        events: events.slice(0, 12),
-        totalCount: 801,
-        nextCursor: null,
-      },
       exposeDebug: false,
     });
 
@@ -241,7 +232,6 @@ describe("PublicHomeSnapshot slim", () => {
       highlightCandidates: ranked.slice(0, 20),
       aiShortlist,
       duplicates: [],
-      explorerPage: slim.explorerPage,
       exposeDebug: false,
     };
 
@@ -262,7 +252,7 @@ describe("next-public-home-cache — frontière nest IA", () => {
     );
     expect(source).toContain("getPublicHomeSnapshot");
     expect(source).toContain("materializePublicHomeData");
-    expect(source).toContain("pre-ai-snapshot-slim-v1");
+    expect(source).toContain("pre-ai-snapshot-slim-v2");
     expect(source).not.toMatch(/return getPublicHomeData\(/);
     const callbackStart = source.indexOf("async () => {");
     const callbackBody = source.slice(
