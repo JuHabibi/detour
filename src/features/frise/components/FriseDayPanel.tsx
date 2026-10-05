@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useId, useRef } from "react";
 import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import { FrisePosterCard } from "@/features/frise/components/FrisePosterCard";
 import type { ExplorerFriezeDayCluster } from "@/features/frise/timeline/frise-timeline-model";
 import { cn } from "@/lib/cn";
+import { useStackedDialogLifecycle } from "@/lib/use-stacked-dialog-lifecycle";
 
 type FriseDayPanelProps = {
   day: ExplorerFriezeDayCluster;
@@ -17,7 +18,7 @@ type FriseDayPanelProps = {
 
 /**
  * Panneau jour chargé — latéral desktop, plein largeur mobile.
- * Motif a11y aligné sur EventDetailModal (Escape, focus, overlay).
+ * Cycle de vie (scroll / Échap / focus) via useStackedDialogLifecycle.
  */
 export function FriseDayPanel({
   day,
@@ -29,41 +30,18 @@ export function FriseDayPanel({
 }: FriseDayPanelProps) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
-  const onCloseRef = useRef(onClose);
-  const returnFocusToRef = useRef(returnFocusTo);
-  onCloseRef.current = onClose;
-  returnFocusToRef.current = returnFocusTo;
   const dateLine = `${day.weekdayLabel} ${day.dayNumber} ${day.monthShort}`;
   const countLabel =
     day.events.length === 1
       ? "1 événement"
       : `${day.events.length} événements`;
 
-  // Montage seul : un onClose inline du parent ne doit pas re-voler le focus
-  // quand une fiche s’ouvre/ferme au-dessus.
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    closeRef.current?.focus();
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
-      // Fiche au-dessus : laisser EventDetailModal consommer Escape seul.
-      if (document.querySelector('[data-testid="event-detail-modal"]')) return;
-      e.preventDefault();
-      onCloseRef.current();
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-      const el = returnFocusToRef.current;
-      if (el && typeof el.focus === "function" && document.contains(el)) {
-        el.focus();
-      }
-    };
-  }, []);
+  useStackedDialogLifecycle({
+    onClose,
+    initialFocusRef: closeRef,
+    returnFocusTo,
+    focusRestore: "trigger-first",
+  });
 
   return (
     <div

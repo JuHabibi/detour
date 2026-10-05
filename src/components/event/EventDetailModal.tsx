@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useId, useRef } from "react";
+import { useId, useRef } from "react";
 import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
 import { resolveCategoryBadgeTone } from "@/components/event/category-badge-style";
 import {
@@ -12,11 +12,8 @@ import {
 import type { EventItem } from "@/data/types";
 import { captureProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
-import {
-  eventDetailTriggerSelector,
-  onStackedDialogEscape,
-  restoreDialogReturnFocus,
-} from "@/lib/stacked-dialog";
+import { eventDetailTriggerSelector } from "@/lib/stacked-dialog";
+import { useStackedDialogLifecycle } from "@/lib/use-stacked-dialog-lifecycle";
 
 export type EventDetailSurface = "radar" | "explorer";
 
@@ -42,7 +39,7 @@ type EventDetailModalProps = {
 
 /**
  * Fiche événement Détour — même composant pour Radar et Explorer.
- * Motif dialog aligné sur AccountAddToGroupModal (overlay + Escape + focus).
+ * Cycle de vie (scroll / Échap / focus) via useStackedDialogLifecycle.
  */
 export function EventDetailModal({
   event,
@@ -53,33 +50,20 @@ export function EventDetailModal({
 }: EventDetailModalProps) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
-  const onCloseRef = useRef(onClose);
-  const returnFocusToRef = useRef(returnFocusTo);
-  onCloseRef.current = onClose;
-  returnFocusToRef.current = returnFocusTo;
   const pickReason = surface === "radar" ? radarPickReason : null;
   const official = resolveOfficialSourceLink(event);
 
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    closeRef.current?.focus();
-
-    function onKeyDown(e: KeyboardEvent) {
-      onStackedDialogEscape(e, () => onCloseRef.current());
-    }
-    // Capture + stopImmediatePropagation : un seul dialogue empilé se ferme.
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown, true);
-      restoreDialogReturnFocus(returnFocusToRef.current, [
-        // Préférer la carte encore dans le panneau jour (aria-modal).
-        `[data-testid="frise-day-panel"] ${eventDetailTriggerSelector(event.id)}`,
-        eventDetailTriggerSelector(event.id),
-      ]);
-    };
-  }, [event.id]);
+  useStackedDialogLifecycle({
+    onClose,
+    initialFocusRef: closeRef,
+    returnFocusTo,
+    focusSelectors: [
+      // Préférer la carte encore dans le panneau jour (aria-modal).
+      `[data-testid="frise-day-panel"] ${eventDetailTriggerSelector(event.id)}`,
+      eventDetailTriggerSelector(event.id),
+    ],
+    focusRestore: "selectors-first",
+  });
 
   const placeLine = [event.venue?.trim(), event.city?.trim()]
     .filter(Boolean)

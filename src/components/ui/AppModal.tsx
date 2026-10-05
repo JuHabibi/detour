@@ -1,11 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import {
-  onStackedDialogEscape,
-  restoreDialogReturnFocus,
-} from "@/lib/stacked-dialog";
+import { useStackedDialogLifecycle } from "@/lib/use-stacked-dialog-lifecycle";
 
 export type AppModalProps = {
   eyebrow?: string;
@@ -21,9 +18,6 @@ export type AppModalProps = {
   className?: string;
   titleId?: string;
 };
-
-let openAppModals = 0;
-let originalBodyOverflow = "";
 
 export function AppModal({
   eyebrow,
@@ -42,39 +36,14 @@ export function AppModal({
   const generatedTitleId = useId();
   const titleId = titleIdProp ?? generatedTitleId;
   const closeRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const onCloseRef = useRef(onClose);
-  const returnFocusToRef = useRef(returnFocusTo);
-  const fallbackFocusSelectorRef = useRef(fallbackFocusSelector);
 
-  useEffect(() => {
-    onCloseRef.current = onClose;
-    returnFocusToRef.current = returnFocusTo;
-    fallbackFocusSelectorRef.current = fallbackFocusSelector;
-  }, [onClose, returnFocusTo, fallbackFocusSelector]);
-
-  useEffect(() => {
-    if (openAppModals === 0) originalBodyOverflow = document.body.style.overflow;
-    openAppModals += 1;
-    document.body.style.overflow = "hidden";
-    closeRef.current?.focus();
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
-      const dialogs = document.querySelectorAll("[data-app-modal-dialog]");
-      if (dialogs[dialogs.length - 1] !== dialogRef.current) return;
-      onStackedDialogEscape(e, () => onCloseRef.current());
-    }
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => {
-      openAppModals -= 1;
-      if (openAppModals === 0) document.body.style.overflow = originalBodyOverflow;
-      window.removeEventListener("keydown", onKeyDown, true);
-      if (!restoreDialogReturnFocus(returnFocusToRef.current)) {
-        restoreDialogReturnFocus(null, fallbackFocusSelectorRef.current);
-      }
-    };
-  }, []);
+  useStackedDialogLifecycle({
+    onClose,
+    initialFocusRef: closeRef,
+    returnFocusTo,
+    focusSelectors: fallbackFocusSelector,
+    focusRestore: "trigger-first",
+  });
 
   return (
     <div
@@ -90,7 +59,6 @@ export function AppModal({
       />
 
       <div
-        ref={dialogRef}
         data-app-modal-dialog
         role="dialog"
         aria-modal={suspended ? undefined : "true"}
@@ -137,7 +105,11 @@ export function AppModal({
 
         <div className="mt-5 min-h-0 flex-1 overflow-y-auto">{children}</div>
 
-        {footer ? <div className="mt-6 flex flex-wrap items-center justify-end gap-3">{footer}</div> : null}
+        {footer ? (
+          <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>
   );

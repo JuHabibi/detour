@@ -120,6 +120,11 @@ Données personnelles partagées (client) :
 - Une réponse initiale **tardive** est **fusionnée** avec les modifications locales ciblées (ex. ajout favori `C` pendant le load de `[A,B]` → `[A,B,C]` ; création de carnet G2 pendant le load de G1 → G1∪G2). Le contenu favoris récemment chargé (ou `__friseSetFavoriteIds`) prime sur une ancienne réponse d’IDs.
 - Pas d’import croisé d’internals entre features ; pas de provider / cache global pour ce partage.
 
+Surfaces dialog empilables (F2 itération 1) :
+
+- `useStackedDialogLifecycle` + helpers `stacked-dialog` : scroll body en refcount, Échap uniquement sur la couche au sommet, focus à l’ouverture et restauration au déclencheur (sélecteurs de repli selon la surface).
+- Consommateurs : `AppModal`, `EventDetailModal`, `FriseDayPanel` — présentations inchangées. Pas de provider. Hors scope it.1 : confinement Tab et neutralisation générale du fond.
+
 Post-sync (cron / internal) :
 
 ```
@@ -319,6 +324,8 @@ Ce sont des **écarts au modèle cible** (§13). Ils **ne constituent pas** des 
 | `src/features/home/components/HomePage.tsx` | Composition UI home (Radar, Explorer, session, modales) |
 | `src/components/personal/usePersonalData.ts` | Favoris IDs + état carnets partagés Home/frise : loads, fusion, ops locales |
 | `src/features/frise/hooks/useFrisePersonalData.ts` | Orchestration frise : contenus favoris/carnet, loading ; délègue IDs/carnets |
+| `src/lib/stacked-dialog.ts` | Pile Escape + scroll lock partagés ; restauration de focus |
+| `src/lib/use-stacked-dialog-lifecycle.ts` | Hook cycle de vie modales/panneaux (F2 it.1 : scroll, Échap, focus) |
 | `src/components/event/` | UI événement partagée (modal, formatWhen, pastilles catégorie) |
 | `src/features/home/hooks/useExplorerEvents.ts` | Orchestration async Explorer (client) |
 | `src/app/actions/load-explorer-events.ts` | Server action Explorer (filtres + pagination) |
