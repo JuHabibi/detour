@@ -17,7 +17,9 @@ describe("resendFailureCode", () => {
 
 describe("sendPasswordResetEmail", () => {
   it("poste vers Resend sans journaliser l’URL", async () => {
-    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+    const fetchImpl = vi.fn<typeof fetch>(
+      async () => new Response("{}", { status: 200 }),
+    );
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     await sendPasswordResetEmail({
@@ -28,31 +30,40 @@ describe("sendPasswordResetEmail", () => {
         apiKey: "re_test",
         from: "Détour <noreply@detour.website>",
       },
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     });
 
     expect(fetchImpl).toHaveBeenCalledOnce();
-    const [url, init] = fetchImpl.mock.calls[0]!;
+    const [url, init] = fetchImpl.mock.calls[0] ?? [];
     expect(url).toBe("https://api.resend.com/emails");
     expect(init?.method).toBe("POST");
-    expect((init?.headers as Record<string, string>).Authorization).toBe(
-      "Bearer re_test",
+    expect(init?.headers).toEqual({
+      Authorization: "Bearer re_test",
+      "Content-Type": "application/json",
+    });
+    expect(typeof init?.body).toBe("string");
+    if (typeof init?.body !== "string") {
+      throw new Error("expected Resend request body to be a JSON string");
+    }
+    const body: unknown = JSON.parse(init.body);
+    expect(body).toEqual(
+      expect.objectContaining({
+        to: ["user@example.com"],
+        from: "Détour <noreply@detour.website>",
+      }),
     );
-    const body = JSON.parse(String(init?.body)) as {
-      to: string[];
-      from: string;
-      text: string;
-    };
-    expect(body.to).toEqual(["user@example.com"]);
-    expect(body.from).toBe("Détour <noreply@detour.website>");
-    expect(body.text).toContain("secret-token-value");
+    expect(body).toEqual(
+      expect.objectContaining({
+        text: expect.stringContaining("secret-token-value"),
+      }),
+    );
     expect(errorSpy).not.toHaveBeenCalled();
 
     errorSpy.mockRestore();
   });
 
   it("échoue avec un code contrôlé, sans détail Resend ni données sensibles", async () => {
-    const fetchImpl = vi.fn(
+    const fetchImpl = vi.fn<typeof fetch>(
       async () =>
         new Response(
           JSON.stringify({
@@ -72,7 +83,7 @@ describe("sendPasswordResetEmail", () => {
           apiKey: "re_test_secret_key",
           from: "Détour <noreply@detour.website>",
         },
-        fetchImpl: fetchImpl as unknown as typeof fetch,
+        fetchImpl,
       }),
     ).rejects.toThrow(/Failed to send password reset email/);
 

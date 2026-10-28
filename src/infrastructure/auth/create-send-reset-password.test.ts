@@ -13,11 +13,8 @@ afterEach(() => {
 describe("createSendResetPassword", () => {
   it("en développement sans Resend : stub sans URL ni jeton", async () => {
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
-    const fetchImpl = vi.fn();
-    const send = createSendResetPassword(
-      { NODE_ENV: "development" },
-      fetchImpl as unknown as typeof fetch,
-    );
+    const fetchImpl = vi.fn<typeof fetch>();
+    const send = createSendResetPassword({ NODE_ENV: "development" }, fetchImpl);
 
     await send({
       user: { email: "dev@example.com" },
@@ -36,11 +33,8 @@ describe("createSendResetPassword", () => {
 
   it("en production sans Resend : throw + sonde + cooldown (pas de faux succès)", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const fetchImpl = vi.fn();
-    const send = createSendResetPassword(
-      { NODE_ENV: "production" },
-      fetchImpl as unknown as typeof fetch,
-    );
+    const fetchImpl = vi.fn<typeof fetch>();
+    const send = createSendResetPassword({ NODE_ENV: "production" }, fetchImpl);
     const probe = { failed: false };
 
     await expect(
@@ -63,14 +57,16 @@ describe("createSendResetPassword", () => {
   });
 
   it("envoie via Resend quand la config est présente (fetch mocké)", async () => {
-    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+    const fetchImpl = vi.fn<typeof fetch>(
+      async () => new Response("{}", { status: 200 }),
+    );
     const send = createSendResetPassword(
       {
         NODE_ENV: "production",
         RESEND_API_KEY: "re_test",
         RESEND_FROM_EMAIL: "Détour <noreply@detour.website>",
       },
-      fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     );
 
     await send({
@@ -80,16 +76,23 @@ describe("createSendResetPassword", () => {
     });
 
     expect(fetchImpl).toHaveBeenCalledOnce();
-    const body = JSON.parse(String(fetchImpl.mock.calls[0]![1]?.body)) as {
-      to: string[];
-    };
-    expect(body.to).toEqual(["user@example.com"]);
+    const [, init] = fetchImpl.mock.calls[0] ?? [];
+    expect(typeof init?.body).toBe("string");
+    if (typeof init?.body !== "string") {
+      throw new Error("expected Resend request body to be a JSON string");
+    }
+    const body: unknown = JSON.parse(init.body);
+    expect(body).toEqual(
+      expect.objectContaining({
+        to: ["user@example.com"],
+      }),
+    );
     expect(isPasswordResetProviderInCooldown()).toBe(false);
   });
 
   it("marque la sonde et le cooldown si Resend échoue", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const fetchImpl = vi.fn(
+    const fetchImpl = vi.fn<typeof fetch>(
       async () =>
         new Response(JSON.stringify({ message: "Domain not verified" }), {
           status: 403,
@@ -101,7 +104,7 @@ describe("createSendResetPassword", () => {
         RESEND_API_KEY: "re_test",
         RESEND_FROM_EMAIL: "Détour <noreply@detour.website>",
       },
-      fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     );
     const probe = { failed: false };
 
