@@ -9,7 +9,7 @@ import { FavoriteAuthModal } from "@/components/favorites/FavoriteAuthModal";
 import { usePersonalData } from "@/components/personal/usePersonalData";
 import { useEventPersonalActions } from "@/components/personal/useEventPersonalActions";
 import { HeroFilters } from "@/features/home/components/HeroFilters";
-import { HomeExplorerCta } from "@/features/home/components/HomeExplorerCta";
+import { HomeAccountTable } from "@/features/home/components/HomeAccountTable";
 import { DetourSection } from "@/features/home/components/radar/DetourSection";
 import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import { authClient } from "@/lib/auth-client";
@@ -133,7 +133,7 @@ export function HomePage({
           }
           onOpenDetail={actions.openEventDetail}
         />
-        <HomeExplorerCta />
+        {!isSessionPending && !userId ? <HomeAccountTable /> : null}
         {liveDebugMeta && debugEvents ? (
           <HomeDebugSection
             events={debugEvents}

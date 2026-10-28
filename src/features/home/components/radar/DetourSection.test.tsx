@@ -13,6 +13,20 @@ vi.mock("next/image", () => ({
   },
 }));
 
+vi.mock("next/link", () => ({
+  default: function MockLink({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children?: string | ReturnType<typeof createElement> | null;
+    className?: string;
+  }) {
+    return createElement("a", { href, ...rest }, children);
+  },
+}));
+
 import { DetourSection } from "@/features/home/components/radar/DetourSection";
 import { DETOUR_SECTION_EDITORIAL_LINE } from "@/features/home/editorial-badge-copy";
 
@@ -61,6 +75,21 @@ describe("DetourSection — pas de plafond UI sur la sélection Radar", () => {
       "Détour sélectionne ce qui mérite votre attention parmi",
     );
     expect(html).not.toContain("liste exhaustive");
+  });
+
+  it("pointe vers /explorer en fin de sélection, sans bandeau CTA", () => {
+    const html = renderToStaticMarkup(
+      createElement(DetourSection, {
+        events: [eventAt(0)],
+        favorites,
+        onToggleFavorite,
+      }),
+    );
+    expect(html).toContain('href="/explorer"');
+    expect(html).toContain("Explorer toutes les sorties");
+    expect(html).not.toContain("Cherchez librement parmi les sorties.");
+    expect(html).not.toContain("Explorer les sorties");
+    expect(html).not.toContain('id="explorer"');
   });
 
   it("6 événements → tous rendus, rangs 01…06", () => {

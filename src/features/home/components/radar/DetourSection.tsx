@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { FeaturedEventsCarousel } from "@/features/home/components/radar/FeaturedEventsCarousel";
 import { DETOUR_SECTION_EDITORIAL_LINE } from "@/features/home/editorial-badge-copy";
 import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
@@ -33,7 +34,7 @@ export function DetourSection({
         href="/images/editorial/radar-paper-texture-sauge.webp"
         fetchPriority="high"
       />
-      <div className="relative z-[1] mx-auto max-w-[var(--detour-shell-max)] px-5 pb-7 pt-6 md:px-10 md:pb-10 md:pt-8 lg:px-16 lg:pt-9 2xl:px-20 2xl:pb-11 2xl:pt-10 min-[1920px]:px-24">
+      <div className="relative z-[1] mx-auto max-w-[var(--detour-shell-max)] px-5 pb-7 pt-6 md:px-10 md:pb-[5.5rem] md:pt-8 lg:px-16 lg:pt-9 2xl:px-20 2xl:pb-24 2xl:pt-10 min-[1920px]:px-24">
         <div className="mb-11 max-w-[min(100%,36rem)] md:mb-[3.25rem]">
           <h2 className="max-w-[14ch] font-display text-[1.85rem] leading-[1.02] tracking-tight text-ink md:text-[2.75rem] lg:text-[3.125rem] 2xl:text-[3.35rem]">
             À repérer maintenant
@@ -51,6 +52,15 @@ export function DetourSection({
           onOrganizeCarnets={onOrganizeCarnets}
           onOpenDetail={onOpenDetail}
         />
+
+        <p className="mt-6 md:mt-7">
+          <Link
+            href="/explorer"
+            className="text-[12px] font-medium tracking-[0.04em] text-ink/70 underline decoration-ink/25 underline-offset-4 transition-colors hover:text-ink hover:decoration-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          >
+            Explorer toutes les sorties
+          </Link>
+        </p>
       </div>
     </section>
   );
