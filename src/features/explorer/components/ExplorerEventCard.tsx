@@ -95,15 +95,13 @@ function ExplorerImageEventCard({
         </h3>
         <div className="mt-auto space-y-1.5 pt-1.5 text-sm md:pt-2">
           <EventPlaceDateLines venue={event.venue} whenLabel={whenLabel} />
-          <div className={cn("text-sm", event.venue && "hidden md:block")}>
-            <LocationLine
-              city={event.city}
-              distanceKm={event.distanceKm}
-              cityClassName="text-cream-dim"
-              sepClassName="text-sand"
-              distanceClassName="font-medium text-ink"
-            />
-          </div>
+          <LocationLine
+            city={event.city}
+            distanceKm={event.distanceKm}
+            cityClassName="text-cream-dim"
+            sepClassName="text-sand"
+            distanceClassName="font-medium text-ink"
+          />
           {priceLabel ? (
             <p className="hidden font-medium text-ink md:block">{priceLabel}</p>
           ) : null}
