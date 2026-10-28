@@ -48,6 +48,19 @@ describe("ExplorerEventCard avec image", () => {
     expect(html).toContain("gap-x-2.5");
   });
 
+  it("garde la commune visible même avec un lieu (pas de masquage mobile)", () => {
+    const html = renderToStaticMarkup(
+      createElement(ExplorerEventCard, {
+        event: explorerEvent(),
+      }),
+    );
+
+    expect(html).toContain("Scène nationale");
+    expect(html).toContain("Orléans");
+    // Régression PR1 : la commune ne doit plus être dans un conteneur hidden md:block
+    expect(html).not.toMatch(/hidden\s+md:block[^>]*>[\s\S]{0,160}?Orléans/);
+  });
+
   it("n’invente pas de ville quand city est null", () => {
     const html = renderToStaticMarkup(
       createElement(ExplorerEventCard, {
