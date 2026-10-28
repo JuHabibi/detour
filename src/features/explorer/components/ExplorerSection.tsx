@@ -6,6 +6,10 @@ import { CategoryFilter } from "@/components/event/CategoryFilter";
 import { EventGrid } from "@/features/explorer/components/EventGrid";
 import { ExplorationFilters } from "@/features/explorer/components/ExplorationFilters";
 import {
+  explorerPeriodEmptyMessage,
+  explorerPeriodResultTitle,
+} from "@/features/explorer/explorer-period-copy";
+import {
   useExplorerEvents,
   type ExplorerInitialPage,
 } from "@/features/explorer/hooks/useExplorerEvents";
@@ -18,16 +22,6 @@ import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal
 export type { ExplorerInitialPage };
 
 const SEARCH_DEBOUNCE_MS = 300;
-
-const GRID_RESULT_TITLES: Record<WhenFilter, string> = {
-  today: "Aujourd’hui autour d’Orléans",
-  tomorrow: "Demain autour d’Orléans",
-  weekend: "Retrouver tous les événements à venir",
-  "next-week": "Semaine prochaine autour d’Orléans",
-  "this-month": "Ce mois-ci autour d’Orléans",
-  "next-month": "Mois prochain autour d’Orléans",
-  upcoming: "À venir autour d’Orléans",
-};
 
 type ExplorerSectionProps = {
   initial: ExplorerInitialPage;
@@ -128,7 +122,8 @@ export function ExplorerSection({
   return (
     <EventGrid
       title="Explorer les sorties"
-      resultTitle={GRID_RESULT_TITLES[when]}
+      resultTitle={explorerPeriodResultTitle(when)}
+      emptyMessage={explorerPeriodEmptyMessage(when)}
       toolbar={
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">

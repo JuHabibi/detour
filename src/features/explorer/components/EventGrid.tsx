@@ -8,6 +8,8 @@ type EventGridProps = {
   title?: string;
   /** Sous-titre dynamique selon le filtre temporel. */
   resultTitle?: string;
+  /** Message empty state — oriente vers d’autres filtres. */
+  emptyMessage?: string;
   toolbar?: ReactNode;
   events: EventItem[];
   /** Total filtré (avant « Voir plus ») — pour le compteur discret. */
@@ -20,9 +22,13 @@ type EventGridProps = {
   onShowMore?: () => void;
 };
 
+const DEFAULT_EMPTY_MESSAGE =
+  "Aucune sortie pour ces filtres. Essayez une autre période, ville ou catégorie.";
+
 export function EventGrid({
   title = "Explorer les sorties",
   resultTitle,
+  emptyMessage = DEFAULT_EMPTY_MESSAGE,
   toolbar,
   events,
   totalCount,
@@ -35,9 +41,11 @@ export function EventGrid({
 }: EventGridProps) {
   const total = totalCount ?? events.length;
   const countLabel =
-    total > events.length
-      ? `${events.length} sur ${total}`
-      : `${events.length} proposition${events.length > 1 ? "s" : ""}`;
+    total === 0
+      ? "0 proposition"
+      : total > events.length
+        ? `${events.length} sur ${total}`
+        : `${events.length} proposition${events.length > 1 ? "s" : ""}`;
 
   return (
     <section
@@ -71,8 +79,7 @@ export function EventGrid({
 
         {events.length === 0 ? (
           <p className="max-w-lg font-editorial text-2xl leading-snug text-ink">
-            Rien pour ces filtres pour le moment. Essayez une autre période ou
-            catégorie.
+            {emptyMessage}
           </p>
         ) : (
           <>

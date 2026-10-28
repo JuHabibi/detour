@@ -62,4 +62,15 @@ describe("Explorer UI wiring", () => {
     expect(V1_COMMUNES[0]).toBe("Orléans");
     expect(V1_COMMUNES).toContain("Saran");
   });
+
+  it("ExplorerSection branche les libellés période (titre + empty)", () => {
+    const source = readFileSync(
+      path.join(explorerComponents, "ExplorerSection.tsx"),
+      "utf8",
+    );
+    expect(source).toContain("explorerPeriodResultTitle");
+    expect(source).toContain("explorerPeriodEmptyMessage");
+    expect(source).not.toContain("Retrouver tous les événements à venir");
+    expect(source).not.toContain("GRID_RESULT_TITLES");
+  });
 });
