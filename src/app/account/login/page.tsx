@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import { AccountLogin } from "@/features/account/components/auth/AccountLogin";
 import { AccountShell } from "@/features/account/components/AccountShell";
+import { isPasswordResetPublicLinkEnabled } from "@/infrastructure/email/password-reset-config";
 import { safeAccountNextPath } from "@/lib/safe-account-next-path";
 
 type LoginPageProps = {
@@ -19,7 +20,10 @@ export default async function AccountLoginPage({ searchParams }: LoginPageProps)
 
   return (
     <AccountShell>
-      <AccountLogin nextPath={nextPath} />
+      <AccountLogin
+        nextPath={nextPath}
+        showForgotPassword={isPasswordResetPublicLinkEnabled()}
+      />
     </AccountShell>
   );
 }

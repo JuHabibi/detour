@@ -17,14 +17,17 @@ const fieldClassName =
 const AUTH_ERROR_MESSAGE =
   "Impossible de se connecter. Vérifiez votre email et votre mot de passe.";
 
-const showForgotPassword = process.env.NODE_ENV !== "production";
-
 type AccountLoginProps = {
   /** Cible post-connexion (déjà validée côté serveur). */
   nextPath?: string;
+  /** Affiché seulement si le reset e-mail est opérationnel (décidé côté serveur). */
+  showForgotPassword?: boolean;
 };
 
-export function AccountLogin({ nextPath = "/account" }: AccountLoginProps) {
+export function AccountLogin({
+  nextPath = "/account",
+  showForgotPassword = false,
+}: AccountLoginProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

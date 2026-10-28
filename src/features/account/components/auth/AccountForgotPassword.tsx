@@ -21,18 +21,20 @@ export function AccountForgotPassword() {
     try {
       const result = await authClient.requestPasswordReset({
         email: email.trim(),
-        redirectTo: `${window.location.origin}/account/reset-password`,
+        // Chemin relatif : validé contre trustedOrigins (pas d’open redirect via origin).
+        redirectTo: "/account/reset-password",
       });
       if (result.error) {
+        // Erreur ops (ex. 503 Resend) : message générique, pas d’énumération.
         setError(
-          "Impossible d’envoyer la demande pour le moment. Réessayez plus tard.",
+          "Le service de réinitialisation est temporairement indisponible. Réessayez plus tard.",
         );
         return;
       }
       setDone(true);
     } catch {
       setError(
-        "Impossible d’envoyer la demande pour le moment. Réessayez plus tard.",
+        "Le service de réinitialisation est temporairement indisponible. Réessayez plus tard.",
       );
     } finally {
       setPending(false);
@@ -49,13 +51,13 @@ export function AccountForgotPassword() {
       </h1>
       <p className="mt-5 text-sm leading-6 text-cream-dim md:mt-6">
         Entrez votre email. Si un compte existe, un lien de réinitialisation
-        sera préparé.
+        vous sera envoyé.
       </p>
 
       {done ? (
         <p className="mt-10 text-sm leading-6 text-cream-dim md:mt-12">
-          Si un compte correspond à cet email, un lien a été généré. En
-          développement, consultez les logs serveur.
+          Si un compte correspond à cet email, un lien de réinitialisation a
+          été envoyé. Pensez à vérifier vos indésirables.
         </p>
       ) : (
         <form onSubmit={handleSubmit} className="mt-10 space-y-5 md:mt-12">
