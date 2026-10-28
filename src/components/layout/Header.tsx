@@ -31,11 +31,14 @@ type HeaderProps = {
   /** Lien logo — `#top` sur la home, `/` ailleurs. */
   homeHref?: string;
   /**
-   * Utilisateur connecté — avatar + menu.
-   * Absent / null = visiteur → action « Se connecter ».
+   * Utilisateur connecté — avatar + menu + nav personnelle.
+   * Absent / null = visiteur → « Se connecter », sans cœur ni liens compte.
    */
   user?: HeaderAccountUser | null;
-  /** Affiche « Mon parcours culturel » dans la nav (compte connecté uniquement). */
+  /**
+   * @deprecated Les liens personnels suivent `user` (connecté).
+   * Conservé pour compatibilité des call sites.
+   */
   showFriseNav?: boolean;
 };
 
@@ -45,18 +48,19 @@ function favoritesAriaLabel(count: number): string {
   return `Voir mes ${count} favoris`;
 }
 
+const navLinkClass =
+  "transition-colors hover:text-sand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+
 export function Header({
   favoriteCount,
   homeHref = "#top",
   user = null,
-  showFriseNav = false,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useId();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const firstLinkRef = useRef<HTMLAnchorElement>(null);
   const isAuthenticated = Boolean(user);
-  const favoritesHref = isAuthenticated ? "/account#favoris" : "/account";
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -81,12 +85,9 @@ export function Header({
     setMenuOpen(false);
   }
 
-  const linkClass =
-    "transition-colors hover:text-sand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
-
   return (
     <header className="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-[var(--detour-shell-max)] items-center justify-between gap-2 px-4 py-2 sm:gap-5 sm:px-5 md:gap-4 md:px-8 md:py-2.5 lg:px-12 2xl:px-14 min-[1920px]:px-16">
+      <div className="mx-auto flex max-w-[var(--detour-shell-max)] items-center justify-between gap-2 px-4 py-2 sm:gap-5 sm:px-5 md:gap-3 md:px-8 md:py-2.5 lg:gap-4 lg:px-12 2xl:px-14 min-[1920px]:px-16">
         <Link
           href={homeHref}
           className="font-display text-[1.55rem] leading-none tracking-tight 2xl:text-[1.7rem]"
@@ -97,31 +98,38 @@ export function Header({
           </span>
         </Link>
 
-        <div className="flex min-w-0 items-center gap-2 sm:gap-4 md:gap-5 lg:gap-6">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3 md:gap-3 lg:gap-5">
+          {/* Desktop : Radar · Explorer · (+ carnets / parcours si connecté) */}
           <nav
             aria-label="Sections"
-            className="hidden items-center gap-6 text-[12px] font-medium uppercase tracking-[0.14em] text-ink md:flex"
+            className="hidden items-center gap-3 text-[11px] font-medium uppercase tracking-[0.12em] text-ink md:flex lg:gap-5 lg:text-[12px] lg:tracking-[0.14em]"
           >
-            <Link href="/" className={linkClass}>
-              Sur le radar
+            <Link href="/" className={navLinkClass}>
+              Radar
             </Link>
-            <Link href="/explorer" className={linkClass}>
+            <Link href="/explorer" className={navLinkClass}>
               Explorer
             </Link>
-            {showFriseNav ? (
-              <Link href="/frise" className={linkClass}>
-                Mon parcours culturel
-              </Link>
+            {isAuthenticated ? (
+              <>
+                <Link href="/account" className={navLinkClass}>
+                  Mes carnets
+                </Link>
+                <Link href="/frise" className={navLinkClass}>
+                  Mon parcours
+                </Link>
+              </>
             ) : null}
           </nav>
 
-          <Link
-            href={favoritesHref}
-            aria-label={favoritesAriaLabel(favoriteCount)}
-            className="relative flex size-9 shrink-0 items-center justify-center text-ink transition-colors hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:size-10"
-          >
-            <HeartIcon filled={favoriteCount > 0} />
-            {isAuthenticated ? (
+          {/* Cœur : connecté uniquement — compteur + état filled préservés */}
+          {isAuthenticated ? (
+            <Link
+              href="/account#favoris"
+              aria-label={favoritesAriaLabel(favoriteCount)}
+              className="relative flex size-9 shrink-0 items-center justify-center text-ink transition-colors hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:size-10"
+            >
+              <HeartIcon filled={favoriteCount > 0} />
               <span
                 aria-hidden="true"
                 className={cn(
@@ -131,8 +139,8 @@ export function Header({
               >
                 {favoriteCount > 0 ? favoriteCount : 0}
               </span>
-            ) : null}
-          </Link>
+            </Link>
+          ) : null}
 
           {user ? (
             <HeaderAccountMenu user={user} />
@@ -170,31 +178,42 @@ export function Header({
               <Link
                 ref={firstLinkRef}
                 href="/"
-                className={cn("block py-2.5", linkClass)}
+                className={cn("block py-2.5", navLinkClass)}
                 onClick={closeMenu}
               >
-                Sur le radar
+                Radar
               </Link>
             </li>
             <li>
               <Link
                 href="/explorer"
-                className={cn("block py-2.5", linkClass)}
+                className={cn("block py-2.5", navLinkClass)}
                 onClick={closeMenu}
               >
                 Explorer
               </Link>
             </li>
-            {showFriseNav ? (
-              <li>
-                <Link
-                  href="/frise"
-                  className={cn("block py-2.5", linkClass)}
-                  onClick={closeMenu}
-                >
-                  Mon parcours culturel
-                </Link>
-              </li>
+            {isAuthenticated ? (
+              <>
+                <li>
+                  <Link
+                    href="/account"
+                    className={cn("block py-2.5", navLinkClass)}
+                    onClick={closeMenu}
+                  >
+                    Mes carnets
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/frise"
+                    className={cn("block py-2.5", navLinkClass)}
+                    onClick={closeMenu}
+                  >
+                    Mon parcours
+                  </Link>
+                </li>
+              </>
             ) : null}
           </ul>
         </nav>

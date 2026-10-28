@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { userInitials } from "@/components/layout/user-initials";
@@ -17,8 +16,9 @@ type HeaderAccountMenuProps = {
 };
 
 /**
- * Avatar + menu personnel (carnets, favoris, déconnexion).
- * Fermeture : Échap, clic extérieur, navigation.
+ * Avatar + menu compte minimal (identité + déconnexion).
+ * Carnets / favoris / parcours sont dans la nav principale + cœur.
+ * Fermeture : Échap, clic extérieur.
  */
 export function HeaderAccountMenu({ user }: HeaderAccountMenuProps) {
   const router = useRouter();
@@ -30,6 +30,7 @@ export function HeaderAccountMenu({ user }: HeaderAccountMenuProps) {
   const menuId = useId();
   const initials = userInitials(user.name, user.email);
   const displayName = user.name.trim() || user.email.trim() || "Compte";
+  const email = user.email.trim();
 
   useEffect(() => {
     if (!open) return;
@@ -103,26 +104,16 @@ export function HeaderAccountMenu({ user }: HeaderAccountMenuProps) {
           className="absolute right-0 z-50 mt-2 w-[min(17.5rem,calc(100vw-1.5rem))] border border-line bg-foam p-1 shadow-sm"
         >
           <div className="border-b border-line px-3 py-3">
-            <p className="truncate font-display text-[1.05rem] tracking-tight text-ink">
-              {displayName}
-            </p>
-            {user.email.trim() ? (
-              <p className="mt-0.5 truncate text-[12px] text-sand">
-                {user.email}
+            {email ? (
+              <p className="truncate text-[13px] text-ink">{email}</p>
+            ) : (
+              <p className="truncate font-display text-[1.05rem] tracking-tight text-ink">
+                {displayName}
               </p>
-            ) : null}
+            )}
           </div>
 
           <div className="py-1">
-            <MenuLink href="/account" onNavigate={() => setOpen(false)}>
-              Mes carnets
-            </MenuLink>
-            <MenuLink href="/account#favoris" onNavigate={() => setOpen(false)}>
-              Mes favoris
-            </MenuLink>
-          </div>
-
-          <div className="border-t border-line py-1">
             <button
               type="button"
               role="menuitem"
@@ -141,26 +132,5 @@ export function HeaderAccountMenu({ user }: HeaderAccountMenuProps) {
         </div>
       ) : null}
     </div>
-  );
-}
-
-function MenuLink({
-  href,
-  onNavigate,
-  children,
-}: {
-  href: string;
-  onNavigate: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      role="menuitem"
-      onClick={onNavigate}
-      className="flex w-full items-center px-3 py-2.5 text-[13px] text-ink transition-colors hover:bg-paper focus-visible:bg-paper focus-visible:outline-none"
-    >
-      {children}
-    </Link>
   );
 }
