@@ -102,7 +102,7 @@ GET /
        → getCachedPublicHomeData()             # Data Cache tag public-home:orleans (6h)
             → unstable_cache(getPublicHomeSnapshot)   # SQL + pipeline Radar (clé slim-v2)
             → materializePublicHomeData(snapshot)     # IA hors nest (cache IA 7j)
-  → <HomePage /> : hero, Radar, CTA #explorer → /explorer, debug
+  → <HomePage /> : hero, Radar (+ lien /explorer), compte guest, debug
   → client : useSession
        → usePersonalData + useEventPersonalActions(returnPath: "/")
             → listMyFavoriteEventIds / listMyCarnetsState
@@ -349,9 +349,8 @@ Ce sont des **écarts au modèle cible** (§13). Ils **ne constituent pas** des 
 | `src/config/public-territory.ts` | Slug territoire V1 partagé (caches publics, sans effets de bord) |
 | `src/infrastructure/next-public-home-cache.ts` | Data Cache Home + invalidation tag |
 | `src/infrastructure/next-public-explorer-cache.ts` | Data Cache Explorer + invalidation tag (indépendant du module Home) |
-| `src/features/home/components/HomePage.tsx` | Composition UI home (hero, Radar, CTA Explorer, session, modales) |
-| `src/features/home/components/HomeExplorerCta.tsx` | CTA Home → `/explorer` (`id="explorer"` pour anciens `/#explorer`) |
-| `src/features/explorer/components/ExplorerPage.tsx` | Composition UI Explorer (filtres, grille, session, modales) |
+| `src/features/home/components/HomePage.tsx` | Composition UI home (hero, Radar, compte guest, session, modales) |
+| `src/features/explorer/components/ExplorerPage.tsx` | Composition UI Explorer (filtres, grille, session, modales ; `id="explorer"` sur la grille) |
 | `src/components/personal/usePersonalData.ts` | Favoris IDs + état carnets partagés Home/Explorer/frise : loads, fusion, ops locales |
 | `src/components/personal/useEventPersonalActions.ts` | Interactions favoris / détail / carnets / auth différée (Home ↔ Explorer) |
 | `src/features/frise/hooks/useFrisePersonalData.ts` | Orchestration frise : contenus favoris/carnet, loading ; délègue IDs/carnets |

@@ -33,12 +33,18 @@ describe("Explorer UI wiring", () => {
     expect(source).toContain("Toutes les villes");
   });
 
-  it("HomePage délègue vers /explorer et n’embarque plus ExplorerSection", () => {
-    const source = readFileSync(path.join(homeComponents, "HomePage.tsx"), "utf8");
-    expect(source).toContain("HomeExplorerCta");
-    expect(source).not.toContain("ExplorerSection");
-    expect(source).not.toMatch(/RadiusFilter|withinRadius|visibleCount/);
-    expect(source).toContain("debugEvents");
+  it("HomePage délègue vers /explorer via le Radar, sans ExplorerSection", () => {
+    const homePage = readFileSync(path.join(homeComponents, "HomePage.tsx"), "utf8");
+    const detour = readFileSync(
+      path.join(homeComponents, "radar/DetourSection.tsx"),
+      "utf8",
+    );
+    expect(homePage).not.toContain("HomeExplorerCta");
+    expect(homePage).not.toContain("ExplorerSection");
+    expect(homePage).not.toMatch(/RadiusFilter|withinRadius|visibleCount/);
+    expect(homePage).toContain("debugEvents");
+    expect(detour).toContain('href="/explorer"');
+    expect(detour).toContain("Explorer toutes les sorties");
   });
 
   it("page Explorer charge via use case dédié, pas le pipeline Home", () => {
