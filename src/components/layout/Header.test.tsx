@@ -5,6 +5,7 @@ import {
   Header,
   closeMobileMenuOnEscape,
 } from "@/components/layout/Header";
+import { HeaderAccountMenu } from "@/components/layout/HeaderAccountMenu";
 import { userInitials } from "@/components/layout/user-initials";
 
 vi.mock("next/navigation", () => ({
@@ -27,23 +28,25 @@ describe("userInitials", () => {
   });
 });
 
-describe("Header", () => {
-  it("non connecté : Se connecter, pas d’avatar ni de compteur", () => {
+describe("Header — visiteur", () => {
+  it("Radar · Explorer · Se connecter — pas de cœur ni liens compte", () => {
     const html = renderToStaticMarkup(
-      createElement(Header, { favoriteCount: 0, showFriseNav: false }),
+      createElement(Header, { favoriteCount: 0 }),
     );
-    expect(html).toContain("Ouvrir le menu");
-    expect(html).toContain('aria-expanded="false"');
-    expect(html).toContain("Sur le radar");
+    expect(html).toContain(">Radar<");
     expect(html).toContain('href="/"');
     expect(html).toContain("Explorer");
     expect(html).toContain('href="/explorer"');
-    expect(html).not.toContain("Mon parcours culturel");
     expect(html).toContain("Se connecter");
-    expect(html).not.toContain("Mon compte");
     expect(html).toContain('href="/account"');
-    expect(html).toContain("Voir mes favoris");
+    expect(html).toContain("Ouvrir le menu");
+    expect(html).not.toContain("Mes carnets");
+    expect(html).not.toContain("Mon parcours");
+    expect(html).not.toContain("Voir mes favoris");
+    expect(html).not.toContain("/account#favoris");
     expect(html).not.toContain("Menu compte");
+    expect(html).not.toContain("Sur le radar");
+    expect(html).not.toContain("Mon parcours culturel");
   });
 
   it("logo depuis Explorer pointe vers la Home", () => {
@@ -51,30 +54,76 @@ describe("Header", () => {
       createElement(Header, {
         favoriteCount: 0,
         homeHref: "/",
-        showFriseNav: false,
       }),
     );
     expect(html).toContain('href="/"');
     expect(html).not.toContain('href="#top"');
   });
+});
 
-  it("connecté : parcours culturel, avatar, cœur vers #favoris", () => {
+describe("Header — connecté", () => {
+  it("Radar · Explorer · Mes carnets · Mon parcours · ♡ · avatar", () => {
     const html = renderToStaticMarkup(
       createElement(Header, {
         favoriteCount: 2,
-        showFriseNav: true,
         user: { name: "Julien Habibi", email: "j@exemple.fr" },
       }),
     );
-    expect(html).toContain("Mon parcours culturel");
+    expect(html).toContain(">Radar<");
+    expect(html).toContain("Explorer");
+    expect(html).toContain("Mes carnets");
+    expect(html).toContain('href="/account"');
+    expect(html).toContain("Mon parcours");
+    expect(html).toContain('href="/frise"');
     expect(html).toContain("Voir mes 2 favoris");
     expect(html).toContain('href="/account#favoris"');
     expect(html).toContain("Menu compte — Julien Habibi");
     expect(html).toContain("JH");
-    expect(html).not.toContain("Mon compte");
     expect(html).not.toContain("Se connecter");
+    expect(html).not.toContain("Sur le radar");
+    expect(html).not.toContain("Mon parcours culturel");
   });
 
+  it("cœur filled + badge quand favoriteCount > 0 ; masqué à 0", () => {
+    const withFavs = renderToStaticMarkup(
+      createElement(Header, {
+        favoriteCount: 3,
+        user: { name: "A", email: "a@exemple.fr" },
+      }),
+    );
+    expect(withFavs).toContain("fill-coral stroke-coral");
+    expect(withFavs).toContain("opacity-100");
+    expect(withFavs).toContain(">3<");
+
+    const empty = renderToStaticMarkup(
+      createElement(Header, {
+        favoriteCount: 0,
+        user: { name: "A", email: "a@exemple.fr" },
+      }),
+    );
+    expect(empty).toContain("Voir mes favoris");
+    expect(empty).toContain("opacity-0");
+    expect(empty).not.toContain("fill-coral stroke-coral");
+  });
+});
+
+describe("HeaderAccountMenu", () => {
+  it("menu minimal : e-mail + déconnexion, sans liens carnets/favoris", () => {
+    const html = renderToStaticMarkup(
+      createElement(HeaderAccountMenu, {
+        user: { name: "Julien Habibi", email: "j@exemple.fr" },
+      }),
+    );
+    // Menu fermé par défaut — ouvrir via markup du bouton seulement
+    expect(html).toContain("Menu compte — Julien Habibi");
+    expect(html).toContain("JH");
+    expect(html).not.toContain("Mes carnets");
+    expect(html).not.toContain("Mes favoris");
+    expect(html).not.toContain('href="/account#favoris"');
+  });
+});
+
+describe("closeMobileMenuOnEscape", () => {
   it("Échap restaure le focus puis ferme ; les autres touches n’agissent pas", () => {
     const restoreFocus = vi.fn();
     const close = vi.fn();
