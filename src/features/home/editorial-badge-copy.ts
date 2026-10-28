@@ -1,12 +1,18 @@
 import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 
-/** Sous-titre section radar (aligné DetourSection). */
+/**
+ * Variante « trop tard » — proche du hero ; non branchée en live
+ * pour éviter de répéter la promesse H1.
+ */
 export const DETOUR_SECTION_SUBTITLE =
   "Des événements qu’il vaut mieux découvrir aujourd’hui que trop tard.";
 
-/** Micro-ligne éditoriale — radar culturel, sans jargon technique. */
+/**
+ * Sous-titre section Radar (DetourSection) — explique le *pourquoi*
+ * de la sélection sans reprendre le hero (« mérite votre attention »).
+ */
 export const DETOUR_SECTION_EDITORIAL_LINE =
-  "Une sélection repérée pour sa rareté locale, son besoin d’anticipation ou sa faible visibilité.";
+  "Des événements à ne pas manquer, parfois rares, discrets ou à prévoir bien à l’avance.";
 
 /**
  * Micro-explications UI des pastilles — présentation uniquement.

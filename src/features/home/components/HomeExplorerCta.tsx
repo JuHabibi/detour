@@ -15,10 +15,11 @@ export function HomeExplorerCta() {
             Explorer
           </p>
           <h2 className="mt-2 font-display text-2xl tracking-tight text-ink md:text-3xl">
-            Trouvez votre prochaine sortie autour d’Orléans.
+            Cherchez librement parmi les sorties.
           </h2>
           <p className="mt-3 text-sm leading-6 text-cream-dim md:text-[0.95rem]">
-           Concerts, expos, ateliers… affinez par ville, période ou catégorie selon vos envies.
+            Au-delà de la sélection du Radar, affinez par ville, période ou
+            catégorie.
           </p>
         </div>
         <Link
