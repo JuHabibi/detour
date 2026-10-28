@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { loadExplorerEvents } from "@/app/actions/load-explorer-events";
 import { CategoryFilter } from "@/components/event/CategoryFilter";
-import { EventGrid } from "@/features/home/components/explorer/EventGrid";
-import { ExplorationFilters } from "@/features/home/components/explorer/ExplorationFilters";
+import { EventGrid } from "@/features/explorer/components/EventGrid";
+import { ExplorationFilters } from "@/features/explorer/components/ExplorationFilters";
 import {
   useExplorerEvents,
   type ExplorerInitialPage,
-} from "@/features/home/hooks/useExplorerEvents";
+} from "@/features/explorer/hooks/useExplorerEvents";
 import type { CategoryId, EventItem } from "@/data/types";
 import type { V1Commune } from "@/domain/geo/v1-communes";
 import type { WhenFilter } from "@/domain/time/when-filter";

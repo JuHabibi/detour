@@ -4,8 +4,6 @@ import {
 } from "@/application/event.service";
 import { buildEventsDebugMeta } from "@/application/build-events-debug-meta";
 import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
-import { listExplorerEvents } from "@/application/explorer/list-explorer-events";
-import type { ListExplorerEventsResult } from "@/application/explorer/types";
 import {
   mapDetourEventToEventItem,
   mapDetourHighlightToEventItem,
@@ -49,15 +47,10 @@ const eventService = new EventService(
   },
 );
 
-/** Read model public Home — aucun user / session / favori. */
+/** Read model public Home — aucun user / session / favori ; pas d’Explorer. */
 export type PublicHomeData = {
   highlights: EventItem[];
   planningEvents: EventItem[];
-  explorer: {
-    events: EventItem[];
-    totalCount: number;
-    nextCursor: string | null;
-  };
   debugEvents?: EventItem[];
   debugMeta?: EventsDebugMeta;
 };
@@ -80,11 +73,11 @@ export type PublicHomeAiShortlistRef = {
 /**
  * Snapshot Home slim — une seule copie du corpus + refs shortlist.
  * Destiné au `unstable_cache` public (limite Data Cache 2 Mo).
+ * Sans première page Explorer (chargée sur `/explorer`).
  */
 export type PublicHomeSnapshot = {
   events: DetourEvent[];
   aiShortlist: PublicHomeAiShortlistRef[];
-  explorerPage: ListExplorerEventsResult;
   exposeDebug: boolean;
 };
 
@@ -97,7 +90,6 @@ export function measurePublicHomeSnapshotBytes(
 export function toPublicHomeSnapshotSlim(params: {
   events: DetourEvent[];
   aiShortlist: EventHighlight[];
-  explorerPage: ListExplorerEventsResult;
   exposeDebug: boolean;
 }): PublicHomeSnapshot {
   return {
@@ -108,7 +100,6 @@ export function toPublicHomeSnapshotSlim(params: {
       planningScore: item.planningScore,
       reasons: item.reasons,
     })),
-    explorerPage: params.explorerPage,
     exposeDebug: params.exposeDebug,
   };
 }
@@ -161,15 +152,8 @@ export function reviveUpcomingPipelineFromSlim(
 
 function toPublicHomeData(
   result: Awaited<ReturnType<EventService["finalizeUpcomingWithAutoAi"]>>,
-  explorerPage: ListExplorerEventsResult,
   exposeDebug: boolean,
 ): PublicHomeData {
-  if (typeof explorerPage.totalCount !== "number") {
-    throw new Error(
-      "Public home explorer initial page requires a numeric totalCount",
-    );
-  }
-
   return {
     highlights: result.highlights.map((highlight) =>
       mapDetourHighlightToEventItem(highlight),
@@ -177,13 +161,6 @@ function toPublicHomeData(
     planningEvents: result.planningEvents.map((item) =>
       mapDetourEventToEventItem(item.event),
     ),
-    explorer: {
-      events: explorerPage.events.map((event) =>
-        mapDetourEventToEventItem(event),
-      ),
-      totalCount: explorerPage.totalCount,
-      nextCursor: explorerPage.nextCursor,
-    },
     debugEvents: exposeDebug
       ? result.events.map((event) => mapDetourEventToEventItem(event))
       : undefined,
@@ -193,28 +170,23 @@ function toPublicHomeData(
 
 /**
  * Compute Home slim sans IA — destiné au callback `unstable_cache` public.
+ * Radar / planning uniquement — pas d’Explorer.
  */
 export async function getPublicHomeSnapshot(
   params: GetPublicHomeDataParams,
 ): Promise<PublicHomeSnapshot> {
   const exposeDebug = params.exposeDebug ?? shouldExposeHomeDebug();
 
-  const [pipeline, explorerPage] = await Promise.all([
-    eventService.buildUpcomingPipeline({
-      from: params.from,
-      to: params.to,
-    }),
-    listExplorerEvents({ when: "weekend", limit: 12 }),
-  ]);
-
-  const snapshot = toPublicHomeSnapshotSlim({
-    events: pipeline.events,
-    aiShortlist: pipeline.aiShortlist,
-    explorerPage,
-    exposeDebug,
+  const pipeline = await eventService.buildUpcomingPipeline({
+    from: params.from,
+    to: params.to,
   });
 
-  return snapshot;
+  return toPublicHomeSnapshotSlim({
+    events: pipeline.events,
+    aiShortlist: pipeline.aiShortlist,
+    exposeDebug,
+  });
 }
 
 /**
@@ -226,13 +198,12 @@ export async function materializePublicHomeData(
   const result = await eventService.finalizeUpcomingWithAutoAi(
     reviveUpcomingPipelineFromSlim(snapshot),
   );
-  return toPublicHomeData(result, snapshot.explorerPage, snapshot.exposeDebug);
+  return toPublicHomeData(result, snapshot.exposeDebug);
 }
 
 /**
- * Charge Radar + planning + Explorer initial pour la Home.
- * Page-loader helper — pas de données authentifiées.
- * (IA incluse — pour appels hors cache Home nesté.)
+ * Charge Radar + planning pour la Home.
+ * Page-loader helper — pas de données authentifiées ni d’Explorer.
  */
 export async function getPublicHomeData(
   params: GetPublicHomeDataParams,

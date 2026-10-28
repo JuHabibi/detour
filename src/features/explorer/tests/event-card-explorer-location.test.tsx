@@ -13,7 +13,7 @@ vi.mock("next/image", () => ({
   },
 }));
 
-import { ExplorerEventCard } from "@/features/home/components/cards/ExplorerEventCard";
+import { ExplorerEventCard } from "@/features/explorer/components/ExplorerEventCard";
 
 function explorerEvent(overrides: Partial<EventItem> = {}): EventItem {
   return {

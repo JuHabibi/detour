@@ -36,14 +36,13 @@ describe("next-public-home-cache", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getPublicHomeSnapshot.mockResolvedValue({
-      pipeline: { events: [] },
-      explorerPage: { events: [], totalCount: 0, nextCursor: null },
+      events: [],
+      aiShortlist: [],
       exposeDebug: false,
     });
     materializePublicHomeData.mockResolvedValue({
       highlights: [],
       planningEvents: [],
-      explorer: { events: [], totalCount: 0, nextCursor: null },
     });
   });
 
@@ -75,7 +74,7 @@ describe("next-public-home-cache", () => {
     expect(keyParts).toEqual([
       "detour-public-home",
       "orleans",
-      "pre-ai-snapshot-slim-v1",
+      "pre-ai-snapshot-slim-v2",
     ]);
     expect(options).toMatchObject({
       tags: [PUBLIC_HOME_CACHE_TAG],
@@ -100,8 +99,8 @@ describe("next-public-home-cache", () => {
     getPublicHomeSnapshot.mockImplementation(async () => {
       order.push("snapshot-inside-cache");
       return {
-        pipeline: { events: [] },
-        explorerPage: { events: [], totalCount: 0, nextCursor: null },
+        events: [],
+        aiShortlist: [],
         exposeDebug: false,
       };
     });
@@ -110,7 +109,6 @@ describe("next-public-home-cache", () => {
       return {
         highlights: [],
         planningEvents: [],
-        explorer: { events: [], totalCount: 0, nextCursor: null },
       };
     });
 

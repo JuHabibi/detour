@@ -8,6 +8,10 @@ import {
 describe("safeAccountNextPath", () => {
   it("accepte un chemin interne", () => {
     expect(safeAccountNextPath("/frise")).toBe("/frise");
+    expect(safeAccountNextPath("/explorer")).toBe("/explorer");
+    expect(safeAccountNextPath("/explorer?addFavorite=e1")).toBe(
+      "/explorer?addFavorite=e1",
+    );
     expect(safeAccountNextPath("/frise?category=Musique")).toBe(
       "/frise?category=Musique",
     );
@@ -39,6 +43,9 @@ describe("account auth hrefs", () => {
   it("encode next pour login et signup", () => {
     expect(accountLoginHref("/frise")).toBe(
       "/account/login?next=%2Ffrise",
+    );
+    expect(accountLoginHref("/explorer")).toBe(
+      "/account/login?next=%2Fexplorer",
     );
     expect(accountSignupHref("/frise?category=Musique")).toBe(
       "/account/signup?next=%2Ffrise%3Fcategory%3DMusique",

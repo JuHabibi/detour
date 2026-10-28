@@ -6,7 +6,7 @@ import {
   explorerAppendErrorMessage,
   explorerPageOneSnapshotFromRejection,
   explorerPageOneSnapshotFromResult,
-} from "@/features/home/hooks/useExplorerEvents";
+} from "@/features/explorer/hooks/useExplorerEvents";
 
 function eventItem(id: string, title: string): EventItem {
   return {

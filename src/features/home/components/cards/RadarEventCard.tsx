@@ -8,7 +8,7 @@ import {
   CardFavoriteActions,
   EventOpenControl,
   type HomeEventCardProps,
-} from "@/features/home/components/cards/HomeEventCardInteractions";
+} from "@/components/event/EventCardInteractions";
 import {
   AvailabilityBadgePill,
   CategoryBadge,
@@ -19,7 +19,7 @@ import {
   resolveEventImageAlt,
   resolveNoImageCardTone,
   resolveSignal,
-} from "@/features/home/components/cards/HomeEventCardPresentation";
+} from "@/components/event/EventCardPresentation";
 import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import { cn } from "@/lib/cn";
 

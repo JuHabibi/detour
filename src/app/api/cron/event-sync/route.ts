@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { runDetourAvailabilityEnrichment } from "@/application/availability/run-detour-availability-enrichment";
 import { runDetourEventSync } from "@/application/event-sync/run-detour-event-sync";
 import { invalidatePublicHomeCache } from "@/infrastructure/next-public-home-cache";
+import { invalidatePublicExplorerCache } from "@/infrastructure/next-public-explorer-cache";
 
 export const runtime = "nodejs";
 
@@ -44,8 +45,9 @@ export async function GET(request: Request): Promise<Response> {
         error instanceof Error ? error.message : "availability_enrichment_failed";
     }
 
-    // SWR : tag Home stale — pas de revalidatePath (expire soft tags → hit bloquant).
+    // SWR : tags publics stale — pas de revalidatePath (expire soft tags → hit bloquant).
     invalidatePublicHomeCache();
+    invalidatePublicExplorerCache();
 
     return Response.json({ results, availability, availabilityError });
   } catch {

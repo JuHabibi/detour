@@ -44,6 +44,9 @@ describe("pending-favorite", () => {
     expect(pathWithPendingFavorite("e1", "/#detour")).toBe(
       `/?${ADD_FAVORITE_PARAM}=e1#detour`,
     );
+    expect(pathWithPendingFavorite("e1", "/explorer")).toBe(
+      `/explorer?${ADD_FAVORITE_PARAM}=e1`,
+    );
     expect(pathWithPendingFavorite("", "/frise")).toBe("/frise");
   });
 

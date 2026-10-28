@@ -13,12 +13,12 @@ vi.mock("next/image", () => ({
   },
 }));
 
-import { ExplorerEventCard } from "@/features/home/components/cards/ExplorerEventCard";
+import { ExplorerEventCard } from "@/features/explorer/components/ExplorerEventCard";
 import {
   EventOpenControl,
   isolateCardAction,
   runHomeFavoriteAction,
-} from "@/features/home/components/cards/HomeEventCardInteractions";
+} from "@/components/event/EventCardInteractions";
 import { RadarEventCard } from "@/features/home/components/cards/RadarEventCard";
 
 function event(overrides: Partial<EventItem> = {}): EventItem {
