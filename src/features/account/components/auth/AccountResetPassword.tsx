@@ -13,10 +13,14 @@ export function AccountResetPassword() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token")?.trim() || "";
+  const linkInvalid =
+    Boolean(searchParams.get("error")) || token.length === 0;
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    linkInvalid ? "Lien de réinitialisation invalide ou expiré." : null,
+  );
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -110,7 +114,7 @@ export function AccountResetPassword() {
 
         <button
           type="submit"
-          disabled={pending || !token}
+          disabled={pending || linkInvalid}
           className="inline-flex min-h-11 w-full items-center justify-center bg-mint px-5 text-sm font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam disabled:opacity-60 sm:w-auto"
         >
           {pending ? "Enregistrement…" : "Enregistrer"}

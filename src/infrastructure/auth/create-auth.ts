@@ -2,6 +2,7 @@ import "server-only";
 
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
+import { createSendResetPassword } from "@/infrastructure/auth/create-send-reset-password";
 
 /**
  * En-têtes IP fournis / normalisés par Vercel.
@@ -67,19 +68,12 @@ export function createAuth(options: CreateAuthOptions) {
     emailAndPassword: options.emailAndPassword ?? {
       enabled: true,
       minPasswordLength: 8,
-      sendResetPassword: async ({ user, url }) => {
-        if (process.env.NODE_ENV !== "production") {
-          console.info(
-            "[detour:auth] reset password (dev stub)",
-            user.email,
-            url,
-          );
-          return;
-        }
-        throw new Error(
-          "Password reset email is not configured. Set up an email provider first.",
-        );
-      },
+      // Jeton verification `reset-password:*` : 1 h, consommé une fois
+      // (`consumeVerificationValue`) au POST /reset-password.
+      resetPasswordTokenExpiresIn: 60 * 60,
+      revokeSessionsOnPasswordReset: true,
+      // Await synchrone (pas de backgroundTasks.handler) — voir route auth.
+      sendResetPassword: createSendResetPassword(),
     },
     rateLimit: {
       storage: "database",
