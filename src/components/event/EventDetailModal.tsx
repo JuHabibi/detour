@@ -9,6 +9,7 @@ import {
   EventMapPinIcon,
   EventMoveUpRightIcon,
 } from "@/components/event/event-lucide-icons";
+import { formatPrice } from "@/components/event/EventCardPresentation";
 import type { EventItem } from "@/data/types";
 import { captureProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
@@ -52,6 +53,14 @@ export function EventDetailModal({
   const closeRef = useRef<HTMLButtonElement>(null);
   const pickReason = surface === "radar" ? radarPickReason : null;
   const official = resolveOfficialSourceLink(event);
+  const priceLabel = formatPrice(event.price);
+  const venue = event.venue?.trim() || null;
+  const city = event.city?.trim() || null;
+  const conditions = event.conditions?.trim() || null;
+  const availabilityLabel = event.availabilityBadge?.trim() || null;
+  const hasPracticalInfo = Boolean(
+    priceLabel || availabilityLabel || conditions,
+  );
 
   useStackedDialogLifecycle({
     onClose,
@@ -64,10 +73,6 @@ export function EventDetailModal({
     ],
     focusRestore: "selectors-first",
   });
-
-  const placeLine = [event.venue?.trim(), event.city?.trim()]
-    .filter(Boolean)
-    .join(" · ");
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-6">
@@ -141,21 +146,61 @@ export function EventDetailModal({
             {event.title}
           </h2>
 
-          <div className="mt-3 space-y-2.5 text-sm text-cream-dim">
-            <p className="grid grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2.5 italic text-sand">
-              <EventCalendarClockIcon />
-              <span className="min-w-0">
+          {/* Date → lieu → commune */}
+          <div className="mt-3 space-y-2 text-sm text-cream-dim">
+            <p className="grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-2.5 italic text-sand">
+              <EventCalendarClockIcon className="mt-0.5" />
+              <span className="min-w-0 leading-5">
                 {event.dateLabel}
                 {event.time && !event.allDay ? ` · ${event.time}` : ""}
               </span>
             </p>
-            {placeLine ? (
-              <p className="grid grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2.5">
-                <EventMapPinIcon />
-                <span className="min-w-0">{placeLine}</span>
+            {venue ? (
+              <p className="grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-2.5">
+                <EventMapPinIcon className="mt-0.5" />
+                <span className="min-w-0 leading-5 text-ink">{venue}</span>
+              </p>
+            ) : null}
+            {city && venue ? (
+              <p className="pl-[1.625rem] leading-5 text-cream-dim">{city}</p>
+            ) : null}
+            {city && !venue ? (
+              <p className="grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-2.5">
+                <EventMapPinIcon className="mt-0.5" />
+                <span className="min-w-0 leading-5">{city}</span>
               </p>
             ) : null}
           </div>
+
+          {/* Infos déjà disponibles uniquement — pas d’invention */}
+          {hasPracticalInfo ? (
+            <div
+              data-testid="event-practical"
+              className="mt-4 space-y-1.5 border-t border-line/70 pt-3 text-sm"
+            >
+              {priceLabel ? (
+                <p data-testid="event-price" className="font-medium text-ink">
+                  {priceLabel}
+                </p>
+              ) : null}
+              {availabilityLabel ? (
+                <p
+                  data-testid="event-availability"
+                  className="font-semibold uppercase tracking-[0.06em] text-coral"
+                >
+                  {availabilityLabel}
+                </p>
+              ) : null}
+              {conditions ? (
+                <p
+                  data-testid="event-conditions"
+                  className="leading-6 text-cream-dim"
+                >
+                  {conditions}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           {pickReason ? (
             <div
@@ -172,7 +217,11 @@ export function EventDetailModal({
           {event.description?.trim() ? (
             <div
               data-testid="event-about"
-              className={cn(pickReason ? "mt-6 border-t border-line/70 pt-5" : "mt-5")}
+              className={cn(
+                pickReason || hasPracticalInfo
+                  ? "mt-5 border-t border-line/70 pt-4"
+                  : "mt-5",
+              )}
             >
               <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-sand">
                 À propos de l’événement

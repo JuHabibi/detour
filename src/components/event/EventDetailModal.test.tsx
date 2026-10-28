@@ -105,6 +105,88 @@ describe("EventDetailModal", () => {
     expect(html).toContain("À propos de l’événement");
     expect(html).toContain("Voir les détails et réserver");
   });
+
+  it("hiérarchie lieu / commune séparés", () => {
+    const html = renderToStaticMarkup(
+      createElement(EventDetailModal, {
+        event: baseEvent(),
+        surface: "explorer",
+        onClose: () => undefined,
+      }),
+    );
+
+    expect(html).toContain("Théâtre des Longues Allées");
+    expect(html).toContain("Saint-Jean-de-Braye");
+    expect(html).not.toContain("Théâtre des Longues Allées · Saint-Jean-de-Braye");
+  });
+
+  it("affiche prix, disponibilité et conditions seulement s’ils existent", () => {
+    const withPractical = renderToStaticMarkup(
+      createElement(EventDetailModal, {
+        event: baseEvent({
+          price: "free",
+          availabilityBadge: "Complet",
+          conditions: "Sur réservation",
+        }),
+        surface: "explorer",
+        onClose: () => undefined,
+      }),
+    );
+    expect(withPractical).toContain('data-testid="event-practical"');
+    expect(withPractical).toContain('data-testid="event-price"');
+    expect(withPractical).toContain("Gratuit");
+    expect(withPractical).toContain('data-testid="event-availability"');
+    expect(withPractical).toContain("Complet");
+    expect(withPractical).toContain('data-testid="event-conditions"');
+    expect(withPractical).toContain("Sur réservation");
+
+    const withoutPractical = renderToStaticMarkup(
+      createElement(EventDetailModal, {
+        event: baseEvent({
+          price: undefined,
+          availabilityBadge: undefined,
+          conditions: undefined,
+        }),
+        surface: "radar",
+        radarPickReason: null,
+        onClose: () => undefined,
+      }),
+    );
+    expect(withoutPractical).not.toContain('data-testid="event-practical"');
+    expect(withoutPractical).not.toContain('data-testid="event-price"');
+    expect(withoutPractical).not.toContain("Gratuit");
+  });
+
+  it("Radar et Explorer partagent la même hiérarchie pratique", () => {
+    const event = baseEvent({
+      price: 12,
+      conditions: "Tarif réduit -26 ans",
+    });
+    const radar = renderToStaticMarkup(
+      createElement(EventDetailModal, {
+        event,
+        surface: "radar",
+        radarPickReason: "Une proposition rare à anticiper.",
+        onClose: () => undefined,
+      }),
+    );
+    const explorer = renderToStaticMarkup(
+      createElement(EventDetailModal, {
+        event,
+        surface: "explorer",
+        onClose: () => undefined,
+      }),
+    );
+
+    for (const html of [radar, explorer]) {
+      expect(html).toContain("12 €");
+      expect(html).toContain("Tarif réduit -26 ans");
+      expect(html).toContain("Théâtre des Longues Allées");
+      expect(html).toContain("Saint-Jean-de-Braye");
+    }
+    expect(radar).toContain("Le regard Détour");
+    expect(explorer).not.toContain("Le regard Détour");
+  });
 });
 
 describe("resolveOfficialSourceLink", () => {
