@@ -106,11 +106,25 @@ export function AccountLogin({
           />
         </label>
 
-        <label className="block">
-          <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand">
-            Mot de passe
-          </span>
+        <div>
+          <div className="flex items-baseline justify-between gap-3">
+            <label
+              htmlFor="account-login-password"
+              className="min-w-0 text-[12px] font-medium uppercase tracking-[0.1em] text-sand"
+            >
+              Mot de passe
+            </label>
+            {showForgotPassword ? (
+              <Link
+                href="/account/forgot-password"
+                className="shrink-0 text-[12px] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-ink"
+              >
+                Mot de passe oublié ?
+              </Link>
+            ) : null}
+          </div>
           <input
+            id="account-login-password"
             type="password"
             name="password"
             autoComplete="current-password"
@@ -121,18 +135,7 @@ export function AccountLogin({
             placeholder="••••••••"
             className={fieldClassName}
           />
-        </label>
-
-        {showForgotPassword ? (
-          <div className="flex justify-end">
-            <Link
-              href="/account/forgot-password"
-              className="text-[12px] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-ink"
-            >
-              Mot de passe oublié ?
-            </Link>
-          </div>
-        ) : null}
+        </div>
 
         {error ? (
           <p className="text-sm text-coral" role="alert">
