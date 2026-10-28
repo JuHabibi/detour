@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  DETOUR_SECTION_EDITORIAL_LINE,
+  DETOUR_SECTION_SUBTITLE,
   EDITORIAL_BADGE_EXPLANATIONS,
   getEditorialBadgeExplanation,
 } from "@/features/home/editorial-badge-copy";
@@ -36,5 +38,16 @@ describe("editorial-badge-copy", () => {
     for (const badge of BADGES) {
       expect(getEditorialBadgeExplanation(badge)).not.toMatch(urgency);
     }
+  });
+
+  it("ligne éditoriale Radar : naturelle, sans jargon", () => {
+    expect(DETOUR_SECTION_EDITORIAL_LINE).toMatch(/ne pas manquer/i);
+    expect(DETOUR_SECTION_EDITORIAL_LINE).not.toMatch(AI_JARGON);
+    expect(DETOUR_SECTION_EDITORIAL_LINE).not.toMatch(/mérite votre attention/i);
+    expect(DETOUR_SECTION_EDITORIAL_LINE).not.toMatch(
+      /rareté locale|faible visibilité/i,
+    );
+    // Variante « trop tard » reste disponible mais distincte (évite doublon hero)
+    expect(DETOUR_SECTION_SUBTITLE).not.toBe(DETOUR_SECTION_EDITORIAL_LINE);
   });
 });

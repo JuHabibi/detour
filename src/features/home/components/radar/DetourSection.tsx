@@ -1,4 +1,5 @@
 import { FeaturedEventsCarousel } from "@/features/home/components/radar/FeaturedEventsCarousel";
+import { DETOUR_SECTION_EDITORIAL_LINE } from "@/features/home/editorial-badge-copy";
 import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import type { EventItem } from "@/data/types";
 
@@ -38,7 +39,7 @@ export function DetourSection({
             À repérer maintenant
           </h2>
           <p className="mt-2.5 max-w-md text-sm leading-6 text-ink/70 md:mt-3.5 md:text-[0.95rem]">
-          Détour sélectionne ce qui mérite votre attention parmi l'offre culturelle locale.
+            {DETOUR_SECTION_EDITORIAL_LINE}
           </p>
         </div>
 

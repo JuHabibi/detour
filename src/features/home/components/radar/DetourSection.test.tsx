@@ -14,6 +14,7 @@ vi.mock("next/image", () => ({
 }));
 
 import { DetourSection } from "@/features/home/components/radar/DetourSection";
+import { DETOUR_SECTION_EDITORIAL_LINE } from "@/features/home/editorial-badge-copy";
 
 function eventAt(index: number): EventItem {
   const n = index + 1;
@@ -44,6 +45,22 @@ describe("DetourSection — pas de plafond UI sur la sélection Radar", () => {
       }),
     );
     expect(html).toBe("");
+  });
+
+  it("expose la ligne éditoriale sans répéter le hero", () => {
+    const html = renderToStaticMarkup(
+      createElement(DetourSection, {
+        events: [eventAt(0)],
+        favorites,
+        onToggleFavorite,
+      }),
+    );
+    expect(html).toContain("À repérer maintenant");
+    expect(html).toContain(DETOUR_SECTION_EDITORIAL_LINE);
+    expect(html).not.toContain(
+      "Détour sélectionne ce qui mérite votre attention parmi",
+    );
+    expect(html).not.toContain("liste exhaustive");
   });
 
   it("6 événements → tous rendus, rangs 01…06", () => {
