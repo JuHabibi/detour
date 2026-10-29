@@ -4,6 +4,10 @@ import { useEffect, useState, type RefObject } from "react";
 import { DayPicker, type DateRange } from "react-day-picker";
 import { fr } from "react-day-picker/locale";
 import {
+  calendarDayToParisDateKey,
+  parisDateKeyToCalendarDay,
+} from "@/features/explorer/explorer-calendar-day";
+import {
   toParisDateKey,
   type WhenFilter,
 } from "@/domain/time/when-filter";
@@ -34,18 +38,6 @@ type ExplorerWhenPanelProps = {
   initialFocusRef?: RefObject<HTMLButtonElement | null>;
 };
 
-function parisKeyToLocalDate(key: string): Date {
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(y, (m ?? 1) - 1, d ?? 1);
-}
-
-function localDateToParisKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
 export function ExplorerWhenPanel({
   when,
   from,
@@ -56,18 +48,22 @@ export function ExplorerWhenPanel({
 }: ExplorerWhenPanelProps) {
   const [draft, setDraft] = useState<DateRange | undefined>(() =>
     from && to
-      ? { from: parisKeyToLocalDate(from), to: parisKeyToLocalDate(to) }
+      ? {
+          from: parisDateKeyToCalendarDay(from),
+          to: parisDateKeyToCalendarDay(to),
+        }
       : undefined,
   );
   const [draftError, setDraftError] = useState<string | null>(null);
+  // Borne « aujourd’hui » métier = jour civil Europe/Paris.
   const todayKey = toParisDateKey(new Date());
-  const todayDate = parisKeyToLocalDate(todayKey);
+  const todayDate = parisDateKeyToCalendarDay(todayKey);
 
   useEffect(() => {
     if (when === "range" && from && to) {
       setDraft({
-        from: parisKeyToLocalDate(from),
-        to: parisKeyToLocalDate(to),
+        from: parisDateKeyToCalendarDay(from),
+        to: parisDateKeyToCalendarDay(to),
       });
     } else {
       setDraft(undefined);
@@ -80,8 +76,9 @@ export function ExplorerWhenPanel({
       setDraftError("Choisissez un jour ou un intervalle.");
       return;
     }
-    const fromKey = localDateToParisKey(draft.from);
-    const toKey = localDateToParisKey(draft.to ?? draft.from);
+    // Clés = libellés civils des cellules DayPicker (pas toParisDateKey ni ISO).
+    const fromKey = calendarDayToParisDateKey(draft.from);
+    const toKey = calendarDayToParisDateKey(draft.to ?? draft.from);
     if (fromKey < todayKey) {
       setDraftError("Choisissez une date à venir.");
       return;

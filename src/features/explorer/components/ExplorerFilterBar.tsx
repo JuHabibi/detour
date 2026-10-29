@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -151,6 +152,41 @@ function FilterTrigger({
   );
 }
 
+/** Navigation clavier listbox (flèches / Home / End) — un seul tab stop actif. */
+function handleListboxOptionKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+  const { key } = event;
+  if (
+    key !== "ArrowDown" &&
+    key !== "ArrowUp" &&
+    key !== "Home" &&
+    key !== "End"
+  ) {
+    return;
+  }
+  const current = event.currentTarget;
+  const listbox = current.closest('[role="listbox"]');
+  if (!listbox) return;
+  const options = Array.from(
+    listbox.querySelectorAll<HTMLElement>('[role="option"]'),
+  );
+  const index = options.indexOf(current);
+  if (index < 0 || options.length === 0) return;
+
+  event.preventDefault();
+  let nextIndex = index;
+  if (key === "ArrowDown") nextIndex = Math.min(index + 1, options.length - 1);
+  if (key === "ArrowUp") nextIndex = Math.max(index - 1, 0);
+  if (key === "Home") nextIndex = 0;
+  if (key === "End") nextIndex = options.length - 1;
+
+  const next = options[nextIndex];
+  if (!next || next === current) return;
+  for (const option of options) {
+    option.tabIndex = option === next ? 0 : -1;
+  }
+  next.focus();
+}
+
 function CityPanel({
   city,
   onCityChange,
@@ -160,6 +196,11 @@ function CityPanel({
   onCityChange: (value: V1Commune | null) => void;
   initialFocusRef?: RefObject<HTMLButtonElement | null>;
 }) {
+  const selectedIndex = Math.max(
+    0,
+    CITY_OPTIONS.findIndex((option) => (city ?? "") === option.id),
+  );
+
   return (
     <div role="listbox" aria-label="Ville" className="max-h-72 overflow-y-auto">
       {CITY_OPTIONS.map((option, index) => {
@@ -167,10 +208,12 @@ function CityPanel({
         return (
           <button
             key={option.id || "all"}
-            ref={index === 0 ? initialFocusRef : undefined}
+            ref={index === selectedIndex ? initialFocusRef : undefined}
             type="button"
             role="option"
             aria-selected={active}
+            tabIndex={index === selectedIndex ? 0 : -1}
+            onKeyDown={handleListboxOptionKeyDown}
             onClick={() =>
               onCityChange(option.id === "" ? null : (option.id as V1Commune))
             }
@@ -198,6 +241,11 @@ function CategoryPanel({
   onCategoryChange: (value: CategoryId) => void;
   initialFocusRef?: RefObject<HTMLButtonElement | null>;
 }) {
+  const selectedIndex = Math.max(
+    0,
+    categories.findIndex((item) => item.id === category),
+  );
+
   return (
     <div
       role="listbox"
@@ -209,10 +257,12 @@ function CategoryPanel({
         return (
           <button
             key={item.id}
-            ref={index === 0 ? initialFocusRef : undefined}
+            ref={index === selectedIndex ? initialFocusRef : undefined}
             type="button"
             role="option"
             aria-selected={active}
+            tabIndex={index === selectedIndex ? 0 : -1}
+            onKeyDown={handleListboxOptionKeyDown}
             onClick={() => onCategoryChange(item.id)}
             className={cn(
               "flex min-h-10 w-full items-center justify-between gap-3 px-3 py-2 text-left text-[13px] transition-colors",

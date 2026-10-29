@@ -16,6 +16,10 @@ import {
   type ExplorerUrlState,
 } from "@/features/explorer/explorer-url-state";
 import {
+  mergeExplorerUrlWriteMode,
+  type ExplorerUrlWriteMode,
+} from "@/features/explorer/explorer-url-write-mode";
+import {
   useExplorerEvents,
   type ExplorerInitialPage,
 } from "@/features/explorer/hooks/useExplorerEvents";
@@ -62,7 +66,14 @@ export function ExplorerSection({
 
   const skipNextSearchTrack = useRef(true);
   const lastTrackedSearch = useRef(initialFilters.q);
-  const urlWriteMode = useRef<"push" | "replace" | null>(null);
+  const urlWriteMode = useRef<ExplorerUrlWriteMode | null>(null);
+
+  function requestUrlWrite(mode: ExplorerUrlWriteMode) {
+    urlWriteMode.current = mergeExplorerUrlWriteMode(
+      urlWriteMode.current,
+      mode,
+    );
+  }
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -75,7 +86,8 @@ export function ExplorerSection({
       }
       if (next === lastTrackedSearch.current) return;
       lastTrackedSearch.current = next;
-      urlWriteMode.current = "replace";
+      // replace sans écraser un push de filtre déjà demandé.
+      requestUrlWrite("replace");
       captureProductEvent("filter_changed", {
         filter_name: "search",
         filter_value: next,
@@ -168,7 +180,7 @@ export function ExplorerSection({
   }
 
   function handlePresetChange(value: Exclude<WhenFilter, "range">) {
-    urlWriteMode.current = "push";
+    requestUrlWrite("push");
     trackFilterChanged("when", value);
     setWhen(value);
     setRangeFrom(null);
@@ -176,7 +188,7 @@ export function ExplorerSection({
   }
 
   function handleRangeApply(from: string, to: string) {
-    urlWriteMode.current = "push";
+    requestUrlWrite("push");
     trackFilterChanged("when", `range:${from}:${to}`);
     setWhen("range");
     setRangeFrom(from);
@@ -185,14 +197,14 @@ export function ExplorerSection({
 
   function handleCityChange(value: V1Commune | null) {
     if (value === city) return;
-    urlWriteMode.current = "push";
+    requestUrlWrite("push");
     trackFilterChanged("city", value ?? "all");
     setCity(value);
   }
 
   function handleCategoryChange(value: CategoryId) {
     if (value === category) return;
-    urlWriteMode.current = "push";
+    requestUrlWrite("push");
     trackFilterChanged("category", value);
     setCategory(value);
   }

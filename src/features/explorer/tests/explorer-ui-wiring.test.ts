@@ -56,6 +56,9 @@ describe("Explorer UI wiring", () => {
     expect(bar).toContain("Ticket");
     expect(bar).toContain("bg-mint/15");
     expect(bar).toContain("border-sauge");
+    expect(bar).toContain("handleListboxOptionKeyDown");
+    expect(bar).toContain('role="listbox"');
+    expect(bar).toContain("ArrowDown");
     expect(bar).not.toMatch(/rounded-full/);
   });
 
