@@ -1,14 +1,20 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { loadExplorerEvents } from "@/app/actions/load-explorer-events";
-import { CategoryFilter } from "@/components/event/CategoryFilter";
 import { EventGrid } from "@/features/explorer/components/EventGrid";
-import { ExplorationFilters } from "@/features/explorer/components/ExplorationFilters";
+import { ExplorerFilterBar } from "@/features/explorer/components/ExplorerFilterBar";
 import {
   explorerPeriodEmptyMessage,
   explorerPeriodResultTitle,
 } from "@/features/explorer/explorer-period-copy";
+import {
+  explorerUrlHref,
+  parseExplorerUrlState,
+  sameExplorerUrlState,
+  type ExplorerUrlState,
+} from "@/features/explorer/explorer-url-state";
 import {
   useExplorerEvents,
   type ExplorerInitialPage,
@@ -25,6 +31,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 type ExplorerSectionProps = {
   initial: ExplorerInitialPage;
+  initialFilters: ExplorerUrlState;
   favorites: Set<string>;
   onToggleFavorite: (id: string) => void;
   carnetCounts?: Map<string, number>;
@@ -36,6 +43,7 @@ type ExplorerSectionProps = {
 
 export function ExplorerSection({
   initial,
+  initialFilters,
   favorites,
   onToggleFavorite,
   carnetCounts,
@@ -43,14 +51,18 @@ export function ExplorerSection({
   onOpenDetail,
   load = loadExplorerEvents,
 }: ExplorerSectionProps) {
-  const [when, setWhen] = useState<WhenFilter>("weekend");
-  const [category, setCategory] = useState<CategoryId>("tout");
-  const [city, setCity] = useState<V1Commune | null>(null);
-  const [searchInput, setSearchInput] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const router = useRouter();
+  const [when, setWhen] = useState<WhenFilter>(initialFilters.when);
+  const [rangeFrom, setRangeFrom] = useState<string | null>(initialFilters.from);
+  const [rangeTo, setRangeTo] = useState<string | null>(initialFilters.to);
+  const [category, setCategory] = useState<CategoryId>(initialFilters.category);
+  const [city, setCity] = useState<V1Commune | null>(initialFilters.city);
+  const [searchInput, setSearchInput] = useState(initialFilters.q);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialFilters.q);
 
   const skipNextSearchTrack = useRef(true);
-  const lastTrackedSearch = useRef("");
+  const lastTrackedSearch = useRef(initialFilters.q);
+  const urlWriteMode = useRef<"push" | "replace" | null>(null);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -63,6 +75,7 @@ export function ExplorerSection({
       }
       if (next === lastTrackedSearch.current) return;
       lastTrackedSearch.current = next;
+      urlWriteMode.current = "replace";
       captureProductEvent("filter_changed", {
         filter_name: "search",
         filter_value: next,
@@ -70,6 +83,53 @@ export function ExplorerSection({
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
   }, [searchInput]);
+
+  // Sync URL ← state (push pour filtres explicites, replace pour search / normalize).
+  useEffect(() => {
+    const urlState: ExplorerUrlState = {
+      when,
+      from: when === "range" ? rangeFrom : null,
+      to: when === "range" ? rangeTo : null,
+      q: debouncedSearch,
+      city,
+      category,
+    };
+    const href = explorerUrlHref(urlState);
+    const currentState = parseExplorerUrlState(
+      Object.fromEntries(new URLSearchParams(window.location.search)),
+    );
+    if (sameExplorerUrlState(urlState, currentState)) {
+      urlWriteMode.current = null;
+      return;
+    }
+    const mode = urlWriteMode.current ?? "replace";
+    urlWriteMode.current = null;
+    if (mode === "push") {
+      router.push(href, { scroll: false });
+    } else {
+      router.replace(href, { scroll: false });
+    }
+  }, [when, rangeFrom, rangeTo, debouncedSearch, city, category, router]);
+
+  // Sync state ← URL (back / forward).
+  useEffect(() => {
+    function onPopState() {
+      const next = parseExplorerUrlState(
+        Object.fromEntries(new URLSearchParams(window.location.search)),
+      );
+      setWhen(next.when);
+      setRangeFrom(next.from);
+      setRangeTo(next.to);
+      setCategory(next.category);
+      setCity(next.city);
+      setSearchInput(next.q);
+      setDebouncedSearch(next.q);
+      lastTrackedSearch.current = next.q;
+      skipNextSearchTrack.current = true;
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const {
     events,
@@ -83,6 +143,8 @@ export function ExplorerSection({
   } = useExplorerEvents({
     initial,
     when,
+    from: when === "range" ? rangeFrom : null,
+    to: when === "range" ? rangeTo : null,
     category,
     city,
     search: debouncedSearch,
@@ -90,6 +152,10 @@ export function ExplorerSection({
   });
 
   const canShowMore = Boolean(nextCursor) && !loading && !loadingMore;
+  const range =
+    when === "range" && rangeFrom && rangeTo
+      ? { from: rangeFrom, to: rangeTo }
+      : null;
 
   function trackFilterChanged(
     filterName: "when" | "city" | "category",
@@ -101,20 +167,32 @@ export function ExplorerSection({
     });
   }
 
-  function handleWhenChange(value: WhenFilter) {
-    if (value === when) return;
+  function handlePresetChange(value: Exclude<WhenFilter, "range">) {
+    urlWriteMode.current = "push";
     trackFilterChanged("when", value);
     setWhen(value);
+    setRangeFrom(null);
+    setRangeTo(null);
+  }
+
+  function handleRangeApply(from: string, to: string) {
+    urlWriteMode.current = "push";
+    trackFilterChanged("when", `range:${from}:${to}`);
+    setWhen("range");
+    setRangeFrom(from);
+    setRangeTo(to);
   }
 
   function handleCityChange(value: V1Commune | null) {
     if (value === city) return;
+    urlWriteMode.current = "push";
     trackFilterChanged("city", value ?? "all");
     setCity(value);
   }
 
   function handleCategoryChange(value: CategoryId) {
     if (value === category) return;
+    urlWriteMode.current = "push";
     trackFilterChanged("category", value);
     setCategory(value);
   }
@@ -122,41 +200,35 @@ export function ExplorerSection({
   return (
     <EventGrid
       title="Explorer les sorties"
-      resultTitle={explorerPeriodResultTitle(when)}
-      emptyMessage={explorerPeriodEmptyMessage(when)}
+      resultTitle={explorerPeriodResultTitle(when, range)}
+      emptyMessage={explorerPeriodEmptyMessage(when, range)}
       toolbar={
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-            <label className="block w-full min-w-0 sm:max-w-md sm:flex-1 lg:max-w-[28rem]">
-              <span className="sr-only">Recherche</span>
-              <input
-                type="search"
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Rechercher un événement, un lieu..."
-                className="h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint"
-              />
-            </label>
-            <ExplorationFilters
-              when={when}
-              city={city}
-              onWhenChange={handleWhenChange}
-              onCityChange={handleCityChange}
-            />
-          </div>
-          <CategoryFilter
+        <div className="flex flex-col">
+          <ExplorerFilterBar
+            searchInput={searchInput}
+            onSearchInputChange={setSearchInput}
+            when={when}
+            from={rangeFrom}
+            to={rangeTo}
+            onPresetChange={handlePresetChange}
+            onRangeApply={handleRangeApply}
+            city={city}
+            onCityChange={handleCityChange}
             category={category}
             onCategoryChange={handleCategoryChange}
           />
           <p
-            className="min-h-5 text-sm text-sand"
+            className={
+              loading || loadingMore
+                ? "mt-2 min-h-4 text-[12px] text-sand"
+                : "sr-only"
+            }
             aria-live="polite"
-            aria-hidden={!(loading || loadingMore)}
           >
-            {loadingMore ? "Chargement…" : loading ? "Mise à jour…" : "\u00a0"}
+            {loadingMore ? "Chargement…" : loading ? "Mise à jour…" : ""}
           </p>
           {error ? (
-            <p className="text-sm text-coral" role="alert">
+            <p className="mt-2 text-sm text-coral" role="alert">
               {error}{" "}
               <button
                 type="button"

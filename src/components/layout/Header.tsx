@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   HeaderAccountMenu,
   type HeaderAccountUser,
@@ -58,9 +58,33 @@ export function Header({
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useId();
+  const headerRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const firstLinkRef = useRef<HTMLAnchorElement>(null);
   const isAuthenticated = Boolean(user);
+
+  // Expose la hauteur réelle du header pour coller les barres sticky (Explorer…).
+  useLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+
+    function syncHeight() {
+      const height = headerRef.current?.offsetHeight;
+      if (height == null) return;
+      document.documentElement.style.setProperty(
+        "--detour-header-height",
+        `${height}px`,
+      );
+    }
+
+    syncHeight();
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--detour-header-height");
+    };
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -86,11 +110,14 @@ export function Header({
   }
 
   return (
-    <header className="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm">
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm"
+    >
       <div className="mx-auto flex max-w-[var(--detour-shell-max)] items-center justify-between gap-2 px-4 py-2 sm:gap-5 sm:px-5 md:gap-3 md:px-8 md:py-2.5 lg:gap-4 lg:px-12 2xl:px-14 min-[1920px]:px-16">
         <Link
           href={homeHref}
-          className="font-display text-[1.55rem] leading-none tracking-tight 2xl:text-[1.7rem]"
+          className="font-display text-[1.7rem] leading-none tracking-tight 2xl:text-[1.85rem]"
         >
           Détour
           <span className="text-coral" aria-hidden="true">

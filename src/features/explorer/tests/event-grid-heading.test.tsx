@@ -24,13 +24,14 @@ describe("EventGrid — titre page Explorer", () => {
     expect(html).not.toMatch(/<h2\b[^>]*>Explorer les sorties<\/h2>/);
   });
 
-  it("affiche le sous-titre période et le compteur alignés (week-end)", () => {
+  it("affiche eyebrow, sous-titre période et compteur (week-end)", () => {
     const resultTitle = explorerPeriodResultTitle("weekend");
     const html = renderToStaticMarkup(
       createElement(EventGrid, {
         title: "Explorer les sorties",
         resultTitle,
         emptyMessage: explorerPeriodEmptyMessage("weekend"),
+        toolbar: createElement("div", { "data-toolbar": "1" }),
         events: [],
         totalCount: 0,
         favorites: new Set<string>(),
@@ -38,10 +39,20 @@ describe("EventGrid — titre page Explorer", () => {
       }),
     );
 
+    expect(html).toContain("Parcourir");
     expect(html).toContain(resultTitle);
     expect(html).toContain("0 proposition");
     expect(html).toContain(explorerPeriodEmptyMessage("weekend"));
     expect(html).not.toContain("Retrouver tous les événements à venir");
+    // Sous-titre une seule fois (pas répété près du compteur / grille).
+    expect(html.split(resultTitle).length - 1).toBe(1);
+    // Ordre : barre de filtres → titre de résultats.
+    expect(html.indexOf('data-toolbar="1"')).toBeLessThan(
+      html.indexOf("Parcourir"),
+    );
+    expect(html.indexOf("Parcourir")).toBeLessThan(
+      html.indexOf("Explorer les sorties"),
+    );
   });
 
   it("compteur « N sur total » inchangé quand la page est partielle", () => {

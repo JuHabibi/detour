@@ -501,6 +501,65 @@ describe("listExplorerEvents — WHEN", () => {
     expect(countSql).toContain("e.start_at >= $1");
     expect(countSql).toContain("e.start_at <= $2");
   });
+
+  it("when=range : overlap bounded (≠ start-in-window Frise)", async () => {
+    const now = new Date("2026-09-15T12:00:00+02:00");
+    const window = getDateRangeForParisDateKeys("2026-09-10", "2026-09-20")!;
+    const { query, client } = mockClient((sql) => {
+      if (sql.includes("count(*)")) return { rows: [{ count: "1" }] };
+      return {
+        rows: [
+          dbRow("ongoing", "2026-09-01T10:00:00+02:00", {
+            endAt: "2026-09-30T18:00:00+02:00",
+          }),
+        ],
+      };
+    });
+
+    const result = await listExplorerEvents(
+      {
+        when: "range",
+        from: "2026-09-10",
+        to: "2026-09-20",
+      },
+      { client, now },
+    );
+
+    expect(result.events[0]?.id).toBe("ongoing");
+    const countCall = query.mock.calls.find((c) =>
+      String(c[0]).includes("count(*)"),
+    ) as [string, unknown[]];
+    expect(countCall[0]).toContain("e.start_at <= $2");
+    expect(countCall[0]).toContain("COALESCE(e.end_at, e.start_at) >= $1");
+    expect(countCall[0]).not.toContain("e.start_at >= $1");
+    expect(countCall[1][0]).toBe(window.from.toISOString());
+    expect(countCall[1][1]).toBe(window.to!.toISOString());
+  });
+
+  it("when=range : inclut un événement commencé avant from s’il chevauche l’intervalle", async () => {
+    const now = new Date("2026-09-15T12:00:00+02:00");
+    const { client } = mockClient((sql) => {
+      if (sql.includes("count(*)")) return { rows: [{ count: "1" }] };
+      return {
+        rows: [
+          dbRow("started-before", "2026-08-20T10:00:00+02:00", {
+            endAt: "2026-09-18T18:00:00+02:00",
+          }),
+        ],
+      };
+    });
+
+    const result = await listExplorerEvents(
+      {
+        when: "range",
+        from: "2026-09-10",
+        to: "2026-09-20",
+      },
+      { client, now },
+    );
+
+    expect(result.events.map((e) => e.id)).toEqual(["started-before"]);
+  });
 });
 
 describe("listExplorerEvents — SEARCH", () => {

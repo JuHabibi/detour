@@ -39,8 +39,15 @@ function resolveFilters(
     if (!window?.to) {
       // Déjà validé en parse — garde-fou défensif.
       temporal = { mode: "upcoming", now };
+    } else if (query.when === "range") {
+      // Explorer plage custom : même overlap que les presets bornés.
+      temporal = {
+        mode: "bounded",
+        from: window.from,
+        to: window.to,
+      };
     } else {
-      // Contrat frise : début dans la fenêtre + encore à venir (≠ overlap Explorer).
+      // Contrat frise (`upcoming` + from/to) : début dans la fenêtre + encore à venir.
       temporal = {
         mode: "startInWindowUpcoming",
         from: window.from,

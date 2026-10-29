@@ -1,24 +1,11 @@
 "use client";
 
-import type { WhenFilter } from "@/domain/time/when-filter";
 import { V1_COMMUNES, type V1Commune } from "@/domain/geo/v1-communes";
 
 type ExplorationFiltersProps = {
-  when: WhenFilter;
   city: V1Commune | null;
-  onWhenChange: (value: WhenFilter) => void;
   onCityChange: (value: V1Commune | null) => void;
 };
-
-const whenOptions: { id: WhenFilter; label: string }[] = [
-  { id: "today", label: "Aujourd’hui" },
-  { id: "tomorrow", label: "Demain" },
-  { id: "weekend", label: "Ce week-end" },
-  { id: "next-week", label: "Semaine prochaine" },
-  { id: "this-month", label: "Ce mois-ci" },
-  { id: "next-month", label: "Mois prochain" },
-  { id: "upcoming", label: "À venir" },
-];
 
 const ALL_CITIES_VALUE = "";
 
@@ -28,13 +15,9 @@ const cityOptions: { id: string; label: string }[] = [
 ];
 
 export function ExplorationFilters({
-  when,
   city,
-  onWhenChange,
   onCityChange,
 }: ExplorationFiltersProps) {
-  const whenLabel =
-    whenOptions.find((option) => option.id === when)?.label ?? "Ce week-end";
   const cityLabel =
     cityOptions.find((option) => option.id === (city ?? ALL_CITIES_VALUE))
       ?.label ?? "Toutes les villes";
@@ -45,13 +28,6 @@ export function ExplorationFilters({
       aria-label="Filtres d’exploration"
       className="flex shrink-0 flex-wrap items-center gap-2"
     >
-      <FilterSelect
-        accessibleName="Période"
-        visibleLabel={whenLabel}
-        value={when}
-        options={whenOptions}
-        onChange={(value) => onWhenChange(value as WhenFilter)}
-      />
       <FilterSelect
         accessibleName="Ville"
         visibleLabel={cityLabel}
@@ -79,19 +55,15 @@ function FilterSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="relative shrink-0">
-      <span className="sr-only">{accessibleName}</span>
-      <span
-        aria-hidden="true"
-        className="inline-flex h-11 items-center gap-2 border border-line bg-foam px-4 text-sm text-ink"
-      >
-        {visibleLabel}
-        <Chevron />
-      </span>      <select
+    <div className="relative inline-flex min-h-11 items-stretch border border-line bg-foam">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-medium uppercase tracking-[0.14em] text-sand">
+        {accessibleName}
+      </span>
+      <select
+        aria-label={accessibleName}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="absolute inset-0 cursor-pointer opacity-0"
-        aria-label={accessibleName}
+        className="min-h-11 appearance-none bg-transparent py-2 pl-[4.75rem] pr-9 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-mint"
       >
         {options.map((option) => (
           <option key={option.id || "all"} value={option.id}>
@@ -99,27 +71,13 @@ function FilterSelect({
           </option>
         ))}
       </select>
-    </label>
-  );
-}
-
-function Chevron() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className="text-sand"
-    >
-      <path
-        d="M6 9l6 6 6-6"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sand"
+      >
+        ▾
+      </span>
+      <span className="sr-only">{visibleLabel}</span>
+    </div>
   );
 }

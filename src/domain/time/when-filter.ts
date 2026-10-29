@@ -5,7 +5,9 @@ export type WhenFilter =
   | "next-week"
   | "this-month"
   | "next-month"
-  | "upcoming";
+  | "upcoming"
+  /** Plage civile Explorer (`from`/`to`) — overlap `bounded`, ≠ Frise. */
+  | "range";
 
 export type DateRange = {
   from: Date;
@@ -93,6 +95,11 @@ export function getDateRangeForWhenFilter(
         from: now,
         to: null,
       };
+
+    case "range":
+      throw new Error(
+        "when=range exige from/to via getDateRangeForParisDateKeys",
+      );
   }
 }
 
@@ -104,6 +111,15 @@ export function isDateInRange(date: Date, range: DateRange): boolean {
 }
 
 const PARIS_DATE_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Jour civil Europe/Paris de l’instant donné (`YYYY-MM-DD`). */
+export function toParisDateKey(date: Date): string {
+  const paris = getParisCivil(date);
+  const y = String(paris.year).padStart(4, "0");
+  const m = String(paris.month).padStart(2, "0");
+  const d = String(paris.day).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 /** Jour civil Paris `YYYY-MM-DD` (calendrier valide). */
 export function isParisDateKey(value: string): boolean {
@@ -146,6 +162,12 @@ export function isEventInWhenFilter(
   filter: WhenFilter,
   now: Date,
 ): boolean {
+  if (filter === "range") {
+    throw new Error(
+      "isEventInWhenFilter ne couvre pas when=range — utiliser getDateRangeForParisDateKeys",
+    );
+  }
+
   const eventStart = toValidDate(eventStartAt);
   if (!eventStart) return false;
 
