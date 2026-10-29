@@ -19,6 +19,7 @@ const WHEN_FILTERS: readonly WhenFilter[] = [
   "this-month",
   "next-month",
   "upcoming",
+  "range",
 ] as const;
 
 export type ExplorerPublicInput = {
@@ -113,7 +114,7 @@ export function parseExplorerPublicInput(
   let from: string | undefined;
   let to: string | undefined;
   if (rawFrom != null && rawTo != null) {
-    if (input.when !== "upcoming") {
+    if (input.when !== "upcoming" && input.when !== "range") {
       return { ok: false, error: "Période invalide." };
     }
     if (!isParisDateKey(rawFrom) || !isParisDateKey(rawTo) || rawFrom > rawTo) {
@@ -121,6 +122,8 @@ export function parseExplorerPublicInput(
     }
     from = rawFrom;
     to = rawTo;
+  } else if (input.when === "range") {
+    return { ok: false, error: "Période invalide." };
   }
 
   return {

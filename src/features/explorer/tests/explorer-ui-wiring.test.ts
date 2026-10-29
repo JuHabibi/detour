@@ -33,6 +33,57 @@ describe("Explorer UI wiring", () => {
     expect(source).toContain("Toutes les villes");
   });
 
+  it("ExplorerFilterBar : recherche + trois déclencheurs Quand / Où / Quoi", () => {
+    const bar = readFileSync(
+      path.join(explorerComponents, "ExplorerFilterBar.tsx"),
+      "utf8",
+    );
+    const section = readFileSync(
+      path.join(explorerComponents, "ExplorerSection.tsx"),
+      "utf8",
+    );
+    expect(section).toContain("ExplorerFilterBar");
+    expect(bar).toContain("Quand ?");
+    expect(bar).toContain("Où ?");
+    expect(bar).toContain("Quoi ?");
+    expect(bar).toContain("ExplorerWhenPanel");
+    expect(bar).toContain("useStackedDialogLifecycle");
+    expect(bar).toContain("DesktopFilterPopover");
+    expect(bar).toContain("createPortal");
+    expect(bar).toContain("Search");
+    expect(bar).toContain("Calendar");
+    expect(bar).toContain("MapPin");
+    expect(bar).toContain("Ticket");
+    expect(bar).toContain("bg-mint/15");
+    expect(bar).toContain("border-sauge");
+    expect(bar).toContain("handleListboxOptionKeyDown");
+    expect(bar).toContain('role="listbox"');
+    expect(bar).toContain("ArrowDown");
+    expect(bar).not.toMatch(/rounded-full/);
+  });
+
+  it("EventGrid : zone filtres unie + zone résultats texturée, sans mini-Hero", () => {
+    const grid = readFileSync(
+      path.join(explorerComponents, "EventGrid.tsx"),
+      "utf8",
+    );
+    expect(grid).toContain("Parcourir");
+    expect(grid).toContain("font-display");
+    expect(grid).toContain("toolbar");
+    expect(grid).toContain("resultTitle");
+    expect(grid).toContain("detour-decor--explorer");
+    expect(grid).toContain('aria-label="Filtres d’exploration"');
+    expect(grid).toContain("max-w-[760px]");
+    // Filtres hors texture ; résultats gardent detour-decor.
+    expect(grid).toMatch(
+      /Filtres d[\u2019']exploration[\s\S]*bg-paper[\s\S]*detour-decor--explorer/,
+    );
+    expect(grid).not.toContain("ExplorerSearchBand");
+    expect(grid).not.toContain("detour-explorer-bandeau");
+    expect(grid).not.toContain("new-detour-hero");
+    expect(grid).not.toContain("-mt-4 border border-line bg-foam p-3 shadow");
+  });
+
   it("HomePage délègue vers /explorer via le Radar, sans ExplorerSection", () => {
     const homePage = readFileSync(path.join(homeComponents, "HomePage.tsx"), "utf8");
     const detour = readFileSync(

@@ -5,9 +5,10 @@ import {
   EXPLORER_PERIOD_RESULT_TITLES,
   explorerPeriodEmptyMessage,
   explorerPeriodResultTitle,
+  explorerPeriodTriggerLabel,
 } from "@/features/explorer/explorer-period-copy";
 
-const ALL_WHEN: WhenFilter[] = [
+const ALL_PRESETS: Exclude<WhenFilter, "range">[] = [
   "today",
   "tomorrow",
   "weekend",
@@ -18,8 +19,8 @@ const ALL_WHEN: WhenFilter[] = [
 ];
 
 describe("explorer-period-copy", () => {
-  it("couvre tous les filtres temporels", () => {
-    for (const when of ALL_WHEN) {
+  it("couvre tous les filtres temporels presets", () => {
+    for (const when of ALL_PRESETS) {
       expect(EXPLORER_PERIOD_RESULT_TITLES[when]).toBeTruthy();
       expect(EXPLORER_PERIOD_EMPTY_MESSAGES[when]).toBeTruthy();
       expect(explorerPeriodResultTitle(when)).toBe(
@@ -29,6 +30,21 @@ describe("explorer-period-copy", () => {
         EXPLORER_PERIOD_EMPTY_MESSAGES[when],
       );
     }
+  });
+
+  it("range : titre et empty avec from/to", () => {
+    expect(
+      explorerPeriodResultTitle("range", {
+        from: "2026-03-12",
+        to: "2026-03-14",
+      }),
+    ).toMatch(/12–14 mars/i);
+    expect(
+      explorerPeriodEmptyMessage("range", {
+        from: "2026-03-12",
+        to: "2026-03-12",
+      }),
+    ).toMatch(/12 mars/i);
   });
 
   it("weekend ne se confond plus avec « à venir »", () => {
@@ -48,7 +64,7 @@ describe("explorer-period-copy", () => {
       "Mois prochain",
       "À venir",
     ];
-    for (const when of ALL_WHEN) {
+    for (const when of ALL_PRESETS) {
       expect(filterLabels).not.toContain(explorerPeriodResultTitle(when));
     }
   });
@@ -57,5 +73,14 @@ describe("explorer-period-copy", () => {
     const empty = explorerPeriodEmptyMessage("weekend");
     expect(empty.toLowerCase()).toContain("week-end");
     expect(empty).toContain("À venir");
+  });
+
+  it("libellé compact du déclencheur Quand", () => {
+    expect(explorerPeriodTriggerLabel("weekend", null, null)).toBe(
+      "Ce week-end",
+    );
+    expect(
+      explorerPeriodTriggerLabel("range", "2026-03-12", "2026-03-14"),
+    ).toMatch(/12–14 mars/i);
   });
 });

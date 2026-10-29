@@ -11,13 +11,15 @@ import {
   ExplorerSection,
   type ExplorerInitialPage,
 } from "@/features/explorer/components/ExplorerSection";
+import type { ExplorerUrlState } from "@/features/explorer/explorer-url-state";
 import { authClient } from "@/lib/auth-client";
 
 type ExplorerPageProps = {
   explorer: ExplorerInitialPage;
+  initialFilters: ExplorerUrlState;
 };
 
-export function ExplorerPage({ explorer }: ExplorerPageProps) {
+export function ExplorerPage({ explorer, initialFilters }: ExplorerPageProps) {
   const { data: session, isPending: isSessionPending } = authClient.useSession();
   const userId = session?.user?.id ?? null;
   const headerUser =
@@ -77,6 +79,7 @@ export function ExplorerPage({ explorer }: ExplorerPageProps) {
         ) : null}
         <ExplorerSection
           initial={explorer}
+          initialFilters={initialFilters}
           favorites={personal.favorites as Set<string>}
           onToggleFavorite={actions.toggleFavorite}
           carnetCounts={personal.carnetCounts as Map<string, number>}

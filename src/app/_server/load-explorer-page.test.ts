@@ -23,12 +23,18 @@ describe("loadExplorerPage", () => {
 
     expect(getCachedPublicExplorerInitialPage).toHaveBeenCalledTimes(1);
     expect(getCachedPublicExplorerInitialPage).toHaveBeenCalledWith();
-    expect(result).toEqual({
-      explorer: {
-        events: [{ id: "e1" }],
-        totalCount: 3,
-        nextCursor: "cursor-1",
-      },
+    expect(result.explorer).toEqual({
+      events: [{ id: "e1" }],
+      totalCount: 3,
+      nextCursor: "cursor-1",
+    });
+    expect(result.initialFilters).toEqual({
+      when: "weekend",
+      from: null,
+      to: null,
+      q: "",
+      city: null,
+      category: "tout",
     });
     expect(result).not.toHaveProperty("highlights");
     expect(result).not.toHaveProperty("isAuthenticated");

@@ -18,8 +18,9 @@ export type ListExplorerEventsQuery = {
   /** Défaut 12, borné côté application. */
   limit?: number;
   /**
-   * Fenêtre civile Paris optionnelle (`YYYY-MM-DD`), réservée à `when: "upcoming"`.
-   * Filtre : `start_at` dans [from, to] et événement encore à venir.
+   * Fenêtre civile Paris (`YYYY-MM-DD`).
+   * - `when: "upcoming"` (Frise) → début dans [from, to] + encore à venir.
+   * - `when: "range"` (Explorer) → overlap `bounded` sur [from, to].
    */
   from?: string;
   to?: string;

@@ -105,7 +105,7 @@ describe("parseExplorerPublicInput", () => {
     expect(parsed.query.to).toBe("2027-02-28");
   });
 
-  it("rejette from/to incomplets, inversés ou hors upcoming", () => {
+  it("rejette from/to incomplets, inversés ou hors upcoming/range", () => {
     expect(
       parseExplorerPublicInput({ when: "upcoming", from: "2026-12-01" }).ok,
     ).toBe(false);
@@ -130,5 +130,22 @@ describe("parseExplorerPublicInput", () => {
         to: "2026-13-31",
       }).ok,
     ).toBe(false);
+  });
+
+  it("accepte when=range avec from/to", () => {
+    const parsed = parseExplorerPublicInput({
+      when: "range",
+      from: "2026-03-12",
+      to: "2026-03-14",
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.query.when).toBe("range");
+    expect(parsed.query.from).toBe("2026-03-12");
+    expect(parsed.query.to).toBe("2026-03-14");
+  });
+
+  it("rejette when=range sans dates", () => {
+    expect(parseExplorerPublicInput({ when: "range" }).ok).toBe(false);
   });
 });

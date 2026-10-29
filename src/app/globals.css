@@ -57,7 +57,7 @@
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 4.5rem;
+  scroll-padding-top: var(--detour-header-height, 4.5rem);
   color-scheme: light;
   /* Évite le décalage horizontal quand la scrollbar apparaît après le 1er paint. */
   scrollbar-gutter: stable;
@@ -199,6 +199,55 @@ body {
   display: block;
   height: auto;
   max-width: none;
+}
+
+/* react-day-picker — tokens Détour (sans identité marketplace) */
+.rdp-detour {
+  --rdp-accent-color: var(--color-ink);
+  --rdp-accent-background-color: var(--color-mint);
+  --rdp-today-color: var(--color-coral);
+  --rdp-range_start-date-background-color: var(--color-ink);
+  --rdp-range_end-date-background-color: var(--color-ink);
+  --rdp-range_middle-background-color: var(--color-mint-soft);
+  --rdp-day_button-border-radius: 0;
+  --rdp-day-height: 2.25rem;
+  --rdp-day-width: 2.25rem;
+  font-family: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+  color: var(--color-ink);
+}
+
+/* Calendrier Explorer : 7 colonnes régulières sur toute la largeur du panneau */
+.rdp-detour--fill {
+  width: 100%;
+  --rdp-day-height: 2.4rem;
+  --rdp-day_button-height: 2.25rem;
+  --rdp-day_button-width: 100%;
+}
+
+.rdp-detour--fill .rdp-months {
+  max-width: none;
+  width: 100%;
+}
+
+.rdp-detour--fill .rdp-month,
+.rdp-detour--fill .rdp-month_grid {
+  width: 100%;
+}
+
+.rdp-detour--fill .rdp-month_grid {
+  table-layout: fixed;
+}
+
+.rdp-detour--fill .rdp-weekday,
+.rdp-detour--fill .rdp-day {
+  width: 14.2857%;
+  height: var(--rdp-day-height);
+}
+
+.rdp-detour--fill .rdp-day_button {
+  width: 100%;
+  height: var(--rdp-day_button-height);
+  margin-inline: auto;
 }
 
 /* Radar — collage haut droit, derrière le contenu (z-0) */
