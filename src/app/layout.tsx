@@ -1,33 +1,64 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Newsreader, Sora } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const sora = Sora({
-  subsets: ["latin"],
+/**
+ * Polices self-hostées (OFL via Google Fonts).
+ * Évite le fetch build-time next/font/google, flaky sur Vercel
+ * (URLs /l/font?kit= sans extension → crash webpack/turbopack).
+ */
+const sora = localFont({
+  src: [
+    {
+      path: "./fonts/sora-latin-ext.woff2",
+      weight: "100 800",
+      style: "normal",
+    },
+    {
+      path: "./fonts/sora-latin.woff2",
+      weight: "100 800",
+      style: "normal",
+    },
+  ],
   variable: "--font-sora",
   display: "swap",
-  adjustFontFallback: true,
-  // Poids réellement utilisés (UI) — évite de charger toute l’axe variable.
-  weight: ["400", "500", "600"],
+  adjustFontFallback: "Arial",
 });
 
-const newsreader = Newsreader({
-  subsets: ["latin"],
+const newsreader = localFont({
+  src: [
+    {
+      path: "./fonts/newsreader-latin-ext.woff2",
+      weight: "200 800",
+      style: "normal",
+    },
+    {
+      path: "./fonts/newsreader-latin.woff2",
+      weight: "200 800",
+      style: "normal",
+    },
+  ],
   variable: "--font-newsreader",
   display: "swap",
-  adjustFontFallback: true,
-  // Pas d’italic dans l’UI actuelle — réduit fichiers + fenêtre de swap CLS.
-  style: ["normal"],
-  weight: ["400", "500", "600"],
+  adjustFontFallback: "Times New Roman",
 });
 
-const instrumentSerif = Instrument_Serif({
-  weight: "400",
-  subsets: ["latin"],
+const instrumentSerif = localFont({
+  src: [
+    {
+      path: "./fonts/instrument-serif-latin-ext.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "./fonts/instrument-serif-latin.woff2",
+      weight: "400",
+      style: "normal",
+    },
+  ],
   variable: "--font-instrument-serif",
   display: "swap",
-  adjustFontFallback: true,
-  style: ["normal"],
+  adjustFontFallback: "Times New Roman",
 });
 
 export const metadata: Metadata = {
