@@ -11,6 +11,10 @@ export type HeaderAccountUser = {
   email: string;
 };
 
+/** Cercle avatar Header — partagé connecté (initiales) / visiteur (silhouette). */
+export const headerAvatarClassName =
+  "flex size-9 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-medium uppercase tracking-[0.06em] text-foam transition-colors hover:bg-coral hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:size-10 sm:text-[12px]";
+
 type HeaderAccountMenuProps = {
   user: HeaderAccountUser;
 };
@@ -85,13 +89,7 @@ export function HeaderAccountMenu({ user }: HeaderAccountMenuProps) {
         aria-controls={menuId}
         aria-label={`Menu compte — ${displayName}`}
         onClick={() => setOpen((v) => !v)}
-        className={cn(
-          "flex size-9 items-center justify-center rounded-full bg-ink text-[11px] font-medium uppercase tracking-[0.06em] text-foam transition-colors",
-          "hover:bg-coral hover:text-ink",
-          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
-          "sm:size-10 sm:text-[12px]",
-          open && "bg-coral text-ink",
-        )}
+        className={cn(headerAvatarClassName, open && "bg-coral text-ink")}
       >
         <span aria-hidden="true">{initials}</span>
       </button>

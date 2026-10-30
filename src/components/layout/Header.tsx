@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   HeaderAccountMenu,
+  headerAvatarClassName,
   type HeaderAccountUser,
 } from "@/components/layout/HeaderAccountMenu";
 import { cn } from "@/lib/cn";
@@ -32,7 +33,7 @@ type HeaderProps = {
   homeHref?: string;
   /**
    * Utilisateur connecté — avatar + menu + nav personnelle.
-   * Absent / null = visiteur → « Se connecter », sans cœur ni liens compte.
+   * Absent / null = visiteur → avatar silhouette → /account, sans cœur ni liens compte.
    */
   user?: HeaderAccountUser | null;
   /**
@@ -117,7 +118,7 @@ export function Header({
       <div className="mx-auto flex max-w-[var(--detour-shell-max)] items-center justify-between gap-2 px-4 py-2 sm:gap-5 sm:px-5 md:gap-3 md:px-8 md:py-2.5 lg:gap-4 lg:px-12 2xl:px-14 min-[1920px]:px-16">
         <Link
           href={homeHref}
-          className="font-display text-[1.7rem] leading-none tracking-tight 2xl:text-[1.85rem]"
+          className="font-display text-[1.85rem] leading-none tracking-tight 2xl:text-[2rem]"
         >
           Détour
           <span className="text-coral" aria-hidden="true">
@@ -174,9 +175,11 @@ export function Header({
           ) : (
             <Link
               href="/account"
-              className="shrink-0 text-[11px] font-medium uppercase tracking-[0.14em] text-ink transition-colors hover:text-sand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:text-[12px]"
+              aria-label="Se connecter"
+              title="Se connecter"
+              className={headerAvatarClassName}
             >
-              Se connecter
+              <GuestProfileSilhouette />
             </Link>
           )}
 
@@ -246,6 +249,23 @@ export function Header({
         </nav>
       ) : null}
     </header>
+  );
+}
+
+/** Silhouette profil blanche — même cercle que l’avatar connecté. */
+function GuestProfileSilhouette() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className="sm:h-[18px] sm:w-[18px]"
+    >
+      <circle cx="12" cy="8" r="3.75" />
+      <path d="M5.5 19.25c0-3.45 2.9-5.75 6.5-5.75s6.5 2.3 6.5 5.75c0 .55-.45 1-1 1H6.5c-.55 0-1-.45-1-1Z" />
+    </svg>
   );
 }
 

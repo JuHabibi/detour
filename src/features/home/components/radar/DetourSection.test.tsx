@@ -77,7 +77,7 @@ describe("DetourSection — pas de plafond UI sur la sélection Radar", () => {
     expect(html).not.toContain("liste exhaustive");
   });
 
-  it("pointe vers /explorer en fin de sélection, sans bandeau CTA", () => {
+  it("pointe vers /explorer en CTA secondaire après le carrousel", () => {
     const html = renderToStaticMarkup(
       createElement(DetourSection, {
         events: [eventAt(0)],
@@ -87,8 +87,12 @@ describe("DetourSection — pas de plafond UI sur la sélection Radar", () => {
     );
     expect(html).toContain('href="/explorer"');
     expect(html).toContain("Explorer toutes les sorties");
+    expect(html).toContain(
+      "Vous n’avez pas trouvé votre bonheur dans notre sélection",
+    );
+    expect(html).toContain("border-ink/25");
+    expect(html).toContain("bg-foam");
     expect(html).not.toContain("Cherchez librement parmi les sorties.");
-    expect(html).not.toContain("Explorer les sorties");
     expect(html).not.toContain('id="explorer"');
   });
 

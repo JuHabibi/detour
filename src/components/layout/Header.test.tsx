@@ -37,9 +37,14 @@ describe("Header — visiteur", () => {
     expect(html).toContain('href="/"');
     expect(html).toContain("Explorer");
     expect(html).toContain('href="/explorer"');
-    expect(html).toContain("Se connecter");
+    expect(html).toContain('aria-label="Se connecter"');
+    expect(html).toContain('title="Se connecter"');
     expect(html).toContain('href="/account"');
     expect(html).toContain("Ouvrir le menu");
+    // Même cercle avatar que l’état connecté (pas de libellé texte visible).
+    expect(html).toContain("rounded-full bg-ink");
+    expect(html).toContain("size-9");
+    expect(html.split("Se connecter").length - 1).toBe(2); // aria-label + title
     expect(html).not.toContain("Mes carnets");
     expect(html).not.toContain("Mon parcours");
     expect(html).not.toContain("Voir mes favoris");
