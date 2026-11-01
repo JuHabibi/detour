@@ -42,7 +42,9 @@ export type FallbackPresentation = {
 const CONCERT_RE =
   /\b(concert|musique|chorale|live|dj|apero[\s-]?concert)\b/u;
 const SPECTACLE_RE =
-  /\b(theatre|spectacle|humour|cirque|scene|cinema|projection|cine)\b/u;
+  /\b(theatre|spectacle|humour|cirque|scene)\b/u;
+const CINEMA_RE =
+  /\b(cinema|projection|cine|documentaire)\b/u;
 const EXPOSITION_RE =
   /\b(exposition|expo|photo|photographie|galerie|arts)\b/u;
 
@@ -101,6 +103,8 @@ function mapPresentationToPlaceholder(raw: string): string | null {
   if (!normalized) return null;
 
   if (CONCERT_RE.test(normalized)) return DETOUR_PLACEHOLDER.concert;
+  // Pas d’asset dédié : réutilise le placeholder spectacle pour Cinéma.
+  if (CINEMA_RE.test(normalized)) return DETOUR_PLACEHOLDER.spectacle;
   if (SPECTACLE_RE.test(normalized)) return DETOUR_PLACEHOLDER.spectacle;
   if (EXPOSITION_RE.test(normalized)) return DETOUR_PLACEHOLDER.exposition;
 

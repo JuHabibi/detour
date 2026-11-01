@@ -23,6 +23,7 @@ const signalLabels: Partial<Record<EventSignal, string>> = {
 const pastelByCategory: Record<Exclude<CategoryId, "tout">, string> = {
   Musique: "bg-mint-soft",
   Spectacle: "bg-mint-soft",
+  Cinéma: "bg-ink-3",
   Exposition: "bg-ink-3",
   Atelier: "bg-mint-soft",
   "Jeune public": "bg-ink-3",
@@ -36,6 +37,7 @@ const pastelByCategory: Record<Exclude<CategoryId, "tout">, string> = {
 const accentByCategory: Record<Exclude<CategoryId, "tout">, string> = {
   Musique: "bg-mint/25",
   Spectacle: "bg-mint/25",
+  Cinéma: "bg-ink/10",
   Exposition: "bg-ink/10",
   Atelier: "bg-mint/25",
   "Jeune public": "bg-ink/10",

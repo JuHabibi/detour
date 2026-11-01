@@ -10,6 +10,7 @@ type ProductCategory = Exclude<CategoryId, "tout">;
 export const categoryBadgeTone: Record<ProductCategory, string> = {
   Musique: "bg-lilac-soft text-ink",
   Spectacle: "bg-blush-soft text-ink",
+  Cinéma: "bg-ink-3 text-ink",
   Atelier: "bg-mint-soft text-ink",
   Rencontre: "bg-mint-soft text-ink",
   Exposition: "bg-ink-3 text-ink",

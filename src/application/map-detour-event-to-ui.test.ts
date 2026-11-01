@@ -102,7 +102,7 @@ describe("mapDetourEventToEventItem — catégorie UI", () => {
     );
   });
 
-  it("même label SPECTACLE sans image réelle → même placeholder (non-régression)", () => {
+  it("Spectacle vs Cinéma sans image réelle → placeholder spectacle partagé", () => {
     const malefique = mapDetourEventToEventItem(
       baseEvent({
         id: "ingre-mediatheque:malefique",
@@ -126,14 +126,16 @@ describe("mapDetourEventToEventItem — catégorie UI", () => {
     );
 
     expect(resolveCategoryBadgeLabel(malefique)).toBe("Spectacle");
-    expect(resolveCategoryBadgeLabel(cineSeniors)).toBe("Spectacle");
+    expect(resolveCategoryBadgeLabel(cineSeniors)).toBe("Cinéma");
     expect(malefique.image).toBe(
       "/images/placeholders/detour-placeholder-spectacle.webp",
     );
-    expect(cineSeniors.image).toBe(malefique.image);
+    expect(cineSeniors.image).toBe(
+      "/images/placeholders/detour-placeholder-spectacle.webp",
+    );
   });
 
-  it("image réelle allowlistée prioritaire même si le label est SPECTACLE", () => {
+  it("image réelle allowlistée prioritaire même si le label est CINÉMA", () => {
     const item = mapDetourEventToEventItem(
       baseEvent({
         id: "real-img",
@@ -144,7 +146,7 @@ describe("mapDetourEventToEventItem — catégorie UI", () => {
         imageCredit: "Commons",
       }),
     );
-    expect(resolveCategoryBadgeLabel(item)).toBe("Spectacle");
+    expect(resolveCategoryBadgeLabel(item)).toBe("Cinéma");
     expect(item.image).toBe(
       "https://upload.wikimedia.org/wikipedia/commons/x.jpg",
     );

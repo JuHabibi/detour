@@ -8,6 +8,7 @@ export const categories: { id: CategoryId; label: string }[] = [
   { id: "tout", label: "Tout" },
   { id: "Musique", label: "Musique" },
   { id: "Spectacle", label: "Spectacle" },
+  { id: "Cinéma", label: "Cinéma" },
   { id: "Exposition", label: "Exposition" },
   { id: "Atelier", label: "Atelier" },
   { id: "Jeune public", label: "Jeune public" },

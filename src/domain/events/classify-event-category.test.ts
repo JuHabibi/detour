@@ -452,4 +452,234 @@ describe("classifyEventCategory", () => {
       ),
     ).toBe("Spectacle");
   });
+
+  // --- PR-B : Cinéma (golden audit) ---
+
+  it("Projection - cinéma → Cinéma", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "PROJECTION : Marc Bloch",
+          category: "Projection - cinéma",
+        }),
+      ),
+    ).toBe("Cinéma");
+  });
+
+  it("Cinéma / Projection → Cinéma", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: '"Navalny" de Daniel Roher',
+          category: "Cinéma / Projection",
+        }),
+      ),
+    ).toBe("Cinéma");
+  });
+
+  it("CINÉ-VACANCES → Cinéma", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "LE ROBOT SAUVAGE",
+          category: "CINÉ-VACANCES",
+        }),
+      ),
+    ).toBe("Cinéma");
+  });
+
+  it("Ciné-séniors (texte) → Cinéma", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Ciné-séniors",
+          description: "Projection de film. Gratuit, entrée libre.",
+          category: null,
+        }),
+      ),
+    ).toBe("Cinéma");
+  });
+
+  it("séance cinéma mal taguée Spectacle → Cinéma", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Séance cinéma : film d’animation",
+          category: "Spectacle",
+        }),
+      ),
+    ).toBe("Cinéma");
+  });
+
+  it("atelier + projection reste Atelier", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Jeu indé en mode ciné ! Overcooked! 2",
+          category: "Stage - atelier -  jeu;Projection - cinéma",
+        }),
+      ),
+    ).toBe("Atelier");
+  });
+
+  it("stage histoire du cinéma reste Atelier", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Stage 7-10 ans : Une histoire du cinéma",
+          category: "Stage - atelier -  jeu;Jeune public",
+        }),
+      ),
+    ).toBe("Atelier");
+  });
+
+  it("conférence sur le cinéma reste Rencontre", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Le procès de Jeanne d'Arc au cinéma",
+          category: "Balade - découverte - visite;Conférence - rencontre - débat",
+        }),
+      ),
+    ).toBe("Rencontre");
+  });
+
+  it("spectacle vivant mentionnant le cinéma d'action reste Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Machine à spectacle - SOLÈNE WACHTER",
+          description:
+            "Chorégraphie inspirée du cinéma d'action, cascade et illusion.",
+          category: "Spectacle",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("venue piscine ne déclenche pas Cinéma", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Prix de la Ville de Saran - USM Saran Cyclisme",
+          description: "Remise des prix",
+          venue: "Piscine de Saran",
+          category: null,
+        }),
+      ),
+    ).toBe("Autre");
+  });
+
+  it("Stage;Projection avec stage principal → Atelier", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Jeu indé en mode ciné ! Overcooked! 2",
+          category: "Stage - atelier -  jeu;Projection - cinéma",
+        }),
+      ),
+    ).toBe("Atelier");
+  });
+
+  it("exposition Desbordes (tags Exposition+Projection) → Exposition", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Dans l'atelier de Michèle Desbordes",
+          description:
+            "Journée autour de l'écrivaine : exposition, lectures et échanges",
+          category:
+            "Exposition;Projection - cinéma;Conférence - rencontre - débat",
+        }),
+      ),
+    ).toBe("Exposition");
+  });
+
+  it("captation d'opéra projetée (Platée) → Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Micro-folie projection : Platée de Jean-Baptiste Rameau",
+          description:
+            "Projection d’un opéra, en partenariat avec l’Opéra national de Paris.",
+          category: "Projection - cinéma",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("festival de films de voyage → Cinéma", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Festival des Bouts du Monde",
+          description:
+            "Festival de films de voyage, en présence des réalisateurs.",
+          category: "Conférence - rencontre - débat;Projection - cinéma",
+        }),
+      ),
+    ).toBe("Cinéma");
+  });
+
+  it("agnostique adapter : mêmes tags Bouillon / OpenAgenda → Cinéma", () => {
+    const payload = {
+      title: '"Navalny" de Daniel Roher',
+      category: "Cinéma / Projection",
+    };
+    expect(classifyEventCategory(event({ ...payload, source: "bouillon" }))).toBe(
+      "Cinéma",
+    );
+    expect(
+      classifyEventCategory(event({ ...payload, source: "openagenda" })),
+    ).toBe("Cinéma");
+  });
+
+  it("« captation » seule ne force pas Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Soirée documentaire",
+          description: "Captation disponible en ligne après la séance.",
+          category: "Projection - cinéma",
+        }),
+      ),
+    ).toBe("Cinéma");
+  });
+
+  it("conférence mentionnant le cinéma reste Rencontre", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Conférence : une histoire du cinéma militant",
+          description: "Échanges autour d’images d’archives et de documentaires.",
+          category: "Conférence - rencontre - débat",
+        }),
+      ),
+    ).toBe("Rencontre");
+  });
+
+  it("spectacle mentionnant un documentaire reste Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Lecture scénique",
+          description:
+            "Une création librement inspirée d’un documentaire récent.",
+          category: "Spectacle",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("captation d’opéra (sans mot projection) → Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Soirée lyrique",
+          description: "Captation de l’opéra Platée diffusée sur grand écran.",
+          category: "Projection - cinéma",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
 });

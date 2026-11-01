@@ -89,7 +89,7 @@ CREATE TABLE public.events (
     image_license text,
     image_source_url text,
     audience_jeune_public boolean DEFAULT false NOT NULL,
-    CONSTRAINT events_product_category_check CHECK (((product_category IS NULL) OR (product_category = ANY (ARRAY['Musique'::text, 'Spectacle'::text, 'Exposition'::text, 'Atelier'::text, 'Jeune public'::text, 'Rencontre'::text, 'Visite'::text, 'Fête / salon / marché'::text, 'Loisirs culturels'::text, 'Autre'::text]))))
+    CONSTRAINT events_product_category_check CHECK (((product_category IS NULL) OR (product_category = ANY (ARRAY['Musique'::text, 'Spectacle'::text, 'Cinéma'::text, 'Exposition'::text, 'Atelier'::text, 'Jeune public'::text, 'Rencontre'::text, 'Visite'::text, 'Fête / salon / marché'::text, 'Loisirs culturels'::text, 'Autre'::text]))))
 );
 
 
