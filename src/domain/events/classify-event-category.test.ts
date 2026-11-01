@@ -239,4 +239,217 @@ describe("classifyEventCategory", () => {
       classifyEventCategory(event({ ...base, relevance: "culture" })),
     ).toBe("Musique");
   });
+
+  // --- PR-A : concerts misclassés Spectacle → Musique (golden audit) ---
+
+  it("Spectacle / Concert + performance musicale → Musique", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Voyage musical",
+          description: "Concert de musique classique",
+          category: "Spectacle / Concert",
+        }),
+      ),
+    ).toBe("Musique");
+  });
+
+  it("Spectacle / Concert au Théâtre (venue) → Musique si concert", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: 'Concert "FLUTE !"',
+          description: "Voyage musical sous le signe de la flûte",
+          venue: "Théâtre d'Orléans",
+          category: "Musique;Spectacle",
+        }),
+      ),
+    ).toBe("Musique");
+  });
+
+  it("Spectacle / Concert théâtre étudiant → Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Restitution de l'UEOT Théâtre",
+          description: "Actions avec le Centre Dramatique National",
+          category: "Spectacle / Concert",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("Spectacle / Concert Cie théâtre → Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: '"Je n\'ai jamais" - Cie Les Tubercules',
+          description: "Cinq étudiant.e.s se retrouvent pour une dernière soirée",
+          category: "Spectacle / Concert",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("seul-en-scène humoristique (Yaourt) reste Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: 'Thomas Poitevin - "Yaourt"',
+          description:
+            "C’est un seul-en-scène très peuplé ! Le résultat est souvent chaotique, un peu gênant et surtout très drôle.",
+          category: "Spectacle / Concert",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("cabaret radiophonique reste Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "La guerre des ondes",
+          description:
+            "Cabaret radiophonique freak d’Halloween, pièce radiophonique inspirée de Wells",
+          category: "Spectacle / Concert",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("conte / performance hybride reste Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Quand on dort on n'a pas faim",
+          description:
+            "Conte médiéval afro queer mêlant danse, chant, performance et archives",
+          category: "Spectacle / Concert",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("Radio-Crochet (performance chantée) → Musique", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Radio-Crochet de St-Marceau - Présélections",
+          description: "Les inscriptions pour les présélections sont ouvertes.",
+          category: "Musique;Spectacle",
+        }),
+      ),
+    ).toBe("Musique");
+  });
+
+  it("bio « vient du théâtre » ne bloque pas un concert", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "lynx irl + Golimar",
+          description: "Mathis vient du théâtre. Concert de rap et bass music.",
+          category: "Spectacle / Concert",
+        }),
+      ),
+    ).toBe("Musique");
+  });
+
+  it("danseurs + musiciens hybride reste Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Petite Musique Intérieure Brute",
+          description:
+            "Une vingtaine de danseurs et de musiciens conjuguent leurs talents",
+          category: "Musique;Spectacle",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("spectacle théâtral sur la chanson → Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Tout le monde écrit des chansons",
+          description:
+            "Ce spectacle propose une plongée ludique et théâtrale dans la composition",
+          category: "Spectacle;Musique",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("Musique;Spectacle + concert primaire → Musique", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Duo jazz",
+          description: "Concert intimiste",
+          category: "Musique;Spectacle",
+        }),
+      ),
+    ).toBe("Musique");
+  });
+
+  it("Spectacle;Musique + orchestre → Musique", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Orchestre de chambre",
+          description: "Programme romantique",
+          category: "Spectacle;Musique",
+        }),
+      ),
+    ).toBe("Musique");
+  });
+
+  it("Spectacle;Musique sans signal concert fiable → Spectacle (CHUT !)", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "CHUT !",
+          description:
+            "Un chanteur sachant chanter sans chanter est un bon chanteur !",
+          category: "Spectacle;Musique",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("impro + concerts hybride reste Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Soirée impro",
+          description: "Théâtre d'impro et concerts",
+          category: "Musique;Spectacle",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("comédie musicale reste Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "West Side Story",
+          description: "Comédie musicale",
+          category: "Spectacle",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("Passerelle multi-tags sans override → Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Festival Passerelle",
+          description: "Concerts et ateliers",
+          category: "Spectacle;Musique;Atelier;Conférence",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
 });

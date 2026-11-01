@@ -209,6 +209,19 @@ export function classifyEventCategory(event: DetourEvent): DetourCategory {
     [event.title, event.description, event.venue].filter(Boolean).join(" "),
   );
 
+  // Override local Musique↔Spectacle (tags concert) — sans inverser STRUCTURED_PRIORITY.
+  // Title+description seuls pour les cues « spectacle vivant » : un venue
+  // « Théâtre … » ne doit pas bloquer un vrai concert.
+  const titleDescription = normalize(
+    [event.title, event.description].filter(Boolean).join(" "),
+  );
+  const concertPrimary = classifyConcertPrimaryFromSourceTags(
+    event.category,
+    titleDescription,
+    text,
+  );
+  if (concertPrimary) return concertPrimary;
+
   if (structured) {
     for (const category of STRUCTURED_PRIORITY) {
       if (findCue(structured, STRUCTURED_SIGNALS[category])) {
@@ -224,6 +237,113 @@ export function classifyEventCategory(event: DetourEvent): DetourCategory {
   }
 
   return "Autre";
+}
+
+/**
+ * Reclassement ciblé des concerts mal orientés vers Spectacle.
+ *
+ * - `Spectacle / Concert` → Musique sauf spectacle vivant clairement dominant ;
+ * - paire exacte `Musique;Spectacle` / `Spectacle;Musique` → Musique si
+ *   l’activité principale est un concert (pas impro+concert, pas spectacle chanté) ;
+ * - dumps Passerelle (≥3 tags) : aucun override.
+ *
+ * @param titleDescription — title + description (cues vivant / hybrid)
+ * @param fullText — title + description + venue (cues musique)
+ */
+function classifyConcertPrimaryFromSourceTags(
+  categoryRaw: string | null | undefined,
+  titleDescription: string,
+  fullText: string,
+): "Musique" | null {
+  const tags = splitSourceTags(categoryRaw);
+  if (tags.length === 0) return null;
+
+  if (tags.length === 1 && isSpectacleConcertTag(tags[0])) {
+    // Tag Bouillon « Concert » : Musique sauf théâtre / danse / cirque / impro.
+    if (hasSpectacleLivingOrHybridCue(titleDescription)) return null;
+    return "Musique";
+  }
+
+  if (tags.length === 2 && isMusiqueSpectaclePair(tags)) {
+    if (hasSpectacleLivingOrHybridCue(titleDescription)) return null;
+    return hasMusicalPerformanceCue(fullText) ? "Musique" : null;
+  }
+
+  return null;
+}
+
+function splitSourceTags(category: string | null | undefined): string[] {
+  if (!category?.trim()) return [];
+  return category
+    .split(";")
+    .map((part) => normalize(part))
+    .filter(Boolean);
+}
+
+function isSpectacleConcertTag(tag: string): boolean {
+  return (
+    tag === "spectacle / concert" ||
+    tag === "spectacle/concert" ||
+    tag === "concert / spectacle"
+  );
+}
+
+function isMusiqueSpectaclePair(tags: string[]): boolean {
+  if (tags.length !== 2) return false;
+  const set = new Set(tags);
+  return set.has("musique") && set.has("spectacle");
+}
+
+/** Concert / performance musicale primaire (texte déjà normalisé). */
+function hasMusicalPerformanceCue(text: string): boolean {
+  if (!text) return false;
+  if (findCue(text, TEXT_SIGNALS.Musique)) return true;
+  return (
+    /\b(duo|trio|quintette|recital|live)\b/.test(text) ||
+    /\b(folk|chanson|chansons|cuivres|flute|guitare)\b/.test(text) ||
+    /voyage musical/.test(text) ||
+    /radio[-\s]?crochet/.test(text)
+  );
+}
+
+/**
+ * Spectacle vivant / hybride qui doit rester Spectacle malgré un tag Musique.
+ * (impro+concerts, comédie musicale, ballet, spectacle chanté narratif…)
+ * Texte = title + description (pas le venue).
+ *
+ * Cues volontiers strictes : « humour » / « théâtre » seuls apparaissent
+ * souvent dans des bios de concerts sans en faire un spectacle vivant.
+ */
+function hasSpectacleLivingOrHybridCue(text: string): boolean {
+  if (!text) return false;
+  if (
+    /comedie musicale|theatre musical|ballet|stand-?up|theatre d[' ]impro|impro et concert|theatral|centre dramatique|piece de theatre|mise en scene|seul-?en-?scene|one-?man.?show|one-?woman.?show|cabaret radiophonique|radiophonique/.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+  // Conte / récit scénique (ex. performance hybride chant+danse).
+  if (/\bconte\b/.test(text)) return true;
+  // Compagnie théâtrale (titre/desc), pas un simple « vient du théâtre ».
+  if (/\bcie\b/.test(text) || /compagnie/.test(text)) return true;
+  // Théâtre comme forme : « au théâtre », « théâtre d'… », pas la bio « du théâtre ».
+  if (/theatre d[' ]/.test(text) || /\b(au|de) theatre\b/.test(text)) {
+    return true;
+  }
+  return Boolean(
+    findCue(text, [
+      { match: "danse", wholeWord: true },
+      { match: "danses", wholeWord: true },
+      { match: "danseur", wholeWord: true },
+      { match: "danseurs", wholeWord: true },
+      { match: "danseuse", wholeWord: true },
+      { match: "danseuses", wholeWord: true },
+      { match: "cirque" },
+      { match: "acrobat" },
+      { match: "impro", wholeWord: true },
+    ]),
+  );
 }
 
 function findCue(text: string, cues: Cue[]): Cue | null {
