@@ -1,5 +1,9 @@
 import type { CategoryId } from "@/data/types";
 
+/**
+ * Catalogue complet des types produit — y compris « Jeune public » historique
+ * (product_category en base, parseur URL, Frise, badges).
+ */
 export const categories: { id: CategoryId; label: string }[] = [
   { id: "tout", label: "Tout" },
   { id: "Musique", label: "Musique" },
@@ -13,3 +17,12 @@ export const categories: { id: CategoryId; label: string }[] = [
   { id: "Loisirs culturels", label: "Loisirs culturels" },
   { id: "Autre", label: "Autre" },
 ];
+
+/**
+ * Types proposés dans Explorer « Quoi ? ».
+ * « Jeune public » est retiré du menu : la jeunesse passe par la facette audience.
+ * Les URLs `category=Jeune%20public` restent parsées et filtrées comme avant.
+ */
+export const explorerTypeCategories = categories.filter(
+  (item) => item.id !== "Jeune public",
+);

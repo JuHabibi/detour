@@ -46,6 +46,14 @@ describe("Explorer UI wiring", () => {
     expect(bar).toContain("Quand ?");
     expect(bar).toContain("Où ?");
     expect(bar).toContain("Quoi ?");
+    expect(bar).toContain("Type de sortie");
+    expect(bar).toContain("Public");
+    expect(bar).toContain("Sorties pour enfants et ados");
+    expect(bar).toContain("Jeunesse");
+    expect(bar).toContain("explorerTypeCategories");
+    expect(bar).toContain("Filtre historique");
+    expect(bar).not.toContain("Jeune public (type)");
+    expect(bar).toContain("onAudienceChange");
     expect(bar).toContain("ExplorerWhenPanel");
     expect(bar).toContain("useStackedDialogLifecycle");
     expect(bar).toContain("DesktopFilterPopover");

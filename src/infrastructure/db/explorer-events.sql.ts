@@ -110,6 +110,11 @@ export type ExplorerResolvedFilters = {
   productCategory: string | null;
   /** `city_key` exact, ou null = pas de filtre (inclut city_key NULL). */
   cityKey: string | null;
+  /**
+   * Facette audience `jeune_public` — colonne `audience_jeune_public`
+   * (calculée au sync via `isJeunePublicAudience`).
+   */
+  audienceJeunePublic?: boolean;
 };
 
 /**
@@ -164,6 +169,10 @@ export function buildExplorerFilterSql(filters: ExplorerResolvedFilters): {
   if (filters.cityKey) {
     params.push(filters.cityKey);
     parts.push(`e.city_key = $${params.length}`);
+  }
+
+  if (filters.audienceJeunePublic) {
+    parts.push("e.audience_jeune_public = true");
   }
 
   return {

@@ -61,4 +61,28 @@ describe("buildEventNormalizedFields", () => {
     ).toBeNull();
     expect(buildEventNormalizedFields(event({ city: null })).cityKey).toBeNull();
   });
+
+  it("audienceJeunePublic suit isJeunePublicAudience", () => {
+    expect(
+      buildEventNormalizedFields(
+        event({ title: "Concert jazz", category: "Musique" }),
+      ).audienceJeunePublic,
+    ).toBe(false);
+    expect(
+      buildEventNormalizedFields(
+        event({
+          title: "Réveil livres",
+          category: "Jeune public",
+        }),
+      ).audienceJeunePublic,
+    ).toBe(true);
+    expect(
+      buildEventNormalizedFields(
+        event({
+          title: "BULLE",
+          category: "Spectacle;Jeune public",
+        }),
+      ).audienceJeunePublic,
+    ).toBe(true);
+  });
 });

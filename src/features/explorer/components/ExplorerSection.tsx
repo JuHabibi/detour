@@ -24,6 +24,7 @@ import {
   type ExplorerInitialPage,
 } from "@/features/explorer/hooks/useExplorerEvents";
 import type { CategoryId, EventItem } from "@/data/types";
+import type { ExplorerAudienceId } from "@/domain/events/audience-jeune-public";
 import type { V1Commune } from "@/domain/geo/v1-communes";
 import type { WhenFilter } from "@/domain/time/when-filter";
 import { captureProductEvent } from "@/lib/analytics";
@@ -60,6 +61,9 @@ export function ExplorerSection({
   const [rangeFrom, setRangeFrom] = useState<string | null>(initialFilters.from);
   const [rangeTo, setRangeTo] = useState<string | null>(initialFilters.to);
   const [category, setCategory] = useState<CategoryId>(initialFilters.category);
+  const [audience, setAudience] = useState<ExplorerAudienceId | null>(
+    initialFilters.audience,
+  );
   const [city, setCity] = useState<V1Commune | null>(initialFilters.city);
   const [searchInput, setSearchInput] = useState(initialFilters.q);
   const [debouncedSearch, setDebouncedSearch] = useState(initialFilters.q);
@@ -105,6 +109,7 @@ export function ExplorerSection({
       q: debouncedSearch,
       city,
       category,
+      audience,
     };
     const href = explorerUrlHref(urlState);
     const currentState = parseExplorerUrlState(
@@ -121,7 +126,7 @@ export function ExplorerSection({
     } else {
       router.replace(href, { scroll: false });
     }
-  }, [when, rangeFrom, rangeTo, debouncedSearch, city, category, router]);
+  }, [when, rangeFrom, rangeTo, debouncedSearch, city, category, audience, router]);
 
   // Sync state ← URL (back / forward).
   useEffect(() => {
@@ -133,6 +138,7 @@ export function ExplorerSection({
       setRangeFrom(next.from);
       setRangeTo(next.to);
       setCategory(next.category);
+      setAudience(next.audience);
       setCity(next.city);
       setSearchInput(next.q);
       setDebouncedSearch(next.q);
@@ -158,6 +164,7 @@ export function ExplorerSection({
     from: when === "range" ? rangeFrom : null,
     to: when === "range" ? rangeTo : null,
     category,
+    audience,
     city,
     search: debouncedSearch,
     load,
@@ -170,7 +177,7 @@ export function ExplorerSection({
       : null;
 
   function trackFilterChanged(
-    filterName: "when" | "city" | "category",
+    filterName: "when" | "city" | "category" | "audience",
     filterValue: string,
   ) {
     captureProductEvent("filter_changed", {
@@ -209,6 +216,13 @@ export function ExplorerSection({
     setCategory(value);
   }
 
+  function handleAudienceChange(value: ExplorerAudienceId | null) {
+    if (value === audience) return;
+    requestUrlWrite("push");
+    trackFilterChanged("audience", value ?? "all");
+    setAudience(value);
+  }
+
   return (
     <EventGrid
       title="Explorer les sorties"
@@ -228,6 +242,8 @@ export function ExplorerSection({
             onCityChange={handleCityChange}
             category={category}
             onCategoryChange={handleCategoryChange}
+            audience={audience}
+            onAudienceChange={handleAudienceChange}
           />
           <p
             className={

@@ -68,6 +68,7 @@ function resolveFilters(
     searchPattern: normalizeExplorerSearch(query.search),
     productCategory: query.category ?? null,
     cityKey: query.city ?? null,
+    audienceJeunePublic: query.audience === "jeune_public",
   };
 }
 

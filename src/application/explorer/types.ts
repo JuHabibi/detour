@@ -1,3 +1,4 @@
+import type { ExplorerAudienceId } from "@/domain/events/audience-jeune-public";
 import type { DetourCategory } from "@/domain/events/classify-event-category";
 import type { DetourEvent } from "@/domain/events/event";
 import type { V1Commune } from "@/domain/geo/v1-communes";
@@ -12,6 +13,11 @@ export type ListExplorerEventsQuery = {
   search?: string | null;
   /** Taxonomie produit Détour — filtre `product_category`. */
   category?: DetourCategory | null;
+  /**
+   * Facette audience indépendante du type (`audience=jeune_public`).
+   * Intersection avec `category` si les deux sont présents.
+   */
+  audience?: ExplorerAudienceId | null;
   /** Commune V1 canonique — filtre `city_key`. */
   city?: V1Commune | null;
   cursor?: string | null;

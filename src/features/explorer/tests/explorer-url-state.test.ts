@@ -19,15 +19,61 @@ describe("explorer-url-state", () => {
       q: "jazz",
       city: "Orléans" as const,
       category: "Musique" as const,
+      audience: null,
     };
     const qs = serializeExplorerUrlState(state);
     expect(qs).toContain("when=today");
     expect(qs).toContain("q=jazz");
     expect(qs).toContain("city=Orl");
     expect(qs).toContain("category=Musique");
+    expect(qs).not.toContain("audience=");
     expect(parseExplorerUrlState(Object.fromEntries(new URLSearchParams(qs)))).toEqual(
       state,
     );
+  });
+
+  it("round-trip audience=jeune_public + category Spectacle", () => {
+    const state = {
+      when: "weekend" as const,
+      from: null,
+      to: null,
+      q: "",
+      city: null,
+      category: "Spectacle" as const,
+      audience: "jeune_public" as const,
+    };
+    const qs = serializeExplorerUrlState(state);
+    expect(qs).toContain("category=Spectacle");
+    expect(qs).toContain("audience=jeune_public");
+    expect(parseExplorerUrlState(Object.fromEntries(new URLSearchParams(qs)))).toEqual(
+      state,
+    );
+  });
+
+  it("alias category=jeune_public → type historique Jeune public (pas audience)", () => {
+    expect(parseExplorerUrlState({ category: "jeune_public" })).toEqual({
+      ...EXPLORER_URL_DEFAULTS,
+      category: "Jeune public",
+      audience: null,
+    });
+  });
+
+  it("sérialise Jeune public en libellé canon, jamais le slug audience", () => {
+    const qs = serializeExplorerUrlState({
+      ...EXPLORER_URL_DEFAULTS,
+      category: "Jeune public",
+    });
+    expect(qs).toContain("category=Jeune");
+    expect(qs).not.toContain("category=jeune_public");
+  });
+
+  it("category=Jeune public historique : parse inchangé, sans audience", () => {
+    // URLSearchParams décode déjà Jeune%20public → "Jeune public".
+    expect(parseExplorerUrlState({ category: "Jeune public" })).toEqual({
+      ...EXPLORER_URL_DEFAULTS,
+      category: "Jeune public",
+      audience: null,
+    });
   });
 
   it("round-trip range", () => {
@@ -38,6 +84,7 @@ describe("explorer-url-state", () => {
       q: "",
       city: null,
       category: "tout" as const,
+      audience: null,
     };
     const href = explorerUrlHref(state);
     expect(href).toBe(

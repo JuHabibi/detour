@@ -30,6 +30,7 @@ export async function loadExplorerPage(filters: ExplorerUrlState = EXPLORER_URL_
     to: filters.to ?? undefined,
     search: filters.q || undefined,
     category: categoryIdToExplorerFilter(filters.category),
+    audience: filters.audience ?? undefined,
     city: filters.city ?? undefined,
     limit: PUBLIC_EXPLORER_INITIAL_LIMIT,
   });

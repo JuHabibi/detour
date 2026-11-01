@@ -1,4 +1,8 @@
 import {
+  EXPLORER_AUDIENCE_JEUNE_PUBLIC,
+  type ExplorerAudienceId,
+} from "@/domain/events/audience-jeune-public";
+import {
   DETOUR_CATEGORIES,
   type DetourCategory,
 } from "@/domain/events/classify-event-category";
@@ -26,6 +30,8 @@ export type ExplorerPublicInput = {
   when: string;
   search?: string | null;
   category?: string | null;
+  /** Facette audience : `jeune_public` ou vide. */
+  audience?: string | null;
   city?: string | null;
   cursor?: string | null;
   /** Défaut 12, plafonné à EXPLORER_MAX_PAGE_SIZE. */
@@ -46,6 +52,27 @@ export function isWhenFilter(value: string): value is WhenFilter {
 
 export function isDetourCategory(value: string): value is DetourCategory {
   return (DETOUR_CATEGORIES as readonly string[]).includes(value);
+}
+
+export function isExplorerAudience(
+  value: string,
+): value is ExplorerAudienceId {
+  return value === EXPLORER_AUDIENCE_JEUNE_PUBLIC;
+}
+
+/**
+ * UI / URL catégorie → filtre type.
+ * Alias lecture `jeune_public` → catégorie historique « Jeune public »
+ * (rétrocompat liens fautifs ; distinct de la facette `audience`).
+ */
+export function parseExplorerCategoryParam(
+  raw: string | null | undefined,
+): CategoryId | null {
+  if (raw == null || raw === "") return null;
+  if (raw === "tout") return "tout";
+  if (raw === EXPLORER_AUDIENCE_JEUNE_PUBLIC) return "Jeune public";
+  if (isDetourCategory(raw)) return raw;
+  return null;
 }
 
 export function isV1Commune(value: string): value is V1Commune {
@@ -77,10 +104,19 @@ export function parseExplorerPublicInput(
 
   let category: DetourCategory | undefined;
   if (input.category != null && input.category !== "" && input.category !== "tout") {
-    if (!isDetourCategory(input.category)) {
+    const parsedCategory = parseExplorerCategoryParam(input.category);
+    if (parsedCategory == null || parsedCategory === "tout") {
       return { ok: false, error: "Catégorie invalide." };
     }
-    category = input.category;
+    category = parsedCategory;
+  }
+
+  let audience: ExplorerAudienceId | undefined;
+  if (input.audience != null && input.audience !== "") {
+    if (!isExplorerAudience(input.audience)) {
+      return { ok: false, error: "Public invalide." };
+    }
+    audience = input.audience;
   }
 
   let city: V1Commune | undefined;
@@ -132,6 +168,7 @@ export function parseExplorerPublicInput(
       when: input.when,
       search: input.search,
       category,
+      audience,
       city,
       cursor,
       limit,

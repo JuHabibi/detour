@@ -153,6 +153,19 @@ describe("buildExplorerFilterSql", () => {
     expect(params).toEqual([now.toISOString(), "Musique"]);
   });
 
+  it("audienceJeunePublic → colonne booléenne sans param supplémentaire", () => {
+    const now = new Date("2026-09-10T12:00:00+02:00");
+    const { whereSql, params } = buildExplorerFilterSql(
+      filters({
+        temporal: { mode: "upcoming", now },
+        audienceJeunePublic: true,
+      }),
+    );
+    expect(whereSql).toContain("e.audience_jeune_public = true");
+    expect(whereSql).not.toContain("cine-vacances");
+    expect(params).toEqual([now.toISOString()]);
+  });
+
   it("city → city_key uniquement", () => {
     const now = new Date("2026-09-10T12:00:00+02:00");
     const { whereSql, params } = buildExplorerFilterSql(

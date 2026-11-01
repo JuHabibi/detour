@@ -10,6 +10,7 @@ import {
   cityToExplorerFilter,
 } from "@/application/explorer/explorer-public-query";
 import type { CategoryId, EventItem } from "@/data/types";
+import type { ExplorerAudienceId } from "@/domain/events/audience-jeune-public";
 import type { V1Commune } from "@/domain/geo/v1-communes";
 import type { WhenFilter } from "@/domain/time/when-filter";
 
@@ -34,6 +35,7 @@ type FilterStamp = {
   from?: string | null;
   to?: string | null;
   category: CategoryId;
+  audience: ExplorerAudienceId | null;
   city: V1Commune | null;
   search: string;
 };
@@ -44,6 +46,7 @@ function sameFilters(a: FilterStamp, b: FilterStamp): boolean {
     (a.from ?? null) === (b.from ?? null) &&
     (a.to ?? null) === (b.to ?? null) &&
     a.category === b.category &&
+    a.audience === b.audience &&
     a.city === b.city &&
     a.search === b.search
   );
@@ -175,6 +178,7 @@ export async function runExplorerPageOneLoad(
         to: params.filters.to ?? undefined,
         search: params.filters.search || undefined,
         category: categoryIdToExplorerFilter(params.filters.category),
+        audience: params.filters.audience ?? undefined,
         city: cityToExplorerFilter(params.filters.city),
         cursor: null,
       });
@@ -222,6 +226,7 @@ export async function runExplorerLoadMore(
       to: params.filters.to ?? undefined,
       search: params.filters.search || undefined,
       category: categoryIdToExplorerFilter(params.filters.category),
+      audience: params.filters.audience ?? undefined,
       city: cityToExplorerFilter(params.filters.city),
       cursor: params.cursor,
     });
@@ -254,6 +259,7 @@ type UseExplorerEventsParams = {
   from: string | null;
   to: string | null;
   category: CategoryId;
+  audience: ExplorerAudienceId | null;
   city: V1Commune | null;
   search: string;
   load?: typeof loadExplorerEvents;
@@ -266,6 +272,7 @@ export function useExplorerEvents({
   from,
   to,
   category,
+  audience,
   city,
   search,
   load = loadExplorerEvents,
@@ -277,7 +284,15 @@ export function useExplorerEvents({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const filters: FilterStamp = { when, from, to, category, city, search };
+  const filters: FilterStamp = {
+    when,
+    from,
+    to,
+    category,
+    audience,
+    city,
+    search,
+  };
   const committedFilters = useRef(filters);
   const latestFilters = useRef(filters);
   const sessionRef = useRef(createExplorerLoadSession());
@@ -305,7 +320,15 @@ export function useExplorerEvents({
 
   useEffect(() => {
     const session = sessionRef.current;
-    const next: FilterStamp = { when, from, to, category, city, search };
+    const next: FilterStamp = {
+      when,
+      from,
+      to,
+      category,
+      audience,
+      city,
+      search,
+    };
 
     if (sameFilters(committedFilters.current, next)) {
       return () => {
@@ -330,7 +353,7 @@ export function useExplorerEvents({
     return () => {
       session.invalidate();
     };
-  }, [when, from, to, category, city, search, load]);
+  }, [when, from, to, category, audience, city, search, load]);
 
   async function reload() {
     const session = sessionRef.current;

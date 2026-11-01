@@ -51,3 +51,13 @@ scripts/measure-home-pipeline.json
 # benchmark IA (outputs générés — garder scripts + fixtures corpus)
 scripts/out/
 scripts/compare-ai-highlight-models*.json
+
+# Fichiers temporaires, captures et audits locaux
+/tmp/
+
+# Exports vidéo locaux
+/videos/
+
+# Skills agent locaux (versionnés hors PR produit)
+.agents/
+skills-lock.json
