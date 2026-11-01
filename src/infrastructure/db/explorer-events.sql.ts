@@ -3,8 +3,6 @@
  * Alias local `e` réutilisé dans chaque CTE — pas de replaceAll d’alias.
  */
 
-import { sqlJeunePublicAudiencePredicate } from "@/domain/events/audience-jeune-public";
-
 /** Fold SQL (accents FR courants) — aligné sur foldExplorerText pour le latin1 courant. */
 const SQL_FOLD_TITLE = `translate(lower(trim(e.title)), 'àáâäãåāăąçćčđďèéêëēėęěğìíîïīįłńñňòóôõöøōřšťùúûüūůýÿžźż’\`', 'aaaaaaaaacccddeeeeeeeegiiiiilnnnoooooooorsstuuuuuuyyzzz  ')`;
 
@@ -113,8 +111,8 @@ export type ExplorerResolvedFilters = {
   /** `city_key` exact, ou null = pas de filtre (inclut city_key NULL). */
   cityKey: string | null;
   /**
-   * Facette audience `jeune_public` — prédicat dérivé de
-   * `sqlJeunePublicAudiencePredicate` (même règles que `isJeunePublicAudience`).
+   * Facette audience `jeune_public` — colonne `audience_jeune_public`
+   * (calculée au sync via `isJeunePublicAudience`).
    */
   audienceJeunePublic?: boolean;
 };
@@ -174,7 +172,7 @@ export function buildExplorerFilterSql(filters: ExplorerResolvedFilters): {
   }
 
   if (filters.audienceJeunePublic) {
-    parts.push(sqlJeunePublicAudiencePredicate("e"));
+    parts.push("e.audience_jeune_public = true");
   }
 
   return {

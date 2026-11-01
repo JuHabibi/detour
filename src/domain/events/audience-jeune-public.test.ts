@@ -148,6 +148,56 @@ describe("isJeunePublicAudience — golden V1", () => {
     ).toBe(false);
   });
 
+  it("thème « pour les enfants » sans ancrage public → non", () => {
+    expect(
+      isJeunePublicAudience({
+        title: "Conférence : politiques publiques pour les enfants",
+        category: "Conférence - rencontre - débat",
+      }),
+    ).toBe(false);
+  });
+
+  it("outils pros « pour les ados » sans public cible → non", () => {
+    expect(
+      isJeunePublicAudience({
+        title: "Formation éducateurs",
+        description: "Outils pour les ados en difficulté — public : professionnels",
+        category: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("nostalgie « tubes pour les ados des années 80 » → non", () => {
+    expect(
+      isJeunePublicAudience({
+        title: "Concert hommage",
+        description: "Les tubes pour les ados des années 80 revisités par un orchestre",
+        category: "Musique",
+      }),
+    ).toBe(false);
+  });
+
+  it("concert « pour les enfants » (activité + public) → oui", () => {
+    expect(
+      isJeunePublicAudience({
+        title: "Noël à la salle des fêtes",
+        description: "Un concert de Noël pour les enfants mais pas seulement.",
+        category: "Musique",
+      }),
+    ).toBe(true);
+  });
+
+  it("parcours social « pour les enfants de parents séparés » → non", () => {
+    expect(
+      isJeunePublicAudience({
+        title: "Parcours pour les enfants de parents séparés",
+        description:
+          "Un parcours pour aider votre enfant à exprimer ses ressentis",
+        category: "Stage - atelier -  jeu",
+      }),
+    ).toBe(false);
+  });
+
   it("exporte le slug URL canonique", () => {
     expect(EXPLORER_AUDIENCE_JEUNE_PUBLIC).toBe("jeune_public");
   });

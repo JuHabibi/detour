@@ -125,21 +125,24 @@ describe("event-row.mapper", () => {
     expect(values[14]).toBe(1.9);
     expect(values[21]).toBe("Musique");
     expect(values[22]).toBe("Orléans");
-    expect(values[23]).toBe(marker.toISOString());
+    expect(values[23]).toBe(false);
+    expect(values[24]).toBe(marker.toISOString());
   });
 
   it("SQL upsert : placeholders dynamiques, aucune valeur métier dans le texte", () => {
     const sql = buildUpsertEventsChunkSql(2);
     expect(sql).toContain("$1");
-    expect(sql).toContain("$24");
     expect(sql).toContain("$25");
-    expect(sql).toContain("$48");
+    expect(sql).toContain("$26");
+    expect(sql).toContain("$50");
     expect(sql).toContain("all_day");
     expect(sql).toContain("image_credit");
     expect(sql).toContain("image_license");
     expect(sql).toContain("image_source_url");
     expect(sql).toContain("product_category");
     expect(sql).toContain("city_key");
+    expect(sql).toContain("audience_jeune_public");
+    expect(sql).toContain("audience_jeune_public = EXCLUDED.audience_jeune_public");
     expect(sql).not.toContain("resolved_latitude");
     expect(sql).not.toContain("geo_resolution");
     expect(sql).toContain("ON CONFLICT (id) DO UPDATE");

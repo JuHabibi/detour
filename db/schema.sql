@@ -88,6 +88,7 @@ CREATE TABLE public.events (
     image_credit text,
     image_license text,
     image_source_url text,
+    audience_jeune_public boolean DEFAULT false NOT NULL,
     CONSTRAINT events_product_category_check CHECK (((product_category IS NULL) OR (product_category = ANY (ARRAY['Musique'::text, 'Spectacle'::text, 'Exposition'::text, 'Atelier'::text, 'Jeune public'::text, 'Rencontre'::text, 'Visite'::text, 'Fête / salon / marché'::text, 'Loisirs culturels'::text, 'Autre'::text]))))
 );
 
@@ -294,6 +295,13 @@ CREATE INDEX event_availability_checked_at_idx ON public.event_availability USIN
 
 
 --
+-- Name: events_active_audience_jeune_public_start_at_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX events_active_audience_jeune_public_start_at_id_idx ON public.events USING btree (start_at, id) WHERE ((is_active = true) AND (audience_jeune_public = true));
+
+
+--
 -- Name: events_active_city_key_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -436,4 +444,7 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260912150000'),
     ('20260914190000'),
     ('20260914220000'),
-    ('20260914223000');
+    ('20260914223000'),
+    ('20260916120000'),
+    ('20261004180000'),
+    ('20261101150000');

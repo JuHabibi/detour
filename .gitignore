@@ -57,3 +57,7 @@ scripts/compare-ai-highlight-models*.json
 
 # Exports vidéo locaux
 /videos/
+
+# Skills agent locaux (versionnés hors PR produit)
+.agents/
+skills-lock.json

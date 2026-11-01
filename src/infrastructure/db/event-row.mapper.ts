@@ -30,6 +30,7 @@ export type EventRow = {
   last_seen_at: Date;
   product_category?: string | null;
   city_key?: string | null;
+  audience_jeune_public?: boolean;
 };
 
 export type EventWithAdapter = {
@@ -119,12 +120,13 @@ export function detourEventToUpsertValues(
     event.registrationUrl,
     normalized.productCategory,
     normalized.cityKey,
+    normalized.audienceJeunePublic,
     syncMarker.toISOString(),
   ];
 }
 
-/** 18 champs bruts (+ attribution) + all_day + 2 normalisés + last_seen = 24. */
-export const UPSERT_EVENT_PARAM_COUNT = 24;
+/** 18 champs bruts (+ attribution) + all_day + 3 normalisés + last_seen = 25. */
+export const UPSERT_EVENT_PARAM_COUNT = 25;
 
 export function buildUpsertEventPlaceholders(rowIndex: number): string {
   const base = rowIndex * UPSERT_EVENT_PARAM_COUNT;
@@ -169,6 +171,7 @@ INSERT INTO events (
   registration_url,
   product_category,
   city_key,
+  audience_jeune_public,
   last_seen_at,
   is_active,
   created_at,
@@ -198,6 +201,7 @@ ON CONFLICT (id) DO UPDATE SET
   registration_url = EXCLUDED.registration_url,
   product_category = EXCLUDED.product_category,
   city_key = EXCLUDED.city_key,
+  audience_jeune_public = EXCLUDED.audience_jeune_public,
   last_seen_at = EXCLUDED.last_seen_at,
   is_active = true,
   updated_at = now()

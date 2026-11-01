@@ -36,11 +36,36 @@ export const JEUNE_PUBLIC_STRONG_PHRASES = [
   "tout petit",
   "tout-petits",
   "tout petits",
-  "pour les ados",
-  "pour ados",
-  "pour les enfants",
-  "pour enfants",
 ] as const;
+
+/**
+ * « pour les enfants / ados » — uniquement avec un ancrage de public cible
+ * (activité culturelle, verbe de destination, ou âge). Pas le thème seul
+ * (« politiques pour les enfants », « outils pour les ados » pros).
+ */
+export const JEUNE_PUBLIC_POUR_AUDIENCE_ACTIVITY_ALTERNATION = [
+  "concert",
+  "spectacle",
+  "atelier",
+  "stage",
+  "lecture",
+  "histoires?",
+  "conte",
+  "cinema",
+  "film",
+  "seance",
+  "projection",
+].join("|");
+
+/** ASCII only — compatible JS + POSIX Postgres (`\b` n’existe pas en SQL). */
+export const JEUNE_PUBLIC_POUR_AUDIENCE_REGEX_SOURCE = [
+  // « conçu / destiné … pour les enfants »
+  String.raw`(^|[^a-z0-9])(?:concu|destine|reserve|specialement)[[:space:]]+(?:[a-z0-9'-]+[[:space:]]+){0,6}pour(?:[[:space:]]+les)?[[:space:]]+(?:enfants|ados)([^a-z0-9]|$)`,
+  // « concert/spectacle/… [≤2 mots] pour les enfants » — fenêtre courte anti-FP
+  String.raw`(^|[^a-z0-9])(?:${JEUNE_PUBLIC_POUR_AUDIENCE_ACTIVITY_ALTERNATION})(?:[[:space:]]+[a-z0-9'-]+){0,2}[[:space:]]+pour(?:[[:space:]]+les)?[[:space:]]+(?:enfants|ados)([^a-z0-9]|$)`,
+  // « pour les enfants de 3 ans »
+  String.raw`(^|[^a-z0-9])pour(?:[[:space:]]+les)?[[:space:]]+(?:enfants|ados)[[:space:]]+(?:de[[:space:]]+)?[0-9]{1,2}([^a-z0-9]|$)`,
+].join("|");
 
 /**
  * Tranches d’âge cibles (public de l’activité) — pas les seuils « dès / à partir de ».
@@ -88,10 +113,33 @@ function isCineVacancesTag(tag: string): boolean {
   return tag.includes("cine-vacances") || tag.includes("cine vacances");
 }
 
+function hasPourAudienceTarget(text: string): boolean {
+  if (!text) return false;
+  // JS : [[:space:]] n’existe pas — on mappe vers \s pour le test local.
+  const jsSource = JEUNE_PUBLIC_POUR_AUDIENCE_REGEX_SOURCE.replace(
+    /\[\[:space:\]\]/g,
+    String.raw`\s`,
+  );
+  return new RegExp(jsSource).test(text);
+}
+
+/**
+ * Libellé public « Ados » / « Ados-Adultes » / adolescent.
+ * Ignore la locution thématique « pour (les) ados » (gérée à part).
+ */
+function hasAdosAudienceLabel(text: string): boolean {
+  if (!text) return false;
+  if (/\badolescent/.test(text)) return true;
+  if (/\bados-/.test(text)) return true;
+  const withoutPourAdos = text.replace(/\bpour(?:\s+les)?\s+ados\b/g, " ");
+  return /\bados\b/.test(withoutPourAdos);
+}
+
 function hasStrongYouthPhrase(text: string): boolean {
   if (!text) return false;
   if (/\bbebe\b|\bbebes\b/.test(text)) return true;
-  if (/\bados\b|\badolescent/.test(text)) return true;
+  if (hasAdosAudienceLabel(text)) return true;
+  if (hasPourAudienceTarget(text)) return true;
   for (const phrase of JEUNE_PUBLIC_STRONG_PHRASES) {
     if (text.includes(phrase)) return true;
   }
@@ -165,10 +213,20 @@ export function sqlJeunePublicAudiencePredicate(alias = "e"): string {
     (phrase) => `${textBlob} LIKE ${sqlString("%" + phrase + "%")}`,
   ).join("\n      OR ");
 
+  // « ados » hors locution « pour (les) ados » (thème ≠ public).
+  const adosLabelSql = `(
+      ${textBlob} ~ ${sqlString("(^|[^a-z0-9])adolescent")}
+      OR ${textBlob} ~ ${sqlString("(^|[^a-z0-9])ados-")}
+      OR (
+        ${textBlob} ~ ${sqlString("(^|[^a-z0-9])ados([^a-z0-9]|$)")}
+        AND ${textBlob} !~ ${sqlString("pour([[:space:]]+les)?[[:space:]]+ados")}
+      )
+    )`;
+
   const strongSql = `(
       ${textBlob} ~ ${sqlString("(^|[^a-z0-9])bebe(s)?([^a-z0-9]|$)")}
-      OR ${textBlob} ~ ${sqlString("(^|[^a-z0-9])ados([^a-z0-9]|$)")}
-      OR ${textBlob} ~ ${sqlString("(^|[^a-z0-9])adolescent")}
+      OR ${adosLabelSql}
+      OR ${textBlob} ~ ${sqlString(JEUNE_PUBLIC_POUR_AUDIENCE_REGEX_SOURCE)}
       OR ${phraseSql}
       OR ${textBlob} ~ ${sqlString(JEUNE_PUBLIC_AGE_BAND_REGEX_SOURCE)}
     )`;
