@@ -682,4 +682,90 @@ describe("classifyEventCategory", () => {
       ),
     ).toBe("Spectacle");
   });
+
+  it("balade sonore + projection secondaire → Visite", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "PARCOURS SONORE DANS LE QUARTIER DE LA SOURCE",
+          description:
+            "Portrait sonore du quartier : témoignages et créations sonores.",
+          category: "Balade - découverte - visite;Projection - cinéma",
+        }),
+      ),
+    ).toBe("Visite");
+  });
+
+  it("locution « projections de concerts » → Musique", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Soirée écran : concert enregistré",
+          description:
+            "Les projections de concerts de la saison reviennent à la médiathèque.",
+          category: "Projection - cinéma",
+        }),
+      ),
+    ).toBe("Musique");
+  });
+
+  it("captation de concert / concert filmé → Musique", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Soirée musique live à l’écran",
+          description: "Captation de concert diffusée en salle.",
+          category: "Projection - cinéma",
+        }),
+      ),
+    ).toBe("Musique");
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Récital à l’écran",
+          description: "Un récital filmé présenté en séance unique.",
+          category: "Projection - cinéma",
+        }),
+      ),
+    ).toBe("Musique");
+  });
+
+  it("titre « Projection … » + concert sans locution liée reste Cinéma (ambigu)", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Projection Philharmonie de Paris - Respect to Aretha",
+          description:
+            "Après un septembre disco, un novembre soul avec un concert en hommage à Aretha Franklin.",
+          category: "Projection - cinéma",
+        }),
+      ),
+    ).toBe("Cinéma");
+  });
+
+  it("mention isolée de concert dans un film reste Cinéma", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: '"Bohemian Rhapsody"',
+          description:
+            "Film biographique. Une scène de concert mythique au Live Aid.",
+          category: "Projection - cinéma",
+        }),
+      ),
+    ).toBe("Cinéma");
+  });
+
+  it("film sur la musique / un concert reste Cinéma", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Documentaire musical",
+          description:
+            "Portrait d’un orchestre ; le film suit une tournée et un concert final.",
+          category: "Projection - cinéma",
+        }),
+      ),
+    ).toBe("Cinéma");
+  });
 });
