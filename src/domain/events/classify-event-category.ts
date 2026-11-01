@@ -240,6 +240,16 @@ export function classifyEventCategory(event: DetourEvent): DetourCategory {
     return "Spectacle";
   }
 
+  // Projection explicite de concert (ex. Philharmonie) → Musique, pas Cinéma.
+  if (isProjectedConcertCapture(titleDescription)) {
+    return "Musique";
+  }
+
+  // Balade / visite + projection secondaire → Visite (pas Cinéma).
+  if (isVisitWithSecondaryProjection(structured)) {
+    return "Visite";
+  }
+
   // Projections / CINÉ-VACANCES avant STRUCTURED_PRIORITY (sinon « Spectacle »
   // ou l’absence de cue laisse CINÉ-VACANCES en Autre).
   const cinemaPrimary = classifyCinemaPrimary(
@@ -264,6 +274,7 @@ export function classifyEventCategory(event: DetourEvent): DetourCategory {
       if (
         !isCinemaWorkshopOrQuizText(titleDescription) &&
         !isProjectedPerformingArtsCapture(titleDescription) &&
+        !isProjectedConcertCapture(titleDescription) &&
         (findCue(titleDescription, TEXT_SIGNALS.Cinéma) ||
           hasCinemaStem(titleDescription))
       ) {
@@ -290,6 +301,8 @@ function classifyCinemaPrimary(
 ): "Cinéma" | null {
   if (isCinemaWorkshopOrQuizText(titleDescription)) return null;
   if (isProjectedPerformingArtsCapture(titleDescription)) return null;
+  if (isProjectedConcertCapture(titleDescription)) return null;
+  if (isVisitWithSecondaryProjection(structured)) return null;
   // Expo structurée + projection : l’exposition prime (journée expo / lectures).
   if (findCue(structured, STRUCTURED_SIGNALS.Exposition)) return null;
   if (
@@ -349,6 +362,52 @@ function isProjectedPerformingArtsCapture(text: string): boolean {
     /\becran\b/.test(text) ||
     /\bcaptation\b/.test(text);
   return hasLiveArts && hasScreenOrCapture;
+}
+
+/**
+ * Projection / diffusion enregistrée d’une performance musicale → Musique.
+ *
+ * Critères (tous nécessaires, formulés en locutions liées) :
+ * 1. preuve explicite de projection / captation / diffusion enregistrée ;
+ * 2. preuve explicite que le contenu est un concert / récital ;
+ * 3. sinon : ne pas forcer Musique (laisser Cinéma ou le reste du classifieur).
+ *
+ * Agnostique des lieux, institutions, artistes, titres et styles.
+ */
+function isProjectedConcertCapture(text: string): boolean {
+  if (!text) return false;
+  // « projection(s) de concert(s|récital…) »
+  if (/projections? de (concerts?|recitals?)/.test(text)) return true;
+  // « captation (de / d’un) concert|récital »
+  if (
+    /captations? (de |d[' ](?:un |une )?)?(concerts?|recitals?)/.test(text)
+  ) {
+    return true;
+  }
+  // « concert|récital filmé / projeté / en captation / enregistré »
+  if (
+    /(concerts?|recitals?) (filmes?|projetes?|en captation|enregistres?)/.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+  // « diffusion (de / d’un) concert|récital »
+  if (
+    /diffusions? (de |d[' ](?:un |une )?)?(concerts?|recitals?)/.test(text)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Tags visite/balade + projection : la balade prime. */
+function isVisitWithSecondaryProjection(structured: string): boolean {
+  if (!structured) return false;
+  const hasVisit = findCue(structured, STRUCTURED_SIGNALS.Visite);
+  const hasCinema =
+    findCue(structured, STRUCTURED_SIGNALS.Cinéma) || hasCinemaStem(structured);
+  return Boolean(hasVisit && hasCinema);
 }
 
 /**
