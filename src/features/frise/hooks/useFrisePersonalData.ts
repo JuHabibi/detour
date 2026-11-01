@@ -106,6 +106,30 @@ export function removeEventFromPersonalCorpora(
   };
 }
 
+/**
+ * Ne conserve un corpus carnet que s’il appartient encore au carnet sélectionné.
+ * Évite d’afficher les événements de A après un échec de chargement de B.
+ */
+export function retainNotebookCorpusForSelection<TEvent>(params: {
+  selectedNotebookId: string;
+  corpusNotebookId: string | null;
+  events: readonly TEvent[];
+  name: string | null;
+}): {
+  corpusNotebookId: string | null;
+  events: TEvent[];
+  name: string | null;
+} {
+  if (params.corpusNotebookId === params.selectedNotebookId) {
+    return {
+      corpusNotebookId: params.corpusNotebookId,
+      events: [...params.events],
+      name: params.name,
+    };
+  }
+  return { corpusNotebookId: null, events: [], name: null };
+}
+
 export async function runCarnetEventsLoad(
   notebookId: string,
   load: (groupId: string) => Promise<GetMyCarnetEventsResult>,
@@ -200,6 +224,8 @@ export function useFrisePersonalData({
   const [notebookError, setNotebookError] = useState<string | null>(null);
   const [notebookName, setNotebookName] = useState<string | null>(null);
   const [notebookEventsReloadKey, setNotebookEventsReloadKey] = useState(0);
+  /** Carnet auquel appartient le corpus actuellement en mémoire (null = aucun). */
+  const notebookCorpusIdRef = useRef<string | null>(null);
 
   const favoriteEventsGateRef = useRef(createRequestGate());
   const carnetEventsGateRef = useRef(createRequestGate());
@@ -284,6 +310,20 @@ export function useFrisePersonalData({
     queueMicrotask(() => {
       if (cancelled) return;
       setNotebookError(null);
+
+      // Bascule A→B : ne jamais laisser les événements de A sous la sélection B.
+      if (notebookCorpusIdRef.current !== requestedId) {
+        const cleared = retainNotebookCorpusForSelection({
+          selectedNotebookId: requestedId,
+          corpusNotebookId: notebookCorpusIdRef.current,
+          events: [],
+          name: null,
+        });
+        notebookCorpusIdRef.current = cleared.corpusNotebookId;
+        setNotebookEvents(cleared.events);
+        setNotebookName(cleared.name);
+      }
+
       void runCarnetEventsLoad(requestedId, getCarnetEvents, {
         isCurrent: gate.isCurrent,
         onLoading: (loading) => {
@@ -291,6 +331,7 @@ export function useFrisePersonalData({
           setNotebookLoading(loading);
         },
         onSuccess: (data) => {
+          notebookCorpusIdRef.current = requestedId;
           setNotebookEvents(data.events);
           setNotebookName(data.name);
           setNotebookError(null);
@@ -298,12 +339,24 @@ export function useFrisePersonalData({
         onError: (failure) => {
           setNotebookError(failure.message);
           if (failure.missing) {
+            notebookCorpusIdRef.current = null;
             setNotebookEvents([]);
             setNotebookName(null);
             onNotebookMissingRef.current?.();
             return;
           }
-          // Échec réseau/serveur : conserve le dernier contenu valide.
+          // Retry du même carnet : conserve. Autre carnet : déjà vidé au bascule.
+          const kept = retainNotebookCorpusForSelection({
+            selectedNotebookId: requestedId,
+            corpusNotebookId: notebookCorpusIdRef.current,
+            events: [],
+            name: null,
+          });
+          if (kept.corpusNotebookId == null) {
+            notebookCorpusIdRef.current = null;
+            setNotebookEvents([]);
+            setNotebookName(null);
+          }
         },
       });
     });
