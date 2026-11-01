@@ -26,6 +26,7 @@ import type {
 } from "@/app/actions/groups";
 import {
   createRequestGate,
+  isFriseCorpusOwnedBySession,
   removeEventFromPersonalCorpora,
   retainNotebookCorpusForSelection,
   runCarnetEventsLoad,
@@ -323,6 +324,39 @@ describe("runCarnetEventsLoad — concurrence", () => {
     await load;
 
     expect(loading).toEqual([true]);
+  });
+});
+
+describe("isFriseCorpusOwnedBySession", () => {
+  it("masque dès que le compte diffère ou que la session est absente", () => {
+    expect(
+      isFriseCorpusOwnedBySession({
+        userId: "user-b",
+        isSessionPending: false,
+        corpusOwnerUserId: "user-a",
+      }),
+    ).toBe(false);
+    expect(
+      isFriseCorpusOwnedBySession({
+        userId: null,
+        isSessionPending: false,
+        corpusOwnerUserId: "user-a",
+      }),
+    ).toBe(false);
+    expect(
+      isFriseCorpusOwnedBySession({
+        userId: "user-a",
+        isSessionPending: true,
+        corpusOwnerUserId: "user-a",
+      }),
+    ).toBe(false);
+    expect(
+      isFriseCorpusOwnedBySession({
+        userId: "user-a",
+        isSessionPending: false,
+        corpusOwnerUserId: "user-a",
+      }),
+    ).toBe(true);
   });
 });
 

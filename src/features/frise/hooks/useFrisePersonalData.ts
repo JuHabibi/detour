@@ -130,6 +130,19 @@ export function retainNotebookCorpusForSelection<TEvent>(params: {
   return { corpusNotebookId: null, events: [], name: null };
 }
 
+/** Corpus détaillé exposable seulement pour le compte propriétaire courant. */
+export function isFriseCorpusOwnedBySession(params: {
+  userId: string | null;
+  isSessionPending: boolean;
+  corpusOwnerUserId: string | null;
+}): boolean {
+  return (
+    !params.isSessionPending &&
+    Boolean(params.userId) &&
+    params.userId === params.corpusOwnerUserId
+  );
+}
+
 export async function runCarnetEventsLoad(
   notebookId: string,
   load: (groupId: string) => Promise<GetMyCarnetEventsResult>,
@@ -231,12 +244,56 @@ export function useFrisePersonalData({
   const [notebookCorpusId, setNotebookCorpusId] = useState<string | null>(null);
   const notebookCorpusIdRef = useRef<string | null>(null);
 
+  /** Compte propriétaire des corpus détaillés — aligné dès le rendu. */
+  const [corpusOwnerUserId, setCorpusOwnerUserId] = useState<string | null>(
+    null,
+  );
+  const [sessionEpoch, setSessionEpoch] = useState(0);
+  const sessionEpochRef = useRef(0);
+
   const favoriteEventsGateRef = useRef(createRequestGate());
   const carnetEventsGateRef = useRef(createRequestGate());
   const favoriteEventsLoadingRef = useRef(false);
   const notebookLoadingRef = useRef(false);
+
+  // Isolation synchrone du compte : 1er rendu de B / logout n’expose plus A.
+  if (!isSessionPending && userId !== corpusOwnerUserId) {
+    const nextEpoch = sessionEpoch + 1;
+    setSessionEpoch(nextEpoch);
+    setCorpusOwnerUserId(userId);
+    setFavoriteEvents([]);
+    setFavoriteEventsLoading(false);
+    setFavoriteEventsError(null);
+    setNotebookEvents([]);
+    setNotebookLoading(false);
+    setNotebookError(null);
+    setNotebookName(null);
+    setNotebookCorpusId(null);
+  }
+
+  useEffect(() => {
+    sessionEpochRef.current = sessionEpoch;
+    notebookCorpusIdRef.current = null;
+    favoriteEventsLoadingRef.current = false;
+    notebookLoadingRef.current = false;
+    favoriteEventsGateRef.current.invalidate();
+    carnetEventsGateRef.current.invalidate();
+  }, [sessionEpoch]);
+
+  const isOpsSessionCurrent = useCallback(
+    (boundEpoch: number) => {
+      return (
+        sessionEpochRef.current === boundEpoch &&
+        Boolean(userId) &&
+        userId === corpusOwnerUserId
+      );
+    },
+    [userId, corpusOwnerUserId],
+  );
+
   const removeEventLocally = useCallback(
     (id: string) => {
+      if (!isOpsSessionCurrent(sessionEpoch)) return;
       removeFavoriteLocally(id);
       setFavoriteEvents((current) =>
         removeEventFromPersonalCorpora(id, {
@@ -253,36 +310,46 @@ export function useFrisePersonalData({
         }).notebookEvents,
       );
     },
-    [removeFavoriteLocally],
+    [isOpsSessionCurrent, sessionEpoch, removeFavoriteLocally],
   );
 
   useEffect(() => {
     const requestGate = favoriteEventsGateRef.current;
 
-    if (view !== "favorites") {
+    if (
+      view !== "favorites" ||
+      !userId ||
+      userId !== corpusOwnerUserId ||
+      isSessionPending
+    ) {
       requestGate.invalidate();
       return;
     }
 
+    const epoch = sessionEpoch;
     const gate = requestGate.begin();
     let cancelled = false;
 
     queueMicrotask(() => {
-      if (cancelled) return;
+      if (cancelled || !gate.isCurrent()) return;
+      if (sessionEpochRef.current !== epoch) return;
       setFavoriteEventsError(null);
       void runFavoriteEventsLoad(listFavoriteEvents, {
-        isCurrent: gate.isCurrent,
+        isCurrent: () =>
+          gate.isCurrent() && sessionEpochRef.current === epoch,
         onLoading: (loading) => {
           favoriteEventsLoadingRef.current = loading;
           setFavoriteEventsLoading(loading);
         },
         onSuccess: (events) => {
+          if (sessionEpochRef.current !== epoch) return;
           setFavoriteEvents(events);
           setFavoriteEventsError(null);
           setFavoriteIdsAuthoritative(events.map((item) => item.id));
         },
         onError: (message) => {
-          // Conserve le dernier corpus valide — pas de faux état vide.
+          if (sessionEpochRef.current !== epoch) return;
+          // Conserve le dernier corpus valide du même compte — pas de faux vide.
           setFavoriteEventsError(message);
         },
       });
@@ -294,6 +361,10 @@ export function useFrisePersonalData({
     };
   }, [
     view,
+    userId,
+    corpusOwnerUserId,
+    isSessionPending,
+    sessionEpoch,
     listFavoriteEvents,
     setFavoriteIdsAuthoritative,
     favoriteEventsReloadKey,
@@ -302,20 +373,28 @@ export function useFrisePersonalData({
   useEffect(() => {
     const requestGate = carnetEventsGateRef.current;
 
-    if (view !== "notebook" || !notebookId) {
+    if (
+      view !== "notebook" ||
+      !notebookId ||
+      !userId ||
+      userId !== corpusOwnerUserId ||
+      isSessionPending
+    ) {
       requestGate.invalidate();
       return;
     }
 
+    const epoch = sessionEpoch;
     const gate = requestGate.begin();
     const requestedId = notebookId;
     let cancelled = false;
 
     queueMicrotask(() => {
-      if (cancelled) return;
+      if (cancelled || !gate.isCurrent()) return;
+      if (sessionEpochRef.current !== epoch) return;
       setNotebookError(null);
 
-      // Bascule A→B : ne jamais laisser les événements de A sous la sélection B.
+      // Bascule carnet A→B (même compte) : ne jamais laisser le corpus de A sous B.
       if (notebookCorpusIdRef.current !== requestedId) {
         const cleared = retainNotebookCorpusForSelection({
           selectedNotebookId: requestedId,
@@ -330,12 +409,14 @@ export function useFrisePersonalData({
       }
 
       void runCarnetEventsLoad(requestedId, getCarnetEvents, {
-        isCurrent: gate.isCurrent,
+        isCurrent: () =>
+          gate.isCurrent() && sessionEpochRef.current === epoch,
         onLoading: (loading) => {
           notebookLoadingRef.current = loading;
           setNotebookLoading(loading);
         },
         onSuccess: (data) => {
+          if (sessionEpochRef.current !== epoch) return;
           notebookCorpusIdRef.current = requestedId;
           setNotebookCorpusId(requestedId);
           setNotebookEvents(data.events);
@@ -343,6 +424,7 @@ export function useFrisePersonalData({
           setNotebookError(null);
         },
         onError: (failure) => {
+          if (sessionEpochRef.current !== epoch) return;
           setNotebookError(failure.message);
           if (failure.missing) {
             notebookCorpusIdRef.current = null;
@@ -373,35 +455,52 @@ export function useFrisePersonalData({
       cancelled = true;
       requestGate.invalidate();
     };
-  }, [view, notebookId, getCarnetEvents, notebookEventsReloadKey]);
+  }, [
+    view,
+    notebookId,
+    userId,
+    corpusOwnerUserId,
+    isSessionPending,
+    sessionEpoch,
+    getCarnetEvents,
+    notebookEventsReloadKey,
+  ]);
+
+  const sessionOwnsCorpus = isFriseCorpusOwnedBySession({
+    userId,
+    isSessionPending,
+    corpusOwnerUserId,
+  });
 
   const retryFavoriteEvents = useCallback(() => {
-    if (view !== "favorites") return;
+    if (!sessionOwnsCorpus || view !== "favorites") return;
     if (favoriteEventsLoadingRef.current) return;
     setFavoriteEventsReloadKey((key) => key + 1);
-  }, [view]);
+  }, [sessionOwnsCorpus, view]);
 
   const retryNotebookEvents = useCallback(() => {
-    if (view !== "notebook" || !notebookId) return;
+    if (!sessionOwnsCorpus || view !== "notebook" || !notebookId) return;
     if (notebookLoadingRef.current) return;
     setNotebookEventsReloadKey((key) => key + 1);
-  }, [view, notebookId]);
+  }, [sessionOwnsCorpus, view, notebookId]);
 
-  const notebookActive = view === "notebook" && Boolean(notebookId);
-  // Garde au rendu : avant l’effet de bascule, le state corpus peut encore être A
-  // alors que notebookId est déjà B — ne pas exposer le corpus dépareillé.
+  const notebookActive =
+    sessionOwnsCorpus && view === "notebook" && Boolean(notebookId);
+  // Garde au rendu : compte courant + carnet sélectionné.
   const notebookCorpusVisible =
     notebookActive && notebookCorpusId === notebookId;
+  const favoritesViewActive = sessionOwnsCorpus && view === "favorites";
 
   return {
     favoriteIds: favorites,
-    favoriteEvents: view === "favorites" ? favoriteEvents : EMPTY_EVENTS,
-    favoriteEventsLoading: view === "favorites" && favoriteEventsLoading,
-    favoriteEventsError: view === "favorites" ? favoriteEventsError : null,
+    favoriteEvents: favoritesViewActive ? favoriteEvents : EMPTY_EVENTS,
+    favoriteEventsLoading: favoritesViewActive && favoriteEventsLoading,
+    favoriteEventsError: favoritesViewActive ? favoriteEventsError : null,
     retryFavoriteEvents,
-    groups: view === "notebook" ? groups : [],
-    groupsLoading: view === "notebook" && carnetsLoading,
-    groupsError: view === "notebook" ? carnetsError : null,
+    groups: sessionOwnsCorpus && view === "notebook" ? groups : [],
+    groupsLoading:
+      sessionOwnsCorpus && view === "notebook" && carnetsLoading,
+    groupsError: sessionOwnsCorpus && view === "notebook" ? carnetsError : null,
     retryGroups: retryCarnets,
     notebookEvents: notebookCorpusVisible ? notebookEvents : EMPTY_EVENTS,
     notebookLoading: notebookActive && notebookLoading,
