@@ -5,9 +5,61 @@ import type {
 
 const DEFAULT_TZ = "Europe/Paris";
 
+export type SaranIcalBodyKind =
+  | "valid_calendar"
+  | "empty"
+  | "html"
+  | "truncated"
+  | "unexpected";
+
+/**
+ * Distingue un VCALENDAR Saran valide (éventuellement sans VEVENT) d’une
+ * réponse HTTP 200 non exploitable : HTML maintenance, corps tronqué, autre.
+ */
+export function classifySaranIcalBody(raw: string): SaranIcalBodyKind {
+  const trimmed = raw.trim();
+  if (!trimmed) return "empty";
+
+  if (looksLikeHtmlBody(trimmed)) return "html";
+
+  const lines = unfoldIcalLines(trimmed);
+  const upperLines = lines.map((line) => line.toUpperCase());
+
+  const beginIdx = upperLines.indexOf("BEGIN:VCALENDAR");
+  if (beginIdx < 0) return "unexpected";
+
+  const endIdx = upperLines.lastIndexOf("END:VCALENDAR");
+  if (endIdx < 0 || endIdx < beginIdx) return "truncated";
+
+  let veventDepth = 0;
+  for (let i = beginIdx + 1; i < endIdx; i += 1) {
+    const line = upperLines[i];
+    if (line === "BEGIN:VEVENT") veventDepth += 1;
+    else if (line === "END:VEVENT") {
+      if (veventDepth === 0) return "truncated";
+      veventDepth -= 1;
+    }
+  }
+  if (veventDepth !== 0) return "truncated";
+
+  return "valid_calendar";
+}
+
+/**
+ * Fail-closed : calendrier vide mais bien formé OK ; HTML / tronqué / hors
+ * format → throw (évite un corpus mensuel partiel pris pour un succès).
+ */
+export function assertSaranIcalBody(raw: string, url: string): void {
+  const kind = classifySaranIcalBody(raw);
+  if (kind === "valid_calendar") return;
+
+  throw new Error(`Saran iCal invalid body: ${kind} (${url})`);
+}
+
 /**
  * Parse un flux iCal (VCALENDAR) et extrait les VEVENT.
  * Gère folded lines, escapes, TZID et VALUE=DATE.
+ * Prérequis : corps déjà validé via assertSaranIcalBody (ou équivalent).
  */
 export function parseSaranIcal(raw: string): SaranIcalEvent[] {
   const lines = unfoldIcalLines(raw);
@@ -15,11 +67,12 @@ export function parseSaranIcal(raw: string): SaranIcalEvent[] {
   let current: Record<string, string> | null = null;
 
   for (const line of lines) {
-    if (line === "BEGIN:VEVENT") {
+    const upper = line.toUpperCase();
+    if (upper === "BEGIN:VEVENT") {
       current = {};
       continue;
     }
-    if (line === "END:VEVENT") {
+    if (upper === "END:VEVENT") {
       if (current) {
         const parsed = toSaranIcalEvent(current);
         if (parsed) events.push(parsed);
@@ -48,6 +101,17 @@ export function parseSaranIcal(raw: string): SaranIcalEvent[] {
   }
 
   return events;
+}
+
+function looksLikeHtmlBody(raw: string): boolean {
+  const head = raw.slice(0, 512);
+  return (
+    /<!DOCTYPE\s+html/i.test(head) ||
+    /<html[\s>]/i.test(head) ||
+    /<head[\s>]/i.test(head) ||
+    /<body[\s>]/i.test(head) ||
+    /<title[\s>]/i.test(head)
+  );
 }
 
 /** Déplie les lignes iCal (continuation = espace/tab en tête). */
