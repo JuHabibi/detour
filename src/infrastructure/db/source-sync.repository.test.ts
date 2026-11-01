@@ -7,6 +7,7 @@ vi.mock("@/infrastructure/db/postgres", () => ({
 }));
 
 import {
+  listSourceSyncStates,
   lockAndVerifyLease,
   markError,
   markSuccess,
@@ -125,5 +126,38 @@ describe("source-sync.repository lease primitives", () => {
     expect(errParams[0]).toBe("orleans");
     expect(errParams[1]).toBe("token-a");
     expect(errParams[2]).toBe("empty_corpus");
+  });
+
+  it("listSourceSyncStates filtre par adapter_ids ; [] court-circuite", async () => {
+    expect(await listSourceSyncStates([])).toEqual([]);
+    expect(query).not.toHaveBeenCalled();
+
+    query.mockResolvedValue({
+      rows: [
+        {
+          adapter_id: "saran",
+          last_attempt_at: null,
+          last_success_at: new Date("2026-11-01T05:00:00.000Z"),
+          status: "ok",
+          fetched_count: 3,
+          error_code: null,
+          error_message_safe: null,
+          sync_lock_token: null,
+          sync_locked_until: null,
+          created_at: new Date("2026-01-01T00:00:00.000Z"),
+          updated_at: new Date("2026-11-01T05:00:00.000Z"),
+        },
+      ],
+    });
+
+    const states = await listSourceSyncStates(["saran", "orleans"]);
+    expect(states).toHaveLength(1);
+    expect(states[0]?.adapterId).toBe("saran");
+    expect(states[0]?.lastSuccessAt?.toISOString()).toBe(
+      "2026-11-01T05:00:00.000Z",
+    );
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("adapter_id = ANY($1::text[])");
+    expect(params).toEqual([["saran", "orleans"]]);
   });
 });
