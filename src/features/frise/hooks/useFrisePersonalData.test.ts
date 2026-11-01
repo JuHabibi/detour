@@ -27,6 +27,7 @@ import type {
 import {
   createRequestGate,
   removeEventFromPersonalCorpora,
+  retainNotebookCorpusForSelection,
   runCarnetEventsLoad,
   runFavoriteEventsLoad,
 } from "@/features/frise/hooks/useFrisePersonalData";
@@ -322,6 +323,45 @@ describe("runCarnetEventsLoad — concurrence", () => {
     await load;
 
     expect(loading).toEqual([true]);
+  });
+});
+
+describe("retainNotebookCorpusForSelection", () => {
+  it("A chargé puis B en échec : ne conserve pas les événements de A sous B", () => {
+    const afterA = retainNotebookCorpusForSelection({
+      selectedNotebookId: "carnet-a",
+      corpusNotebookId: "carnet-a",
+      events: [event("a1"), event("a2")],
+      name: "Carnet A",
+    });
+    expect(afterA.corpusNotebookId).toBe("carnet-a");
+    expect(afterA.events.map((e) => e.id)).toEqual(["a1", "a2"]);
+    expect(afterA.name).toBe("Carnet A");
+
+    // Sélection B + échec de chargement : le corpus A ne doit plus être exposé.
+    const afterBFailure = retainNotebookCorpusForSelection({
+      selectedNotebookId: "carnet-b",
+      corpusNotebookId: afterA.corpusNotebookId,
+      events: afterA.events,
+      name: afterA.name,
+    });
+    expect(afterBFailure).toEqual({
+      corpusNotebookId: null,
+      events: [],
+      name: null,
+    });
+  });
+
+  it("échec de retry du même carnet : conserve le dernier corpus valide", () => {
+    const kept = retainNotebookCorpusForSelection({
+      selectedNotebookId: "carnet-a",
+      corpusNotebookId: "carnet-a",
+      events: [event("a1")],
+      name: "Carnet A",
+    });
+    expect(kept.events.map((e) => e.id)).toEqual(["a1"]);
+    expect(kept.name).toBe("Carnet A");
+    expect(kept.corpusNotebookId).toBe("carnet-a");
   });
 });
 

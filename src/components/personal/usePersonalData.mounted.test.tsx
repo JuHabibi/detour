@@ -161,8 +161,107 @@ describe("usePersonalData monté — appartenance décochée", () => {
   });
 });
 
-describe("usePersonalData monté — erreur de chargement carnets", () => {
-  it("conserve G2 + C→G2 si le load retourne ok:false", async () => {
+describe("usePersonalData monté — chargement et erreurs", () => {
+  it("premier chargement réussi avec données", async () => {
+    const { result, unmount } = renderHook(() =>
+      usePersonalData({
+        userId: "user-a",
+        isSessionPending: false,
+        loadCarnets: true,
+        listFavoriteIds: async () => ({ ok: true, eventIds: ["A", "B"] }),
+        listCarnets: async () => ({
+          ok: true,
+          groups: [group("g1", "G1")],
+          memberships: [membership("A", "g1", "G1")],
+        }),
+      }),
+    );
+
+    await flushMicrotasks();
+
+    expect([...result.current.favorites].sort()).toEqual(["A", "B"]);
+    expect(result.current.hasFavoriteIds).toBe(true);
+    expect(result.current.favoritesError).toBeNull();
+    expect(result.current.groups.map((g) => g.id)).toEqual(["g1"]);
+    expect(result.current.carnetsError).toBeNull();
+    expect(result.current.carnetsLoading).toBe(false);
+
+    unmount();
+  });
+
+  it("premier chargement réussi avec collections vides", async () => {
+    const { result, unmount } = renderHook(() =>
+      usePersonalData({
+        userId: "user-a",
+        isSessionPending: false,
+        loadCarnets: true,
+        listFavoriteIds: async () => ({ ok: true, eventIds: [] }),
+        listCarnets: async () => ({
+          ok: true,
+          groups: [],
+          memberships: [],
+        }),
+      }),
+    );
+
+    await flushMicrotasks();
+
+    expect([...result.current.favorites]).toEqual([]);
+    expect(result.current.hasFavoriteIds).toBe(true);
+    expect(result.current.favoritesError).toBeNull();
+    expect(result.current.groups).toEqual([]);
+    expect(result.current.carnetsError).toBeNull();
+    expect(result.current.hasCarnetsState).toBe(true);
+
+    unmount();
+  });
+
+  it("premier chargement carnets en échec : erreur, pas de faux vide confirmé", async () => {
+    const { result, unmount } = renderHook(() =>
+      usePersonalData({
+        userId: "user-a",
+        isSessionPending: false,
+        loadCarnets: true,
+        listFavoriteIds: async () => ({ ok: true, eventIds: [] }),
+        listCarnets: async () => ({ ok: false, reason: "error" }),
+      }),
+    );
+
+    await flushMicrotasks();
+
+    expect(result.current.carnetsError).toBe(
+      "Impossible de charger vos carnets.",
+    );
+    expect(result.current.carnetsLoading).toBe(false);
+    // Placeholder vide possible, mais l’échec est signalé (pas un succès vide).
+    expect(result.current.groups).toEqual([]);
+
+    unmount();
+  });
+
+  it("premier chargement favoris en échec : erreur, pas de faux succès vide", async () => {
+    const { result, unmount } = renderHook(() =>
+      usePersonalData({
+        userId: "user-a",
+        isSessionPending: false,
+        loadCarnets: false,
+        listFavoriteIds: async () => ({ ok: false, reason: "error" }),
+      }),
+    );
+
+    await flushMicrotasks();
+
+    expect(result.current.favoritesError).toBe(
+      "Impossible de charger vos favoris.",
+    );
+    expect(result.current.hasFavoriteIds).toBe(false);
+    expect(result.current.favoritesLoading).toBe(false);
+    expect([...result.current.favorites]).toEqual([]);
+
+    unmount();
+  });
+
+  it("conserve G2 + C→G2 et expose l’erreur si le load retourne ok:false", async () => {
     const pendingCarnets = deferred<ListMyCarnetsStateResult>();
     const { result, unmount } = renderHook(() =>
       usePersonalData({
@@ -195,8 +294,192 @@ describe("usePersonalData monté — erreur de chargement carnets", () => {
     ).toEqual(["C→g2"]);
     expect(Object.fromEntries(result.current.carnetCounts)).toEqual({ C: 1 });
     expect(result.current.carnetsLoading).toBe(false);
+    expect(result.current.carnetsError).toBe(
+      "Impossible de charger vos carnets.",
+    );
 
     unmount();
+  });
+
+  it("échec après succès : conserve les anciennes données", async () => {
+    let carnetsCalls = 0;
+    const second = deferred<ListMyCarnetsStateResult>();
+    const { result, unmount } = renderHook(() =>
+      usePersonalData({
+        userId: "user-a",
+        isSessionPending: false,
+        loadCarnets: true,
+        listFavoriteIds: async () => ({ ok: true, eventIds: ["A"] }),
+        listCarnets: () => {
+          carnetsCalls += 1;
+          if (carnetsCalls === 1) {
+            return Promise.resolve({
+              ok: true as const,
+              groups: [group("g1", "G1")],
+              memberships: [membership("A", "g1", "G1")],
+            });
+          }
+          return second.promise;
+        },
+      }),
+    );
+
+    await flushMicrotasks();
+    expect(result.current.groups.map((g) => g.id)).toEqual(["g1"]);
+    expect(result.current.carnetsError).toBeNull();
+
+    act(() => {
+      result.current.retryCarnets();
+    });
+    await flushMicrotasks();
+
+    second.resolve({ ok: false, reason: "error" });
+    await flushMicrotasks();
+
+    expect(result.current.groups.map((g) => g.id)).toEqual(["g1"]);
+    expect(
+      result.current.memberships.map((m) => `${m.eventId}→${m.groupId}`),
+    ).toEqual(["A→g1"]);
+    expect(result.current.carnetsError).toBe(
+      "Impossible de charger vos carnets.",
+    );
+
+    unmount();
+  });
+
+  it("retry après erreur : données rétablies et erreur effacée", async () => {
+    let carnetsCalls = 0;
+    const { result, unmount } = renderHook(() =>
+      usePersonalData({
+        userId: "user-a",
+        isSessionPending: false,
+        loadCarnets: true,
+        listFavoriteIds: async () => ({ ok: true, eventIds: [] }),
+        listCarnets: async () => {
+          carnetsCalls += 1;
+          if (carnetsCalls === 1) {
+            return { ok: false as const, reason: "error" as const };
+          }
+          return {
+            ok: true as const,
+            groups: [group("g1", "G1")],
+            memberships: [membership("A", "g1", "G1")],
+          };
+        },
+      }),
+    );
+
+    await flushMicrotasks();
+    expect(result.current.carnetsError).toBe(
+      "Impossible de charger vos carnets.",
+    );
+
+    act(() => {
+      result.current.retryCarnets();
+    });
+    await flushMicrotasks();
+
+    expect(result.current.carnetsError).toBeNull();
+    expect(result.current.groups.map((g) => g.id)).toEqual(["g1"]);
+    expect(carnetsCalls).toBe(2);
+
+    unmount();
+  });
+
+  it("retry pendant un chargement : n’ouvre pas un second load concurrent", async () => {
+    const pending = deferred<ListMyCarnetsStateResult>();
+    let carnetsCalls = 0;
+    const { result, unmount } = renderHook(() =>
+      usePersonalData({
+        userId: "user-a",
+        isSessionPending: false,
+        loadCarnets: true,
+        listFavoriteIds: async () => ({ ok: true, eventIds: [] }),
+        listCarnets: () => {
+          carnetsCalls += 1;
+          return pending.promise;
+        },
+      }),
+    );
+
+    await flushMicrotasks();
+    expect(carnetsCalls).toBe(1);
+    expect(result.current.carnetsLoading).toBe(true);
+
+    act(() => {
+      result.current.retryCarnets();
+      result.current.retryCarnets();
+    });
+    await flushMicrotasks();
+
+    expect(carnetsCalls).toBe(1);
+
+    pending.resolve({
+      ok: true,
+      groups: [group("g1", "G1")],
+      memberships: [],
+    });
+    await flushMicrotasks();
+    expect(result.current.carnetsError).toBeNull();
+
+    unmount();
+  });
+
+  it("réponse tardive après changement de compte : ignore données et erreur de A", async () => {
+    const pendingA = deferred<ListMyCarnetsStateResult>();
+    const pendingB = deferred<ListMyCarnetsStateResult>();
+
+    function Harness() {
+      const [userId, setUserId] = useState<string | null>("user-a");
+      const personal = usePersonalData({
+        userId,
+        isSessionPending: false,
+        loadCarnets: true,
+        listFavoriteIds: async () => ({ ok: true, eventIds: [] }),
+        listCarnets: () =>
+          userId === "user-a" ? pendingA.promise : pendingB.promise,
+      });
+      (globalThis as unknown as { __pd: unknown }).__pd = {
+        personal,
+        setUserId,
+      };
+      return null;
+    }
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => {
+      root.render(createElement(Harness));
+    });
+    await flushMicrotasks();
+
+    type Pd = {
+      personal: ReturnType<typeof usePersonalData>;
+      setUserId: (id: string | null) => void;
+    };
+    const getPd = () => (globalThis as unknown as { __pd: Pd }).__pd;
+
+    act(() => {
+      getPd().setUserId("user-b");
+    });
+    await flushMicrotasks();
+
+    pendingA.resolve({ ok: false, reason: "error" });
+    pendingB.resolve({
+      ok: true,
+      groups: [group("gb", "GB")],
+      memberships: [],
+    });
+    await flushMicrotasks();
+
+    expect(getPd().personal.carnetsError).toBeNull();
+    expect(getPd().personal.groups.map((g) => g.id)).toEqual(["gb"]);
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
   });
 });
 

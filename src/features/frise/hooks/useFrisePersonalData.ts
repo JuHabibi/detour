@@ -106,6 +106,30 @@ export function removeEventFromPersonalCorpora(
   };
 }
 
+/**
+ * Ne conserve un corpus carnet que s’il appartient encore au carnet sélectionné.
+ * Évite d’afficher les événements de A après un échec de chargement de B.
+ */
+export function retainNotebookCorpusForSelection<TEvent>(params: {
+  selectedNotebookId: string;
+  corpusNotebookId: string | null;
+  events: readonly TEvent[];
+  name: string | null;
+}): {
+  corpusNotebookId: string | null;
+  events: TEvent[];
+  name: string | null;
+} {
+  if (params.corpusNotebookId === params.selectedNotebookId) {
+    return {
+      corpusNotebookId: params.corpusNotebookId,
+      events: [...params.events],
+      name: params.name,
+    };
+  }
+  return { corpusNotebookId: null, events: [], name: null };
+}
+
 export async function runCarnetEventsLoad(
   notebookId: string,
   load: (groupId: string) => Promise<GetMyCarnetEventsResult>,
@@ -175,6 +199,8 @@ export function useFrisePersonalData({
     favorites,
     groups,
     carnetsLoading,
+    carnetsError,
+    retryCarnets,
     addFavoriteLocally,
     rollbackFavoriteAdd,
     removeFavoriteLocally,
@@ -191,15 +217,24 @@ export function useFrisePersonalData({
   const [favoriteEventsError, setFavoriteEventsError] = useState<string | null>(
     null,
   );
+  const [favoriteEventsReloadKey, setFavoriteEventsReloadKey] = useState(0);
 
   const [notebookEvents, setNotebookEvents] = useState<EventItem[]>([]);
   const [notebookLoading, setNotebookLoading] = useState(false);
   const [notebookError, setNotebookError] = useState<string | null>(null);
   const [notebookName, setNotebookName] = useState<string | null>(null);
+  const [notebookEventsReloadKey, setNotebookEventsReloadKey] = useState(0);
+  /**
+   * Carnet auquel appartient le corpus en mémoire.
+   * État pour le garde au rendu ; ref pour les callbacks async (maj synchrone).
+   */
+  const [notebookCorpusId, setNotebookCorpusId] = useState<string | null>(null);
+  const notebookCorpusIdRef = useRef<string | null>(null);
 
   const favoriteEventsGateRef = useRef(createRequestGate());
   const carnetEventsGateRef = useRef(createRequestGate());
-
+  const favoriteEventsLoadingRef = useRef(false);
+  const notebookLoadingRef = useRef(false);
   const removeEventLocally = useCallback(
     (id: string) => {
       removeFavoriteLocally(id);
@@ -237,14 +272,17 @@ export function useFrisePersonalData({
       setFavoriteEventsError(null);
       void runFavoriteEventsLoad(listFavoriteEvents, {
         isCurrent: gate.isCurrent,
-        onLoading: setFavoriteEventsLoading,
+        onLoading: (loading) => {
+          favoriteEventsLoadingRef.current = loading;
+          setFavoriteEventsLoading(loading);
+        },
         onSuccess: (events) => {
           setFavoriteEvents(events);
           setFavoriteEventsError(null);
           setFavoriteIdsAuthoritative(events.map((item) => item.id));
         },
         onError: (message) => {
-          setFavoriteEvents([]);
+          // Conserve le dernier corpus valide — pas de faux état vide.
           setFavoriteEventsError(message);
         },
       });
@@ -254,7 +292,12 @@ export function useFrisePersonalData({
       cancelled = true;
       requestGate.invalidate();
     };
-  }, [view, listFavoriteEvents, setFavoriteIdsAuthoritative]);
+  }, [
+    view,
+    listFavoriteEvents,
+    setFavoriteIdsAuthoritative,
+    favoriteEventsReloadKey,
+  ]);
 
   useEffect(() => {
     const requestGate = carnetEventsGateRef.current;
@@ -271,20 +314,56 @@ export function useFrisePersonalData({
     queueMicrotask(() => {
       if (cancelled) return;
       setNotebookError(null);
+
+      // Bascule A→B : ne jamais laisser les événements de A sous la sélection B.
+      if (notebookCorpusIdRef.current !== requestedId) {
+        const cleared = retainNotebookCorpusForSelection({
+          selectedNotebookId: requestedId,
+          corpusNotebookId: notebookCorpusIdRef.current,
+          events: [],
+          name: null,
+        });
+        notebookCorpusIdRef.current = cleared.corpusNotebookId;
+        setNotebookCorpusId(cleared.corpusNotebookId);
+        setNotebookEvents(cleared.events);
+        setNotebookName(cleared.name);
+      }
+
       void runCarnetEventsLoad(requestedId, getCarnetEvents, {
         isCurrent: gate.isCurrent,
-        onLoading: setNotebookLoading,
+        onLoading: (loading) => {
+          notebookLoadingRef.current = loading;
+          setNotebookLoading(loading);
+        },
         onSuccess: (data) => {
+          notebookCorpusIdRef.current = requestedId;
+          setNotebookCorpusId(requestedId);
           setNotebookEvents(data.events);
           setNotebookName(data.name);
           setNotebookError(null);
         },
         onError: (failure) => {
-          setNotebookEvents([]);
-          setNotebookName(null);
           setNotebookError(failure.message);
           if (failure.missing) {
+            notebookCorpusIdRef.current = null;
+            setNotebookCorpusId(null);
+            setNotebookEvents([]);
+            setNotebookName(null);
             onNotebookMissingRef.current?.();
+            return;
+          }
+          // Retry du même carnet : conserve. Autre carnet : déjà vidé au bascule.
+          const kept = retainNotebookCorpusForSelection({
+            selectedNotebookId: requestedId,
+            corpusNotebookId: notebookCorpusIdRef.current,
+            events: [],
+            name: null,
+          });
+          if (kept.corpusNotebookId == null) {
+            notebookCorpusIdRef.current = null;
+            setNotebookCorpusId(null);
+            setNotebookEvents([]);
+            setNotebookName(null);
           }
         },
       });
@@ -294,21 +373,41 @@ export function useFrisePersonalData({
       cancelled = true;
       requestGate.invalidate();
     };
-  }, [view, notebookId, getCarnetEvents]);
+  }, [view, notebookId, getCarnetEvents, notebookEventsReloadKey]);
+
+  const retryFavoriteEvents = useCallback(() => {
+    if (view !== "favorites") return;
+    if (favoriteEventsLoadingRef.current) return;
+    setFavoriteEventsReloadKey((key) => key + 1);
+  }, [view]);
+
+  const retryNotebookEvents = useCallback(() => {
+    if (view !== "notebook" || !notebookId) return;
+    if (notebookLoadingRef.current) return;
+    setNotebookEventsReloadKey((key) => key + 1);
+  }, [view, notebookId]);
 
   const notebookActive = view === "notebook" && Boolean(notebookId);
+  // Garde au rendu : avant l’effet de bascule, le state corpus peut encore être A
+  // alors que notebookId est déjà B — ne pas exposer le corpus dépareillé.
+  const notebookCorpusVisible =
+    notebookActive && notebookCorpusId === notebookId;
 
   return {
     favoriteIds: favorites,
     favoriteEvents: view === "favorites" ? favoriteEvents : EMPTY_EVENTS,
     favoriteEventsLoading: view === "favorites" && favoriteEventsLoading,
     favoriteEventsError: view === "favorites" ? favoriteEventsError : null,
+    retryFavoriteEvents,
     groups: view === "notebook" ? groups : [],
     groupsLoading: view === "notebook" && carnetsLoading,
-    notebookEvents: notebookActive ? notebookEvents : EMPTY_EVENTS,
+    groupsError: view === "notebook" ? carnetsError : null,
+    retryGroups: retryCarnets,
+    notebookEvents: notebookCorpusVisible ? notebookEvents : EMPTY_EVENTS,
     notebookLoading: notebookActive && notebookLoading,
     notebookError: notebookActive ? notebookError : null,
-    notebookName: notebookActive ? notebookName : null,
+    notebookName: notebookCorpusVisible ? notebookName : null,
+    retryNotebookEvents,
     addFavoriteLocally,
     rollbackFavoriteAdd,
     setFavoriteIds: setFavoriteIdsAuthoritative,

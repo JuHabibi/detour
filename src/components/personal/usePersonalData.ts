@@ -20,6 +20,10 @@ const EMPTY_CARNET_COUNTS: ReadonlyMap<string, number> = new Map();
 const EMPTY_GROUPS: GroupSummary[] = [];
 const EMPTY_MEMBERSHIPS: EventGroupMembership[] = [];
 
+/** Messages publics — jamais de détail technique réseau/serveur. */
+export const FAVORITE_IDS_LOAD_ERROR = "Impossible de charger vos favoris.";
+export const CARNETS_LOAD_ERROR = "Impossible de charger vos carnets.";
+
 export type FavoriteDelta = {
   added: ReadonlySet<string>;
   removed: ReadonlySet<string>;
@@ -213,20 +217,28 @@ export async function runFavoriteIdsLoad(
     isCurrent: () => boolean;
     getDelta: () => FavoriteDelta;
     onMerged: (ids: Set<string>) => void;
+    onError?: (message: string) => void;
+    onLoading?: (loading: boolean) => void;
   },
 ): Promise<void> {
-  const { isCurrent, getDelta, onMerged } = handlers;
+  const { isCurrent, getDelta, onMerged, onError, onLoading } = handlers;
   if (!isCurrent()) return;
+
+  onLoading?.(true);
 
   try {
     const result = await load();
     if (!isCurrent()) return;
     if (!result.ok) {
+      onError?.(FAVORITE_IDS_LOAD_ERROR);
       return;
     }
     onMerged(mergeFavoriteIds(result.eventIds, getDelta()));
   } catch {
     if (!isCurrent()) return;
+    onError?.(FAVORITE_IDS_LOAD_ERROR);
+  } finally {
+    if (isCurrent()) onLoading?.(false);
   }
 }
 
@@ -237,6 +249,7 @@ export async function runCarnetsLoad(
     getOverlay: () => CarnetsOverlay;
     onServerSnapshot: (server: CarnetsSnapshot) => void;
     onMerged: (snapshot: CarnetsSnapshot) => void;
+    onError?: (message: string) => void;
     onLoading?: (loading: boolean) => void;
   },
 ): Promise<void> {
@@ -245,6 +258,7 @@ export async function runCarnetsLoad(
     getOverlay,
     onServerSnapshot,
     onMerged,
+    onError,
     onLoading,
   } = handlers;
   if (!isCurrent()) return;
@@ -255,6 +269,7 @@ export async function runCarnetsLoad(
     const result = await load();
     if (!isCurrent()) return;
     if (!result.ok) {
+      onError?.(CARNETS_LOAD_ERROR);
       return;
     }
     const server: CarnetsSnapshot = {
@@ -265,6 +280,7 @@ export async function runCarnetsLoad(
     onMerged(mergeCarnetsSnapshot(server, getOverlay()));
   } catch {
     if (!isCurrent()) return;
+    onError?.(CARNETS_LOAD_ERROR);
   } finally {
     if (isCurrent()) onLoading?.(false);
   }
@@ -297,8 +313,13 @@ export function usePersonalData({
   onCarnetsLoaded,
 }: UsePersonalDataParams) {
   const [favoriteIds, setFavoriteIds] = useState<Set<string> | null>(null);
+  const [favoritesLoading, setFavoritesLoading] = useState(false);
+  const [favoritesError, setFavoritesError] = useState<string | null>(null);
+  const [favoritesReloadKey, setFavoritesReloadKey] = useState(0);
   const [carnets, setCarnets] = useState<CarnetsSnapshot | null>(null);
   const [carnetsLoading, setCarnetsLoading] = useState(false);
+  const [carnetsError, setCarnetsError] = useState<string | null>(null);
+  const [carnetsReloadKey, setCarnetsReloadKey] = useState(0);
   /** Compte propriétaire des données exposées — aligné dès le rendu, pas seulement après effet. */
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
   /** Génération liée aux callbacks locaux (A→B→A, logout, démontage). */
@@ -316,6 +337,8 @@ export function usePersonalData({
     groups: [],
     memberships: [],
   });
+  const favoritesLoadingRef = useRef(false);
+  const carnetsLoadingRef = useRef(false);
   const onCarnetsLoadedRef = useRef(onCarnetsLoaded);
   const listFavoriteIdsRef = useRef(listFavoriteIds);
   const listCarnetsRef = useRef(listCarnets);
@@ -338,13 +361,18 @@ export function usePersonalData({
     setSessionEpoch(nextEpoch);
     setOwnerUserId(userId);
     setFavoriteIds(null);
+    setFavoritesLoading(false);
+    setFavoritesError(null);
     setCarnets(null);
     setCarnetsLoading(false);
+    setCarnetsError(null);
   }
 
   // Epoch / overlays : synchronisés après le rendu qui a changé de compte.
   useEffect(() => {
     sessionEpochRef.current = sessionEpoch;
+    favoritesLoadingRef.current = false;
+    carnetsLoadingRef.current = false;
     favoriteOverlayRef.current = { added: new Set(), removed: new Set() };
     carnetsOverlayRef.current = emptyCarnetsOverlay();
     lastServerCarnetsRef.current = { groups: [], memberships: [] };
@@ -400,6 +428,7 @@ export function usePersonalData({
     queueMicrotask(() => {
       if (cancelled || sessionEpochRef.current !== epoch) return;
 
+      setFavoritesError(null);
       void runFavoriteIdsLoad(() => listFavoriteIdsRef.current(), {
         isCurrent: () =>
           sessionEpochRef.current === epoch && authority.isAuthoritative(),
@@ -407,10 +436,20 @@ export function usePersonalData({
           added: favoriteOverlayRef.current.added,
           removed: favoriteOverlayRef.current.removed,
         }),
+        onLoading: (loading) => {
+          favoritesLoadingRef.current = loading;
+          setFavoritesLoading(loading);
+        },
         onMerged: (ids) => {
           if (sessionEpochRef.current !== epoch) return;
           if (!authority.isAuthoritative()) return;
+          setFavoritesError(null);
           setFavoriteIds(ids);
+        },
+        onError: (message) => {
+          if (sessionEpochRef.current !== epoch) return;
+          if (!authority.isAuthoritative()) return;
+          setFavoritesError(message);
         },
       });
     });
@@ -418,7 +457,7 @@ export function usePersonalData({
     return () => {
       cancelled = true;
     };
-  }, [isSessionPending, userId, ownerUserId, sessionEpoch]);
+  }, [isSessionPending, userId, ownerUserId, sessionEpoch, favoritesReloadKey]);
 
   // Carnets : activation explicite (Home true ; frise vue notebook).
   useEffect(() => {
@@ -429,7 +468,10 @@ export function usePersonalData({
       userId !== ownerUserId
     ) {
       requestGate.invalidate();
-      queueMicrotask(() => setCarnetsLoading(false));
+      queueMicrotask(() => {
+        carnetsLoadingRef.current = false;
+        setCarnetsLoading(false);
+      });
       return;
     }
 
@@ -444,20 +486,29 @@ export function usePersonalData({
       // Snapshot vide dès l’activation (Home : modale organisable pendant le load)
       // sans écraser un état déjà hydraté (ré-entrée frise / mods locales).
       setCarnets((prev) => prev ?? { groups: [], memberships: [] });
+      setCarnetsError(null);
 
       void runCarnetsLoad(() => listCarnetsRef.current(), {
         isCurrent: () =>
           gate.isCurrent() && sessionEpochRef.current === epoch,
         getOverlay: readCarnetsOverlay,
-        onLoading: setCarnetsLoading,
+        onLoading: (loading) => {
+          carnetsLoadingRef.current = loading;
+          setCarnetsLoading(loading);
+        },
         onServerSnapshot: (server) => {
           if (!gate.isCurrent() || sessionEpochRef.current !== epoch) return;
           lastServerCarnetsRef.current = server;
         },
         onMerged: (snapshot) => {
           if (!gate.isCurrent() || sessionEpochRef.current !== epoch) return;
+          setCarnetsError(null);
           setCarnets(snapshot);
           onCarnetsLoadedRef.current?.(snapshot);
+        },
+        onError: (message) => {
+          if (!gate.isCurrent() || sessionEpochRef.current !== epoch) return;
+          setCarnetsError(message);
         },
       });
     });
@@ -473,10 +524,31 @@ export function usePersonalData({
     sessionEpoch,
     isSessionPending,
     readCarnetsOverlay,
+    carnetsReloadKey,
   ]);
 
   const sessionReady =
     !isSessionPending && Boolean(userId) && userId === ownerUserId;
+
+  const retryFavorites = useCallback(() => {
+    if (!isOpsSessionCurrent(sessionEpoch)) return;
+    if (favoritesLoadingRef.current) return;
+    setFavoritesReloadKey((key) => key + 1);
+  }, [isOpsSessionCurrent, sessionEpoch]);
+
+  const retryCarnets = useCallback(() => {
+    if (!isOpsSessionCurrent(sessionEpoch)) return;
+    if (carnetsLoadingRef.current) return;
+    if (!isCarnetsLoadActive({ loadCarnets, userId, isSessionPending })) return;
+    setCarnetsReloadKey((key) => key + 1);
+  }, [
+    isOpsSessionCurrent,
+    sessionEpoch,
+    loadCarnets,
+    userId,
+    isSessionPending,
+  ]);
+
 
   const favorites: ReadonlySet<string> =
     sessionReady && favoriteIds ? favoriteIds : EMPTY_FAVORITES;
@@ -555,6 +627,7 @@ export function usePersonalData({
       if (!isOpsSessionCurrent(sessionEpoch)) return;
       favoriteIdsAuthorityRef.current.bump();
       favoriteOverlayRef.current = { added: new Set(), removed: new Set() };
+      setFavoritesError(null);
       setFavoriteIds(new Set(ids));
     },
     [isOpsSessionCurrent, sessionEpoch],
@@ -594,6 +667,9 @@ export function usePersonalData({
 
   return {
     favorites,
+    favoritesLoading: Boolean(sessionReady && favoritesLoading),
+    favoritesError: sessionReady ? favoritesError : null,
+    hasFavoriteIds: Boolean(sessionReady && favoriteIds),
     groups,
     memberships,
     carnetCounts,
@@ -604,6 +680,13 @@ export function usePersonalData({
         ? carnetsLoading
         : false,
     ),
+    carnetsError:
+      sessionReady &&
+      isCarnetsLoadActive({ loadCarnets, userId, isSessionPending })
+        ? carnetsError
+        : null,
+    retryFavorites,
+    retryCarnets,
     addFavoriteLocally,
     rollbackFavoriteAdd,
     removeFavoriteLocally,

@@ -106,19 +106,50 @@ export function HomePage({
         />
       ) : null}
       <main>
-        {actions.favoriteError || actions.removeError ? (
+        {actions.favoriteError ||
+        actions.removeError ||
+        personal.favoritesError ||
+        personal.carnetsError ? (
           <div className="border-b border-line px-5 py-3 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">
-            <div className="mx-auto flex max-w-[var(--detour-shell-max)] flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-coral" role="alert">
-                {actions.favoriteError || actions.removeError}
-              </p>
-              <button
-                type="button"
-                onClick={actions.clearErrors}
-                className="text-[12px] text-sand underline decoration-line underline-offset-4 hover:text-ink"
-              >
-                Fermer
-              </button>
+            <div className="mx-auto flex max-w-[var(--detour-shell-max)] flex-col gap-2">
+              {actions.favoriteError || actions.removeError ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-coral" role="alert">
+                    {actions.favoriteError || actions.removeError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={actions.clearErrors}
+                    className="text-[12px] text-sand underline decoration-line underline-offset-4 hover:text-ink"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              ) : null}
+              {personal.favoritesError ? (
+                <p className="text-sm text-coral" role="alert">
+                  {personal.favoritesError}{" "}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={personal.retryFavorites}
+                  >
+                    Réessayer
+                  </button>
+                </p>
+              ) : null}
+              {personal.carnetsError ? (
+                <p className="text-sm text-coral" role="alert">
+                  {personal.carnetsError}{" "}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={personal.retryCarnets}
+                  >
+                    Réessayer
+                  </button>
+                </p>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -163,7 +194,10 @@ export function HomePage({
           }
         />
       ) : null}
-      {actions.organizeEvent && personal.hasCarnetsState && userId ? (
+      {actions.organizeEvent &&
+      personal.hasCarnetsState &&
+      userId &&
+      !(personal.carnetsError && personal.groups.length === 0) ? (
         <OrganizeInCarnetModal
           event={actions.organizeEvent}
           groups={personal.groups}
