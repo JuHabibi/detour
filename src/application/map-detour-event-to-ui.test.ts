@@ -177,44 +177,74 @@ describe("mapDetourEventToEventItem — catégorie UI", () => {
 });
 
 describe("resolveCategoryBadgeLabel", () => {
-  it("préfère sourceCategory même si category produit = Autre", () => {
+  it("affiche la taxonomie produit, pas les tags source", () => {
+    expect(
+      resolveCategoryBadgeLabel({
+        category: "Atelier",
+        genre: "Stage - atelier -  jeu",
+        sourceCategory: "Stage - atelier -  jeu",
+      }),
+    ).toBe("Atelier");
+    expect(
+      resolveCategoryBadgeLabel({
+        category: "Cinéma",
+        genre: "Projection - cinéma",
+        sourceCategory: "Projection - cinéma",
+      }),
+    ).toBe("Cinéma");
+  });
+
+  it("ne retombe pas sur Sport / CCAS quand le produit est Autre", () => {
     expect(
       resolveCategoryBadgeLabel({
         category: "Autre",
-        genre: "",
+        genre: "Sport",
         sourceCategory: "Sport",
       }),
-    ).toBe("Sport");
-  });
-
-  it("formate les catégories source multiples", () => {
+    ).toBe("Autre");
     expect(
       resolveCategoryBadgeLabel({
         category: "Autre",
-        genre: "",
-        sourceCategory: "Fête - salon - marché;Musique",
-      }),
-    ).toBe("Fête - salon - marché · Musique");
-  });
-
-  it("utilise genre si pas de sourceCategory", () => {
-    expect(
-      resolveCategoryBadgeLabel({
-        category: "Autre",
-        genre: "Jazz",
-        sourceCategory: null,
-      }),
-    ).toBe("Jazz");
-  });
-
-  it("fallback sur Autre si rien d’autre", () => {
-    expect(
-      resolveCategoryBadgeLabel({
-        category: "Autre",
-        genre: "",
-        sourceCategory: null,
+        genre: "CCAS",
+        sourceCategory: "CCAS",
       }),
     ).toBe("Autre");
+  });
+
+  it("normalise tout → Autre", () => {
+    expect(
+      resolveCategoryBadgeLabel({
+        category: "tout",
+        genre: "Jazz",
+        sourceCategory: "Musique",
+      }),
+    ).toBe("Autre");
+  });
+});
+
+describe("mapDetourEventToEventItem — badge produit (P2-C)", () => {
+  it("Stage - atelier - jeu → badge Atelier", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "atelier-tags",
+        title: "Construction géantes",
+        category: "Stage - atelier -  jeu",
+      }),
+    );
+    expect(item.category).toBe("Atelier");
+    expect(resolveCategoryBadgeLabel(item)).toBe("Atelier");
+  });
+
+  it("Projection - cinéma → badge Cinéma", () => {
+    const item = mapDetourEventToEventItem(
+      baseEvent({
+        id: "cinema-tags",
+        title: "Séance documentaire",
+        category: "Projection - cinéma",
+      }),
+    );
+    expect(item.category).toBe("Cinéma");
+    expect(resolveCategoryBadgeLabel(item)).toBe("Cinéma");
   });
 });
 

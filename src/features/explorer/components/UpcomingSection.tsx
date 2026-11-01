@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDistanceKm } from "@/application/format-distance";
+import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
 import type { EventItem } from "@/data/types";
 import { cn } from "@/lib/cn";
 
@@ -109,11 +110,9 @@ function UpcomingRow({
       </div>
 
       <div className="relative min-w-0">
-        {event.genre ? (
-          <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
-            {event.genre}
-          </p>
-        ) : null}
+        <p className="text-[11px] uppercase tracking-[0.14em] text-sand">
+          {resolveCategoryBadgeLabel(event)}
+        </p>
         <h3 className="mt-1.5 font-display text-[1.45rem] leading-tight md:text-[1.7rem]">
           {event.title}
         </h3>
