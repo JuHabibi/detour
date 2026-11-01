@@ -224,7 +224,11 @@ export function useFrisePersonalData({
   const [notebookError, setNotebookError] = useState<string | null>(null);
   const [notebookName, setNotebookName] = useState<string | null>(null);
   const [notebookEventsReloadKey, setNotebookEventsReloadKey] = useState(0);
-  /** Carnet auquel appartient le corpus actuellement en mémoire (null = aucun). */
+  /**
+   * Carnet auquel appartient le corpus en mémoire.
+   * État pour le garde au rendu ; ref pour les callbacks async (maj synchrone).
+   */
+  const [notebookCorpusId, setNotebookCorpusId] = useState<string | null>(null);
   const notebookCorpusIdRef = useRef<string | null>(null);
 
   const favoriteEventsGateRef = useRef(createRequestGate());
@@ -320,6 +324,7 @@ export function useFrisePersonalData({
           name: null,
         });
         notebookCorpusIdRef.current = cleared.corpusNotebookId;
+        setNotebookCorpusId(cleared.corpusNotebookId);
         setNotebookEvents(cleared.events);
         setNotebookName(cleared.name);
       }
@@ -332,6 +337,7 @@ export function useFrisePersonalData({
         },
         onSuccess: (data) => {
           notebookCorpusIdRef.current = requestedId;
+          setNotebookCorpusId(requestedId);
           setNotebookEvents(data.events);
           setNotebookName(data.name);
           setNotebookError(null);
@@ -340,6 +346,7 @@ export function useFrisePersonalData({
           setNotebookError(failure.message);
           if (failure.missing) {
             notebookCorpusIdRef.current = null;
+            setNotebookCorpusId(null);
             setNotebookEvents([]);
             setNotebookName(null);
             onNotebookMissingRef.current?.();
@@ -354,6 +361,7 @@ export function useFrisePersonalData({
           });
           if (kept.corpusNotebookId == null) {
             notebookCorpusIdRef.current = null;
+            setNotebookCorpusId(null);
             setNotebookEvents([]);
             setNotebookName(null);
           }
@@ -380,6 +388,10 @@ export function useFrisePersonalData({
   }, [view, notebookId]);
 
   const notebookActive = view === "notebook" && Boolean(notebookId);
+  // Garde au rendu : avant l’effet de bascule, le state corpus peut encore être A
+  // alors que notebookId est déjà B — ne pas exposer le corpus dépareillé.
+  const notebookCorpusVisible =
+    notebookActive && notebookCorpusId === notebookId;
 
   return {
     favoriteIds: favorites,
@@ -391,10 +403,10 @@ export function useFrisePersonalData({
     groupsLoading: view === "notebook" && carnetsLoading,
     groupsError: view === "notebook" ? carnetsError : null,
     retryGroups: retryCarnets,
-    notebookEvents: notebookActive ? notebookEvents : EMPTY_EVENTS,
+    notebookEvents: notebookCorpusVisible ? notebookEvents : EMPTY_EVENTS,
     notebookLoading: notebookActive && notebookLoading,
     notebookError: notebookActive ? notebookError : null,
-    notebookName: notebookActive ? notebookName : null,
+    notebookName: notebookCorpusVisible ? notebookName : null,
     retryNotebookEvents,
     addFavoriteLocally,
     rollbackFavoriteAdd,
