@@ -39,7 +39,11 @@ jobs:
         run: npm test
 
       - name: Typecheck
-        run: npx tsc --noEmit
+        # `LayoutProps` / routes typées exigent les defs générées par Next
+        # (`next-env.d.ts` + `.next/types`), absentes après un simple `npm ci`.
+        run: |
+          npx next typegen
+          npx tsc --noEmit
 
       - name: Build
         env:
