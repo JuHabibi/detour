@@ -3,6 +3,7 @@
  *
  * Réutilise `classifyEventCategory` (SSOT TypeScript) — pas de miroir SQL.
  * Candidats = tags `Spectacle / Concert` ou paire exacte Musique↔Spectacle.
+ * Écriture verrouillée : uniquement la transition Spectacle → Musique.
  *
  * Usage :
  *   npx tsx scripts/backfill-product-category-concert-pra.mts           # dry-run
@@ -13,6 +14,11 @@ import { resolve } from "node:path";
 import { Client } from "pg";
 import { classifyEventCategory } from "../src/domain/events/classify-event-category";
 import type { DetourEvent } from "../src/domain/events/event";
+import {
+  isPraConcertBackfillChange,
+  PRA_CONCERT_BACKFILL_FROM,
+  PRA_CONCERT_BACKFILL_TO,
+} from "./backfill-product-category-concert-pra.guard";
 
 const APPLY = process.argv.includes("--apply");
 
@@ -62,6 +68,14 @@ const CANDIDATE_SQL = `
   ORDER BY start_at ASC NULLS LAST, id ASC
 `;
 
+/** UPDATE verrouillé en dur : uniquement Spectacle → Musique. */
+const APPLY_UPDATE_SQL = `
+  UPDATE events
+  SET product_category = 'Musique', updated_at = now()
+  WHERE id = $1
+    AND product_category = 'Spectacle'
+`;
+
 function toEvent(row: CandidateRow): DetourEvent {
   return {
     id: row.id,
@@ -104,21 +118,28 @@ async function main() {
       title: string;
       category: string | null;
       adapter_id: string;
-      before: string | null;
-      after: string;
+      before: typeof PRA_CONCERT_BACKFILL_FROM;
+      after: typeof PRA_CONCERT_BACKFILL_TO;
     }> = [];
+
+    let skippedOtherTransitions = 0;
 
     for (const row of rows) {
       const after = classifyEventCategory(toEvent(row));
       const before = row.product_category ?? null;
       if (before === after) continue;
+      // Garde-fou sélection : Spectacle → Musique uniquement.
+      if (!isPraConcertBackfillChange(before, after)) {
+        skippedOtherTransitions += 1;
+        continue;
+      }
       changes.push({
         id: row.id,
         title: row.title,
         category: row.category,
         adapter_id: row.adapter_id,
-        before,
-        after,
+        before: PRA_CONCERT_BACKFILL_FROM,
+        after: PRA_CONCERT_BACKFILL_TO,
       });
     }
 
@@ -128,11 +149,11 @@ async function main() {
           mode: APPLY ? "apply" : "dry-run",
           candidates: rows.length,
           changes: changes.length,
-          by_transition: Object.fromEntries(
-            [...new Set(changes.map((c) => `${c.before ?? "(null)"}→${c.after}`))].map(
-              (key) => [key, changes.filter((c) => `${c.before ?? "(null)"}→${c.after}` === key).length],
-            ),
-          ),
+          skipped_other_transitions: skippedOtherTransitions,
+          allowed_transition: `${PRA_CONCERT_BACKFILL_FROM}→${PRA_CONCERT_BACKFILL_TO}`,
+          by_transition: {
+            [`${PRA_CONCERT_BACKFILL_FROM}→${PRA_CONCERT_BACKFILL_TO}`]: changes.length,
+          },
           rows: changes,
         },
         null,
@@ -142,7 +163,11 @@ async function main() {
 
     if (!APPLY) {
       console.error(
-        `\nDry-run : ${changes.length} changement(s) / ${rows.length} candidat(s). Relancer avec --apply pour écrire.`,
+        `\nDry-run : ${changes.length} changement(s) / ${rows.length} candidat(s)` +
+          (skippedOtherTransitions
+            ? ` (${skippedOtherTransitions} autre(s) transition(s) ignorée(s))`
+            : "") +
+          `. Relancer avec --apply pour écrire.`,
       );
       return;
     }
@@ -155,13 +180,12 @@ async function main() {
     await client.query("BEGIN");
     let updated = 0;
     for (const change of changes) {
-      const result = await client.query(
-        `UPDATE events
-         SET product_category = $1, updated_at = now()
-         WHERE id = $2
-           AND product_category IS NOT DISTINCT FROM $3`,
-        [change.after, change.id, change.before],
-      );
+      if (!isPraConcertBackfillChange(change.before, change.after)) {
+        throw new Error(
+          `Transition interdite pour ${change.id}: ${change.before}→${change.after}`,
+        );
+      }
+      const result = await client.query(APPLY_UPDATE_SQL, [change.id]);
       updated += result.rowCount ?? 0;
     }
     await client.query("COMMIT");
