@@ -582,6 +582,8 @@ export function ExplorerFilterBar({
   const whatTriggerRef = useRef<HTMLButtonElement>(null);
   const desktopPanelRef = useRef<HTMLDivElement>(null);
   const [openPanel, setOpenPanel] = useState<PanelId | null>(null);
+  /** Capturé à l’ouverture (handler) — pas de lecture de ref pendant le rendu. */
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
   const compact = useIsCompactViewport();
 
   const whenLabel = explorerPeriodTriggerLabel(when, from, to);
@@ -596,8 +598,19 @@ export function ExplorerFilterBar({
     category !== EXPLORER_URL_DEFAULTS.category ||
     audience === EXPLORER_AUDIENCE_JEUNE_PUBLIC;
 
+  function triggerRefFor(panel: PanelId) {
+    if (panel === "when") return whenTriggerRef;
+    if (panel === "where") return whereTriggerRef;
+    return whatTriggerRef;
+  }
+
   function togglePanel(panel: PanelId) {
-    setOpenPanel((current) => (current === panel ? null : panel));
+    if (openPanel === panel) {
+      setOpenPanel(null);
+      return;
+    }
+    setReturnFocusTo(triggerRefFor(panel).current);
+    setOpenPanel(panel);
   }
 
   function closePanel() {
@@ -613,16 +626,9 @@ export function ExplorerFilterBar({
           ? whatPanelId
           : undefined;
 
-  const activeTriggerRef =
-    openPanel === "when"
-      ? whenTriggerRef
-      : openPanel === "where"
-        ? whereTriggerRef
-        : openPanel === "what"
-          ? whatTriggerRef
-          : whenTriggerRef;
-
-  const returnFocus = activeTriggerRef.current;
+  const activeTriggerRef = openPanel
+    ? triggerRefFor(openPanel)
+    : whenTriggerRef;
 
   function renderPanelBody(
     initialFocusRef?: RefObject<HTMLButtonElement | null>,
@@ -774,7 +780,7 @@ export function ExplorerFilterBar({
           title={panelTitle}
           panelId={activePanelId!}
           onClose={closePanel}
-          returnFocusTo={returnFocus}
+          returnFocusTo={returnFocusTo}
         >
           {(initialFocusRef) => renderPanelBody(initialFocusRef)}
         </MobileFilterSheet>
