@@ -1,8 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { runDetourAvailabilityEnrichment } from "@/application/availability/run-detour-availability-enrichment";
-import { runDetourEventSync } from "@/application/event-sync/run-detour-event-sync";
-import { invalidatePublicHomeCache } from "@/infrastructure/next-public-home-cache";
-import { invalidatePublicExplorerCache } from "@/infrastructure/next-public-explorer-cache";
+import { buildEventSyncResponse } from "@/application/event-sync/build-event-sync-response";
 
 export const runtime = "nodejs";
 
@@ -24,30 +21,14 @@ function isAuthorized(request: Request): boolean {
   return timingSafeEqual(expected, actual);
 }
 
-/** POST interne — sync sources puis enrichissement disponibilité (best-effort). */
+/**
+ * POST interne — sync sources puis enrichissement disponibilité (best-effort).
+ * Même contrat HTTP que le cron : 503 si au moins une source en erreur.
+ */
 export async function POST(request: Request): Promise<Response> {
   if (!isAuthorized(request)) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  try {
-    const results = await runDetourEventSync();
-
-    let availability: unknown = null;
-    let availabilityError: string | null = null;
-    try {
-      availability = await runDetourAvailabilityEnrichment();
-    } catch (error) {
-      availabilityError =
-        error instanceof Error ? error.message : "availability_enrichment_failed";
-    }
-
-    // SWR : tags publics stale — pas de revalidatePath (expire soft tags → hit bloquant).
-    invalidatePublicHomeCache();
-    invalidatePublicExplorerCache();
-
-    return Response.json({ results, availability, availabilityError });
-  } catch {
-    return Response.json({ error: "internal_error" }, { status: 500 });
-  }
+  return buildEventSyncResponse();
 }

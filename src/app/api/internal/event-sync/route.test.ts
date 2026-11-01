@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const runDetourEventSyncMock = vi.fn();
 const runDetourAvailabilityEnrichmentMock = vi.fn();
+const loadSyncFreshnessMock = vi.fn();
 const revalidatePathMock = vi.fn();
 const revalidateTagMock = vi.fn();
 const updateTagMock = vi.fn();
@@ -13,6 +14,10 @@ vi.mock("@/application/event-sync/run-detour-event-sync", () => ({
 vi.mock("@/application/availability/run-detour-availability-enrichment", () => ({
   runDetourAvailabilityEnrichment: (...args: unknown[]) =>
     runDetourAvailabilityEnrichmentMock(...args),
+}));
+
+vi.mock("@/application/event-sync/load-sync-freshness", () => ({
+  loadSyncFreshness: (...args: unknown[]) => loadSyncFreshnessMock(...args),
 }));
 
 vi.mock("next/cache", () => ({
@@ -46,6 +51,7 @@ describe("POST /api/internal/event-sync", () => {
         status: "success",
         fetchedCount: 2,
         deactivatedCount: 0,
+        previousActiveCount: 2,
       },
       {
         adapterId: "saran",
@@ -56,6 +62,18 @@ describe("POST /api/internal/event-sync", () => {
     runDetourAvailabilityEnrichmentMock.mockResolvedValue({
       mapadoChecy: { matchCount: 0 },
     });
+    loadSyncFreshnessMock.mockResolvedValue([
+      {
+        adapterId: "orleans",
+        lastSuccessAt: "2026-11-01T05:00:00.000Z",
+        freshness: "fresh",
+      },
+      {
+        adapterId: "saran",
+        lastSuccessAt: "2026-10-30T05:00:00.000Z",
+        freshness: "stale",
+      },
+    ]);
   });
 
   afterEach(() => {
@@ -91,11 +109,19 @@ describe("POST /api/internal/event-sync", () => {
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
-  it("200 + sync même si SyncResult error ; revalidateTag SWR max (pas revalidatePath)", async () => {
+  it("SyncResult error → 503 partial + freshness ; revalidateTag SWR max", async () => {
     const res = await POST(requestWithAuth(`Bearer ${SECRET}`));
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { results: unknown[] };
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as {
+      ok: boolean;
+      status: string;
+      results: unknown[];
+      freshness: unknown[];
+    };
+    expect(body.ok).toBe(false);
+    expect(body.status).toBe("partial");
     expect(body.results).toHaveLength(2);
+    expect(body.freshness).toHaveLength(2);
     expect(runDetourEventSyncMock).toHaveBeenCalledTimes(1);
     expect(runDetourAvailabilityEnrichmentMock).toHaveBeenCalledTimes(1);
     expect(revalidatePathMock).not.toHaveBeenCalled();
@@ -108,13 +134,63 @@ describe("POST /api/internal/event-sync", () => {
     expect(updateTagMock).not.toHaveBeenCalled();
   });
 
-  it("availability best-effort échoue → 200 + revalidate tag SWR", async () => {
+  it("toutes réussissent → 200 ok", async () => {
+    runDetourEventSyncMock.mockResolvedValue([
+      {
+        adapterId: "orleans",
+        status: "success",
+        fetchedCount: 2,
+        deactivatedCount: 0,
+        previousActiveCount: 2,
+      },
+      {
+        adapterId: "saran",
+        status: "success",
+        fetchedCount: 1,
+        deactivatedCount: 0,
+        previousActiveCount: 1,
+      },
+    ]);
+    loadSyncFreshnessMock.mockResolvedValue([
+      {
+        adapterId: "orleans",
+        lastSuccessAt: "2026-11-01T05:00:00.000Z",
+        freshness: "fresh",
+      },
+      {
+        adapterId: "saran",
+        lastSuccessAt: "2026-11-01T05:00:00.000Z",
+        freshness: "fresh",
+      },
+    ]);
+
+    const res = await POST(requestWithAuth(`Bearer ${SECRET}`));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; status: string };
+    expect(body.ok).toBe(true);
+    expect(body.status).toBe("ok");
+  });
+
+  it("availability best-effort échoue → statut sync préservé + revalidate", async () => {
+    runDetourEventSyncMock.mockResolvedValue([
+      {
+        adapterId: "orleans",
+        status: "success",
+        fetchedCount: 2,
+        deactivatedCount: 0,
+        previousActiveCount: 2,
+      },
+    ]);
     runDetourAvailabilityEnrichmentMock.mockRejectedValue(
       new Error("mapado down"),
     );
     const res = await POST(requestWithAuth(`Bearer ${SECRET}`));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { availabilityError: string | null };
+    const body = (await res.json()) as {
+      availabilityError: string | null;
+      status: string;
+    };
+    expect(body.status).toBe("ok");
     expect(body.availabilityError).toBe("mapado down");
     expect(revalidatePathMock).not.toHaveBeenCalled();
     expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", "max");

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const runDetourEventSyncMock = vi.fn();
 const runDetourAvailabilityEnrichmentMock = vi.fn();
+const loadSyncFreshnessMock = vi.fn();
 const revalidatePathMock = vi.fn();
 const revalidateTagMock = vi.fn();
 const updateTagMock = vi.fn();
@@ -13,6 +14,10 @@ vi.mock("@/application/event-sync/run-detour-event-sync", () => ({
 vi.mock("@/application/availability/run-detour-availability-enrichment", () => ({
   runDetourAvailabilityEnrichment: (...args: unknown[]) =>
     runDetourAvailabilityEnrichmentMock(...args),
+}));
+
+vi.mock("@/application/event-sync/load-sync-freshness", () => ({
+  loadSyncFreshness: (...args: unknown[]) => loadSyncFreshnessMock(...args),
 }));
 
 vi.mock("next/cache", () => ({
@@ -46,6 +51,7 @@ describe("GET /api/cron/event-sync", () => {
         status: "success",
         fetchedCount: 10,
         deactivatedCount: 1,
+        previousActiveCount: 11,
       },
       {
         adapterId: "saran",
@@ -56,6 +62,18 @@ describe("GET /api/cron/event-sync", () => {
     runDetourAvailabilityEnrichmentMock.mockResolvedValue({
       mapadoChecy: { matchCount: 0 },
     });
+    loadSyncFreshnessMock.mockResolvedValue([
+      {
+        adapterId: "orleans",
+        lastSuccessAt: "2026-11-01T05:00:00.000Z",
+        freshness: "fresh",
+      },
+      {
+        adapterId: "saran",
+        lastSuccessAt: "2026-10-30T05:00:00.000Z",
+        freshness: "stale",
+      },
+    ]);
   });
 
   afterEach(() => {
@@ -84,24 +102,42 @@ describe("GET /api/cron/event-sync", () => {
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
-  it("200 + sync appelée ; SyncResult skipped OK ; revalidateTag SWR max (pas revalidatePath)", async () => {
+  it("200 + sync ; busy seul n’est pas une panne ; fraîcheur exposée", async () => {
     const res = await GET(requestWithAuth(`Bearer ${SECRET}`));
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
+      ok: boolean;
+      status: string;
       results: unknown[];
+      freshness: unknown[];
       availabilityError: null;
     };
+    expect(body.ok).toBe(true);
+    expect(body.status).toBe("ok");
     expect(body.results).toEqual([
       {
         adapterId: "orleans",
         status: "success",
         fetchedCount: 10,
         deactivatedCount: 1,
+        previousActiveCount: 11,
       },
       {
         adapterId: "saran",
         status: "skipped",
         reason: "busy",
+      },
+    ]);
+    expect(body.freshness).toEqual([
+      {
+        adapterId: "orleans",
+        lastSuccessAt: "2026-11-01T05:00:00.000Z",
+        freshness: "fresh",
+      },
+      {
+        adapterId: "saran",
+        lastSuccessAt: "2026-10-30T05:00:00.000Z",
+        freshness: "stale",
       },
     ]);
     expect(runDetourEventSyncMock).toHaveBeenCalledTimes(1);
@@ -117,13 +153,59 @@ describe("GET /api/cron/event-sync", () => {
     expect(updateTagMock).not.toHaveBeenCalled();
   });
 
+  it("une source en erreur → 503 partial (détectable Cron)", async () => {
+    runDetourEventSyncMock.mockResolvedValue([
+      {
+        adapterId: "orleans",
+        status: "success",
+        fetchedCount: 2,
+        deactivatedCount: 0,
+        previousActiveCount: 2,
+      },
+      {
+        adapterId: "saran",
+        status: "error",
+        errorCode: "fetch_failed",
+      },
+    ]);
+
+    const res = await GET(requestWithAuth(`Bearer ${SECRET}`));
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as {
+      ok: boolean;
+      status: string;
+      errorCount: number;
+    };
+    expect(body.ok).toBe(false);
+    expect(body.status).toBe("partial");
+    expect(body.errorCount).toBe(1);
+    expect(revalidateTagMock).toHaveBeenCalled();
+  });
+
+  it("toutes les sources en erreur → 503 error", async () => {
+    runDetourEventSyncMock.mockResolvedValue([
+      { adapterId: "orleans", status: "error", errorCode: "fetch_failed" },
+      { adapterId: "saran", status: "error", errorCode: "empty_corpus" },
+    ]);
+
+    const res = await GET(requestWithAuth(`Bearer ${SECRET}`));
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { ok: boolean; status: string };
+    expect(body.ok).toBe(false);
+    expect(body.status).toBe("error");
+  });
+
   it("sync OK même si enrichissement disponibilité échoue ; revalidate tag SWR quand même", async () => {
     runDetourAvailabilityEnrichmentMock.mockRejectedValue(
       new Error("mapado down"),
     );
     const res = await GET(requestWithAuth(`Bearer ${SECRET}`));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { availabilityError: string | null };
+    const body = (await res.json()) as {
+      availabilityError: string | null;
+      status: string;
+    };
+    expect(body.status).toBe("ok");
     expect(body.availabilityError).toBe("mapado down");
     expect(revalidatePathMock).not.toHaveBeenCalled();
     expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", "max");

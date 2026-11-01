@@ -109,12 +109,7 @@ WHERE adapter_id = $1
   return (result.rowCount ?? 0) === 1;
 }
 
-export async function getSyncState(
-  adapterId: string,
-  client?: DbQueryable,
-): Promise<SourceSyncState | null> {
-  const result = await db(client).query<SourceSyncRow>(
-    `
+const SOURCE_SYNC_SELECT = `
 SELECT
   adapter_id,
   last_attempt_at,
@@ -128,12 +123,33 @@ SELECT
   created_at,
   updated_at
 FROM source_syncs
-WHERE adapter_id = $1
-`.trim(),
+`.trim();
+
+export async function getSyncState(
+  adapterId: string,
+  client?: DbQueryable,
+): Promise<SourceSyncState | null> {
+  const result = await db(client).query<SourceSyncRow>(
+    `${SOURCE_SYNC_SELECT}
+WHERE adapter_id = $1`,
     [adapterId],
   );
   const row = result.rows[0];
   return row ? mapSourceSyncRow(row) : null;
+}
+
+/** États de sync pour un ensemble d’adapters (fraîcheur post-run). */
+export async function listSourceSyncStates(
+  adapterIds: string[],
+  client?: DbQueryable,
+): Promise<SourceSyncState[]> {
+  if (adapterIds.length === 0) return [];
+  const result = await db(client).query<SourceSyncRow>(
+    `${SOURCE_SYNC_SELECT}
+WHERE adapter_id = ANY($1::text[])`,
+    [adapterIds],
+  );
+  return result.rows.map(mapSourceSyncRow);
 }
 
 /**
