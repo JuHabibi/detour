@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PoolClient } from "pg";
 import type { DetourEvent } from "@/domain/events/event";
+import { UPSERT_EVENT_PARAM_COUNT } from "@/infrastructure/db/event-row.mapper";
 import {
   EVENT_UPSERT_CHUNK_SIZE,
   deactivateNotSeenSince,
@@ -118,7 +119,7 @@ describe("event.repository", () => {
     expect(sql1).not.toMatch(/openagenda:0|orleans/);
     expect(values1[0]).toBe("openagenda:0");
     expect(values1[1]).toBe("orleans");
-    expect(values2).toHaveLength(3 * 24);
+    expect(values2).toHaveLength(3 * UPSERT_EVENT_PARAM_COUNT);
   });
 
   it("deactivateNotSeenSince filtre adapter + marker en params", async () => {

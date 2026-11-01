@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type RefObject } from "react";
+import { useState, type RefObject } from "react";
 import { DayPicker, type DateRange } from "react-day-picker";
 import { fr } from "react-day-picker/locale";
 import {
@@ -14,6 +14,20 @@ import {
 import { cn } from "@/lib/cn";
 
 import "react-day-picker/style.css";
+
+function draftFromProps(
+  when: WhenFilter,
+  from: string | null,
+  to: string | null,
+): DateRange | undefined {
+  if (when === "range" && from && to) {
+    return {
+      from: parisDateKeyToCalendarDay(from),
+      to: parisDateKeyToCalendarDay(to),
+    };
+  }
+  return undefined;
+}
 
 export const EXPLORER_PERIOD_PRESETS: {
   id: Exclude<WhenFilter, "range">;
@@ -47,29 +61,24 @@ export function ExplorerWhenPanel({
   initialFocusRef,
 }: ExplorerWhenPanelProps) {
   const [draft, setDraft] = useState<DateRange | undefined>(() =>
-    from && to
-      ? {
-          from: parisDateKeyToCalendarDay(from),
-          to: parisDateKeyToCalendarDay(to),
-        }
-      : undefined,
+    draftFromProps(when, from, to),
   );
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [syncedRange, setSyncedRange] = useState({ when, from, to });
   // Borne « aujourd’hui » métier = jour civil Europe/Paris.
   const todayKey = toParisDateKey(new Date());
   const todayDate = parisDateKeyToCalendarDay(todayKey);
 
-  useEffect(() => {
-    if (when === "range" && from && to) {
-      setDraft({
-        from: parisDateKeyToCalendarDay(from),
-        to: parisDateKeyToCalendarDay(to),
-      });
-    } else {
-      setDraft(undefined);
-    }
+  // Alignement synchrone des props (évite setState dans un effet).
+  if (
+    when !== syncedRange.when ||
+    from !== syncedRange.from ||
+    to !== syncedRange.to
+  ) {
+    setSyncedRange({ when, from, to });
+    setDraft(draftFromProps(when, from, to));
     setDraftError(null);
-  }, [when, from, to]);
+  }
 
   function handleApply() {
     if (!draft?.from) {

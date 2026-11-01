@@ -13,6 +13,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Artefacts locaux (gitignorés) — hors périmètre CI.
+    ".tmp/**",
+    "tmp/**",
   ]),
 
   // Domain prod : pas d’app / UI / infra / Next.
