@@ -11,6 +11,7 @@
     "audit:evaluate": "tsx scripts/evaluate-editorial-snapshot.mts",
     "audit:challenger": "tsx scripts/evaluate-selector-challenger.mts",
     "backfill:pra-concerts": "tsx scripts/backfill-product-category-concert-pra.mts",
+    "backfill:cinema": "tsx scripts/backfill-product-category-cinema.mts",
     "db:migrate": "dbmate --env-file .env.local up",
     "db:status": "dbmate --env-file .env.local status"
   },

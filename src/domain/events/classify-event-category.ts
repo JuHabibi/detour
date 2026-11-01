@@ -7,6 +7,7 @@ import type { DetourEvent } from "@/domain/events/event";
 export type DetourCategory =
   | "Musique"
   | "Spectacle"
+  | "Cinéma"
   | "Exposition"
   | "Atelier"
   | "Jeune public"
@@ -19,6 +20,7 @@ export type DetourCategory =
 export const DETOUR_CATEGORIES: DetourCategory[] = [
   "Musique",
   "Spectacle",
+  "Cinéma",
   "Exposition",
   "Atelier",
   "Jeune public",
@@ -38,17 +40,18 @@ type ProductCategory = Exclude<DetourCategory, "Autre">;
 
 /**
  * Priorité sur champs structurés (category / genre) :
- * Fête → Spectacle → Exposition → Atelier → Jeune public
+ * Fête → Spectacle → Exposition → Atelier → Cinéma → Jeune public
  * → Rencontre → Visite → Musique → Loisirs culturels
  *
- * « Fête - salon - marché;Musique » → Fête / salon / marché
- * (le type d’événement structurel prime sur le tag secondaire).
+ * Ordre Spectacle → Atelier inchangé (Passerelle / PR-A).
+ * Les projections sont surtout tranchées par `classifyCinemaPrimary` (avant boucle).
  */
 const STRUCTURED_PRIORITY: ProductCategory[] = [
   "Fête / salon / marché",
   "Spectacle",
   "Exposition",
   "Atelier",
+  "Cinéma",
   "Jeune public",
   "Rencontre",
   "Visite",
@@ -58,13 +61,14 @@ const STRUCTURED_PRIORITY: ProductCategory[] = [
 
 /**
  * Priorité textuelle (title / description / venue) si pas de signal structuré :
- * Musique → Spectacle → Exposition → Atelier → Jeune public
+ * Musique → Cinéma → Spectacle → Exposition → Atelier → Jeune public
  * → Rencontre → Visite → Fête → Loisirs → Autre
  *
  * Contenu > audience (« Concert jeune public » → Musique).
  */
 const TEXT_PRIORITY: ProductCategory[] = [
   "Musique",
+  "Cinéma",
   "Spectacle",
   "Exposition",
   "Atelier",
@@ -87,6 +91,10 @@ const STRUCTURED_SIGNALS: Record<ProductCategory, Cue[]> = {
     { match: "concert" },
     { match: "jazz" },
   ],
+  Cinéma: [
+    { match: "cinema" },
+    { match: "projection" },
+  ],
   Spectacle: [
     { match: "spectacle" },
     { match: "theatre" },
@@ -94,8 +102,6 @@ const STRUCTURED_SIGNALS: Record<ProductCategory, Cue[]> = {
     { match: "danses", wholeWord: true },
     { match: "cirque" },
     { match: "humour" },
-    { match: "cinema" },
-    { match: "projection" },
   ],
   Exposition: [
     { match: "exposition" },
@@ -136,6 +142,16 @@ const TEXT_SIGNALS: Record<ProductCategory, Cue[]> = {
     { match: "opera" },
     { match: "philharmonie" },
   ],
+  Cinéma: [
+    { match: "cinema" },
+    { match: "projection" },
+    { match: "documentaire" },
+    { match: "seance cinema" },
+    { match: "film d animation" },
+    { match: "film d'animation" },
+    { match: "mois du film" },
+    { match: "mois du doc" },
+  ],
   Spectacle: [
     { match: "spectacle" },
     { match: "theatre" },
@@ -143,8 +159,6 @@ const TEXT_SIGNALS: Record<ProductCategory, Cue[]> = {
     { match: "danses", wholeWord: true },
     { match: "cirque" },
     { match: "humour" },
-    { match: "cinema" },
-    { match: "projection" },
   ],
   Exposition: [
     { match: "exposition" },
@@ -222,6 +236,20 @@ export function classifyEventCategory(event: DetourEvent): DetourCategory {
   );
   if (concertPrimary) return concertPrimary;
 
+  // Captation d’art vivant projetée (opéra, etc.) → Spectacle, pas Cinéma.
+  if (isProjectedPerformingArtsCapture(titleDescription)) {
+    return "Spectacle";
+  }
+
+  // Projections / CINÉ-VACANCES avant STRUCTURED_PRIORITY (sinon « Spectacle »
+  // ou l’absence de cue laisse CINÉ-VACANCES en Autre).
+  const cinemaPrimary = classifyCinemaPrimary(
+    event.category,
+    structured,
+    titleDescription,
+  );
+  if (cinemaPrimary) return cinemaPrimary;
+
   if (structured) {
     for (const category of STRUCTURED_PRIORITY) {
       if (findCue(structured, STRUCTURED_SIGNALS[category])) {
@@ -231,12 +259,112 @@ export function classifyEventCategory(event: DetourEvent): DetourCategory {
   }
 
   for (const category of TEXT_PRIORITY) {
+    if (category === "Cinéma") {
+      // Garde-fou : stage / atelier / quizz « cinéma » ≠ séance de projection.
+      // Stem « cine » borné (évite « piscine ») ; title+desc seulement.
+      if (
+        !isCinemaWorkshopOrQuizText(titleDescription) &&
+        !isProjectedPerformingArtsCapture(titleDescription) &&
+        (findCue(titleDescription, TEXT_SIGNALS.Cinéma) ||
+          hasCinemaStem(titleDescription))
+      ) {
+        return "Cinéma";
+      }
+      continue;
+    }
     if (findCue(text, TEXT_SIGNALS[category])) {
       return category;
     }
   }
 
   return "Autre";
+}
+
+/**
+ * Séances de cinéma / documentaire / CINÉ-VACANCES.
+ * N’empiète pas sur atelier+projection ni sur les dumps Passerelle.
+ */
+function classifyCinemaPrimary(
+  categoryRaw: string | null | undefined,
+  structured: string,
+  titleDescription: string,
+): "Cinéma" | null {
+  if (isCinemaWorkshopOrQuizText(titleDescription)) return null;
+  if (isProjectedPerformingArtsCapture(titleDescription)) return null;
+  // Expo structurée + projection : l’exposition prime (journée expo / lectures).
+  if (findCue(structured, STRUCTURED_SIGNALS.Exposition)) return null;
+  if (
+    findCue(structured, [
+      { match: "atelier" },
+      { match: "stage" },
+      { match: "workshop" },
+    ])
+  ) {
+    return null;
+  }
+
+  if (
+    findCue(structured, STRUCTURED_SIGNALS.Cinéma) ||
+    hasCinemaStem(structured)
+  ) {
+    return "Cinéma";
+  }
+
+  // Tag source « Spectacle » seul alors que le texte décrit une séance.
+  const tags = splitSourceTags(categoryRaw);
+  if (
+    tags.length === 1 &&
+    tags[0] === "spectacle" &&
+    hasStrongCinemaScreeningText(titleDescription)
+  ) {
+    return "Cinéma";
+  }
+
+  return null;
+}
+
+/** Stage / atelier / quizz autour du cinéma — pas une séance de projection. */
+function isCinemaWorkshopOrQuizText(titleDescription: string): boolean {
+  if (!titleDescription) return false;
+  if (/\b(stage|atelier|workshop|quizz?|doublage)\b/.test(titleDescription)) {
+    return true;
+  }
+  return /histoire du cinema|cine quizz|mode cine/.test(titleDescription);
+}
+
+/**
+ * Captation d’art vivant diffusée sur écran (opéra, théâtre filmé…).
+ * Reste Spectacle même si le tag source dit « Projection - cinéma ».
+ */
+function isProjectedPerformingArtsCapture(text: string): boolean {
+  if (!text) return false;
+  if (/captation|theatre filme|spectacle lyrique/.test(text)) return true;
+  const hasOpera = /\bopera\b/.test(text);
+  const hasScreen =
+    /\bprojection\b/.test(text) ||
+    /\bfilme\b/.test(text) ||
+    /\becran\b/.test(text);
+  return hasOpera && hasScreen;
+}
+
+/**
+ * Preuve de séance (pas une simple mention « inspirée du cinéma »).
+ * Utilisé seulement pour surclasser un tag source « Spectacle » seul.
+ */
+function hasStrongCinemaScreeningText(text: string): boolean {
+  if (!text) return false;
+  return /seance cinema|film d[' ]?animation|\bprojection\b|mois du (film|doc)|cine-?seniors|cine-?debat|cine-?vacances|cine etc/.test(
+    text,
+  );
+}
+
+/**
+ * Stem « cine » en début de token (cinema, ciné-vacances, CinéEtc).
+ * N’accroche pas « piscine ».
+ */
+function hasCinemaStem(text: string): boolean {
+  if (!text) return false;
+  return /(^|[^a-z0-9])cine/.test(text);
 }
 
 /**
