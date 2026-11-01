@@ -255,30 +255,39 @@ describe("runFavoriteIdsLoad", () => {
     expect([...onMerged.mock.calls[0]![0]].sort()).toEqual(["A", "B"]);
   });
 
-  it("erreur ok:false : n’appelle pas onMerged (pas d’effacement local)", async () => {
+  it("erreur ok:false : n’appelle pas onMerged ; signale onError", async () => {
     const onMerged = vi.fn();
+    const onError = vi.fn();
+    const loading: boolean[] = [];
     await runFavoriteIdsLoad(
       async () => ({ ok: false, reason: "unauthenticated" }),
       {
         isCurrent: () => true,
         getDelta: () => ({ added: new Set(["C"]), removed: new Set() }),
         onMerged,
+        onError,
+        onLoading: (v) => loading.push(v),
       },
     );
     expect(onMerged).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith("Impossible de charger vos favoris.");
+    expect(loading).toEqual([true, false]);
   });
 
-  it("promesse rejetée : n’appelle pas onMerged", async () => {
+  it("promesse rejetée : n’appelle pas onMerged ; signale onError", async () => {
     const pending = deferred<ListMyFavoriteEventIdsResult>();
     const onMerged = vi.fn();
+    const onError = vi.fn();
     const load = runFavoriteIdsLoad(() => pending.promise, {
       isCurrent: () => true,
       getDelta: () => ({ added: new Set(["C"]), removed: new Set() }),
       onMerged,
+      onError,
     });
     pending.reject(new Error("network"));
     await load;
     expect(onMerged).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith("Impossible de charger vos favoris.");
   });
 
   it("session obsolète : ignore la réponse", async () => {
@@ -400,8 +409,9 @@ describe("runCarnetsLoad", () => {
     ).toEqual({ A: 1, B: 1, C: 1 });
   });
 
-  it("erreur de chargement : ne vide pas via onMerged ; fin loading", async () => {
+  it("erreur de chargement : ne vide pas via onMerged ; signale onError ; fin loading", async () => {
     const onMerged = vi.fn();
+    const onError = vi.fn();
     const loading: boolean[] = [];
     await runCarnetsLoad(
       async () => ({ ok: false, reason: "unauthenticated" }),
@@ -410,10 +420,12 @@ describe("runCarnetsLoad", () => {
         getOverlay: () => emptyOverlay(),
         onServerSnapshot: vi.fn(),
         onMerged,
+        onError,
         onLoading: (v) => loading.push(v),
       },
     );
     expect(onMerged).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith("Impossible de charger vos carnets.");
     expect(loading).toEqual([true, false]);
   });
 

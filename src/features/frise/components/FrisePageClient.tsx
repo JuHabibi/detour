@@ -139,12 +139,16 @@ export function FrisePageClient({
     favoriteEvents,
     favoriteEventsLoading,
     favoriteEventsError,
+    retryFavoriteEvents,
     groups,
     groupsLoading,
+    groupsError,
+    retryGroups,
     notebookEvents,
     notebookLoading,
     notebookError,
     notebookName,
+    retryNotebookEvents,
     addFavoriteLocally,
     rollbackFavoriteAdd,
     setFavoriteIds,
@@ -375,22 +379,36 @@ export function FrisePageClient({
           >
             {view === "notebook" ? (
               <div className="min-w-0">
-                {groupsLoading ? (
+                {groupsLoading && groups.length === 0 ? (
                   <p className="text-sm text-sand">Chargement des carnets…</p>
-                ) : groups.length === 0 ? (
+                ) : null}
+                {groupsError ? (
+                  <p className="mb-3 text-sm text-coral" role="alert">
+                    {groupsError}{" "}
+                    <button
+                      type="button"
+                      className="underline"
+                      onClick={retryGroups}
+                    >
+                      Réessayer
+                    </button>
+                  </p>
+                ) : null}
+                {!groupsLoading && !groupsError && groups.length === 0 ? (
                   <FriseEmptyState
                     title="Aucun carnet pour l’instant."
                     description="Créez jusqu’à quatre collections personnelles pour organiser vos découvertes."
                     ctaLabel="Voir mes carnets"
                     ctaHref="/account"
                   />
-                ) : (
+                ) : null}
+                {groups.length > 0 ? (
                   <FriseCarnetThumbs
                     groups={groups}
                     selectedId={notebookId}
                     onSelect={selectNotebook}
                   />
-                )}
+                ) : null}
               </div>
             ) : null}
 
@@ -536,7 +554,13 @@ export function FrisePageClient({
               onOpenDetail={onOpenDetail}
               loadError={activeFrise.error}
               onRetry={
-                view === "all" ? () => void explorerFrise.reload() : undefined
+                view === "all"
+                  ? () => void explorerFrise.reload()
+                  : view === "favorites"
+                    ? retryFavoriteEvents
+                    : view === "notebook"
+                      ? retryNotebookEvents
+                      : undefined
               }
               bannerError={favoriteError || removeError}
               countTone={countTone}

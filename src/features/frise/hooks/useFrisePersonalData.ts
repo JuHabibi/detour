@@ -175,6 +175,8 @@ export function useFrisePersonalData({
     favorites,
     groups,
     carnetsLoading,
+    carnetsError,
+    retryCarnets,
     addFavoriteLocally,
     rollbackFavoriteAdd,
     removeFavoriteLocally,
@@ -191,15 +193,18 @@ export function useFrisePersonalData({
   const [favoriteEventsError, setFavoriteEventsError] = useState<string | null>(
     null,
   );
+  const [favoriteEventsReloadKey, setFavoriteEventsReloadKey] = useState(0);
 
   const [notebookEvents, setNotebookEvents] = useState<EventItem[]>([]);
   const [notebookLoading, setNotebookLoading] = useState(false);
   const [notebookError, setNotebookError] = useState<string | null>(null);
   const [notebookName, setNotebookName] = useState<string | null>(null);
+  const [notebookEventsReloadKey, setNotebookEventsReloadKey] = useState(0);
 
   const favoriteEventsGateRef = useRef(createRequestGate());
   const carnetEventsGateRef = useRef(createRequestGate());
-
+  const favoriteEventsLoadingRef = useRef(false);
+  const notebookLoadingRef = useRef(false);
   const removeEventLocally = useCallback(
     (id: string) => {
       removeFavoriteLocally(id);
@@ -237,14 +242,17 @@ export function useFrisePersonalData({
       setFavoriteEventsError(null);
       void runFavoriteEventsLoad(listFavoriteEvents, {
         isCurrent: gate.isCurrent,
-        onLoading: setFavoriteEventsLoading,
+        onLoading: (loading) => {
+          favoriteEventsLoadingRef.current = loading;
+          setFavoriteEventsLoading(loading);
+        },
         onSuccess: (events) => {
           setFavoriteEvents(events);
           setFavoriteEventsError(null);
           setFavoriteIdsAuthoritative(events.map((item) => item.id));
         },
         onError: (message) => {
-          setFavoriteEvents([]);
+          // Conserve le dernier corpus valide — pas de faux état vide.
           setFavoriteEventsError(message);
         },
       });
@@ -254,7 +262,12 @@ export function useFrisePersonalData({
       cancelled = true;
       requestGate.invalidate();
     };
-  }, [view, listFavoriteEvents, setFavoriteIdsAuthoritative]);
+  }, [
+    view,
+    listFavoriteEvents,
+    setFavoriteIdsAuthoritative,
+    favoriteEventsReloadKey,
+  ]);
 
   useEffect(() => {
     const requestGate = carnetEventsGateRef.current;
@@ -273,19 +286,24 @@ export function useFrisePersonalData({
       setNotebookError(null);
       void runCarnetEventsLoad(requestedId, getCarnetEvents, {
         isCurrent: gate.isCurrent,
-        onLoading: setNotebookLoading,
+        onLoading: (loading) => {
+          notebookLoadingRef.current = loading;
+          setNotebookLoading(loading);
+        },
         onSuccess: (data) => {
           setNotebookEvents(data.events);
           setNotebookName(data.name);
           setNotebookError(null);
         },
         onError: (failure) => {
-          setNotebookEvents([]);
-          setNotebookName(null);
           setNotebookError(failure.message);
           if (failure.missing) {
+            setNotebookEvents([]);
+            setNotebookName(null);
             onNotebookMissingRef.current?.();
+            return;
           }
+          // Échec réseau/serveur : conserve le dernier contenu valide.
         },
       });
     });
@@ -294,7 +312,19 @@ export function useFrisePersonalData({
       cancelled = true;
       requestGate.invalidate();
     };
-  }, [view, notebookId, getCarnetEvents]);
+  }, [view, notebookId, getCarnetEvents, notebookEventsReloadKey]);
+
+  const retryFavoriteEvents = useCallback(() => {
+    if (view !== "favorites") return;
+    if (favoriteEventsLoadingRef.current) return;
+    setFavoriteEventsReloadKey((key) => key + 1);
+  }, [view]);
+
+  const retryNotebookEvents = useCallback(() => {
+    if (view !== "notebook" || !notebookId) return;
+    if (notebookLoadingRef.current) return;
+    setNotebookEventsReloadKey((key) => key + 1);
+  }, [view, notebookId]);
 
   const notebookActive = view === "notebook" && Boolean(notebookId);
 
@@ -303,12 +333,16 @@ export function useFrisePersonalData({
     favoriteEvents: view === "favorites" ? favoriteEvents : EMPTY_EVENTS,
     favoriteEventsLoading: view === "favorites" && favoriteEventsLoading,
     favoriteEventsError: view === "favorites" ? favoriteEventsError : null,
+    retryFavoriteEvents,
     groups: view === "notebook" ? groups : [],
     groupsLoading: view === "notebook" && carnetsLoading,
+    groupsError: view === "notebook" ? carnetsError : null,
+    retryGroups: retryCarnets,
     notebookEvents: notebookActive ? notebookEvents : EMPTY_EVENTS,
     notebookLoading: notebookActive && notebookLoading,
     notebookError: notebookActive ? notebookError : null,
     notebookName: notebookActive ? notebookName : null,
+    retryNotebookEvents,
     addFavoriteLocally,
     rollbackFavoriteAdd,
     setFavoriteIds: setFavoriteIdsAuthoritative,
