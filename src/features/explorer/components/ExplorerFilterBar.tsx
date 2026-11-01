@@ -12,8 +12,15 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Calendar, MapPin, Search, Ticket } from "lucide-react";
-import { categories } from "@/config/event-categories";
+import {
+  categories,
+  explorerTypeCategories,
+} from "@/config/event-categories";
 import type { CategoryId } from "@/data/types";
+import {
+  EXPLORER_AUDIENCE_JEUNE_PUBLIC,
+  type ExplorerAudienceId,
+} from "@/domain/events/audience-jeune-public";
 import { V1_COMMUNES, type V1Commune } from "@/domain/geo/v1-communes";
 import type { WhenFilter } from "@/domain/time/when-filter";
 import { EXPLORER_URL_DEFAULTS } from "@/features/explorer/explorer-url-state";
@@ -41,6 +48,8 @@ type ExplorerFilterBarProps = {
   onCityChange: (value: V1Commune | null) => void;
   category: CategoryId;
   onCategoryChange: (value: CategoryId) => void;
+  audience: ExplorerAudienceId | null;
+  onAudienceChange: (value: ExplorerAudienceId | null) => void;
 };
 
 const CITY_OPTIONS: { id: string; label: string }[] = [
@@ -235,48 +244,140 @@ function CityPanel({
 function CategoryPanel({
   category,
   onCategoryChange,
+  audience,
+  onAudienceChange,
   initialFocusRef,
 }: {
   category: CategoryId;
   onCategoryChange: (value: CategoryId) => void;
+  audience: ExplorerAudienceId | null;
+  onAudienceChange: (value: ExplorerAudienceId | null) => void;
   initialFocusRef?: RefObject<HTMLButtonElement | null>;
 }) {
+  const historicJeunePublic = category === "Jeune public";
   const selectedIndex = Math.max(
     0,
-    categories.findIndex((item) => item.id === category),
+    explorerTypeCategories.findIndex((item) => item.id === category),
   );
+  const kidsActive = audience === EXPLORER_AUDIENCE_JEUNE_PUBLIC;
 
   return (
-    <div
-      role="listbox"
-      aria-label="Catégorie"
-      className="max-h-72 overflow-y-auto"
-    >
-      {categories.map((item, index) => {
-        const active = item.id === category;
-        return (
-          <button
-            key={item.id}
-            ref={index === selectedIndex ? initialFocusRef : undefined}
-            type="button"
-            role="option"
-            aria-selected={active}
-            tabIndex={index === selectedIndex ? 0 : -1}
-            onKeyDown={handleListboxOptionKeyDown}
-            onClick={() => onCategoryChange(item.id)}
+    // Public ancré en bas (hors scroll) : toujours visible sans chercher.
+    <div className="flex h-full max-h-[min(28rem,70vh)] flex-col">
+      {historicJeunePublic ? (
+        <div className="shrink-0 border-b border-line px-3 py-2.5">
+          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-sand">
+            Filtre historique
+          </p>
+          <div className="mt-1.5 flex items-center justify-between gap-3">
+            <p className="min-w-0 text-[13px] text-ink">
+              Type « Jeune public »
+              <span className="mt-0.5 block text-[11px] text-sand">
+                Lien enregistré — résultats inchangés. Pour la jeunesse,
+                préférer « Sorties pour enfants et ados ».
+              </span>
+            </p>
+            <button
+              type="button"
+              className="shrink-0 text-[12px] text-ink underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink"
+              onClick={() => onCategoryChange("tout")}
+            >
+              Effacer
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div
+        role="listbox"
+        aria-label="Type de sortie"
+        className="min-h-0 flex-1 overflow-y-auto"
+      >
+        <p className="px-3 pb-1 pt-2 text-[10px] font-medium uppercase tracking-[0.14em] text-sand">
+          Type de sortie
+        </p>
+        {explorerTypeCategories.map((item, index) => {
+          const active = item.id === category;
+          return (
+            <button
+              key={item.id}
+              ref={
+                !historicJeunePublic && index === selectedIndex
+                  ? initialFocusRef
+                  : undefined
+              }
+              type="button"
+              role="option"
+              aria-selected={active}
+              tabIndex={
+                !historicJeunePublic && index === selectedIndex ? 0 : -1
+              }
+              onKeyDown={handleListboxOptionKeyDown}
+              onClick={() => onCategoryChange(item.id)}
+              className={cn(
+                "flex min-h-10 w-full items-center justify-between gap-3 px-3 py-2 text-left text-[13px] transition-colors",
+                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ink",
+                active ? "bg-ink text-foam" : "text-ink hover:bg-mint-soft",
+              )}
+            >
+              <span className="min-w-0 truncate">{item.label}</span>
+              {active ? <span aria-hidden>·</span> : null}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="shrink-0 border-t border-line bg-paper px-3 py-2.5">
+        <p className="pb-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-sand">
+          Public
+        </p>
+        <button
+          ref={historicJeunePublic ? initialFocusRef : undefined}
+          type="button"
+          aria-pressed={kidsActive}
+          onClick={() =>
+            onAudienceChange(
+              kidsActive ? null : EXPLORER_AUDIENCE_JEUNE_PUBLIC,
+            )
+          }
+          className={cn(
+            "flex min-h-10 w-full items-center justify-between gap-3 px-0 py-1 text-left text-[13px] transition-colors",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ink",
+            kidsActive ? "text-ink" : "text-ink hover:text-sand",
+          )}
+        >
+          <span className="min-w-0 font-medium">
+            Sorties pour enfants et ados
+          </span>
+          <span
+            aria-hidden
             className={cn(
-              "flex min-h-10 w-full items-center justify-between gap-3 px-3 py-2 text-left text-[13px] transition-colors",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ink",
-              active ? "bg-ink text-foam" : "text-ink hover:bg-mint-soft",
+              "flex size-4 shrink-0 items-center justify-center border text-[10px]",
+              kidsActive
+                ? "border-ink bg-ink text-foam"
+                : "border-line bg-foam text-transparent",
             )}
           >
-            <span className="min-w-0 truncate">{item.label}</span>
-            {active ? <span aria-hidden>·</span> : null}
-          </button>
-        );
-      })}
+            ✓
+          </span>
+        </button>
+      </div>
     </div>
   );
+}
+
+function whatTriggerValue(
+  category: CategoryId,
+  audience: ExplorerAudienceId | null,
+): string {
+  const categoryLabel =
+    categories.find((item) => item.id === category)?.label ?? "Tout";
+  const kids = audience === EXPLORER_AUDIENCE_JEUNE_PUBLIC;
+  if (kids) {
+    const typeShort = category === "tout" ? "Tout" : categoryLabel;
+    return `${typeShort} · Jeunesse`;
+  }
+  return categoryLabel;
 }
 
 function MobileFilterSheet({
@@ -441,9 +542,17 @@ function DesktopFilterPopover({
             }
           : { position: "fixed", top: 0, left: 0, visibility: "hidden" }
       }
-      className="z-[70] overflow-y-auto border border-line bg-paper p-3 shadow-[0_12px_40px_rgb(17_17_17/12%)]"
+      className={cn(
+        "z-[70] border border-line bg-paper p-3 shadow-[0_12px_40px_rgb(17_17_17/12%)]",
+        // Quoi : Public ancré — le scroll reste dans la liste des types.
+        panel === "what" ? "flex flex-col overflow-hidden" : "overflow-y-auto",
+      )}
     >
-      {children}
+      {panel === "what" ? (
+        <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+      ) : (
+        children
+      )}
     </div>,
     document.body,
   );
@@ -461,6 +570,8 @@ export function ExplorerFilterBar({
   onCityChange,
   category,
   onCategoryChange,
+  audience,
+  onAudienceChange,
 }: ExplorerFilterBarProps) {
   const baseId = useId();
   const whenPanelId = `${baseId}-when`;
@@ -477,12 +588,13 @@ export function ExplorerFilterBar({
   const cityLabel =
     CITY_OPTIONS.find((option) => option.id === (city ?? ""))?.label ??
     "Toutes les villes";
-  const categoryLabel =
-    categories.find((item) => item.id === category)?.label ?? "Tout";
+  const categoryLabel = whatTriggerValue(category, audience);
 
   const whenActive = when !== EXPLORER_URL_DEFAULTS.when;
   const whereActive = city != null;
-  const whatActive = category !== EXPLORER_URL_DEFAULTS.category;
+  const whatActive =
+    category !== EXPLORER_URL_DEFAULTS.category ||
+    audience === EXPLORER_AUDIENCE_JEUNE_PUBLIC;
 
   function togglePanel(panel: PanelId) {
     setOpenPanel((current) => (current === panel ? null : panel));
@@ -549,7 +661,9 @@ export function ExplorerFilterBar({
       return (
         <CategoryPanel
           category={category}
+          audience={audience}
           initialFocusRef={initialFocusRef}
+          onAudienceChange={onAudienceChange}
           onCategoryChange={(value) => {
             onCategoryChange(value);
             closePanel();

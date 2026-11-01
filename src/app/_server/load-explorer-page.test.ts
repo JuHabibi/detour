@@ -35,6 +35,7 @@ describe("loadExplorerPage", () => {
       q: "",
       city: null,
       category: "tout",
+      audience: null,
     });
     expect(result).not.toHaveProperty("highlights");
     expect(result).not.toHaveProperty("isAuthenticated");

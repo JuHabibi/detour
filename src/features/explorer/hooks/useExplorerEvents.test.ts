@@ -51,6 +51,7 @@ function deferred<T>() {
 const baseFilters = {
   when: "upcoming" as const,
   category: "tout" as const,
+  audience: null,
   city: null,
   search: "",
 };

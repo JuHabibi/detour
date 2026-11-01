@@ -4,12 +4,17 @@
  */
 
 import {
-  DETOUR_CATEGORIES,
-  type DetourCategory,
-} from "@/domain/events/classify-event-category";
+  EXPLORER_AUDIENCE_JEUNE_PUBLIC,
+  type ExplorerAudienceId,
+} from "@/domain/events/audience-jeune-public";
+import type { DetourCategory } from "@/domain/events/classify-event-category";
 import { V1_COMMUNES, type V1Commune } from "@/domain/geo/v1-communes";
 import { isParisDateKey, type WhenFilter } from "@/domain/time/when-filter";
-import { isWhenFilter } from "@/application/explorer/explorer-public-query";
+import {
+  isExplorerAudience,
+  isWhenFilter,
+  parseExplorerCategoryParam,
+} from "@/application/explorer/explorer-public-query";
 import type { CategoryId } from "@/data/types";
 
 export type ExplorerUrlState = {
@@ -19,6 +24,8 @@ export type ExplorerUrlState = {
   q: string;
   city: V1Commune | null;
   category: CategoryId;
+  /** Facette audience indépendante (`audience=jeune_public`). */
+  audience: ExplorerAudienceId | null;
 };
 
 export const EXPLORER_URL_DEFAULTS: ExplorerUrlState = {
@@ -28,6 +35,7 @@ export const EXPLORER_URL_DEFAULTS: ExplorerUrlState = {
   q: "",
   city: null,
   category: "tout",
+  audience: null,
 };
 
 const PRESET_WHENS: readonly WhenFilter[] = [
@@ -58,6 +66,7 @@ export function parseExplorerUrlState(
   const rawQ = firstParam(params.q)?.trim() ?? "";
   const rawCity = firstParam(params.city);
   const rawCategory = firstParam(params.category);
+  const rawAudience = firstParam(params.audience);
 
   let when: WhenFilter = EXPLORER_URL_DEFAULTS.when;
   if (rawWhen && isWhenFilter(rawWhen)) {
@@ -89,16 +98,17 @@ export function parseExplorerUrlState(
   }
 
   let category: CategoryId = "tout";
-  if (rawCategory === "tout") {
-    category = "tout";
-  } else if (
-    rawCategory &&
-    (DETOUR_CATEGORIES as readonly string[]).includes(rawCategory)
-  ) {
-    category = rawCategory as DetourCategory;
+  const parsedCategory = parseExplorerCategoryParam(rawCategory);
+  if (parsedCategory) {
+    category = parsedCategory;
   }
 
-  return { when, from, to, q: rawQ, city, category };
+  let audience: ExplorerAudienceId | null = null;
+  if (rawAudience && isExplorerAudience(rawAudience)) {
+    audience = rawAudience;
+  }
+
+  return { when, from, to, q: rawQ, city, category, audience };
 }
 
 /** Querystring canonique (omit les défauts). */
@@ -121,7 +131,13 @@ export function serializeExplorerUrlState(state: ExplorerUrlState): string {
 
   if (state.q) params.set("q", state.q);
   if (state.city) params.set("city", state.city);
-  if (state.category !== "tout") params.set("category", state.category);
+  // Canon : libellé DetourCategory (`Jeune public`), jamais le slug audience.
+  if (state.category !== "tout") {
+    params.set("category", state.category as DetourCategory);
+  }
+  if (state.audience === EXPLORER_AUDIENCE_JEUNE_PUBLIC) {
+    params.set("audience", EXPLORER_AUDIENCE_JEUNE_PUBLIC);
+  }
 
   return params.toString();
 }
@@ -141,6 +157,7 @@ export function sameExplorerUrlState(
     a.to === b.to &&
     a.q === b.q &&
     a.city === b.city &&
-    a.category === b.category
+    a.category === b.category &&
+    a.audience === b.audience
   );
 }

@@ -35,6 +35,7 @@ describe("parseExplorerPublicInput", () => {
         when: "weekend",
         search: undefined,
         category: undefined,
+        audience: undefined,
         city: undefined,
         cursor: undefined,
         limit: 12,
@@ -42,7 +43,7 @@ describe("parseExplorerPublicInput", () => {
     });
   });
 
-  it("rejette when / category / city invalides", () => {
+  it("rejette when / category / city / audience invalides", () => {
     expect(parseExplorerPublicInput({ when: "never" }).ok).toBe(false);
     expect(
       parseExplorerPublicInput({ when: "weekend", category: "Metal" }).ok,
@@ -50,23 +51,39 @@ describe("parseExplorerPublicInput", () => {
     expect(
       parseExplorerPublicInput({ when: "weekend", city: "Tours" }).ok,
     ).toBe(false);
+    expect(
+      parseExplorerPublicInput({ when: "weekend", audience: "ados" }).ok,
+    ).toBe(false);
   });
 
-  it("accepte category + city V1 + search + cursor", () => {
+  it("accepte category + audience + city V1 + search + cursor", () => {
     const parsed = parseExplorerPublicInput({
       when: "today",
       search: "jazz",
       category: "Musique",
+      audience: "jeune_public",
       city: "Saran",
       cursor: "abc",
     });
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(parsed.query.category).toBe("Musique");
+    expect(parsed.query.audience).toBe("jeune_public");
     expect(parsed.query.city).toBe("Saran");
     expect(parsed.query.search).toBe("jazz");
     expect(parsed.query.cursor).toBe("abc");
     expect(V1_COMMUNES).toContain(parsed.query.city);
+  });
+
+  it("alias category=jeune_public → type Jeune public", () => {
+    const parsed = parseExplorerPublicInput({
+      when: "weekend",
+      category: "jeune_public",
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.query.category).toBe("Jeune public");
+    expect(parsed.query.audience).toBeUndefined();
   });
 
   it('"tout" et city vide = pas de filtre', () => {
