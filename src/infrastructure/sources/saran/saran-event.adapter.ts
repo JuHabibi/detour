@@ -8,7 +8,10 @@ import {
   mapSaranIcalEventToDetourEvent,
   saranEventIntersectsWindow,
 } from "@/infrastructure/sources/saran/saran-ical.mapper";
-import { parseSaranIcal } from "@/infrastructure/sources/saran/saran-ical.parser";
+import {
+  assertSaranIcalBody,
+  parseSaranIcal,
+} from "@/infrastructure/sources/saran/saran-ical.parser";
 import type { SaranIcalEvent } from "@/infrastructure/sources/saran/saran-ical.types";
 
 /** Base iCal Saran (segment `/YYYY-MM` ajouté selon la fenêtre). */
@@ -113,7 +116,11 @@ export class SaranEventAdapter implements EventSource {
             `Saran iCal error: ${response.status} ${response.statusText} (${url})`,
           );
         }
-        return response.text();
+        const body = await response.text();
+        // HTTP 200 + HTML / corps tronqué / hors VCALENDAR → échec total
+        // (pas de corpus mensuel partiel). Calendrier vide bien formé OK.
+        assertSaranIcalBody(body, url);
+        return body;
       }),
     );
 

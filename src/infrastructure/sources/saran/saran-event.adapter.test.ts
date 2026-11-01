@@ -7,6 +7,8 @@ import {
   saranEventIntersectsWindow,
 } from "@/infrastructure/sources/saran/saran-ical.mapper";
 import {
+  assertSaranIcalBody,
+  classifySaranIcalBody,
   parseSaranIcal,
   unfoldIcalLines,
   unescapeIcalText,
@@ -65,6 +67,57 @@ DTSTART;TZID=Europe/Paris:20261010T100000
 DTEND;TZID=Europe/Paris:20261010T110000
 END:VEVENT
 END:VCALENDAR`;
+
+const EMPTY_VCALENDAR = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Ville de Saran//Agenda//FR
+END:VCALENDAR`;
+
+const MAINTENANCE_HTML = `<!DOCTYPE html>
+<html lang="fr">
+<head><title>Maintenance</title></head>
+<body><h1>Site en maintenance</h1></body>
+</html>`;
+
+const TRUNCATED_VCALENDAR = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:truncated@www.mairie-saran.fr
+SUMMARY:Coupé
+DTSTART;TZID=Europe/Paris:20260905T080000`;
+
+describe("saran ical body guard", () => {
+  it("accepte un VCALENDAR valide avec événements", () => {
+    expect(classifySaranIcalBody(STANDARD_VEVENT)).toBe("valid_calendar");
+  });
+
+  it("accepte un calendrier réellement vide mais bien formé", () => {
+    expect(classifySaranIcalBody(EMPTY_VCALENDAR)).toBe("valid_calendar");
+    expect(() =>
+      assertSaranIcalBody(EMPTY_VCALENDAR, "https://example.test/empty.ics"),
+    ).not.toThrow();
+    expect(parseSaranIcal(EMPTY_VCALENDAR)).toEqual([]);
+  });
+
+  it("rejette une page HTML de maintenance (HTTP 200)", () => {
+    expect(classifySaranIcalBody(MAINTENANCE_HTML)).toBe("html");
+    expect(() =>
+      assertSaranIcalBody(MAINTENANCE_HTML, "https://example.test/2026-09"),
+    ).toThrow(/Saran iCal invalid body: html/);
+  });
+
+  it("rejette un contenu iCal tronqué (END:VCALENDAR / VEVENT manquant)", () => {
+    expect(classifySaranIcalBody(TRUNCATED_VCALENDAR)).toBe("truncated");
+    expect(() =>
+      assertSaranIcalBody(TRUNCATED_VCALENDAR, "https://example.test/2026-10"),
+    ).toThrow(/Saran iCal invalid body: truncated/);
+  });
+
+  it("rejette un format calendrier incorrect", () => {
+    expect(classifySaranIcalBody("not a calendar at all")).toBe("unexpected");
+    expect(classifySaranIcalBody("")).toBe("empty");
+  });
+});
 
 describe("saran ical parser", () => {
   it("parse un VEVENT standard Europe/Paris", () => {
@@ -311,6 +364,74 @@ describe("SaranEventAdapter", () => {
         to: new Date("2026-11-01T00:00:00+01:00"),
       }),
     ).rejects.toThrow(/Saran iCal error: 503/);
+  });
+
+  it("un mois HTML 200 → throw (pas de corpus partiel des autres mois)", async () => {
+    const fetchByUrl = vi.fn(async (url: string) => {
+      const body = url.endsWith("/2026-10") ? MAINTENANCE_HTML : STANDARD_VEVENT;
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: async () => body,
+      };
+    });
+
+    const adapter = new SaranEventAdapter({
+      fetchImpl: fetchByUrl as unknown as typeof fetch,
+    });
+
+    await expect(
+      adapter.fetchUpcomingEvents({
+        from: new Date("2026-09-01T00:00:00+02:00"),
+        to: new Date("2026-11-01T00:00:00+01:00"),
+      }),
+    ).rejects.toThrow(/Saran iCal invalid body: html/);
+  });
+
+  it("un mois tronqué → throw (pas de corpus partiel)", async () => {
+    const fetchByUrl = vi.fn(async (url: string) => {
+      const body = url.endsWith("/2026-10")
+        ? TRUNCATED_VCALENDAR
+        : STANDARD_VEVENT;
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: async () => body,
+      };
+    });
+
+    const adapter = new SaranEventAdapter({
+      fetchImpl: fetchByUrl as unknown as typeof fetch,
+    });
+
+    await expect(
+      adapter.fetchUpcomingEvents({
+        from: new Date("2026-09-01T00:00:00+02:00"),
+        to: new Date("2026-11-01T00:00:00+01:00"),
+      }),
+    ).rejects.toThrow(/Saran iCal invalid body: truncated/);
+  });
+
+  it("calendrier mensuel vide mais valide → [] (pas d’erreur)", async () => {
+    const fetchSimple = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () => EMPTY_VCALENDAR,
+    });
+
+    const adapter = new SaranEventAdapter({
+      fetchImpl: fetchSimple as unknown as typeof fetch,
+    });
+
+    await expect(
+      adapter.fetchUpcomingEvents({
+        from: new Date("2026-11-01T00:00:00+01:00"),
+        to: new Date("2026-12-01T00:00:00+01:00"),
+      }),
+    ).resolves.toEqual([]);
   });
 
   it("icalUrl override ignore la dérivation mensuelle", async () => {
