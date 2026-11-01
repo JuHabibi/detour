@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
+import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
 import type { EventItem } from "@/data/types";
 import { eventCalendarPath } from "@/domain/calendar/build-event-calendar";
 import { resolveCategoryBadgeTone } from "@/components/event/category-badge-style";
@@ -46,9 +47,7 @@ export function AccountFavoriteCard({
   const whenLabel = event.time
     ? `${event.dateLabel} · ${event.time}`
     : event.dateLabel;
-  const categoryLabel =
-    event.genre?.trim() ||
-    (event.category === "tout" ? "Autre" : event.category);
+  const categoryLabel = resolveCategoryBadgeLabel(event);
 
   const menuId = useId();
   const menuRef = useRef<HTMLDivElement>(null);

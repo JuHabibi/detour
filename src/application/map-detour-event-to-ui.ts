@@ -103,18 +103,13 @@ export function mapDetourHighlightToEventItem(
 }
 
 /**
- * Label / badge carte : sourceCategory → genre → catégorie produit.
- * Le filtre continue d’utiliser `event.category`.
+ * Label / badge carte : taxonomie produit (`EventItem.category`) uniquement.
+ * Tags source (`sourceCategory` / `genre`) volontairement exclus — lisibilité
+ * éditoriale (P2-C). Le filtre Explorer lit déjà `product_category` en base.
  */
 export function resolveCategoryBadgeLabel(
   event: Pick<EventItem, "category" | "genre" | "sourceCategory">,
 ): string {
-  const fromSource = formatGenre(event.sourceCategory ?? null);
-  if (fromSource) return fromSource;
-
-  const fromGenre = event.genre?.trim();
-  if (fromGenre) return fromGenre;
-
   if (event.category && event.category !== "tout") return event.category;
   return "Autre";
 }
