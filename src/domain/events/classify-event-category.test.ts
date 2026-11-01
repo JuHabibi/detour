@@ -633,4 +633,53 @@ describe("classifyEventCategory", () => {
       classifyEventCategory(event({ ...payload, source: "openagenda" })),
     ).toBe("Cinéma");
   });
+
+  it("« captation » seule ne force pas Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Soirée documentaire",
+          description: "Captation disponible en ligne après la séance.",
+          category: "Projection - cinéma",
+        }),
+      ),
+    ).toBe("Cinéma");
+  });
+
+  it("conférence mentionnant le cinéma reste Rencontre", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Conférence : une histoire du cinéma militant",
+          description: "Échanges autour d’images d’archives et de documentaires.",
+          category: "Conférence - rencontre - débat",
+        }),
+      ),
+    ).toBe("Rencontre");
+  });
+
+  it("spectacle mentionnant un documentaire reste Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Lecture scénique",
+          description:
+            "Une création librement inspirée d’un documentaire récent.",
+          category: "Spectacle",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
+
+  it("captation d’opéra (sans mot projection) → Spectacle", () => {
+    expect(
+      classifyEventCategory(
+        event({
+          title: "Soirée lyrique",
+          description: "Captation de l’opéra Platée diffusée sur grand écran.",
+          category: "Projection - cinéma",
+        }),
+      ),
+    ).toBe("Spectacle");
+  });
 });

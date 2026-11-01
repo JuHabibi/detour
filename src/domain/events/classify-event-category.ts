@@ -145,7 +145,6 @@ const TEXT_SIGNALS: Record<ProductCategory, Cue[]> = {
   Cinéma: [
     { match: "cinema" },
     { match: "projection" },
-    { match: "documentaire" },
     { match: "seance cinema" },
     { match: "film d animation" },
     { match: "film d'animation" },
@@ -335,16 +334,21 @@ function isCinemaWorkshopOrQuizText(titleDescription: string): boolean {
 /**
  * Captation d’art vivant diffusée sur écran (opéra, théâtre filmé…).
  * Reste Spectacle même si le tag source dit « Projection - cinéma ».
+ * « captation » seul ne suffit pas : il faut un indice d’art vivant.
  */
 function isProjectedPerformingArtsCapture(text: string): boolean {
   if (!text) return false;
-  if (/captation|theatre filme|spectacle lyrique/.test(text)) return true;
-  const hasOpera = /\bopera\b/.test(text);
-  const hasScreen =
+  if (/theatre filme|spectacle lyrique/.test(text)) return true;
+  const hasLiveArts =
+    /\bopera\b/.test(text) ||
+    /\btheatre\b/.test(text) ||
+    /\bballet\b/.test(text);
+  const hasScreenOrCapture =
     /\bprojection\b/.test(text) ||
     /\bfilme\b/.test(text) ||
-    /\becran\b/.test(text);
-  return hasOpera && hasScreen;
+    /\becran\b/.test(text) ||
+    /\bcaptation\b/.test(text);
+  return hasLiveArts && hasScreenOrCapture;
 }
 
 /**
