@@ -261,6 +261,37 @@ describe("syncEventSource", () => {
     );
   });
 
+  it("B″ — Saran VEVENT illisible : fetch_failed, aucun upsert ni désactivation", async () => {
+    countActiveByAdapter.mockResolvedValue(8);
+    const adapter = mockAdapter(async () => {
+      throw new Error("Saran iCal unreadable VEVENT: invalid DTSTART");
+    });
+
+    const result = await syncEventSource({
+      adapterId: "saran",
+      adapter,
+      from,
+      to,
+      now,
+    });
+
+    expect(result).toEqual({
+      adapterId: "saran",
+      status: "error",
+      errorCode: "fetch_failed",
+    });
+    expect(upsertMany).not.toHaveBeenCalled();
+    expect(deactivateNotSeenSince).not.toHaveBeenCalled();
+    expect(connect).not.toHaveBeenCalled();
+    expect(markError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adapterId: "saran",
+        errorCode: "fetch_failed",
+        releaseLease: true,
+      }),
+    );
+  });
+
   it("BUSY : pas de fetch, pas de tx, pas de markError", async () => {
     tryAcquireLease.mockResolvedValue(false);
     const adapter = mockAdapter(async () => [eventStub("e1")]);

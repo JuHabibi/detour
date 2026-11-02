@@ -60,6 +60,10 @@ export function assertSaranIcalBody(raw: string, url: string): void {
  * Parse un flux iCal (VCALENDAR) et extrait les VEVENT.
  * Gère folded lines, escapes, TZID et VALUE=DATE.
  * Prérequis : corps déjà validé via assertSaranIcalBody (ou équivalent).
+ *
+ * Fail-closed : un VEVENT présent mais illisible (UID/SUMMARY/DTSTART absents,
+ * DTSTART/DTEND invalides, date civile impossible) fait échouer tout le parse
+ * — jamais d’omission silencieuse qui pourrait désactiver l’événement en sync.
  */
 export function parseSaranIcal(raw: string): SaranIcalEvent[] {
   const lines = unfoldIcalLines(raw);
@@ -74,8 +78,7 @@ export function parseSaranIcal(raw: string): SaranIcalEvent[] {
     }
     if (upper === "END:VEVENT") {
       if (current) {
-        const parsed = toSaranIcalEvent(current);
-        if (parsed) events.push(parsed);
+        events.push(requireSaranIcalEvent(current));
       }
       current = null;
       continue;
@@ -101,6 +104,11 @@ export function parseSaranIcal(raw: string): SaranIcalEvent[] {
   }
 
   return events;
+}
+
+/** Erreur publique — message stable pour les tests / logs sync. */
+export function saranUnreadableVeventError(reason: string): Error {
+  return new Error(`Saran iCal unreadable VEVENT: ${reason}`);
 }
 
 function looksLikeHtmlBody(raw: string): boolean {
@@ -173,18 +181,26 @@ function serializeDateProperty(
   return JSON.stringify({ valueType, tzid, value });
 }
 
-function toSaranIcalEvent(
+function requireSaranIcalEvent(
   props: Record<string, string>,
-): SaranIcalEvent | null {
+): SaranIcalEvent {
   const uid = props.UID?.trim();
+  if (!uid) throw saranUnreadableVeventError("missing UID");
+
   const summary = props.SUMMARY?.trim();
+  if (!summary) throw saranUnreadableVeventError("missing SUMMARY");
+
   const dtStartRaw = props.DTSTART;
-  if (!uid || !summary || !dtStartRaw) return null;
+  if (!dtStartRaw) throw saranUnreadableVeventError("missing DTSTART");
 
   const dtStart = parseStoredDate(dtStartRaw);
-  if (!dtStart) return null;
+  if (!dtStart) throw saranUnreadableVeventError("invalid DTSTART");
 
-  const dtEnd = props.DTEND ? parseStoredDate(props.DTEND) : null;
+  let dtEnd: SaranIcalDateValue | null = null;
+  if (props.DTEND) {
+    dtEnd = parseStoredDate(props.DTEND);
+    if (!dtEnd) throw saranUnreadableVeventError("invalid DTEND");
+  }
 
   return {
     uid,
@@ -220,10 +236,11 @@ export function parseIcalDateValue(
   if (!trimmed) return null;
 
   if (valueType === "DATE" || /^\d{8}$/.test(trimmed)) {
+    if (!/^\d{8}$/.test(trimmed)) return null;
     const year = Number(trimmed.slice(0, 4));
     const month = Number(trimmed.slice(4, 6));
     const day = Number(trimmed.slice(6, 8));
-    if (!year || !month || !day) return null;
+    if (!isValidCivilDate(year, month, day)) return null;
     return {
       kind: "date",
       year,
@@ -246,6 +263,9 @@ export function parseIcalDateValue(
   const second = Number(match[6]);
   const isUtc = match[7] === "Z";
 
+  if (!isValidCivilDate(year, month, day)) return null;
+  if (!isValidCivilTime(hour, minute, second)) return null;
+
   return {
     kind: "date-time",
     year,
@@ -256,6 +276,46 @@ export function parseIcalDateValue(
     second,
     timeZone: isUtc ? "UTC" : tzid || DEFAULT_TZ,
   };
+}
+
+/** Date civile réelle (rejette 2026-02-30, mois 13, etc.). */
+export function isValidCivilDate(
+  year: number,
+  month: number,
+  day: number,
+): boolean {
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  ) {
+    return false;
+  }
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
+  );
+}
+
+export function isValidCivilTime(
+  hour: number,
+  minute: number,
+  second: number,
+): boolean {
+  return (
+    Number.isInteger(hour) &&
+    hour >= 0 &&
+    hour <= 23 &&
+    Number.isInteger(minute) &&
+    minute >= 0 &&
+    minute <= 59 &&
+    Number.isInteger(second) &&
+    second >= 0 &&
+    second <= 60
+  );
 }
 
 function emptyToNull(value: string | null | undefined): string | null {
