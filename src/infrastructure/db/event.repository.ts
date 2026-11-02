@@ -179,6 +179,39 @@ export async function getEventById(
   return record?.event ?? null;
 }
 
+export type EventSitemapRow = {
+  id: string;
+  startAt: string;
+  endAt: string | null;
+};
+
+const LIST_ACTIVE_SITEMAP_SQL = `
+SELECT e.id, e.start_at, e.end_at
+FROM events e
+WHERE e.is_active = true
+ORDER BY e.id ASC
+`.trim();
+
+/**
+ * Corpus actif pour le sitemap — champs minimaux, pas de pagination Explorer.
+ * Le filtre « non terminé » se fait après cache, à l’horloge de la requête.
+ */
+export async function listActiveEventsForSitemap(
+  client?: DbQueryable,
+): Promise<EventSitemapRow[]> {
+  const result = await db(client).query<{
+    id: string;
+    start_at: Date;
+    end_at: Date | null;
+  }>(LIST_ACTIVE_SITEMAP_SQL);
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    startAt: row.start_at.toISOString(),
+    endAt: row.end_at ? row.end_at.toISOString() : null,
+  }));
+}
+
 export async function countActiveByAdapter(
   adapterId: string,
   client?: DbQueryable,

@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { loadPublicEventPage } from "@/app/_server/load-public-event-page";
+import {
+  buildEventJsonLd,
+  serializeJsonLdScript,
+} from "@/features/event-page/build-event-json-ld";
 import { EventPublicPage } from "@/features/event-page/components/EventPublicPage";
 import { buildEventPageMetadata } from "@/features/event-page/event-page-seo";
 import { normalizeEventIdParam } from "@/lib/event-public-path";
@@ -32,5 +36,19 @@ export default async function PublicEventRoutePage({ params }: EventRouteProps) 
   if (result.status !== "ok") {
     notFound();
   }
-  return <EventPublicPage data={result.data} />;
+
+  const jsonLd = buildEventJsonLd(result.data);
+
+  return (
+    <>
+      {jsonLd ? (
+        <script
+          type="application/ld+json"
+          // Sérialisation échappant `<` — voir serializeJsonLdScript.
+          dangerouslySetInnerHTML={{ __html: serializeJsonLdScript(jsonLd) }}
+        />
+      ) : null}
+      <EventPublicPage data={result.data} />
+    </>
+  );
 }
