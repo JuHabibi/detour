@@ -45,7 +45,7 @@ export function FavoriteAuthModal({
     <AppModal
       eyebrow="Favoris"
       title="Gardez cette découverte."
-      description="Créez un compte pour enregistrer cet événement, le retrouver sur tous vos appareils et l’organiser dans vos carnets."
+      description="Créez un compte pour garder cette découverte, la retrouver sur tous vos appareils et l’organiser dans vos carnets."
       onClose={onClose}
       returnFocusTo={returnFocusTo}
       footer={
@@ -67,7 +67,7 @@ export function FavoriteAuthModal({
     >
       <p className="text-sm leading-6 text-cream-dim">
         Radar et Explorer restent ouverts sans inscription. Le compte sert à
-        conserver et organiser vos envies.
+        garder et organiser vos découvertes.
       </p>
     </AppModal>
   );

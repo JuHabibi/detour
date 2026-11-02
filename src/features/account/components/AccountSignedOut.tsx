@@ -31,8 +31,8 @@ export function AccountSignedOut({
             Vos découvertes, à votre façon.
           </h1>
           <p className="mt-5 max-w-md text-sm leading-6 text-cream-dim md:text-[0.95rem] md:leading-7">
-            Gardez les sorties qui vous intéressent, rassemblez-les dans vos
-            carnets et retrouvez-les sur votre parcours culturel.
+            Gardez vos découvertes, organisez-les dans vos carnets et
+            retrouvez-les sur votre parcours culturel.
           </p>
 
           <ul className="mt-8 space-y-4 text-sm leading-6 text-cream-dim">
@@ -56,7 +56,7 @@ export function AccountSignedOut({
               href={onSignUpHref}
               className="inline-flex min-h-11 items-center bg-mint px-5 text-sm font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-ink hover:text-foam"
             >
-              Créer un compte
+              Créer mon compte
             </Link>
             <Link
               href={onSignInHref}
