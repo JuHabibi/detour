@@ -9,11 +9,25 @@ describe("isExplorerIndexableSearchParams", () => {
     expect(isExplorerIndexableSearchParams({})).toBe(true);
   });
 
-  it("refuse tout paramètre non vide (filtres Explorer)", () => {
+  it("autorise les seuls paramètres de suivi (contenu inchangé)", () => {
+    expect(
+      isExplorerIndexableSearchParams({
+        utm_source: "newsletter",
+        utm_medium: "email",
+        gclid: "abc",
+      }),
+    ).toBe(true);
+  });
+
+  it("autorise when=weekend redondant (défaut, contenu inchangé)", () => {
+    expect(isExplorerIndexableSearchParams({ when: "weekend" })).toBe(true);
+  });
+
+  it("refuse recherche et filtres qui modifient le contenu", () => {
     expect(isExplorerIndexableSearchParams({ when: "today" })).toBe(false);
     expect(isExplorerIndexableSearchParams({ q: "jazz" })).toBe(false);
     expect(isExplorerIndexableSearchParams({ city: "Orléans" })).toBe(false);
-    expect(isExplorerIndexableSearchParams({ category: "Concert" })).toBe(
+    expect(isExplorerIndexableSearchParams({ category: "Musique" })).toBe(
       false,
     );
     expect(
@@ -28,13 +42,6 @@ describe("isExplorerIndexableSearchParams", () => {
     ).toBe(false);
   });
 
-  it("refuse les query parasites (utm, when=weekend redondant)", () => {
-    expect(isExplorerIndexableSearchParams({ utm_source: "newsletter" })).toBe(
-      false,
-    );
-    expect(isExplorerIndexableSearchParams({ when: "weekend" })).toBe(false);
-  });
-
   it("ignore les clés vides / undefined", () => {
     expect(
       isExplorerIndexableSearchParams({
@@ -47,18 +54,50 @@ describe("isExplorerIndexableSearchParams", () => {
 });
 
 describe("buildExplorerMetadata", () => {
-  it("indexe l’URL propre avec canonical Explorer", () => {
-    expect(buildExplorerMetadata({})).toMatchObject({
+  it("indexe l’URL propre avec canonical, OG communs et Twitter Explorer", () => {
+    expect(buildExplorerMetadata({})).toEqual({
       title: "Explorer les sorties",
-      alternates: { canonical: "/explorer" },
+      description:
+        "Parcourez concerts, spectacles et sorties autour d’Orléans — filtrez par période, ville, catégorie ou recherche.",
       robots: { index: true, follow: true },
+      alternates: { canonical: "/explorer" },
+      openGraph: {
+        type: "website",
+        locale: "fr_FR",
+        siteName: "Détour",
+        title: "Explorer les sorties",
+        description:
+          "Parcourez concerts, spectacles et sorties autour d’Orléans — filtrez par période, ville, catégorie ou recherche.",
+        url: "/explorer",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: "Explorer les sorties",
+        description:
+          "Parcourez concerts, spectacles et sorties autour d’Orléans — filtrez par période, ville, catégorie ou recherche.",
+      },
     });
   });
 
-  it("noindex + follow les URLs filtrées, canonical inchangé", () => {
-    expect(buildExplorerMetadata({ q: "jazz", when: "today" })).toMatchObject({
-      alternates: { canonical: "/explorer" },
-      robots: { index: false, follow: true },
+  it("indexe le suivi seul avec canonical /explorer", () => {
+    const meta = buildExplorerMetadata({ utm_source: "newsletter" });
+    expect(meta.robots).toEqual({ index: true, follow: true });
+    expect(meta.alternates).toEqual({ canonical: "/explorer" });
+  });
+
+  it("noindex les URLs filtrées sans canonical vers /explorer", () => {
+    const meta = buildExplorerMetadata({ q: "jazz", when: "today" });
+    expect(meta.robots).toEqual({ index: false, follow: true });
+    expect(meta.alternates).toBeUndefined();
+    expect(meta.openGraph).not.toHaveProperty("url");
+    expect(meta.twitter).toMatchObject({
+      card: "summary_large_image",
+      title: "Explorer les sorties",
+    });
+    expect(meta.openGraph).toMatchObject({
+      type: "website",
+      locale: "fr_FR",
+      siteName: "Détour",
     });
   });
 });

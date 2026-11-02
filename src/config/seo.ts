@@ -4,6 +4,13 @@ import { absoluteSiteUrl, PUBLIC_SITE_ORIGIN } from "@/config/site";
 /** Copy SEO partagé — hors modèle Territory (§13.5). */
 export const SITE_NAME = "Détour";
 
+/** Champs Open Graph communs à réaffirmer sur les pages publiques. */
+export const SITE_OPEN_GRAPH = {
+  type: "website",
+  locale: "fr_FR",
+  siteName: SITE_NAME,
+} as const;
+
 export const HOME_SEO = {
   title: `Détour — Radar culturel local autour d’${CITY}`,
   description:
