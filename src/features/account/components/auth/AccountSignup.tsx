@@ -202,12 +202,12 @@ export function AccountSignup({
       </form>
 
       <p className="mt-8 text-sm text-cream-dim">
-        Déjà inscrit ?{" "}
+        Déjà un compte ?{" "}
         <Link
           href={accountLoginHref(nextPath === "/account" ? null : nextPath)}
           className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral"
         >
-          J’ai déjà un compte
+          Se connecter
         </Link>
       </p>
     </AccountAuthLayout>

@@ -4,7 +4,7 @@
  */
 
 const ACCOUNT_EXISTS_MESSAGE =
-  "Un compte existe déjà avec cet email. Connectez-vous avec votre mot de passe.";
+  "Un compte existe déjà avec cet email. Utilisez « Se connecter » avec votre mot de passe.";
 
 const CANCELLED_MESSAGE = "Connexion Google annulée. Vous pouvez réessayer.";
 

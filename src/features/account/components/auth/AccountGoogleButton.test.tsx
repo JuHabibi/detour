@@ -73,4 +73,44 @@ describe("AccountGoogleButton", () => {
     });
     container.remove();
   });
+
+  it("sur signup, errorCallbackURL conserve next pour le retour OAuth", async () => {
+    vi.mocked(authClient.signIn.social).mockResolvedValue({
+      data: null,
+      error: null,
+    } as never);
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    let root!: Root;
+
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        createElement(AccountGoogleButton, {
+          nextPath: "/?addFavorite=e9",
+          variant: "signup",
+          onError: vi.fn(),
+        }),
+      );
+    });
+
+    await act(async () => {
+      container
+        .querySelector("button")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(authClient.signIn.social).toHaveBeenCalledWith({
+      provider: "google",
+      callbackURL: "/?addFavorite=e9",
+      errorCallbackURL: "/account/signup?next=%2F%3FaddFavorite%3De9",
+    });
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
 });

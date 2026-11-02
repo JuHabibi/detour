@@ -97,6 +97,10 @@ describe("entrées création de compte", () => {
     expect(signupHtml).toContain(
       "Créez votre compte pour enregistrer cet événement dans vos favoris.",
     );
+    expect(signupHtml).toContain("Déjà un compte ?");
+    expect(signupHtml).toContain(">Se connecter<");
+    expect(signupHtml).not.toContain("Déjà inscrit ?");
+    expect(signupHtml).not.toContain("J’ai déjà un compte");
     expect(signupHtml).toContain(`href="${accountLoginHref(pendingNext)}"`);
 
     const loginHtml = renderToStaticMarkup(
@@ -115,7 +119,9 @@ describe("entrées création de compte", () => {
     expect(signupHtml).toContain(
       "Un compte pour garder vos découvertes et les organiser dans vos carnets.",
     );
+    expect(signupHtml).toContain("Déjà un compte ?");
     expect(signupHtml).toContain('href="/account/login"');
+    expect(signupHtml).toContain(">Se connecter<");
     expect(signupHtml).not.toContain("next=");
 
     const loginHtml = renderToStaticMarkup(
