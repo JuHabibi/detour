@@ -11,6 +11,7 @@ import type { PublicEventPageData } from "@/application/events/get-public-event-
 import { EventPublicView } from "@/features/event-page/components/EventPublicView";
 import { eventPublicPath } from "@/lib/event-public-path";
 import { authClient } from "@/lib/auth-client";
+import { verifiedAuthUserId } from "@/lib/auth-session";
 
 type EventPublicPageProps = {
   data: PublicEventPageData;
@@ -19,7 +20,7 @@ type EventPublicPageProps = {
 export function EventPublicPage({ data }: EventPublicPageProps) {
   const returnPath = eventPublicPath(data.eventId);
   const { data: session, isPending: isSessionPending } = authClient.useSession();
-  const userId = session?.user?.id ?? null;
+  const userId = verifiedAuthUserId(session);
   const headerUser =
     userId && session?.user
       ? {

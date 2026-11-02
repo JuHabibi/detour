@@ -3,6 +3,7 @@ import "server-only";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { createSendResetPassword } from "@/infrastructure/auth/create-send-reset-password";
+import { createSendVerificationEmail } from "@/infrastructure/auth/create-send-verification-email";
 import { readGoogleOAuthCredentials } from "@/infrastructure/auth/google-oauth";
 
 /**
@@ -24,8 +25,16 @@ export type CreateAuthOptions = {
   rateLimit?: BetterAuthOptions["rateLimit"];
   plugins?: BetterAuthOptions["plugins"];
   emailAndPassword?: BetterAuthOptions["emailAndPassword"];
+  emailVerification?: BetterAuthOptions["emailVerification"];
   socialProviders?: BetterAuthOptions["socialProviders"];
   account?: BetterAuthOptions["account"];
+  /**
+   * Après confirmation email : révoquer les sessions du user pour imposer
+   * une connexion classique (`autoSignInAfterVerification: false`).
+   */
+  revokeUserSessionsAfterEmailVerification?: (
+    userId: string,
+  ) => Promise<void>;
 };
 
 function resolveAuthBaseUrl(): string {
@@ -61,6 +70,9 @@ function resolveSocialProviders(
  * Google OAuth : activé seulement si `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
  * sont présents. Liaison implicite désactivée — pas de fusion silencieuse
  * avec un compte email existant (`account_not_linked`).
+ *
+ * Vérification email (comptes credential) : obligatoire avant session ;
+ * `sendOnSignUp` non forcé à `true` pour ne pas impacter Google.
  */
 export function createAuth(options: CreateAuthOptions) {
   const secret =
@@ -69,6 +81,9 @@ export function createAuth(options: CreateAuthOptions) {
     "dev-only-better-auth-secret-change-me";
 
   const socialProviders = resolveSocialProviders(options.socialProviders);
+
+  const revokeAfterVerification =
+    options.revokeUserSessionsAfterEmailVerification;
 
   return betterAuth({
     database: options.database,
@@ -92,12 +107,35 @@ export function createAuth(options: CreateAuthOptions) {
     emailAndPassword: options.emailAndPassword ?? {
       enabled: true,
       minPasswordLength: 8,
+      requireEmailVerification: true,
       // Jeton verification `reset-password:*` : 1 h, consommé une fois
       // (`consumeVerificationValue`) au POST /reset-password.
       resetPasswordTokenExpiresIn: 60 * 60,
       revokeSessionsOnPasswordReset: true,
       // Await synchrone (pas de backgroundTasks.handler) — voir route auth.
       sendResetPassword: createSendResetPassword(),
+    },
+    emailVerification: options.emailVerification ?? {
+      sendVerificationEmail: createSendVerificationEmail(),
+      // undefined → suit requireEmailVerification (signup email seulement).
+      sendOnSignIn: true,
+      autoSignInAfterVerification: false,
+      expiresIn: 60 * 60,
+      afterEmailVerification: async (user) => {
+        if (!revokeAfterVerification) return;
+        try {
+          await revokeAfterVerification(user.id);
+        } catch (error) {
+          // Ne pas avaler : sinon emailVerified=true + vieille session = accès
+          // sans connexion classique. BA a déjà persisté emailVerified ; l’échec
+          // doit remonter pour éviter un redirect « confirmé » trompeur.
+          console.error(
+            "[detour:auth] failed to revoke sessions after email verification",
+            { code: "SESSION_REVOKE_FAILED" },
+          );
+          throw error;
+        }
+      },
     },
     socialProviders,
     account: options.account ?? {

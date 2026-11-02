@@ -7,6 +7,11 @@ import { authClient } from "@/lib/auth-client";
 import { AccountAuthDivider } from "@/features/account/components/auth/AccountAuthDivider";
 import { AccountAuthLayout } from "@/features/account/components/auth/AccountAuthLayout";
 import { AccountGoogleButton } from "@/features/account/components/auth/AccountGoogleButton";
+import { EMAIL_VERIFICATION_OPS_ERROR } from "@/features/account/components/auth/account-email-verification-feedback";
+import {
+  accountVerifyEmailCallbackPath,
+  accountVerifyEmailPageHref,
+} from "@/lib/account-verify-email-path";
 import { accountLoginHref } from "@/lib/safe-account-next-path";
 import {
   clearPendingFavoriteIntent,
@@ -69,19 +74,31 @@ export function AccountSignup({
       savePendingFavoriteIntent(pendingFavoriteId, nextPath);
     }
 
+    const trimmedEmail = email.trim();
     setPending(true);
     try {
       const result = await authClient.signUp.email({
         name: name.trim(),
-        email: email.trim(),
+        email: trimmedEmail,
         password,
-        callbackURL: nextPath,
+        callbackURL: accountVerifyEmailCallbackPath(nextPath),
       });
       if (result.error) {
+        const status = result.error.status;
+        if (status === 503) {
+          setError(EMAIL_VERIFICATION_OPS_ERROR);
+          return;
+        }
         setError(AUTH_ERROR_MESSAGE);
         return;
       }
-      router.push(nextPath);
+      // requireEmailVerification : pas de session — page de confirmation.
+      router.push(
+        accountVerifyEmailPageHref({
+          email: trimmedEmail,
+          next: nextPath === "/account" ? null : nextPath,
+        }),
+      );
       router.refresh();
     } catch {
       setError(AUTH_ERROR_MESSAGE);

@@ -13,6 +13,7 @@ import { HomeAccountTable } from "@/features/home/components/HomeAccountTable";
 import { DetourSection } from "@/features/home/components/radar/DetourSection";
 import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import { authClient } from "@/lib/auth-client";
+import { verifiedAuthUserId } from "@/lib/auth-session";
 import type { EventsDebugMeta } from "@/application/debug/events-debug-meta";
 import type { EventItem } from "@/data/types";
 import { useState } from "react";
@@ -49,7 +50,7 @@ export function HomePage({
   debugMeta,
 }: HomePageProps) {
   const { data: session, isPending: isSessionPending } = authClient.useSession();
-  const userId = session?.user?.id ?? null;
+  const userId = verifiedAuthUserId(session);
   const headerUser =
     userId && session?.user
       ? {

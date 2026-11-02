@@ -7,6 +7,15 @@ import { authClient } from "@/lib/auth-client";
 import { AccountAuthDivider } from "@/features/account/components/auth/AccountAuthDivider";
 import { AccountAuthLayout } from "@/features/account/components/auth/AccountAuthLayout";
 import { AccountGoogleButton } from "@/features/account/components/auth/AccountGoogleButton";
+import {
+  EMAIL_VERIFICATION_REQUIRED_MESSAGE,
+  EMAIL_VERIFIED_LOGIN_MESSAGE,
+  isEmailNotVerifiedError,
+} from "@/features/account/components/auth/account-email-verification-feedback";
+import {
+  accountVerifyEmailCallbackPath,
+  accountVerifyEmailPageHref,
+} from "@/lib/account-verify-email-path";
 import { accountSignupHref } from "@/lib/safe-account-next-path";
 import {
   clearPendingFavoriteIntent,
@@ -29,6 +38,8 @@ type AccountLoginProps = {
   googleEnabled?: boolean;
   /** Erreur OAuth déjà mappée depuis `?error=` (retour callback). */
   initialOAuthError?: string | null;
+  /** Arrivée après confirmation email réussie. */
+  emailJustVerified?: boolean;
 };
 
 export function AccountLogin({
@@ -36,11 +47,16 @@ export function AccountLogin({
   showForgotPassword = false,
   googleEnabled = false,
   initialOAuthError = null,
+  emailJustVerified = false,
 }: AccountLoginProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(initialOAuthError);
+  const [info, setInfo] = useState<string | null>(
+    emailJustVerified ? EMAIL_VERIFIED_LOGIN_MESSAGE : null,
+  );
+  const [needsVerification, setNeedsVerification] = useState(false);
   const [pending, setPending] = useState(false);
   const pendingFavoriteId = extractPendingFavoriteIdFromPath(nextPath);
 
@@ -56,19 +72,27 @@ export function AccountLogin({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setInfo(null);
+    setNeedsVerification(false);
 
     if (pendingFavoriteId) {
       savePendingFavoriteIntent(pendingFavoriteId, nextPath);
     }
 
+    const trimmedEmail = email.trim();
     setPending(true);
     try {
       const result = await authClient.signIn.email({
-        email: email.trim(),
+        email: trimmedEmail,
         password,
-        callbackURL: nextPath,
+        callbackURL: accountVerifyEmailCallbackPath(nextPath),
       });
       if (result.error) {
+        if (isEmailNotVerifiedError(result.error)) {
+          setNeedsVerification(true);
+          setError(EMAIL_VERIFICATION_REQUIRED_MESSAGE);
+          return;
+        }
         setError(AUTH_ERROR_MESSAGE);
         return;
       }
@@ -91,6 +115,11 @@ export function AccountLogin({
     : nextPath.startsWith("/frise")
       ? "Connectez-vous pour reprendre mon parcours culturel — favoris et compte inclus."
       : "Connectez-vous pour accéder à vos favoris et les ajouter à votre agenda.";
+
+  const verifyHref = accountVerifyEmailPageHref({
+    email: email.trim() || null,
+    next: nextPath === "/account" ? null : nextPath,
+  });
 
   return (
     <AccountAuthLayout variant="login">
@@ -168,9 +197,26 @@ export function AccountLogin({
           />
         </div>
 
+        {info ? (
+          <p className="text-sm text-cream-dim" role="status">
+            {info}
+          </p>
+        ) : null}
+
         {error ? (
           <p className="text-sm text-coral" role="alert">
             {error}
+            {needsVerification ? (
+              <>
+                {" "}
+                <Link
+                  href={verifyHref}
+                  className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral"
+                >
+                  Renvoyer le lien
+                </Link>
+              </>
+            ) : null}
           </p>
         ) : null}
 

@@ -13,6 +13,7 @@ import {
 import type { EventItem } from "@/data/types";
 import type { FriseView } from "@/features/frise/frise-url-state";
 import { authClient } from "@/lib/auth-client";
+import { verifiedAuthUserId } from "@/lib/auth-session";
 
 const EMPTY_FAVORITES: ReadonlySet<string> = new Set();
 const EMPTY_EVENTS: EventItem[] = [];
@@ -194,7 +195,7 @@ export function useFrisePersonalData({
   getCarnetEvents = getMyCarnetEvents,
 }: UseFrisePersonalDataParams) {
   const { data: session, isPending: isSessionPending } = authClient.useSession();
-  const userId = session?.user?.id ?? null;
+  const userId = verifiedAuthUserId(session);
 
   const onGroupsLoadedRef = useRef(onGroupsLoaded);
   const onNotebookMissingRef = useRef(onNotebookMissing);
