@@ -136,7 +136,14 @@ export class SaranEventAdapter implements EventSource {
     const mapped: DetourEvent[] = [];
     for (const raw of byUid.values()) {
       const event = mapSaranIcalEventToDetourEvent(raw);
-      if (!event) continue;
+      // VEVENT déjà parsé : un mapping null est une anomalie → échec total
+      // (évite une sync partielle + désactivation silencieuse).
+      if (!event) {
+        throw new Error(
+          `Saran iCal unreadable VEVENT: mapping failed (${raw.uid})`,
+        );
+      }
+      // Hors fenêtre de collecte : ignoré normalement (pas une erreur).
       if (!saranEventIntersectsWindow(event, params.from, params.to)) continue;
       mapped.push(event);
     }

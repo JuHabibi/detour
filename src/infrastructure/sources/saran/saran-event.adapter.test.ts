@@ -9,6 +9,8 @@ import {
 import {
   assertSaranIcalBody,
   classifySaranIcalBody,
+  isValidCivilDate,
+  parseIcalDateValue,
   parseSaranIcal,
   unfoldIcalLines,
   unescapeIcalText,
@@ -85,6 +87,59 @@ BEGIN:VEVENT
 UID:truncated@www.mairie-saran.fr
 SUMMARY:Coupé
 DTSTART;TZID=Europe/Paris:20260905T080000`;
+
+const MIXED_INVALID_DTSTART = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:ok@www.mairie-saran.fr
+SUMMARY:Valide
+DTSTART;TZID=Europe/Paris:20260905T080000
+DTEND;TZID=Europe/Paris:20260905T090000
+END:VEVENT
+BEGIN:VEVENT
+UID:bad-dtstart@www.mairie-saran.fr
+SUMMARY:Illisible
+DTSTART;TZID=Europe/Paris:not-a-date
+END:VEVENT
+END:VCALENDAR`;
+
+const MISSING_UID = `BEGIN:VCALENDAR
+BEGIN:VEVENT
+SUMMARY:Sans UID
+DTSTART;TZID=Europe/Paris:20260905T080000
+END:VEVENT
+END:VCALENDAR`;
+
+const MISSING_SUMMARY = `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:no-summary@www.mairie-saran.fr
+DTSTART;TZID=Europe/Paris:20260905T080000
+END:VEVENT
+END:VCALENDAR`;
+
+const MISSING_DTSTART = `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:no-dtstart@www.mairie-saran.fr
+SUMMARY:Sans début
+END:VEVENT
+END:VCALENDAR`;
+
+const IMPOSSIBLE_DATE = `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:impossible@www.mairie-saran.fr
+SUMMARY:30 février
+DTSTART;VALUE=DATE:20260230
+END:VEVENT
+END:VCALENDAR`;
+
+const OUT_OF_WINDOW_ONLY = `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:far@www.mairie-saran.fr
+SUMMARY:Hors fenêtre
+DTSTART;TZID=Europe/Paris:20261215T100000
+DTEND;TZID=Europe/Paris:20261215T110000
+END:VEVENT
+END:VCALENDAR`;
 
 describe("saran ical body guard", () => {
   it("accepte un VCALENDAR valide avec événements", () => {
@@ -175,6 +230,38 @@ describe("saran ical parser", () => {
   it("accepte un événement sans LOCATION", () => {
     const events = parseSaranIcal(NO_LOCATION_VEVENT);
     expect(events[0]?.location).toBeNull();
+  });
+
+  it("calendrier mixte valide + DTSTART invalide → échec complet", () => {
+    expect(() => parseSaranIcal(MIXED_INVALID_DTSTART)).toThrow(
+      /Saran iCal unreadable VEVENT: invalid DTSTART/,
+    );
+  });
+
+  it("VEVENT sans UID → échec explicite", () => {
+    expect(() => parseSaranIcal(MISSING_UID)).toThrow(
+      /Saran iCal unreadable VEVENT: missing UID/,
+    );
+  });
+
+  it("VEVENT sans SUMMARY → échec explicite", () => {
+    expect(() => parseSaranIcal(MISSING_SUMMARY)).toThrow(
+      /Saran iCal unreadable VEVENT: missing SUMMARY/,
+    );
+  });
+
+  it("VEVENT sans DTSTART → échec explicite", () => {
+    expect(() => parseSaranIcal(MISSING_DTSTART)).toThrow(
+      /Saran iCal unreadable VEVENT: missing DTSTART/,
+    );
+  });
+
+  it("date civile impossible → rejetée", () => {
+    expect(isValidCivilDate(2026, 2, 30)).toBe(false);
+    expect(parseIcalDateValue("20260230", "DATE", "Europe/Paris")).toBeNull();
+    expect(() => parseSaranIcal(IMPOSSIBLE_DATE)).toThrow(
+      /Saran iCal unreadable VEVENT: invalid DTSTART/,
+    );
   });
 });
 
@@ -412,6 +499,48 @@ describe("SaranEventAdapter", () => {
         to: new Date("2026-11-01T00:00:00+01:00"),
       }),
     ).rejects.toThrow(/Saran iCal invalid body: truncated/);
+  });
+
+  it("VEVENT illisible (DTSTART) → throw totale, pas de corpus partiel", async () => {
+    const fetchSimple = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () => MIXED_INVALID_DTSTART,
+    });
+
+    const adapter = new SaranEventAdapter({
+      icalUrl: "https://example.test/saran.ics",
+      fetchImpl: fetchSimple as unknown as typeof fetch,
+    });
+
+    await expect(
+      adapter.fetchUpcomingEvents({
+        from: new Date("2026-09-01T00:00:00+02:00"),
+        to: new Date("2026-10-01T00:00:00+02:00"),
+      }),
+    ).rejects.toThrow(/Saran iCal unreadable VEVENT: invalid DTSTART/);
+  });
+
+  it("événement valide hors fenêtre → ignoré (pas d’erreur)", async () => {
+    const fetchSimple = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () => OUT_OF_WINDOW_ONLY,
+    });
+
+    const adapter = new SaranEventAdapter({
+      icalUrl: "https://example.test/saran.ics",
+      fetchImpl: fetchSimple as unknown as typeof fetch,
+    });
+
+    await expect(
+      adapter.fetchUpcomingEvents({
+        from: new Date("2026-09-01T00:00:00+02:00"),
+        to: new Date("2026-10-01T00:00:00+02:00"),
+      }),
+    ).resolves.toEqual([]);
   });
 
   it("calendrier mensuel vide mais valide → [] (pas d’erreur)", async () => {
