@@ -121,4 +121,29 @@ describe("PendingFavoriteAfterAuth monté", () => {
 
     unmount();
   });
+
+  it("ne rejoue pas une intention sessionStorage sans addFavorite dans l’URL", async () => {
+    savePendingFavoriteIntent("stale-event", "/");
+    expect(sessionStorage.getItem(PENDING_FAVORITE_STORAGE_KEY)).toBeTruthy();
+
+    const onFavoriteSaved = vi.fn();
+    const { container, unmount } = mount(
+      createElement(PendingFavoriteAfterAuth, {
+        enabled: true,
+        onFavoriteSaved,
+      }),
+    );
+
+    await flushEffects();
+
+    expect(addFavorite).not.toHaveBeenCalled();
+    expect(onFavoriteSaved).not.toHaveBeenCalled();
+    expect(container.textContent).not.toContain(
+      "Événement enregistré dans vos favoris.",
+    );
+    // Intention non consommée ici — nettoyée au login sans next favori.
+    expect(sessionStorage.getItem(PENDING_FAVORITE_STORAGE_KEY)).toBeTruthy();
+
+    unmount();
+  });
 });

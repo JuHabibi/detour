@@ -9,6 +9,7 @@ import { AccountAuthLayout } from "@/features/account/components/auth/AccountAut
 import { AccountGoogleButton } from "@/features/account/components/auth/AccountGoogleButton";
 import { accountSignupHref } from "@/lib/safe-account-next-path";
 import {
+  clearPendingFavoriteIntent,
   extractPendingFavoriteIdFromPath,
   savePendingFavoriteIntent,
 } from "@/lib/pending-favorite";
@@ -44,8 +45,12 @@ export function AccountLogin({
   const pendingFavoriteId = extractPendingFavoriteIdFromPath(nextPath);
 
   useEffect(() => {
-    if (!pendingFavoriteId) return;
-    savePendingFavoriteIntent(pendingFavoriteId, nextPath);
+    if (pendingFavoriteId) {
+      savePendingFavoriteIntent(pendingFavoriteId, nextPath);
+      return;
+    }
+    // Login classique (avatar, Home…) : efface une intention abandonnée.
+    clearPendingFavoriteIntent();
   }, [nextPath, pendingFavoriteId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
