@@ -41,3 +41,7 @@ Ne pas exécuter ce SQL pendant le déploiement automatique.
 ## Cookie cache (5 min)
 
 `getAccountAuthState` utilise `disableCookieCache: true`. Les actions serveur restent sûres même si le cookie cache client est périmé. Le client ignore aussi les users non vérifiés via `verifiedAuthUserId`.
+
+## Échec de révocation après confirmation
+
+`afterEmailVerification` **propage** l’erreur si le `DELETE` des sessions du user échoue (log `SESSION_REVOKE_FAILED`). Better Auth a déjà passé `emailVerified` à `true` : l’utilisateur peut se connecter classiquement. Sans révocation réussie, une **ancienne** session cookie pourrait encore authentifier jusqu’à expiration — le gate app n’y change rien une fois l’email vérifié. Surveiller les logs au smoke test ; en dernier recours, révocation manuelle ciblée (SQL ops ci-dessus).

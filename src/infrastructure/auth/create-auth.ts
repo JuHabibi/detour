@@ -125,11 +125,15 @@ export function createAuth(options: CreateAuthOptions) {
         if (!revokeAfterVerification) return;
         try {
           await revokeAfterVerification(user.id);
-        } catch {
+        } catch (error) {
+          // Ne pas avaler : sinon emailVerified=true + vieille session = accès
+          // sans connexion classique. BA a déjà persisté emailVerified ; l’échec
+          // doit remonter pour éviter un redirect « confirmé » trompeur.
           console.error(
             "[detour:auth] failed to revoke sessions after email verification",
             { code: "SESSION_REVOKE_FAILED" },
           );
+          throw error;
         }
       },
     },

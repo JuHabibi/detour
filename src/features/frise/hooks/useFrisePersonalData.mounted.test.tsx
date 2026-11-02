@@ -16,11 +16,23 @@ import { flushMicrotasks } from "@/components/personal/render-hook";
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 type MockSession = {
-  user: { id: string; name: string; email: string };
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    emailVerified: boolean;
+  };
 } | null;
 
 const sessionState: { data: MockSession; isPending: boolean } = {
-  data: { user: { id: "user-a", name: "A", email: "a@example.com" } },
+  data: {
+    user: {
+      id: "user-a",
+      name: "A",
+      email: "a@example.com",
+      emailVerified: true,
+    },
+  },
   isPending: false,
 };
 
@@ -75,7 +87,14 @@ function deferred<T>() {
 
 function setSession(userId: string | null) {
   sessionState.data = userId
-    ? { user: { id: userId, name: userId, email: `${userId}@example.com` } }
+    ? {
+        user: {
+          id: userId,
+          name: userId,
+          email: `${userId}@example.com`,
+          emailVerified: true,
+        },
+      }
     : null;
   sessionState.isPending = false;
 }
