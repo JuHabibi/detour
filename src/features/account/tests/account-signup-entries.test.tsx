@@ -46,7 +46,7 @@ vi.mock("next/image", () => ({
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
     signUp: { email: vi.fn() },
-    signIn: { email: vi.fn() },
+    signIn: { email: vi.fn(), social: vi.fn() },
   },
 }));
 
@@ -133,5 +133,31 @@ describe("entrées création de compte", () => {
       "Un compte pour mon parcours culturel, vos favoris, et l’export calendrier en fichier .ics.",
     );
     expect(html).toContain(`href="${accountLoginHref("/frise")}"`);
+  });
+
+  it("affiche Continuer avec Google seulement si googleEnabled", () => {
+    const without = renderToStaticMarkup(
+      createElement(AccountLogin, { nextPath: "/account" }),
+    );
+    expect(without).not.toContain("Continuer avec Google");
+
+    const login = renderToStaticMarkup(
+      createElement(AccountLogin, {
+        nextPath: "/explorer?addFavorite=e1",
+        googleEnabled: true,
+      }),
+    );
+    expect(login).toContain("Continuer avec Google");
+    expect(login).toContain("Se connecter");
+
+    const signup = renderToStaticMarkup(
+      createElement(AccountSignup, {
+        nextPath: "/explorer?addFavorite=e1",
+        googleEnabled: true,
+        initialOAuthError: "Un compte existe déjà avec cet email.",
+      }),
+    );
+    expect(signup).toContain("Continuer avec Google");
+    expect(signup).toContain("Un compte existe déjà avec cet email.");
   });
 });
