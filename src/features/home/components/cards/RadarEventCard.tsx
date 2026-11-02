@@ -53,7 +53,7 @@ function RadarImageEventCard({
     <article
       className={cn(
         "group relative flex h-full flex-col text-ink",
-        canOpenEventDetail(event, onOpenDetail) && "cursor-pointer",
+        canOpenEventDetail() && "cursor-pointer",
       )}
     >
       <EventOpenControl
@@ -149,7 +149,7 @@ function RadarTextEventCard({
       className={cn(
         "group relative flex h-full min-h-[14.5rem] flex-col overflow-hidden md:min-h-[16.5rem] lg:min-h-0",
         pastel,
-        canOpenEventDetail(event, onOpenDetail) && "cursor-pointer",
+        canOpenEventDetail() && "cursor-pointer",
       )}
     >
       <EventOpenControl

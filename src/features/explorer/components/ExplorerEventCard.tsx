@@ -45,7 +45,7 @@ function ExplorerImageEventCard({
     <article
       className={cn(
         "group relative flex h-full gap-3 md:flex-col md:gap-0",
-        canOpenEventDetail(event, onOpenDetail) && "cursor-pointer",
+        canOpenEventDetail() && "cursor-pointer",
       )}
     >
       <EventOpenControl
@@ -129,7 +129,7 @@ function ExplorerTextEventCard({
       className={cn(
         "group relative flex h-full min-h-[15.5rem] flex-col overflow-hidden",
         pastel,
-        canOpenEventDetail(event, onOpenDetail) && "cursor-pointer",
+        canOpenEventDetail() && "cursor-pointer",
       )}
     >
       <EventOpenControl

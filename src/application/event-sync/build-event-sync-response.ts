@@ -2,6 +2,7 @@ import { runDetourAvailabilityEnrichment } from "@/application/availability/run-
 import { loadSyncFreshness } from "@/application/event-sync/load-sync-freshness";
 import { runDetourEventSync } from "@/application/event-sync/run-detour-event-sync";
 import { summarizeSyncRun } from "@/application/event-sync/summarize-sync-run";
+import { invalidatePublicEventsCache } from "@/infrastructure/next-public-event-cache";
 import { invalidatePublicExplorerCache } from "@/infrastructure/next-public-explorer-cache";
 import { invalidatePublicHomeCache } from "@/infrastructure/next-public-home-cache";
 
@@ -36,6 +37,7 @@ export async function buildEventSyncResponse(): Promise<Response> {
     // SWR : tags publics stale — pas de revalidatePath (expire soft tags → hit bloquant).
     invalidatePublicHomeCache();
     invalidatePublicExplorerCache();
+    invalidatePublicEventsCache();
 
     return Response.json(
       {

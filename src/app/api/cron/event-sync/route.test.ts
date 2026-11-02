@@ -144,12 +144,13 @@ describe("GET /api/cron/event-sync", () => {
     expect(runDetourAvailabilityEnrichmentMock).toHaveBeenCalledTimes(1);
     expect(body.availabilityError).toBeNull();
     expect(revalidatePathMock).not.toHaveBeenCalled();
-    expect(revalidateTagMock).toHaveBeenCalledTimes(2);
+    expect(revalidateTagMock).toHaveBeenCalledTimes(3);
     expect(revalidateTagMock).toHaveBeenCalledWith("public-home:orleans", "max");
     expect(revalidateTagMock).toHaveBeenCalledWith(
       "public-explorer:orleans",
       "max",
     );
+    expect(revalidateTagMock).toHaveBeenCalledWith("public-events", "max");
     expect(updateTagMock).not.toHaveBeenCalled();
   });
 
@@ -213,6 +214,7 @@ describe("GET /api/cron/event-sync", () => {
       "public-explorer:orleans",
       "max",
     );
+    expect(revalidateTagMock).toHaveBeenCalledWith("public-events", "max");
     expect(updateTagMock).not.toHaveBeenCalled();
   });
 

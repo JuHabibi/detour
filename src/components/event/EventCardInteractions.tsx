@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { BookmarkCheck } from "lucide-react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import type {
   EventDetailSurface,
   OpenEventDetailHandler,
@@ -8,6 +10,8 @@ import type {
 import type { EventItem } from "@/data/types";
 import { captureProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
+import { eventPublicPath } from "@/lib/event-public-path";
+import { EVENT_DETAIL_TRIGGER_ATTR } from "@/lib/stacked-dialog";
 
 export type HomeEventCardProps = {
   event: EventItem;
@@ -19,12 +23,22 @@ export type HomeEventCardProps = {
   onOpenDetail?: OpenEventDetailHandler;
 };
 
-export function canOpenEventDetail(
-  event: EventItem,
-  onOpenDetail: OpenEventDetailHandler | undefined,
+/** Toute carte publique a une fiche `/evenements/[id]`. */
+export function canOpenEventDetail(): boolean {
+  return true;
+}
+
+/** Clic principal → aperçu modale ; modificateur / nouvel onglet → fiche publique. */
+export function shouldOpenEventDetailPreview(
+  event: Pick<
+    ReactMouseEvent,
+    "metaKey" | "ctrlKey" | "shiftKey" | "altKey" | "button"
+  >,
 ): boolean {
-  if (onOpenDetail) return true;
-  return Boolean(resolveEventAction(event).href);
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return false;
+  }
+  return event.button === 0;
 }
 
 export function EventOpenControl({
@@ -36,40 +50,52 @@ export function EventOpenControl({
   surface: EventDetailSurface;
   onOpenDetail?: OpenEventDetailHandler;
 }) {
+  const href = eventPublicPath(event.id);
+  const className =
+    "absolute inset-0 z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+
   if (onOpenDetail) {
     return (
-      <button
-        type="button"
-        className="absolute inset-0 z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      <Link
+        href={href}
+        className={className}
         aria-label={`Voir le détail — « ${event.title} »`}
+        {...{ [EVENT_DETAIL_TRIGGER_ATTR]: event.id }}
         onClick={(clickEvent) => {
+          if (!shouldOpenEventDetailPreview(clickEvent)) return;
+          clickEvent.preventDefault();
           onOpenDetail(event, surface, clickEvent.currentTarget);
+          captureProductEvent(
+            surface === "radar" ? "radar_event_opened" : "explorer_event_opened",
+            {
+              event_id: event.id,
+              city: event.city,
+              category: event.category,
+              source: event.source ?? null,
+              section: surface,
+            },
+          );
         }}
       />
     );
   }
 
-  const action = resolveEventAction(event);
-  if (!action.href) return null;
-
   return (
-    <a
-      href={action.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="absolute inset-0 z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-      aria-label={`${action.label} — « ${event.title} » (nouvel onglet)`}
+    <Link
+      href={href}
+      className={className}
+      aria-label={`Voir la fiche — « ${event.title} »`}
+      {...{ [EVENT_DETAIL_TRIGGER_ATTR]: event.id }}
       onClick={() => {
-        const properties = {
-          event_id: event.id,
-          city: event.city,
-          category: event.category,
-          source: event.source ?? null,
-          section: surface,
-        };
         captureProductEvent(
           surface === "radar" ? "radar_event_opened" : "explorer_event_opened",
-          properties,
+          {
+            event_id: event.id,
+            city: event.city,
+            category: event.category,
+            source: event.source ?? null,
+            section: surface,
+          },
         );
       }}
     />

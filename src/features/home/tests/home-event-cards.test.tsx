@@ -13,11 +13,26 @@ vi.mock("next/image", () => ({
   },
 }));
 
+vi.mock("next/link", () => ({
+  default: function MockLink({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children?: React.ReactNode;
+    [key: string]: unknown;
+  }) {
+    return createElement("a", { href, ...rest }, children);
+  },
+}));
+
 import { ExplorerEventCard } from "@/features/explorer/components/ExplorerEventCard";
 import {
   EventOpenControl,
   isolateCardAction,
   runHomeFavoriteAction,
+  shouldOpenEventDetailPreview,
 } from "@/components/event/EventCardInteractions";
 import { RadarEventCard } from "@/features/home/components/cards/RadarEventCard";
 
@@ -50,7 +65,7 @@ describe("cartes home explicites", () => {
 
     expect(html).toContain("aspect-[4/5]");
     expect(html).toContain("01");
-    expect(html).toContain('type="button"');
+    expect(html).toContain('href="/evenements/event-1"');
     expect(html).toContain(
       "Voir le détail — « Une sortie à Orléans »",
     );
@@ -87,7 +102,7 @@ describe("cartes home explicites", () => {
 });
 
 describe("interactions des cartes home", () => {
-  it("ouvre la fiche avec l’événement, la surface et le déclencheur", () => {
+  it("ouvre l’aperçu au clic principal et expose la fiche publique", () => {
     const onOpenDetail = vi.fn();
     const item = event();
     const trigger = {} as HTMLElement;
@@ -99,9 +114,22 @@ describe("interactions des cartes home", () => {
     });
     expect(control).not.toBeNull();
     if (!control) throw new Error("Le contrôle d’ouverture est requis.");
-    control.props.onClick({ currentTarget: trigger });
+    expect(control.props.href).toBe("/evenements/event-1");
+    control.props.onClick({
+      currentTarget: trigger,
+      preventDefault: vi.fn(),
+      metaKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+      button: 0,
+    });
 
     expect(onOpenDetail).toHaveBeenCalledWith(item, "radar", trigger);
+    expect(shouldOpenEventDetailPreview({ button: 0 } as never)).toBe(true);
+    expect(
+      shouldOpenEventDetailPreview({ button: 0, metaKey: true } as never),
+    ).toBe(false);
   });
 
   it("isole les actions du cœur et des badges du clic de carte", () => {

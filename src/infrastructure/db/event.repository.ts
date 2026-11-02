@@ -143,11 +143,19 @@ FROM events e
 WHERE e.id = $1
 `.trim();
 
-/** Lecture publique minimale par id — null si absent. */
-export async function getEventById(
+export type EventRecord = {
+  event: DetourEvent;
+  isActive: boolean;
+};
+
+/**
+ * Lecture par id avec statut actif — null si absent.
+ * Ne filtre pas `is_active` (la politique d’accès reste au use case).
+ */
+export async function getEventRecordById(
   eventId: string,
   client?: DbQueryable,
-): Promise<DetourEvent | null> {
+): Promise<EventRecord | null> {
   const trimmed = eventId.trim();
   if (!trimmed) return null;
 
@@ -155,7 +163,20 @@ export async function getEventById(
     trimmed,
   ]);
   const row = result.rows[0];
-  return row ? mapEventRowToDetourEvent(row) : null;
+  if (!row) return null;
+  return {
+    event: mapEventRowToDetourEvent(row),
+    isActive: row.is_active,
+  };
+}
+
+/** Lecture publique minimale par id — null si absent. */
+export async function getEventById(
+  eventId: string,
+  client?: DbQueryable,
+): Promise<DetourEvent | null> {
+  const record = await getEventRecordById(eventId, client);
+  return record?.event ?? null;
 }
 
 export async function countActiveByAdapter(
