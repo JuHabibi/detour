@@ -2,6 +2,7 @@ import "server-only";
 
 import { getPool } from "@/infrastructure/db/postgres";
 import { createAuth } from "@/infrastructure/auth/create-auth";
+import { revokeAllSessionsForUser } from "@/infrastructure/auth/revoke-user-sessions";
 
 const secret = process.env.BETTER_AUTH_SECRET?.trim();
 const isProductionRuntime =
@@ -15,4 +16,7 @@ if (!secret && isProductionRuntime) {
 export const auth = createAuth({
   database: getPool(),
   secret: secret || "dev-only-better-auth-secret-change-me",
+  revokeUserSessionsAfterEmailVerification: async (userId) => {
+    await revokeAllSessionsForUser(getPool(), userId);
+  },
 });

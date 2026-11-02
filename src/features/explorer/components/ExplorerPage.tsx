@@ -13,6 +13,7 @@ import {
 } from "@/features/explorer/components/ExplorerSection";
 import type { ExplorerUrlState } from "@/features/explorer/explorer-url-state";
 import { authClient } from "@/lib/auth-client";
+import { verifiedAuthUserId } from "@/lib/auth-session";
 
 type ExplorerPageProps = {
   explorer: ExplorerInitialPage;
@@ -21,7 +22,7 @@ type ExplorerPageProps = {
 
 export function ExplorerPage({ explorer, initialFilters }: ExplorerPageProps) {
   const { data: session, isPending: isSessionPending } = authClient.useSession();
-  const userId = session?.user?.id ?? null;
+  const userId = verifiedAuthUserId(session);
   const headerUser =
     userId && session?.user
       ? {

@@ -11,12 +11,20 @@ type LoginPageProps = {
   searchParams: Promise<{
     next?: string | string[];
     error?: string | string[];
+    verified?: string | string[];
   }>;
 };
+
+function firstString(
+  value: string | string[] | undefined,
+): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export default async function AccountLoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const nextPath = safeAccountNextPath(params.next);
+  const emailJustVerified = firstString(params.verified) === "1";
 
   const auth = await getAccountAuthState();
   if (auth.status === "authenticated") {
@@ -30,6 +38,7 @@ export default async function AccountLoginPage({ searchParams }: LoginPageProps)
         showForgotPassword={isPasswordResetPublicLinkEnabled()}
         googleEnabled={isGoogleOAuthConfigured()}
         initialOAuthError={mapAccountOAuthError(params.error)}
+        emailJustVerified={emailJustVerified}
       />
     </AccountShell>
   );
