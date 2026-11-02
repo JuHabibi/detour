@@ -29,7 +29,7 @@ describe("userInitials", () => {
 });
 
 describe("Header — visiteur", () => {
-  it("Radar · Explorer · Se connecter — pas de cœur ni liens compte", () => {
+  it("Radar · Explorer · Se connecter — avatar vers login, pas via /account", () => {
     const html = renderToStaticMarkup(
       createElement(Header, { favoriteCount: 0 }),
     );
@@ -39,7 +39,8 @@ describe("Header — visiteur", () => {
     expect(html).toContain('href="/explorer"');
     expect(html).toContain('aria-label="Se connecter"');
     expect(html).toContain('title="Se connecter"');
-    expect(html).toContain('href="/account"');
+    expect(html).toContain('href="/account/login?next=%2Faccount"');
+    expect(html).not.toContain('href="/account"');
     expect(html).toContain("Ouvrir le menu");
     // Même cercle avatar que l’état connecté (pas de libellé texte visible).
     expect(html).toContain("rounded-full bg-ink");
@@ -67,7 +68,7 @@ describe("Header — visiteur", () => {
 });
 
 describe("Header — connecté", () => {
-  it("Radar · Explorer · Mes carnets · Mon parcours · ♡ · avatar", () => {
+  it("Radar · Explorer · Mes carnets · Mon parcours · ♡ · avatar vers /account", () => {
     const html = renderToStaticMarkup(
       createElement(Header, {
         favoriteCount: 2,
@@ -85,6 +86,7 @@ describe("Header — connecté", () => {
     expect(html).toContain("Menu compte — Julien Habibi");
     expect(html).toContain("JH");
     expect(html).not.toContain("Se connecter");
+    expect(html).not.toContain("/account/login");
     expect(html).not.toContain("Sur le radar");
     expect(html).not.toContain("Mon parcours culturel");
   });
