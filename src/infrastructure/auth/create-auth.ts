@@ -3,6 +3,7 @@ import "server-only";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { createSendResetPassword } from "@/infrastructure/auth/create-send-reset-password";
+import { readGoogleOAuthCredentials } from "@/infrastructure/auth/google-oauth";
 
 /**
  * En-têtes IP fournis / normalisés par Vercel.
@@ -23,6 +24,8 @@ export type CreateAuthOptions = {
   rateLimit?: BetterAuthOptions["rateLimit"];
   plugins?: BetterAuthOptions["plugins"];
   emailAndPassword?: BetterAuthOptions["emailAndPassword"];
+  socialProviders?: BetterAuthOptions["socialProviders"];
+  account?: BetterAuthOptions["account"];
 };
 
 function resolveAuthBaseUrl(): string {
@@ -36,15 +39,36 @@ function resolveAuthBaseUrl(): string {
   return "http://localhost:3002";
 }
 
+function resolveSocialProviders(
+  override?: BetterAuthOptions["socialProviders"],
+): BetterAuthOptions["socialProviders"] | undefined {
+  if (override !== undefined) return override;
+  const google = readGoogleOAuthCredentials();
+  if (!google) return undefined;
+  return {
+    google: {
+      clientId: google.clientId,
+      clientSecret: google.clientSecret,
+      prompt: "select_account",
+    },
+  };
+}
+
 /**
  * Factory Better Auth — rate limiting natif partagé via PostgreSQL
  * (`rateLimit.storage: "database"`). Pas de customStorage / Redis.
+ *
+ * Google OAuth : activé seulement si `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
+ * sont présents. Liaison implicite désactivée — pas de fusion silencieuse
+ * avec un compte email existant (`account_not_linked`).
  */
 export function createAuth(options: CreateAuthOptions) {
   const secret =
     options.secret?.trim() ||
     process.env.BETTER_AUTH_SECRET?.trim() ||
     "dev-only-better-auth-secret-change-me";
+
+  const socialProviders = resolveSocialProviders(options.socialProviders);
 
   return betterAuth({
     database: options.database,
@@ -74,6 +98,15 @@ export function createAuth(options: CreateAuthOptions) {
       revokeSessionsOnPasswordReset: true,
       // Await synchrone (pas de backgroundTasks.handler) — voir route auth.
       sendResetPassword: createSendResetPassword(),
+    },
+    socialProviders,
+    account: options.account ?? {
+      accountLinking: {
+        enabled: true,
+        // Pas de fusion auto email↔Google à la connexion (évite takeover /
+        // doublons métier). Collision → `account_not_linked` + message UI.
+        disableImplicitLinking: true,
+      },
     },
     rateLimit: {
       storage: "database",

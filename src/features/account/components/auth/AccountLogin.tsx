@@ -4,9 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
+import { AccountAuthDivider } from "@/features/account/components/auth/AccountAuthDivider";
 import { AccountAuthLayout } from "@/features/account/components/auth/AccountAuthLayout";
+import { AccountGoogleButton } from "@/features/account/components/auth/AccountGoogleButton";
 import { accountSignupHref } from "@/lib/safe-account-next-path";
 import {
+  clearPendingFavoriteIntent,
   extractPendingFavoriteIdFromPath,
   savePendingFavoriteIntent,
 } from "@/lib/pending-favorite";
@@ -22,22 +25,32 @@ type AccountLoginProps = {
   nextPath?: string;
   /** Affiché seulement si le reset e-mail est opérationnel (décidé côté serveur). */
   showForgotPassword?: boolean;
+  /** Google OAuth configuré côté serveur (credentials présents). */
+  googleEnabled?: boolean;
+  /** Erreur OAuth déjà mappée depuis `?error=` (retour callback). */
+  initialOAuthError?: string | null;
 };
 
 export function AccountLogin({
   nextPath = "/account",
   showForgotPassword = false,
+  googleEnabled = false,
+  initialOAuthError = null,
 }: AccountLoginProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialOAuthError);
   const [pending, setPending] = useState(false);
   const pendingFavoriteId = extractPendingFavoriteIdFromPath(nextPath);
 
   useEffect(() => {
-    if (!pendingFavoriteId) return;
-    savePendingFavoriteIntent(pendingFavoriteId, nextPath);
+    if (pendingFavoriteId) {
+      savePendingFavoriteIntent(pendingFavoriteId, nextPath);
+      return;
+    }
+    // Login classique (avatar, Home…) : efface une intention abandonnée.
+    clearPendingFavoriteIntent();
   }, [nextPath, pendingFavoriteId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -89,7 +102,25 @@ export function AccountLogin({
       </h1>
       <p className="mt-5 text-sm leading-6 text-cream-dim md:mt-6">{lead}</p>
 
-      <form onSubmit={handleSubmit} className="mt-10 space-y-5 md:mt-12">
+      {googleEnabled ? (
+        <div className="mt-10 space-y-5 md:mt-12">
+          <AccountGoogleButton
+            nextPath={nextPath}
+            variant="login"
+            onError={(message) => setError(message || null)}
+          />
+          <AccountAuthDivider />
+        </div>
+      ) : null}
+
+      <form
+        onSubmit={handleSubmit}
+        className={
+          googleEnabled
+            ? "mt-5 space-y-5"
+            : "mt-10 space-y-5 md:mt-12"
+        }
+      >
         <label className="block">
           <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand">
             Email

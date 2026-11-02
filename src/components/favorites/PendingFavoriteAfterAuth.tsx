@@ -18,8 +18,9 @@ type PendingFavoriteAfterAuthProps = {
 };
 
 /**
- * Traitement post-auth partagé : lit l’intention (URL + sessionStorage),
+ * Traitement post-auth partagé : lit l’intention depuis l’URL (`addFavorite`),
  * ajoute le favori de façon idempotente, nettoie, confirme.
+ * Une intention sessionStorage seule (modale abandonnée) n’est pas rejouée.
  */
 export function PendingFavoriteAfterAuth({
   enabled,

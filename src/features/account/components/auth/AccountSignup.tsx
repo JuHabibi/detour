@@ -4,9 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
+import { AccountAuthDivider } from "@/features/account/components/auth/AccountAuthDivider";
 import { AccountAuthLayout } from "@/features/account/components/auth/AccountAuthLayout";
+import { AccountGoogleButton } from "@/features/account/components/auth/AccountGoogleButton";
 import { accountLoginHref } from "@/lib/safe-account-next-path";
 import {
+  clearPendingFavoriteIntent,
   extractPendingFavoriteIdFromPath,
   savePendingFavoriteIntent,
 } from "@/lib/pending-favorite";
@@ -20,21 +23,33 @@ const AUTH_ERROR_MESSAGE =
 type AccountSignupProps = {
   /** Cible post-inscription (déjà validée côté serveur). */
   nextPath?: string;
+  /** Google OAuth configuré côté serveur (credentials présents). */
+  googleEnabled?: boolean;
+  /** Erreur OAuth déjà mappée depuis `?error=` (retour callback). */
+  initialOAuthError?: string | null;
 };
 
-export function AccountSignup({ nextPath = "/account" }: AccountSignupProps) {
+export function AccountSignup({
+  nextPath = "/account",
+  googleEnabled = false,
+  initialOAuthError = null,
+}: AccountSignupProps) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialOAuthError);
   const [pending, setPending] = useState(false);
   const pendingFavoriteId = extractPendingFavoriteIdFromPath(nextPath);
 
   useEffect(() => {
-    if (!pendingFavoriteId) return;
-    savePendingFavoriteIntent(pendingFavoriteId, nextPath);
+    if (pendingFavoriteId) {
+      savePendingFavoriteIntent(pendingFavoriteId, nextPath);
+      return;
+    }
+    // Inscription sans favori : efface une intention abandonnée.
+    clearPendingFavoriteIntent();
   }, [nextPath, pendingFavoriteId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -91,7 +106,25 @@ export function AccountSignup({ nextPath = "/account" }: AccountSignupProps) {
       </h1>
       <p className="mt-5 text-sm leading-6 text-cream-dim md:mt-6">{lead}</p>
 
-      <form onSubmit={handleSubmit} className="mt-10 space-y-5 md:mt-12">
+      {googleEnabled ? (
+        <div className="mt-10 space-y-5 md:mt-12">
+          <AccountGoogleButton
+            nextPath={nextPath}
+            variant="signup"
+            onError={(message) => setError(message || null)}
+          />
+          <AccountAuthDivider />
+        </div>
+      ) : null}
+
+      <form
+        onSubmit={handleSubmit}
+        className={
+          googleEnabled
+            ? "mt-5 space-y-5"
+            : "mt-10 space-y-5 md:mt-12"
+        }
+      >
         <label className="block">
           <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand">
             Nom
@@ -174,12 +207,12 @@ export function AccountSignup({ nextPath = "/account" }: AccountSignupProps) {
       </form>
 
       <p className="mt-8 text-sm text-cream-dim">
-        Déjà inscrit ?{" "}
+        Déjà un compte ?{" "}
         <Link
           href={accountLoginHref(nextPath === "/account" ? null : nextPath)}
           className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral"
         >
-          J’ai déjà un compte
+          Se connecter
         </Link>
       </p>
     </AccountAuthLayout>

@@ -1,6 +1,8 @@
 /**
  * Intention « ajouter ce favori après auth ».
- * Portée dans l’URL (`addFavorite`) + sessionStorage (survit à une confirmation e-mail).
+ * Source de vérité post-auth : paramètre URL `addFavorite`.
+ * sessionStorage : complément (returnPath) après engagement volontaire
+ * (clic CTA modale / page auth avec `next` contenant `addFavorite`).
  * Pas de liste anonyme — un seul eventId à la fois.
  */
 
@@ -154,14 +156,15 @@ export function clearPendingFavoriteIntent(): void {
 }
 
 /**
- * Résout l’eventId à ajouter : query URL prioritaire, sinon sessionStorage.
+ * Résout l’eventId à ajouter uniquement depuis l’URL (`addFavorite`).
+ * Le sessionStorage ne suffit plus : une intention abandonnée (modale fermée,
+ * login Google/email sans favori) ne doit pas être rejouée.
+ * Le storage reste un complément (returnPath / survie redirect) une fois
+ * l’intention confirmée dans l’URL auth (`next` avec `addFavorite`).
  */
 export function resolvePendingFavoriteEventId(
   searchParams?: URLSearchParams | { get(name: string): string | null } | null,
 ): string | null {
-  if (searchParams) {
-    const fromUrl = readPendingFavoriteFromSearchParams(searchParams);
-    if (fromUrl) return fromUrl;
-  }
-  return readPendingFavoriteIntent()?.eventId ?? null;
+  if (!searchParams) return null;
+  return readPendingFavoriteFromSearchParams(searchParams);
 }

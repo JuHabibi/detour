@@ -13,6 +13,8 @@ describe("auth cookieCache config", () => {
       database: { dialect: new PGliteDialect({ pglite: db }), type: "postgres" },
       secret: "test-secret-at-least-32-characters-long!!",
       baseURL: "http://localhost:3002",
+      // Isolé de l’env locale (GOOGLE_* éventuels).
+      socialProviders: {},
     });
     await auth.$context;
   });

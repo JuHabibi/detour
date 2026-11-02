@@ -74,12 +74,14 @@ describe("pending-favorite", () => {
     expect(parsePendingFavoriteIntent("nope")).toBeNull();
   });
 
-  it("priorise l’URL sur le stockage session", () => {
+  it("ne rejoue une intention que via l’URL addFavorite (pas le storage seul)", () => {
     savePendingFavoriteIntent("from-storage", "/");
     const params = new URLSearchParams("addFavorite=from-url");
     expect(resolvePendingFavoriteEventId(params)).toBe("from-url");
-    expect(resolvePendingFavoriteEventId(new URLSearchParams())).toBe(
-      "from-storage",
-    );
+    // Régression : login Google/email sans addFavorite ne doit pas
+    // rejouer une intention abandonnée en sessionStorage.
+    expect(resolvePendingFavoriteEventId(new URLSearchParams())).toBeNull();
+    expect(resolvePendingFavoriteEventId(null)).toBeNull();
+    expect(readPendingFavoriteIntent()?.eventId).toBe("from-storage");
   });
 });
