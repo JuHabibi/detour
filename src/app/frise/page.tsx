@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
+import { FRISE_SEO, NOINDEX_ROBOTS } from "@/config/seo";
 import { FrisePageClient } from "@/features/frise/components/FrisePageClient";
 import {
   friseReturnPath,
@@ -9,9 +10,9 @@ import {
 import { accountLoginHref } from "@/lib/safe-account-next-path";
 
 export const metadata: Metadata = {
-  title: "Mon parcours culturel · Détour",
-  description:
-    "Prenez le temps de faire un détour : parcourez les sorties à venir, vos favoris et vos carnets sur une même frise.",
+  title: FRISE_SEO.title,
+  description: FRISE_SEO.description,
+  robots: NOINDEX_ROBOTS,
 };
 
 type FrisePageProps = {
