@@ -7,6 +7,7 @@ import {
   deactivateNotSeenSince,
   getEventById,
   getEventRecordById,
+  listActiveEventsForSitemap,
   listUpcomingActive,
   listUpcomingActiveWithAdapter,
   upsertMany,
@@ -182,6 +183,40 @@ describe("event.repository", () => {
     const query = vi.fn().mockResolvedValue({ rows: [] });
     const client = { query } as unknown as DbQueryable;
     await expect(getEventById("missing", client)).resolves.toBeNull();
+  });
+
+  it("listActiveEventsForSitemap : actifs seuls, champs minimaux, pas de N+1", async () => {
+    const query = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          id: "openagenda:1",
+          start_at: new Date("2026-11-10T19:00:00.000Z"),
+          end_at: new Date("2026-11-10T21:00:00.000Z"),
+        },
+        {
+          id: "saran:x@y",
+          start_at: new Date("2026-12-01T10:00:00.000Z"),
+          end_at: null,
+        },
+      ],
+    });
+    const client = { query } as unknown as DbQueryable;
+    await expect(listActiveEventsForSitemap(client)).resolves.toEqual([
+      {
+        id: "openagenda:1",
+        startAt: "2026-11-10T19:00:00.000Z",
+        endAt: "2026-11-10T21:00:00.000Z",
+      },
+      {
+        id: "saran:x@y",
+        startAt: "2026-12-01T10:00:00.000Z",
+        endAt: null,
+      },
+    ]);
+    expect(query).toHaveBeenCalledTimes(1);
+    const [sql] = query.mock.calls[0] as [string];
+    expect(sql).toContain("is_active = true");
+    expect(sql).not.toContain("LIMIT");
   });
 
   it("getEventRecordById expose isActive y compris inactif", async () => {
