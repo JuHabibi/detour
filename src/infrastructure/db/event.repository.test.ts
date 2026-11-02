@@ -6,6 +6,7 @@ import {
   EVENT_UPSERT_CHUNK_SIZE,
   deactivateNotSeenSince,
   getEventById,
+  getEventRecordById,
   listUpcomingActive,
   listUpcomingActiveWithAdapter,
   upsertMany,
@@ -181,5 +182,41 @@ describe("event.repository", () => {
     const query = vi.fn().mockResolvedValue({ rows: [] });
     const client = { query } as unknown as DbQueryable;
     await expect(getEventById("missing", client)).resolves.toBeNull();
+  });
+
+  it("getEventRecordById expose isActive y compris inactif", async () => {
+    const query = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          id: "openagenda:2",
+          adapter_id: "orleans",
+          title: "Passé",
+          description: null,
+          image_url: null,
+          start_at: new Date("2026-01-01T20:00:00.000Z"),
+          end_at: null,
+          all_day: false,
+          venue: null,
+          city: "Orléans",
+          latitude: null,
+          longitude: null,
+          category: null,
+          genre: null,
+          conditions: null,
+          source: null,
+          source_url: null,
+          registration_url: null,
+          is_active: false,
+          created_at: new Date("2026-01-01T00:00:00.000Z"),
+          updated_at: new Date("2026-01-01T00:00:00.000Z"),
+          last_seen_at: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      ],
+    });
+    const client = { query } as unknown as DbQueryable;
+    await expect(getEventRecordById("openagenda:2", client)).resolves.toEqual({
+      event: expect.objectContaining({ id: "openagenda:2", title: "Passé" }),
+      isActive: false,
+    });
   });
 });
