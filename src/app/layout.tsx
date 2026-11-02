@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { HOME_SEO, SITE_NAME } from "@/config/seo";
+import { PUBLIC_SITE_ORIGIN } from "@/config/site";
 import "./globals.css";
 
 /**
@@ -62,9 +64,25 @@ const instrumentSerif = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Détour — Radar culturel local autour d’Orléans",
-  description:
-    "Repérez aujourd’hui ce que vous pourriez regretter de découvrir trop tard — concerts, spectacles et sorties autour d’Orléans.",
+  metadataBase: new URL(PUBLIC_SITE_ORIGIN),
+  title: {
+    default: HOME_SEO.title,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: HOME_SEO.description,
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: "website",
+    locale: "fr_FR",
+    siteName: SITE_NAME,
+    title: HOME_SEO.title,
+    description: HOME_SEO.description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: HOME_SEO.title,
+    description: HOME_SEO.description,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
