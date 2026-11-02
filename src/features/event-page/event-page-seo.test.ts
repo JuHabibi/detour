@@ -29,6 +29,8 @@ function data(
   return {
     eventId: "openagenda:1",
     item: item(),
+    startAt: "2026-11-15T18:00:00.000Z",
+    endAt: "2026-11-15T22:00:00.000Z",
     isEnded: false,
     ...overrides,
   };

@@ -12,7 +12,7 @@ export const SITE_OPEN_GRAPH = {
 } as const;
 
 export const HOME_SEO = {
-  title: `Détour — Radar culturel local autour d’${CITY}`,
+  title: `Détour | Radar culturel local autour d’${CITY}`,
   description:
     "Repérez aujourd’hui ce que vous pourriez regretter de découvrir trop tard — concerts, spectacles et sorties autour d’Orléans.",
   canonicalPath: "/",

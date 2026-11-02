@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { getPublicEventPage } from "@/application/events/get-public-event-page";
+import {
+  applyPublicEventEndedStatus,
+  getPublicEventPage,
+  getPublicEventSnapshot,
+  type GetPublicEventSnapshotResult,
+} from "@/application/events/get-public-event-page";
 import type { DetourEvent } from "@/domain/events/event";
 import type { EventRecord } from "@/infrastructure/db/event.repository";
 
@@ -35,12 +40,16 @@ function record(
   };
 }
 
-describe("getPublicEventPage", () => {
-  const now = new Date("2026-11-05T12:00:00.000Z");
+describe("getPublicEventSnapshot / applyPublicEventEndedStatus", () => {
+  const beforeEnd = new Date("2026-11-10T20:00:00.000Z");
+  const afterEnd = new Date("2026-11-10T21:00:01.000Z");
 
-  it("retourne une fiche indexable pour un événement actif à venir", async () => {
+  it("indexe un événement actif à venir (isEnded frais)", async () => {
     const loadRecord = vi.fn().mockResolvedValue(record());
-    const result = await getPublicEventPage("openagenda:1", { now, loadRecord });
+    const snapshot = await getPublicEventSnapshot("openagenda:1", {
+      loadRecord,
+    });
+    const result = applyPublicEventEndedStatus(snapshot, beforeEnd);
 
     expect(result).toMatchObject({
       status: "ok",
@@ -50,36 +59,36 @@ describe("getPublicEventPage", () => {
         item: { title: "Concert test" },
       },
     });
+    expect("isEnded" in (snapshot as { data?: object }).data!).toBe(false);
   });
 
-  it("conserve un événement actif passé avec isEnded", async () => {
-    const loadRecord = vi.fn().mockResolvedValue(
-      record({
-        event: event({
-          startAt: "2026-10-01T19:00:00.000Z",
-          endAt: "2026-10-01T21:00:00.000Z",
-        }),
-      }),
-    );
-    const result = await getPublicEventPage("openagenda:1", { now, loadRecord });
-
-    expect(result).toMatchObject({
-      status: "ok",
-      data: { isEnded: true },
+  it("recalcule isEnded hors cache quand l’horloge dépasse la fin (sans relecture DB)", async () => {
+    const loadRecord = vi.fn().mockResolvedValue(record());
+    const snapshot = await getPublicEventSnapshot("openagenda:1", {
+      loadRecord,
     });
+    expect(loadRecord).toHaveBeenCalledTimes(1);
+
+    expect(
+      applyPublicEventEndedStatus(snapshot, beforeEnd),
+    ).toMatchObject({ status: "ok", data: { isEnded: false } });
+
+    // Nouvelle « requête » : même snapshot cache, horloge avancée — pas de DB.
+    expect(
+      applyPublicEventEndedStatus(snapshot, afterEnd),
+    ).toMatchObject({ status: "ok", data: { isEnded: true } });
+    expect(loadRecord).toHaveBeenCalledTimes(1);
   });
 
   it("not_found si inconnu ou désactivé", async () => {
     await expect(
-      getPublicEventPage("missing", {
-        now,
+      getPublicEventSnapshot("missing", {
         loadRecord: vi.fn().mockResolvedValue(null),
       }),
     ).resolves.toEqual({ status: "not_found" });
 
     await expect(
-      getPublicEventPage("openagenda:1", {
-        now,
+      getPublicEventSnapshot("openagenda:1", {
         loadRecord: vi.fn().mockResolvedValue(record({ isActive: false })),
       }),
     ).resolves.toEqual({ status: "not_found" });
@@ -88,12 +97,11 @@ describe("getPublicEventPage", () => {
   it("propage une panne DB (pas de fausse 404)", async () => {
     const loadRecord = vi.fn().mockRejectedValue(new Error("db down"));
     await expect(
-      getPublicEventPage("openagenda:1", { now, loadRecord }),
+      getPublicEventSnapshot("openagenda:1", { loadRecord }),
     ).rejects.toThrow("db down");
   });
 
   it("respecte la fin exclusive all-day (encore en cours le jour J)", async () => {
-    // all-day 5 nov. Europe/Paris → endAt exclusif = 6 nov. 00:00 Paris
     const loadRecord = vi.fn().mockResolvedValue(
       record({
         event: event({
@@ -103,11 +111,64 @@ describe("getPublicEventPage", () => {
         }),
       }),
     );
-    const midday = new Date("2026-11-05T12:00:00+01:00");
-    const result = await getPublicEventPage("openagenda:1", {
-      now: midday,
+    const snapshot = await getPublicEventSnapshot("openagenda:1", {
       loadRecord,
     });
-    expect(result).toMatchObject({ status: "ok", data: { isEnded: false } });
+    const midday = new Date("2026-11-05T12:00:00+01:00");
+    expect(
+      applyPublicEventEndedStatus(snapshot, midday),
+    ).toMatchObject({ status: "ok", data: { isEnded: false } });
+  });
+
+  it("all-day terminé à la borne exclusive endAt (sans relecture DB)", async () => {
+    const endAt = "2026-11-06T00:00:00+01:00";
+    const loadRecord = vi.fn().mockResolvedValue(
+      record({
+        event: event({
+          allDay: true,
+          startAt: "2026-11-05T00:00:00+01:00",
+          endAt,
+        }),
+      }),
+    );
+    const snapshot = await getPublicEventSnapshot("openagenda:1", {
+      loadRecord,
+    });
+    expect(loadRecord).toHaveBeenCalledTimes(1);
+
+    const justBefore = new Date(Date.parse(endAt) - 1);
+    expect(
+      applyPublicEventEndedStatus(snapshot, justBefore),
+    ).toMatchObject({ status: "ok", data: { isEnded: false } });
+
+    const atExclusiveEnd = new Date(endAt);
+    expect(
+      applyPublicEventEndedStatus(snapshot, atExclusiveEnd),
+    ).toMatchObject({ status: "ok", data: { isEnded: true } });
+    expect(loadRecord).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("getPublicEventPage", () => {
+  it("compose snapshot + isEnded pour les appels directs", async () => {
+    const loadRecord = vi.fn().mockResolvedValue(record());
+    await expect(
+      getPublicEventPage("openagenda:1", {
+        now: new Date("2026-11-05T12:00:00.000Z"),
+        loadRecord,
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      data: { isEnded: false },
+    });
+  });
+});
+
+describe("applyPublicEventEndedStatus", () => {
+  it("laisse not_found intact", () => {
+    const missing: GetPublicEventSnapshotResult = { status: "not_found" };
+    expect(applyPublicEventEndedStatus(missing)).toEqual({
+      status: "not_found",
+    });
   });
 });

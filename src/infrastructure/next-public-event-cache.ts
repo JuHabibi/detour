@@ -1,6 +1,7 @@
 import { revalidateTag, unstable_cache } from "next/cache";
 import {
-  getPublicEventPage,
+  applyPublicEventEndedStatus,
+  getPublicEventSnapshot,
   type GetPublicEventPageResult,
 } from "@/application/events/get-public-event-page";
 
@@ -14,21 +15,24 @@ export function publicEventCacheTag(eventId: string): string {
 }
 
 /**
- * Fiche publique via Data Cache. Ne cache que le résultat métier ;
- * une exception DB remonte sans être mémorisée comme 404.
+ * Snapshot PG via Data Cache (6h / invalidation sync).
+ * `isEnded` est calculé **après** lecture du cache, à l’horloge de la requête.
  */
 export async function getCachedPublicEventPage(
   eventId: string,
+  now: Date = new Date(),
 ): Promise<GetPublicEventPageResult> {
-  const cached = unstable_cache(
-    async () => getPublicEventPage(eventId),
+  const cachedSnapshot = unstable_cache(
+    async () => getPublicEventSnapshot(eventId),
     ["detour-public-event", eventId],
     {
       tags: [PUBLIC_EVENTS_CACHE_TAG, publicEventCacheTag(eventId)],
       revalidate: PUBLIC_EVENT_CACHE_REVALIDATE_SECONDS,
     },
   );
-  return cached();
+
+  const snapshot = await cachedSnapshot();
+  return applyPublicEventEndedStatus(snapshot, now);
 }
 
 export function invalidatePublicEventsCache(): void {

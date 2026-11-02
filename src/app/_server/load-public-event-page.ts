@@ -1,9 +1,13 @@
+import { cache } from "react";
 import type { GetPublicEventPageResult } from "@/application/events/get-public-event-page";
 import { getCachedPublicEventPage } from "@/infrastructure/next-public-event-cache";
 
-/** Page loader — composition cache ; panne DB non convertie en 404. */
-export async function loadPublicEventPage(
-  eventId: string,
-): Promise<GetPublicEventPageResult> {
-  return getCachedPublicEventPage(eventId);
-}
+/**
+ * Page loader — Data Cache PG + `isEnded` à la requête.
+ * `cache()` React : une seule résolution partagée page / generateMetadata.
+ */
+export const loadPublicEventPage = cache(
+  async (eventId: string): Promise<GetPublicEventPageResult> => {
+    return getCachedPublicEventPage(eventId);
+  },
+);
