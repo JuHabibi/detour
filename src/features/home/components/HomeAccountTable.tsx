@@ -38,9 +38,9 @@ export function HomeAccountTable() {
               Les belles découvertes ne devraient pas se perdre.
             </h2>
             <p className="mt-5 hidden max-w-[34ch] text-[0.95rem] leading-7 text-cream-dim md:block">
-              Un événement à garder, une envie pour plus tard ? Mettez vos
-              découvertes de côté, composez vos carnets et laissez votre parcours
-              prendre forme.
+              Un événement à garder, une envie pour plus tard ? Conservez vos
+              découvertes, organisez-les dans vos carnets et laissez votre
+              parcours prendre forme.
             </p>
             <div className="mt-7 hidden flex-wrap items-center gap-x-5 gap-y-3 md:flex">
               <SignupLink />
@@ -77,9 +77,9 @@ export function HomeAccountTable() {
 
           <div className="relative z-[2] md:hidden">
             <p className="max-w-[36ch] text-sm leading-6 text-cream-dim">
-              Un événement à garder, une envie pour plus tard ? Mettez vos
-              découvertes de côté, composez vos carnets et laissez votre parcours
-              prendre forme.
+              Un événement à garder, une envie pour plus tard ? Conservez vos
+              découvertes, organisez-les dans vos carnets et laissez votre
+              parcours prendre forme.
             </p>
             <div className="mt-6 flex flex-col gap-3">
               <SignupLink className="w-full justify-center" />
@@ -101,7 +101,7 @@ function SignupLink({ className }: { className?: string }) {
         className,
       )}
     >
-      Créer mon compte gratuitement
+      Créer mon compte
     </Link>
   );
 }

@@ -8,6 +8,7 @@ import {
   type HeaderAccountUser,
 } from "@/components/layout/HeaderAccountMenu";
 import { cn } from "@/lib/cn";
+import { accountLoginHref } from "@/lib/safe-account-next-path";
 
 /**
  * Échap : restore le focus sur le bouton menu puis ferme.
@@ -33,7 +34,7 @@ type HeaderProps = {
   homeHref?: string;
   /**
    * Utilisateur connecté — avatar + menu + nav personnelle.
-   * Absent / null = visiteur → avatar silhouette → /account, sans cœur ni liens compte.
+   * Absent / null = visiteur → avatar silhouette → /account/login, sans cœur ni liens compte.
    */
   user?: HeaderAccountUser | null;
   /**
@@ -174,7 +175,7 @@ export function Header({
             <HeaderAccountMenu user={user} />
           ) : (
             <Link
-              href="/account"
+              href={accountLoginHref("/account")}
               aria-label="Se connecter"
               title="Se connecter"
               className={headerAvatarClassName}

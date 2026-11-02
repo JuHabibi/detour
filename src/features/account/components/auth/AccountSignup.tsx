@@ -79,7 +79,7 @@ export function AccountSignup({ nextPath = "/account" }: AccountSignupProps) {
     ? "Créez votre compte pour enregistrer cet événement dans vos favoris."
     : nextPath.startsWith("/frise")
       ? "Un compte pour mon parcours culturel, vos favoris, et l’export calendrier en fichier .ics."
-      : "Un compte simple pour retrouver vos favoris et les glisser dans votre agenda.";
+      : "Un compte pour garder vos découvertes et les organiser dans vos carnets.";
 
   return (
     <AccountAuthLayout variant="signup">

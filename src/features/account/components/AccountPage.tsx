@@ -2,7 +2,6 @@ import { Header } from "@/components/layout/Header";
 import { PendingFavoriteAfterAuthGate } from "@/components/favorites/PendingFavoriteAfterAuthGate";
 import type { AccountAuthState } from "@/features/account/account-auth-state";
 import { AccountSignedIn } from "@/features/account/components/AccountSignedIn";
-import { AccountSignedOut } from "@/features/account/components/AccountSignedOut";
 import type {
   EventGroupMembership,
   GroupSummary,
@@ -10,7 +9,7 @@ import type {
 import type { EventItem } from "@/data/types";
 
 type AccountPageProps = {
-  auth: AccountAuthState;
+  auth: Extract<AccountAuthState, { status: "authenticated" }>;
   favorites?: EventItem[];
   groups?: GroupSummary[];
   memberships?: EventGroupMembership[];
@@ -22,33 +21,23 @@ export function AccountPage({
   groups = [],
   memberships = [],
 }: AccountPageProps) {
-  const signedIn = auth.status === "authenticated";
-
   return (
     <div className="min-h-screen bg-paper">
       <Header
-        favoriteCount={signedIn ? favorites.length : 0}
+        favoriteCount={favorites.length}
         homeHref="/"
-        user={
-          signedIn
-            ? { name: auth.user.name, email: auth.user.email }
-            : null
-        }
-        showFriseNav={signedIn}
+        user={{ name: auth.user.name, email: auth.user.email }}
+        showFriseNav
       />
-      {signedIn ? <PendingFavoriteAfterAuthGate enabled /> : null}
+      <PendingFavoriteAfterAuthGate enabled />
 
       <main className="px-5 py-11 md:px-8 md:py-16 lg:px-12 lg:py-20 2xl:px-14 2xl:py-20 min-[1920px]:px-16">
         <div className="mx-auto min-w-0 max-w-[var(--detour-shell-max)]">
-          {signedIn ? (
-            <AccountSignedIn
-              initialFavorites={favorites}
-              initialGroups={groups}
-              initialMemberships={memberships}
-            />
-          ) : (
-            <AccountSignedOut />
-          )}
+          <AccountSignedIn
+            initialFavorites={favorites}
+            initialGroups={groups}
+            initialMemberships={memberships}
+          />
         </div>
       </main>
 
