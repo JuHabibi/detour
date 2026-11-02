@@ -2,7 +2,6 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { FavoriteAuthModal } from "@/components/favorites/FavoriteAuthModal";
-import { AccountSignedOut } from "@/features/account/components/AccountSignedOut";
 import { AccountLogin } from "@/features/account/components/auth/AccountLogin";
 import { AccountSignup } from "@/features/account/components/auth/AccountSignup";
 import { HomeAccountTable } from "@/features/home/components/HomeAccountTable";
@@ -56,14 +55,10 @@ vi.mock("@/lib/use-stacked-dialog-lifecycle", () => ({
 }));
 
 describe("entrées création de compte", () => {
-  it("Compte, Home et Favoris mènent au même formulaire signup", () => {
-    const accountHtml = renderToStaticMarkup(createElement(AccountSignedOut));
-    expect(accountHtml).toContain("Vos découvertes, à votre façon.");
-    expect(accountHtml).toContain("Créer mon compte");
-    expect(accountHtml).not.toContain("Créer un compte");
-    expect(accountHtml).toContain(`href="${accountSignupHref("/account")}"`);
-    expect(accountHtml).toContain(`href="${accountLoginHref("/account")}"`);
-    expect(accountHtml).toContain("Gardez vos découvertes, organisez-les");
+  it("Home et Favoris mènent au formulaire signup ; /account redirige vers login", () => {
+    expect(accountLoginHref("/account")).toBe(
+      "/account/login?next=%2Faccount",
+    );
 
     const homeHtml = renderToStaticMarkup(createElement(HomeAccountTable));
     expect(homeHtml).toContain(

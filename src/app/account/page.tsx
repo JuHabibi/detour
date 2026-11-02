@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { AccountPage } from "@/features/account/components/AccountPage";
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import {
@@ -6,11 +7,12 @@ import {
 } from "@/application/groups";
 import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
 import { listFavoriteEventsForUser } from "@/infrastructure/db/favorite.repository";
+import { accountLoginHref } from "@/lib/safe-account-next-path";
 
 export default async function AccountRoutePage() {
   const auth = await getAccountAuthState();
   if (auth.status !== "authenticated") {
-    return <AccountPage auth={auth} />;
+    redirect(accountLoginHref("/account"));
   }
 
   const [favorites, groups, memberships] = await Promise.all([
