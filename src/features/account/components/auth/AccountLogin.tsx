@@ -7,15 +7,12 @@ import { authClient } from "@/lib/auth-client";
 import { AccountAuthDivider } from "@/features/account/components/auth/AccountAuthDivider";
 import { AccountAuthLayout } from "@/features/account/components/auth/AccountAuthLayout";
 import { AccountGoogleButton } from "@/features/account/components/auth/AccountGoogleButton";
+import { AccountLoginEmailVerificationPanel } from "@/features/account/components/auth/AccountLoginEmailVerificationPanel";
 import {
-  EMAIL_VERIFICATION_REQUIRED_MESSAGE,
   EMAIL_VERIFIED_LOGIN_MESSAGE,
   isEmailNotVerifiedError,
 } from "@/features/account/components/auth/account-email-verification-feedback";
-import {
-  accountVerifyEmailCallbackPath,
-  accountVerifyEmailPageHref,
-} from "@/lib/account-verify-email-path";
+import { accountVerifyEmailCallbackPath } from "@/lib/account-verify-email-path";
 import { accountSignupHref } from "@/lib/safe-account-next-path";
 import {
   clearPendingFavoriteIntent,
@@ -89,8 +86,8 @@ export function AccountLogin({
       });
       if (result.error) {
         if (isEmailNotVerifiedError(result.error)) {
+          setEmail(trimmedEmail);
           setNeedsVerification(true);
-          setError(EMAIL_VERIFICATION_REQUIRED_MESSAGE);
           return;
         }
         setError(AUTH_ERROR_MESSAGE);
@@ -116,10 +113,27 @@ export function AccountLogin({
       ? "Connectez-vous pour reprendre mon parcours culturel — favoris et compte inclus."
       : "Connectez-vous pour accéder à vos favoris et les ajouter à votre agenda.";
 
-  const verifyHref = accountVerifyEmailPageHref({
-    email: email.trim() || null,
-    next: nextPath === "/account" ? null : nextPath,
-  });
+  if (needsVerification) {
+    return (
+      <AccountAuthLayout variant="login">
+        <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-sand">
+          Connexion
+        </p>
+        <h1 className="mt-4 font-display text-[2.1rem] leading-[1.02] tracking-tight text-ink md:mt-5 md:text-[2.75rem] lg:text-[3rem]">
+          {heading}
+        </h1>
+        <AccountLoginEmailVerificationPanel
+          email={email}
+          nextPath={nextPath}
+          onChangeEmail={() => {
+            setNeedsVerification(false);
+            setError(null);
+            setInfo(null);
+          }}
+        />
+      </AccountAuthLayout>
+    );
+  }
 
   return (
     <AccountAuthLayout variant="login">
@@ -206,17 +220,6 @@ export function AccountLogin({
         {error ? (
           <p className="text-sm text-coral" role="alert">
             {error}
-            {needsVerification ? (
-              <>
-                {" "}
-                <Link
-                  href={verifyHref}
-                  className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral"
-                >
-                  Renvoyer le lien
-                </Link>
-              </>
-            ) : null}
           </p>
         ) : null}
 
