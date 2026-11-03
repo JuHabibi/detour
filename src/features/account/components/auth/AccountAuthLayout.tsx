@@ -4,14 +4,9 @@ import { cn } from "@/lib/cn";
 
 type AccountAuthLayoutProps = {
   children: ReactNode;
-  /** Variante visuelle légère du collage (même asset). */
   variant: "login" | "signup";
 };
 
-/**
- * Composition desktop 2 colonnes :
- * formulaire à gauche | illustration plus proche, ancrée à gauche de sa colonne.
- */
 export function AccountAuthLayout({
   children,
   variant,
@@ -32,7 +27,7 @@ export function AccountAuthLayout({
         )}
       >
         <Image
-          src="/account-editorial-collage.jpg"
+          src="/account-editorial.jpg"
           alt=""
           width={800}
           height={800}
