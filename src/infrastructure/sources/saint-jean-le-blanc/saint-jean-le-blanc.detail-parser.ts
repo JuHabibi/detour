@@ -64,12 +64,15 @@ export function parseSjlbDetail(
     .map((m) => m[1]!)
     .filter((u) => BOOKING_URL_RE.test(u));
 
-  const descriptionText = decodeSjlbHtmlEntities(
-    stripSjlbTags(
-      texte
-        .replace(/<script[\s\S]*?<\/script>/gi, " ")
-        .replace(/<style[\s\S]*?<\/style>/gi, " "),
+  const descriptionText = stripSjlbDescriptionChrome(
+    decodeSjlbHtmlEntities(
+      stripSjlbTags(
+        texte
+          .replace(/<script[\s\S]*?<\/script>/gi, " ")
+          .replace(/<style[\s\S]*?<\/style>/gi, " "),
+      ),
     ),
+    theme,
   );
 
   return {
@@ -125,4 +128,24 @@ function decodeOptional(value: string | null | undefined): string | null {
   if (!value) return null;
   const decoded = decodeSjlbHtmlEntities(value).trim();
   return decoded.length > 0 ? decoded : null;
+}
+
+/**
+ * Retire le chrome CMS « Imprimer la page » (+ thème collé) de la description.
+ * Le thème reste extrait à part ; pas de nettoyage générique au-delà de ce motif.
+ */
+function stripSjlbDescriptionChrome(
+  plainText: string,
+  theme: string | null,
+): string {
+  let text = plainText;
+  if (theme) {
+    const escaped = theme.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    text = text.replace(
+      new RegExp(`Imprimer la page\\s+${escaped}`, "gi"),
+      " ",
+    );
+  }
+  text = text.replace(/Imprimer la page\b/gi, " ");
+  return text.replace(/\s+/g, " ").trim();
 }
