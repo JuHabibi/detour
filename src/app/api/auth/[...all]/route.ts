@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { toNextJsHandler } from "better-auth/next-js";
 import { auth } from "@/infrastructure/auth/auth";
 import {
@@ -8,6 +7,7 @@ import {
   runDeleteUserPostWithCredentialGate,
   shouldBlockDeleteAccountBeforeAuth,
 } from "@/infrastructure/auth/delete-account-request-guard";
+import { finalizeDeleteUserCallbackResponse } from "@/infrastructure/auth/finalize-delete-user-callback-response";
 import {
   emailVerificationOpsUnavailableResponse,
   isEmailSignUpRequestPath,
@@ -40,17 +40,9 @@ export async function GET(request: Request) {
   }
 
   const response = await handlers.GET(request);
-  // Succès BA : redirect vers callbackURL (`/account/deleted`).
-  if (response.status >= 300 && response.status < 400) {
-    return response;
-  }
-  if (response.ok) {
-    return NextResponse.redirect(new URL("/account/deleted", url.origin));
-  }
-  // Jeton expiré / invalide / session absente : pas de suppression, UX dédiée.
-  return NextResponse.redirect(
-    new URL("/account/deleted?status=invalid", url.origin),
-  );
+  // BA 1.7.4 : succès → 3xx vers callbackURL + Set-Cookie session.
+  // Recopie les cookies BA et pose un flash (pas de `status=success` forgeable).
+  return finalizeDeleteUserCallbackResponse(response, url.origin);
 }
 
 export async function POST(request: Request) {

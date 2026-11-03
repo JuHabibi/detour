@@ -7,6 +7,7 @@ import {
   DELETE_ACCOUNT_GENERIC_ERROR,
   mapDeleteAccountClientError,
 } from "@/features/account/components/auth/account-delete-feedback";
+import { ACCOUNT_DELETED_CALLBACK_PATH } from "@/features/account/components/auth/account-deleted-path";
 import { authClient } from "@/lib/auth-client";
 
 const fieldClassName =
@@ -39,7 +40,7 @@ export function AccountDangerZone({ requiresPassword }: AccountDangerZoneProps) 
     try {
       const result = await authClient.deleteUser({
         ...(requiresPassword ? { password } : {}),
-        callbackURL: "/account/deleted",
+        callbackURL: ACCOUNT_DELETED_CALLBACK_PATH,
       });
 
       if (result.error) {
@@ -58,7 +59,7 @@ export function AccountDangerZone({ requiresPassword }: AccountDangerZoneProps) 
 
       if (message === "User deleted") {
         // Ne devrait pas arriver avec sendDeleteAccountVerification actif.
-        window.location.assign("/account/deleted");
+        window.location.assign(ACCOUNT_DELETED_CALLBACK_PATH);
         return;
       }
 

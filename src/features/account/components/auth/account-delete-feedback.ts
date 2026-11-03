@@ -13,6 +13,10 @@ export const DELETE_ACCOUNT_EMAIL_SENT =
 export const DELETE_ACCOUNT_INVALID_LINK =
   "Ce lien de suppression est invalide ou a expiré. Aucun compte n’a été supprimé.";
 
+/** Accès direct à `/account/deleted` sans flash de confirmation. */
+export const DELETE_ACCOUNT_DIRECT_ACCESS =
+  "Cette page confirme uniquement une suppression déjà validée par email. Si vous n’avez rien demandé, votre compte n’a pas été modifié.";
+
 export function mapDeleteAccountClientError(code: string | undefined): string {
   if (code === "INVALID_PASSWORD") return DELETE_ACCOUNT_INVALID_PASSWORD;
   if (code === "DELETE_ACCOUNT_PROVIDER_UNAVAILABLE") {

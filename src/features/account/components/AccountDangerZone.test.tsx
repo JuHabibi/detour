@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccountDangerZone } from "@/features/account/components/AccountDangerZone";
 import { DELETE_ACCOUNT_EMAIL_SENT } from "@/features/account/components/auth/account-delete-feedback";
+import { ACCOUNT_DELETED_CALLBACK_PATH } from "@/features/account/components/auth/account-deleted-path";
 import { authClient } from "@/lib/auth-client";
 
 (
@@ -82,8 +83,9 @@ describe("AccountDangerZone", () => {
     });
 
     expect(authClient.deleteUser).toHaveBeenCalledWith({
-      callbackURL: "/account/deleted",
+      callbackURL: ACCOUNT_DELETED_CALLBACK_PATH,
     });
+    expect(ACCOUNT_DELETED_CALLBACK_PATH).toBe("/account/deleted");
     expect(container.textContent).toContain(DELETE_ACCOUNT_EMAIL_SENT);
   });
 
@@ -127,7 +129,7 @@ describe("AccountDangerZone", () => {
 
     expect(authClient.deleteUser).toHaveBeenCalledWith({
       password: "wrong-password",
-      callbackURL: "/account/deleted",
+      callbackURL: ACCOUNT_DELETED_CALLBACK_PATH,
     });
     expect(container.textContent).toMatch(/Mot de passe incorrect/i);
     expect(container.textContent).not.toContain(DELETE_ACCOUNT_EMAIL_SENT);
