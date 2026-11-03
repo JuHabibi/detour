@@ -7,14 +7,20 @@ const INVALID_LINK_CODES = new Set([
 
 export const EMAIL_NOT_VERIFIED_CODE = "EMAIL_NOT_VERIFIED";
 
-export const EMAIL_VERIFICATION_REQUIRED_MESSAGE =
-  "Confirmez votre adresse email pour vous connecter. Un lien de confirmation peut vous être renvoyé.";
+/** Titre court — état informatif login (pas une erreur). */
+export const EMAIL_VERIFICATION_REQUIRED_TITLE = "Confirmez votre email";
+
+export const EMAIL_VERIFICATION_REQUIRED_LEAD =
+  "Pour terminer la connexion, vérifiez votre adresse email à l’aide du lien de confirmation.";
 
 export const EMAIL_VERIFICATION_SENT_LEAD =
   "Si un compte correspond à cet email, un lien de confirmation a été envoyé. Pensez à vérifier vos indésirables.";
 
 export const EMAIL_VERIFICATION_OPS_ERROR =
   "Le service d’envoi d’email est temporairement indisponible. Réessayez plus tard.";
+
+export const EMAIL_VERIFICATION_REQUIRED_MESSAGE =
+  EMAIL_VERIFICATION_REQUIRED_LEAD;
 
 export const EMAIL_VERIFICATION_INVALID_LINK_MESSAGE =
   "Ce lien de confirmation est invalide ou a expiré. Demandez un nouveau lien.";
