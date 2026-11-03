@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { createElement, act, type ChangeEvent } from "react";
+import { createElement, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountLogin } from "@/features/account/components/auth/AccountLogin";
@@ -60,9 +60,7 @@ function setInputValue(input: HTMLInputElement, value: string) {
   proto?.set?.call(input, value);
   tracker?.setValue("");
   input.dispatchEvent(new Event("input", { bubbles: true }));
-  input.dispatchEvent(
-    new Event("change", { bubbles: true }) as unknown as ChangeEvent,
-  );
+  input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 describe("AccountLogin — bascule EMAIL_NOT_VERIFIED", () => {
