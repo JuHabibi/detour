@@ -11,7 +11,7 @@ export const EMAIL_NOT_VERIFIED_CODE = "EMAIL_NOT_VERIFIED";
 export const EMAIL_VERIFICATION_REQUIRED_TITLE = "Confirmez votre email";
 
 export const EMAIL_VERIFICATION_REQUIRED_LEAD =
-  "Ce compte existe, mais l’adresse n’a pas encore été confirmée. Un lien de confirmation est nécessaire avant la connexion.";
+  "Pour terminer la connexion, vérifiez votre adresse email à l’aide du lien de confirmation.";
 
 export const EMAIL_VERIFICATION_SENT_LEAD =
   "Si un compte correspond à cet email, un lien de confirmation a été envoyé. Pensez à vérifier vos indésirables.";

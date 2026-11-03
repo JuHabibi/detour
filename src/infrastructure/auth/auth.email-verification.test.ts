@@ -329,4 +329,154 @@ describe("auth email verification flows (PGlite)", () => {
     );
     expect(sessions.rows[0]).toEqual({ n: 0 });
   });
+
+  it("EMAIL_NOT_VERIFIED seulement après mot de passe valide (sinon INVALID_EMAIL_OR_PASSWORD)", async () => {
+    const auth = createAuth({
+      database: dialect,
+      secret: AUTH_SECRET,
+      baseURL: AUTH_BASE_URL,
+      socialProviders: {},
+      plugins: [],
+      emailAndPassword: {
+        enabled: true,
+        minPasswordLength: 8,
+        requireEmailVerification: true,
+        sendResetPassword: async () => undefined,
+      },
+      emailVerification: {
+        sendVerificationEmail: async () => undefined,
+        sendOnSignIn: true,
+        autoSignInAfterVerification: false,
+        expiresIn: 3600,
+      },
+      rateLimit: { enabled: false },
+    });
+
+    await auth.handler(
+      new Request(`${AUTH_BASE_URL}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: AUTH_BASE_URL,
+        },
+        body: JSON.stringify({
+          name: "Enum",
+          email: "enum-check@exemple.fr",
+          password: "password1",
+        }),
+      }),
+    );
+
+    const wrongPassword = await auth.handler(
+      new Request(`${AUTH_BASE_URL}/api/auth/sign-in/email`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: AUTH_BASE_URL,
+        },
+        body: JSON.stringify({
+          email: "enum-check@exemple.fr",
+          password: "wrong-password",
+        }),
+      }),
+    );
+    expect(wrongPassword.status).toBe(401);
+    const wrongBody = (await wrongPassword.json()) as { code?: string };
+    expect(wrongBody.code).toBe("INVALID_EMAIL_OR_PASSWORD");
+
+    const unknown = await auth.handler(
+      new Request(`${AUTH_BASE_URL}/api/auth/sign-in/email`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: AUTH_BASE_URL,
+        },
+        body: JSON.stringify({
+          email: "inconnu-enum@exemple.fr",
+          password: "password1",
+        }),
+      }),
+    );
+    expect(unknown.status).toBe(401);
+    const unknownBody = (await unknown.json()) as { code?: string };
+    expect(unknownBody.code).toBe("INVALID_EMAIL_OR_PASSWORD");
+  });
+
+  it("send-verification-email public : même succès pour inconnu et non vérifié", async () => {
+    const sent: string[] = [];
+    const auth = createAuth({
+      database: dialect,
+      secret: AUTH_SECRET,
+      baseURL: AUTH_BASE_URL,
+      socialProviders: {},
+      plugins: [],
+      emailAndPassword: {
+        enabled: true,
+        minPasswordLength: 8,
+        requireEmailVerification: true,
+        sendResetPassword: async () => undefined,
+      },
+      emailVerification: {
+        sendVerificationEmail: async ({ user }) => {
+          sent.push(user.email);
+        },
+        sendOnSignIn: false,
+        autoSignInAfterVerification: false,
+        expiresIn: 3600,
+      },
+      rateLimit: { enabled: false },
+    });
+
+    await auth.handler(
+      new Request(`${AUTH_BASE_URL}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: AUTH_BASE_URL,
+        },
+        body: JSON.stringify({
+          name: "Resend",
+          email: "resend-enum@exemple.fr",
+          password: "password1",
+        }),
+      }),
+    );
+
+    const known = await auth.handler(
+      new Request(`${AUTH_BASE_URL}/api/auth/send-verification-email`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: AUTH_BASE_URL,
+        },
+        body: JSON.stringify({
+          email: "resend-enum@exemple.fr",
+          callbackURL: "/account/verify-email?confirmed=1",
+        }),
+      }),
+    );
+    const unknown = await auth.handler(
+      new Request(`${AUTH_BASE_URL}/api/auth/send-verification-email`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: AUTH_BASE_URL,
+        },
+        body: JSON.stringify({
+          email: "pas-inscrit@exemple.fr",
+          callbackURL: "/account/verify-email?confirmed=1",
+        }),
+      }),
+    );
+
+    expect(known.status).toBe(200);
+    expect(unknown.status).toBe(200);
+    expect(await known.json()).toEqual({ status: true });
+    expect(await unknown.json()).toEqual({ status: true });
+    // Signup + renvoi connu ; jamais d’envoi vers l’adresse inconnue.
+    expect(sent.every((email) => email === "resend-enum@exemple.fr")).toBe(
+      true,
+    );
+    expect(sent).not.toContain("pas-inscrit@exemple.fr");
+  });
 });
