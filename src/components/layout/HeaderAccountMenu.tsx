@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { userInitials } from "@/components/layout/user-initials";
@@ -112,6 +113,14 @@ export function HeaderAccountMenu({ user }: HeaderAccountMenuProps) {
           </div>
 
           <div className="py-1">
+            <Link
+              href="/account/settings"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center px-3 py-2.5 text-left text-[13px] text-sand transition-colors hover:bg-paper hover:text-ink focus-visible:bg-paper focus-visible:outline-none"
+            >
+              Paramètres du compte
+            </Link>
             <button
               type="button"
               role="menuitem"
