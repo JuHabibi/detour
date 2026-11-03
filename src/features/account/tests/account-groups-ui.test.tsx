@@ -80,7 +80,7 @@ vi.mock("@/app/actions/favorites", () => ({
 }));
 
 vi.mock("@/lib/auth-client", () => ({
-  authClient: { signOut: vi.fn() },
+  authClient: { signOut: vi.fn(), deleteUser: vi.fn() },
 }));
 
 import { AccountFavoriteCard } from "@/features/account/components/favorites/AccountFavoriteCard";

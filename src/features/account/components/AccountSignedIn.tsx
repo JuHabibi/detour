@@ -9,6 +9,7 @@ import type {
 import type { EventItem } from "@/data/types";
 import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
 import { useRemoveFavorite } from "@/components/favorites/useRemoveFavorite";
+import { AccountDangerZone } from "@/features/account/components/AccountDangerZone";
 import { AccountAddToGroupModal } from "@/features/account/components/carnets/AccountAddToGroupModal";
 import { AccountCarnetsLibrary } from "@/features/account/components/carnets/AccountCarnetsLibrary";
 import { AccountEmptyFavorites } from "@/features/account/components/favorites/AccountEmptyFavorites";
@@ -27,6 +28,8 @@ type AccountSignedInProps = {
   initialFavorites?: EventItem[];
   initialGroups?: GroupSummary[];
   initialMemberships?: EventGroupMembership[];
+  /** Provider credential + password — gate UI suppression (multi-providers inclus). */
+  requiresPasswordForDelete?: boolean;
 };
 
 type GroupModalTarget =
@@ -37,6 +40,7 @@ export function AccountSignedIn({
   initialFavorites = [],
   initialGroups = [],
   initialMemberships = [],
+  requiresPasswordForDelete = false,
 }: AccountSignedInProps) {
   const router = useRouter();
   const favoritesRef = useRef<HTMLElement | null>(null);
@@ -451,6 +455,8 @@ export function AccountSignedIn({
       ) : null}
 
       {removeConfirmation}
+
+      <AccountDangerZone requiresPassword={requiresPasswordForDelete} />
     </div>
   );
 }
