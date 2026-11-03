@@ -6,7 +6,9 @@ import {
   listGroupSummariesForUser,
 } from "@/application/groups";
 import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
+import { getPool } from "@/infrastructure/db/postgres";
 import { listFavoriteEventsForUser } from "@/infrastructure/db/favorite.repository";
+import { userHasCredentialPassword } from "@/infrastructure/db/user-has-credential-password";
 import { accountLoginHref } from "@/lib/safe-account-next-path";
 
 export default async function AccountRoutePage() {
@@ -15,13 +17,15 @@ export default async function AccountRoutePage() {
     redirect(accountLoginHref("/account"));
   }
 
-  const [favorites, groups, memberships] = await Promise.all([
-    listFavoriteEventsForUser(auth.user.id).then((rows) =>
-      rows.map(mapDetourEventToEventItem),
-    ),
-    listGroupSummariesForUser(auth.user.id),
-    listEventGroupMembershipsForUser(auth.user.id),
-  ]);
+  const [favorites, groups, memberships, requiresPasswordForDelete] =
+    await Promise.all([
+      listFavoriteEventsForUser(auth.user.id).then((rows) =>
+        rows.map(mapDetourEventToEventItem),
+      ),
+      listGroupSummariesForUser(auth.user.id),
+      listEventGroupMembershipsForUser(auth.user.id),
+      userHasCredentialPassword(getPool(), auth.user.id),
+    ]);
 
   return (
     <AccountPage
@@ -29,6 +33,7 @@ export default async function AccountRoutePage() {
       favorites={favorites}
       groups={groups}
       memberships={memberships}
+      requiresPasswordForDelete={requiresPasswordForDelete}
     />
   );
 }

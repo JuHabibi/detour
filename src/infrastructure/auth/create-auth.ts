@@ -2,6 +2,7 @@ import "server-only";
 
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
+import { createSendDeleteAccountVerification } from "@/infrastructure/auth/create-send-delete-account-verification";
 import { createSendResetPassword } from "@/infrastructure/auth/create-send-reset-password";
 import { createSendVerificationEmail } from "@/infrastructure/auth/create-send-verification-email";
 import { readGoogleOAuthCredentials } from "@/infrastructure/auth/google-oauth";
@@ -28,11 +29,18 @@ export type CreateAuthOptions = {
   emailVerification?: BetterAuthOptions["emailVerification"];
   socialProviders?: BetterAuthOptions["socialProviders"];
   account?: BetterAuthOptions["account"];
+  user?: BetterAuthOptions["user"];
   /**
    * Après confirmation email : révoquer les sessions du user pour imposer
    * une connexion classique (`autoSignInAfterVerification: false`).
    */
   revokeUserSessionsAfterEmailVerification?: (
+    userId: string,
+  ) => Promise<void>;
+  /**
+   * Avant suppression de compte : purge des jetons `verification` (value=userId).
+   */
+  cleanupVerificationTokensBeforeUserDelete?: (
     userId: string,
   ) => Promise<void>;
 };
@@ -73,6 +81,12 @@ function resolveSocialProviders(
  *
  * Vérification email (comptes credential) : obligatoire avant session ;
  * `sendOnSignUp` non forcé à `true` pour ne pas impacter Google.
+ *
+ * Suppression de compte (RGPD) : `user.deleteUser` natif.
+ * Avec `sendDeleteAccountVerification`, Better Auth 1.7.4 n’atteint jamais
+ * la suppression immédiate par session fraîche — l’email est toujours exigé
+ * (y compris Google). Un mot de passe credential, s’il est fourni, est
+ * vérifié avant l’envoi du mail (gate UI + BA).
  */
 export function createAuth(options: CreateAuthOptions) {
   const secret =
@@ -84,6 +98,8 @@ export function createAuth(options: CreateAuthOptions) {
 
   const revokeAfterVerification =
     options.revokeUserSessionsAfterEmailVerification;
+  const cleanupVerificationBeforeDelete =
+    options.cleanupVerificationTokensBeforeUserDelete;
 
   return betterAuth({
     database: options.database,
@@ -135,6 +151,25 @@ export function createAuth(options: CreateAuthOptions) {
           );
           throw error;
         }
+      },
+    },
+    user: options.user ?? {
+      deleteUser: {
+        enabled: true,
+        deleteTokenExpiresIn: 60 * 60 * 24,
+        sendDeleteAccountVerification: createSendDeleteAccountVerification(),
+        beforeDelete: async (user) => {
+          if (!cleanupVerificationBeforeDelete) return;
+          try {
+            await cleanupVerificationBeforeDelete(user.id);
+          } catch {
+            console.error(
+              "[detour:auth] failed to cleanup verification tokens before delete",
+              { code: "VERIFICATION_CLEANUP_FAILED" },
+            );
+            throw new Error("Verification cleanup failed");
+          }
+        },
       },
     },
     socialProviders,

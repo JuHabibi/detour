@@ -13,6 +13,7 @@ type AccountPageProps = {
   favorites?: EventItem[];
   groups?: GroupSummary[];
   memberships?: EventGroupMembership[];
+  requiresPasswordForDelete?: boolean;
 };
 
 export function AccountPage({
@@ -20,6 +21,7 @@ export function AccountPage({
   favorites = [],
   groups = [],
   memberships = [],
+  requiresPasswordForDelete = false,
 }: AccountPageProps) {
   return (
     <div className="min-h-screen bg-paper">
@@ -37,6 +39,7 @@ export function AccountPage({
             initialFavorites={favorites}
             initialGroups={groups}
             initialMemberships={memberships}
+            requiresPasswordForDelete={requiresPasswordForDelete}
           />
         </div>
       </main>
