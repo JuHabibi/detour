@@ -75,6 +75,10 @@ describe("saint-jean-le-blanc detail parser + mapper", () => {
     expect(detail.adresse).toContain("Douffiagues");
     expect(detail.bookingUrl).toContain("yurplan");
     expect(detail.theme).toBe("Théâtre");
+    expect(detail.descriptionText).toContain(
+      "Une comédie théâtrale à l'Espace Montission.",
+    );
+    expect(detail.descriptionText).not.toMatch(/Imprimer la page/i);
 
     const mapped = mapSjlbDetailToDetourEvent(detail);
     expect(mapped.ok).toBe(true);
@@ -86,6 +90,7 @@ describe("saint-jean-le-blanc detail parser + mapper", () => {
     expect(mapped.event.allDay).toBeUndefined();
     expect(mapped.event.startAt).toMatch(/2026-10-16T20:00/);
     expect(mapped.event.registrationUrl).toContain("yurplan");
+    expect(mapped.event.description).not.toMatch(/Imprimer la page/i);
   });
 
   it("fiche sans horaire → allDay, une seule occurrence structurée", () => {
@@ -95,7 +100,9 @@ describe("saint-jean-le-blanc detail parser + mapper", () => {
     );
     expect(detail.dateRaw).toBe("02/10/2026");
     expect(detail.horairesRaw).toBeNull();
+    expect(detail.theme).toBe("Rendez-vous associatifs");
     expect(detail.descriptionText).toMatch(/21 novembre/i);
+    expect(detail.descriptionText).not.toMatch(/Imprimer la page/i);
 
     const mapped = mapSjlbDetailToDetourEvent(detail);
     expect(mapped.ok).toBe(true);
@@ -104,6 +111,29 @@ describe("saint-jean-le-blanc detail parser + mapper", () => {
     expect(mapped.event.startAt).toMatch(/2026-10-02/);
     // Pas de seconde occurrence inventée
     expect(mapped.event.endAt).toMatch(/2026-10-02/);
+  });
+
+  it("retire « Imprimer la page » sans altérer une description déjà propre", () => {
+    const html = `<!DOCTYPE html><html><body>
+<div id="texte">
+<h1>Concert du dimanche</h1>
+<p class="thematique">Musique</p>
+<p>Un programme intimiste autour du répertoire français.</p>
+<div class="separation"><span>Date</span><p>12/12/2026</p></div>
+<div class="separation"><span>Horaires</span><p>17H00</p></div>
+<div class="separation"><span>Lieu</span><p>Espace Montission</p></div>
+</div>
+</body></html>`;
+    const detail = parseSjlbDetail(
+      html,
+      "https://www.saintjeanleblanc.com/Ress_4001/Concert-du-dimanche.html",
+    );
+    expect(detail.theme).toBe("Musique");
+    expect(detail.descriptionText).toContain(
+      "Un programme intimiste autour du répertoire français.",
+    );
+    expect(detail.descriptionText).not.toMatch(/Imprimer la page/i);
+    expect(detail.descriptionText).toContain("Concert du dimanche");
   });
 
   it("parseFrSlashDate / parseHoraires", () => {
