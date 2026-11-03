@@ -29,5 +29,6 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ACCOUNT_DELETED_CALLBACK_PATH,
+  // Littéral statique requis par Next.js (pas d’import / constante).
+  matcher: "/account/deleted",
 };
