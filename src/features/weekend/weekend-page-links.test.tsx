@@ -46,9 +46,11 @@ describe("WeekendPage + SiteFooter HTML", () => {
 
     const html = renderToStaticMarkup(<WeekendPage page={page} />);
     expect(html).toContain("Que faire à Orléans ce week-end");
+    expect(html).toContain("Sorties de ce week-end");
     expect(html).toContain('href="/evenements/openagenda%3A42"');
     expect(html).toContain('href="/explorer"');
     expect(html).toContain("samedi 7 et dimanche 8 novembre 2026");
+    expect(html).toContain("1 proposition");
 
     const footer = renderToStaticMarkup(<SiteFooter />);
     expect(footer).toContain('href="/"');
@@ -72,6 +74,7 @@ describe("WeekendPage + SiteFooter HTML", () => {
 
     const html = renderToStaticMarkup(<WeekendPage page={page} />);
     expect(html).toContain("Aucune sortie culturelle pertinente");
-    expect(html).not.toContain("À découvrir");
+    expect(html).toContain("Rien à afficher pour l’instant");
+    expect(html).not.toContain("Sorties de ce week-end");
   });
 });
