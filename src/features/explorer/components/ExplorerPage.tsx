@@ -3,6 +3,7 @@
 import { OrganizeInCarnetModal } from "@/components/carnets/OrganizeInCarnetModal";
 import { EventDetailModal } from "@/components/event/EventDetailModal";
 import { Header } from "@/components/layout/Header";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { PendingFavoriteAfterAuthGate } from "@/components/favorites/PendingFavoriteAfterAuthGate";
 import { FavoriteAuthModal } from "@/components/favorites/FavoriteAuthModal";
 import { usePersonalData } from "@/components/personal/usePersonalData";
@@ -157,17 +158,7 @@ export function ExplorerPage({ explorer, initialFilters }: ExplorerPageProps) {
         />
       ) : null}
       {actions.removeConfirmation}
-      <footer className="border-t border-line px-5 py-10 md:px-8 lg:px-12 2xl:px-14 min-[1920px]:px-16">
-        <div className="mx-auto flex max-w-[var(--detour-shell-max)] flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <p className="font-display text-4xl tracking-tight">
-            Détour<span className="text-coral">.</span>
-          </p>
-          <p className="max-w-md text-sm leading-6 text-sand">
-            Explorer les sorties autour d’Orléans — filtres, recherche et
-            pagination.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

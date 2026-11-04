@@ -7,11 +7,16 @@ import {
 } from "@/config/seo";
 
 describe("sitemap / robots publics", () => {
-  it("n’expose que Home et Explorer propre", () => {
-    expect([...PUBLIC_SITEMAP_PATHS]).toEqual(["/", "/explorer"]);
+  it("expose Home, Explorer et Ce week-end", () => {
+    expect([...PUBLIC_SITEMAP_PATHS]).toEqual([
+      "/",
+      "/explorer",
+      "/orleans/ce-week-end",
+    ]);
     expect(publicSitemapEntries()).toEqual([
       { url: "https://detour.website" },
       { url: "https://detour.website/explorer" },
+      { url: "https://detour.website/orleans/ce-week-end" },
     ]);
   });
 

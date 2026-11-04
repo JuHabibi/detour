@@ -1,4 +1,5 @@
 import { CITY } from "@/config/city";
+import { publicWeekendPath } from "@/config/public-weekend-path";
 import { absoluteSiteUrl, PUBLIC_SITE_ORIGIN } from "@/config/site";
 
 /** Copy SEO partagé — hors modèle Territory (§13.5). */
@@ -25,6 +26,13 @@ export const EXPLORER_SEO = {
   canonicalPath: "/explorer",
 } as const;
 
+export const WEEKEND_SEO = {
+  title: `Que faire à ${CITY} ce week-end ?`,
+  description: `Sorties culturelles à ${CITY} et alentours pour le week-end — concerts, spectacles et idées concrètes, sans tout lister.`,
+  canonicalPath: publicWeekendPath(),
+  emptyDescription: `Aucune sortie culturelle pertinente n’est disponible pour le week-end à ${CITY} pour le moment. Parcourez Explorer pour élargir la recherche.`,
+} as const;
+
 export const FRISE_SEO = {
   title: "Mon parcours culturel",
   description:
@@ -46,7 +54,7 @@ export const NOINDEX_FOLLOW_ROBOTS = {
   follow: true,
 } as const;
 
-export const PUBLIC_SITEMAP_PATHS = ["/", "/explorer"] as const;
+export const PUBLIC_SITEMAP_PATHS = ["/", "/explorer", publicWeekendPath()] as const;
 
 export function publicSitemapEntries() {
   return PUBLIC_SITEMAP_PATHS.map((pathname) => ({
