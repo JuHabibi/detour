@@ -82,7 +82,7 @@ function WeekendImageEventCard({
         <div className="min-w-0">
           <CategoryBadge event={event} className="px-2 py-1" />
         </div>
-        <h3 className="mt-1 line-clamp-2 font-display text-[1.15rem] font-semibold leading-[1.08] tracking-tight text-ink md:text-[1.2rem]">
+        <h3 className="mt-1 line-clamp-2 font-display text-[1.15rem] font-semibold leading-[1.08] tracking-tight text-ink md:mt-1 md:text-[1.2rem]">
           {event.title}
         </h3>
         <div className="mt-auto space-y-1.5 pt-1.5 text-sm md:pt-2">
