@@ -21,7 +21,7 @@ export function SiteFooter() {
             <span className="text-coral">.</span>
           </p>
           <p className="text-sm leading-6 text-sand">
-            Radar culturel local autour d’Orléans — pour repérer ce qui mérite
+            Radar culturel local autour d’Orléans, pour repérer ce qui mérite
             votre attention, pas pour tout lister.
           </p>
         </div>
