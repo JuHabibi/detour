@@ -5,6 +5,7 @@ import { summarizeSyncRun } from "@/application/event-sync/summarize-sync-run";
 import { invalidatePublicEventsCache } from "@/infrastructure/next-public-event-cache";
 import { invalidatePublicExplorerCache } from "@/infrastructure/next-public-explorer-cache";
 import { invalidatePublicHomeCache } from "@/infrastructure/next-public-home-cache";
+import { invalidatePublicWeekendCache } from "@/infrastructure/next-public-weekend-cache";
 
 /**
  * Exécute sync + enrichissement disponibilité (best-effort) et construit la
@@ -37,6 +38,7 @@ export async function buildEventSyncResponse(): Promise<Response> {
     // SWR : tags publics stale — pas de revalidatePath (expire soft tags → hit bloquant).
     invalidatePublicHomeCache();
     invalidatePublicExplorerCache();
+    invalidatePublicWeekendCache();
     invalidatePublicEventsCache();
 
     return Response.json(

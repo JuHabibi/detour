@@ -5,6 +5,7 @@ import { CardFavoriteActions } from "@/components/event/EventCardInteractions";
 import { FavoriteAuthModal } from "@/components/favorites/FavoriteAuthModal";
 import { PendingFavoriteAfterAuthGate } from "@/components/favorites/PendingFavoriteAfterAuthGate";
 import { Header } from "@/components/layout/Header";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { useEventPersonalActions } from "@/components/personal/useEventPersonalActions";
 import { usePersonalData } from "@/components/personal/usePersonalData";
 import type { PublicEventPageData } from "@/application/events/get-public-event-page";
@@ -131,6 +132,7 @@ export function EventPublicPage({ data }: EventPublicPageProps) {
         />
       ) : null}
       {actions.removeConfirmation}
+      <SiteFooter />
     </div>
   );
 }
