@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { formatWhen } from "@/components/event/format-when";
+import { formatWeekendCardWhen } from "@/application/weekend/format-weekend-card-when";
 import {
   CategoryBadge,
   EventPlaceDateLines,
@@ -18,31 +18,47 @@ import { cn } from "@/lib/cn";
 
 type WeekendEventCardProps = {
   event: EventItem;
+  saturdayKey: string;
+  sundayKey: string;
   priority?: boolean;
 };
 
-/** Carte alignée Explorer — lien HTML vers la fiche publique (SEO). */
+/**
+ * Carte alignée Explorer — lien HTML vers la fiche publique (SEO).
+ * Client : dépend de `EventCardPresentation` / icônes Lucide (`use client`).
+ */
 export function WeekendEventCard({
   event,
+  saturdayKey,
+  sundayKey,
   priority = false,
 }: WeekendEventCardProps) {
+  const weekend = { saturdayKey, sundayKey };
   if (!event.image) {
-    return <WeekendTextEventCard event={event} />;
+    return <WeekendTextEventCard event={event} weekend={weekend} />;
   }
-  return <WeekendImageEventCard event={event} priority={priority} />;
+  return (
+    <WeekendImageEventCard
+      event={event}
+      weekend={weekend}
+      priority={priority}
+    />
+  );
 }
 
 function WeekendImageEventCard({
   event,
+  weekend,
   priority,
 }: {
   event: EventItem;
+  weekend: { saturdayKey: string; sundayKey: string };
   priority: boolean;
 }) {
   const href = eventPublicPath(event.id);
   const imageSrc: string = event.image!;
   const priceLabel = formatPrice(event.price);
-  const whenLabel = formatWhen(event);
+  const whenLabel = formatWeekendCardWhen(event, weekend);
 
   return (
     <article className="group relative flex h-full gap-3 md:flex-col md:gap-0">
@@ -87,10 +103,16 @@ function WeekendImageEventCard({
   );
 }
 
-function WeekendTextEventCard({ event }: { event: EventItem }) {
+function WeekendTextEventCard({
+  event,
+  weekend,
+}: {
+  event: EventItem;
+  weekend: { saturdayKey: string; sundayKey: string };
+}) {
   const href = eventPublicPath(event.id);
   const priceLabel = formatPrice(event.price);
-  const whenLabel = formatWhen(event);
+  const whenLabel = formatWeekendCardWhen(event, weekend);
   const signal = resolveSignal(event);
   const { pastel, accent } = resolveNoImageCardTone(event);
 

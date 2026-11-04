@@ -46,6 +46,9 @@ describe("WeekendPage + SiteFooter HTML", () => {
 
     const html = renderToStaticMarkup(<WeekendPage page={page} />);
     expect(html).toContain("Que faire à Orléans ce week-end");
+    expect(html).toContain(
+      "dans l’agenda local, dates et horaires du week-end",
+    );
     expect(html).toContain("Sorties de ce week-end");
     expect(html).toContain('href="/evenements/openagenda%3A42"');
     expect(html).toContain('href="/explorer"');

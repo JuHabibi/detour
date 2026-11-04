@@ -73,4 +73,31 @@ describe("next-public-weekend-cache", () => {
       tags: [PUBLIC_WEEKEND_CACHE_TAG],
     });
   });
+
+  it("change de clé Data Cache au passage dimanche → lundi", async () => {
+    const { getCachedPublicWeekendPage } = await import(
+      "@/infrastructure/next-public-weekend-cache"
+    );
+
+    vi.setSystemTime(new Date("2026-11-08T23:30:00+01:00"));
+    await getCachedPublicWeekendPage();
+    const sundayKeyParts = unstable_cache.mock.calls.at(-1)![1] as string[];
+
+    vi.setSystemTime(new Date("2026-11-09T00:30:00+01:00"));
+    await getCachedPublicWeekendPage();
+    const mondayKeyParts = unstable_cache.mock.calls.at(-1)![1] as string[];
+
+    expect(sundayKeyParts).toEqual([
+      "detour-public-weekend",
+      "orleans",
+      "2026-11-07",
+      "select-v1",
+    ]);
+    expect(mondayKeyParts).toEqual([
+      "detour-public-weekend",
+      "orleans",
+      "2026-11-14",
+      "select-v1",
+    ]);
+  });
 });

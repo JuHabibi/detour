@@ -11,8 +11,9 @@ import {
 } from "@/domain/time/when-filter";
 
 /**
- * Cache page « Ce week-end » — tag distinct Home / Explorer.
+ * Data Cache page « Ce week-end » — tag distinct Home / Explorer.
  * Clé versionnée par samedi Paris : bascule de week-end = nouvelle entrée.
+ * La route est `force-dynamic` : ce cache borne le SQL, pas le HTML ISR.
  */
 export const PUBLIC_WEEKEND_CACHE_TAG = `public-weekend:${PUBLIC_TERRITORY_SLUG}`;
 

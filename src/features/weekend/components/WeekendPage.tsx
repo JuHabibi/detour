@@ -39,7 +39,7 @@ export function WeekendPage({ page }: WeekendPageProps) {
             </h1>
             <p className="mt-5 max-w-md text-[0.95rem] leading-6 text-cream-dim md:mt-6 md:text-[1rem] md:leading-7">
               {hasEvents
-                ? "Quelques sorties culturelles repérées dans l’agenda local dates et horaires du week-end, sans tout lister."
+                ? "Quelques sorties culturelles repérées dans l’agenda local, dates et horaires du week-end, sans tout lister."
                 : "Aucune sortie culturelle pertinente n’est disponible pour ce week-end pour le moment."}
             </p>
           </div>
@@ -79,7 +79,12 @@ export function WeekendPage({ page }: WeekendPageProps) {
               <ul className="grid list-none grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-2 md:gap-y-7 lg:grid-cols-4 lg:gap-y-8">
                 {page.events.map((event, index) => (
                   <li key={event.id}>
-                    <WeekendEventCard event={event} priority={index < 3} />
+                    <WeekendEventCard
+                      event={event}
+                      priority={index < 3}
+                      saturdayKey={page.saturdayKey}
+                      sundayKey={page.sundayKey}
+                    />
                   </li>
                 ))}
               </ul>
