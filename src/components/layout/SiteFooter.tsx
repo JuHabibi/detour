@@ -1,4 +1,8 @@
 import Link from "next/link";
+import {
+  CONFIDENTIALITE_PATH,
+  MENTIONS_LEGALES_PATH,
+} from "@/config/legal";
 import { SITE_NAME } from "@/config/seo";
 import { publicWeekendPath } from "@/config/public-weekend-path";
 
@@ -7,14 +11,14 @@ const footerLinkClass =
 
 /**
  * Footer éditorial des pages publiques.
- * Liens uniquement vers des routes réelles — pas de pages légales / contact inventées.
+ * Liens uniquement vers des routes réelles — pas de CGU / contact inventés.
  */
 export function SiteFooter() {
   const weekendHref = publicWeekendPath();
 
   return (
     <footer className="border-t border-line px-5 py-12 md:px-8 md:py-14 lg:px-12 2xl:px-14 min-[1920px]:px-16">
-      <div className="mx-auto grid max-w-[var(--detour-shell-max)] gap-10 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] md:gap-12">
+      <div className="mx-auto grid max-w-[var(--detour-shell-max)] gap-10 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] md:gap-12">
         <div className="max-w-md space-y-3">
           <p className="font-display text-4xl tracking-tight">
             {SITE_NAME}
@@ -42,6 +46,22 @@ export function SiteFooter() {
             <li>
               <Link href={weekendHref} className={footerLinkClass}>
                 Ce week-end à Orléans
+              </Link>
+            </li>
+          </ul>
+        </nav>
+
+        <nav aria-label="Informations légales" className="md:justify-self-end">
+          <p className="font-editorial text-lg text-ink">Informations</p>
+          <ul className="mt-3 space-y-2">
+            <li>
+              <Link href={MENTIONS_LEGALES_PATH} className={footerLinkClass}>
+                Mentions légales
+              </Link>
+            </li>
+            <li>
+              <Link href={CONFIDENTIALITE_PATH} className={footerLinkClass}>
+                Confidentialité
               </Link>
             </li>
           </ul>

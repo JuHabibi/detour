@@ -541,7 +541,7 @@ Un composant reste dans sa feature tant qu’il n’a **pas** au moins **deux co
 | `application` | Use cases, mapping vers view-models, orchestration métier |
 | `domain` | Règles métier pures, aucun React |
 | `infrastructure` | Adapters, DB, IA providers, sources externes |
-| `lib` | Utils techniques transverses (`cn`, analytics client minimal, …) |
+| `lib` | Utils techniques transverses (`cn`, `captureProductEvent` no-op — PostHog désactivé, …) |
 
 Le **copy / wording de présentation** (ex. explications de pastilles éditoriales) reste dans la feature, pas dans `domain`.
 

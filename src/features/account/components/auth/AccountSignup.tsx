@@ -214,6 +214,18 @@ export function AccountSignup({
           </p>
         ) : null}
 
+        <p className="text-sm leading-6 text-cream-dim">
+          En créant un compte, vos informations sont utilisées pour gérer votre
+          espace Détour (favoris, carnets, connexion). Détails dans la{" "}
+          <Link
+            href="/confidentialite"
+            className="font-medium text-ink underline decoration-mint/70 decoration-2 underline-offset-4 hover:decoration-coral"
+          >
+            politique de confidentialité
+          </Link>
+          .
+        </p>
+
         <button
           type="submit"
           disabled={pending}
