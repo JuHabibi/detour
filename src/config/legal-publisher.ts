@@ -5,9 +5,8 @@
  * Les mentions publiques n’affichent pas le domicile.
  * La confidentialité publie l’identité du responsable + un contact effectif (RGPD).
  *
- * Point à surveiller : l’art. 1-1 I cite aussi le numéro de téléphone parmi les
- * éléments à communiquer à l’hébergeur. La facturation Vercel confirme nom,
- * prénom, adresse et e-mail ; le téléphone chez Vercel n’a pas été confirmé ici.
+ * Identification communiquée à Vercel (compte / facturation) : nom, prénom,
+ * adresse postale, e-mail et téléphone — condition LCEN art. 1-1 II.
  */
 export type LegalPublisher = {
   /** Identité du responsable du traitement (politique de confidentialité). */
