@@ -7,17 +7,23 @@ import {
 } from "@/config/seo";
 
 describe("sitemap / robots publics", () => {
-  it("expose Home, Explorer et Ce week-end", () => {
+  it("expose Home, Explorer, Ce week-end et Confidentialité", () => {
     expect([...PUBLIC_SITEMAP_PATHS]).toEqual([
       "/",
       "/explorer",
       "/orleans/ce-week-end",
+      "/confidentialite",
     ]);
     expect(publicSitemapEntries()).toEqual([
       { url: "https://detour.website" },
       { url: "https://detour.website/explorer" },
       { url: "https://detour.website/orleans/ce-week-end" },
+      { url: "https://detour.website/confidentialite" },
     ]);
+    // Mentions absentes du sitemap tant que l’éditeur n’est pas configuré.
+    expect(publicSitemapEntries().map((e) => e.url)).not.toContain(
+      "https://detour.website/mentions-legales",
+    );
   });
 
   it("pointe robots vers le sitemap et le host canoniques", () => {

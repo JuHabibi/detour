@@ -102,6 +102,9 @@ describe("entrées création de compte", () => {
     expect(signupHtml).not.toContain("Déjà inscrit ?");
     expect(signupHtml).not.toContain("J’ai déjà un compte");
     expect(signupHtml).toContain(`href="${accountLoginHref(pendingNext)}"`);
+    expect(signupHtml).toContain('href="/confidentialite"');
+    expect(signupHtml).toContain("politique de confidentialité");
+    expect(signupHtml).not.toContain("J’accepte la politique");
 
     const loginHtml = renderToStaticMarkup(
       createElement(AccountLogin, { nextPath: pendingNext }),

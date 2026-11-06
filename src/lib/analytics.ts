@@ -1,21 +1,17 @@
-"use client";
-
-import posthog from "posthog-js";
-
-const isProd = process.env.NODE_ENV === "production";
-const posthogKey = isProd
-  ? process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim()
-  : undefined;
-
-/** Capture produit UI — no-op hors prod ou si PostHog non configuré. */
+/**
+ * Capture produit UI — désactivée (PostHog retiré).
+ * Les appels existants restent sans effet et sans dépendances navigateur.
+ *
+ * Limite : d’anciens cookies / localStorage PostHog (`ph_*`) peuvent encore
+ * exister chez des visiteurs ayant chargé une version antérieure ; Détour
+ * ne les lit ni ne les réécrit. Purge éventuelle côté dashboard PostHog =
+ * action manuelle hors code.
+ */
 export function captureProductEvent(
-  event: string,
-  properties?: Record<string, string | number | boolean | null | undefined>,
+  ..._args: [
+    string,
+    Record<string, string | number | boolean | null | undefined>?,
+  ]
 ): void {
-  if (!posthogKey) return;
-  try {
-    posthog.capture(event, properties);
-  } catch (error) {
-    console.error("[detour] PostHog capture failed", error);
-  }
+  void _args;
 }

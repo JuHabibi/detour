@@ -1,4 +1,5 @@
 import { CITY } from "@/config/city";
+import { isLegalPublisherReady } from "@/config/legal-publisher";
 import { publicWeekendPath } from "@/config/public-weekend-path";
 import { absoluteSiteUrl, PUBLIC_SITE_ORIGIN } from "@/config/site";
 
@@ -54,10 +55,20 @@ export const NOINDEX_FOLLOW_ROBOTS = {
   follow: true,
 } as const;
 
-export const PUBLIC_SITEMAP_PATHS = ["/", "/explorer", publicWeekendPath()] as const;
+export const PUBLIC_SITEMAP_PATHS = [
+  "/",
+  "/explorer",
+  publicWeekendPath(),
+  "/confidentialite",
+] as const;
 
 export function publicSitemapEntries() {
-  return PUBLIC_SITEMAP_PATHS.map((pathname) => ({
+  const paths: string[] = [...PUBLIC_SITEMAP_PATHS];
+  // Mentions légales seulement lorsque l’identité éditeur est confirmée.
+  if (isLegalPublisherReady()) {
+    paths.push("/mentions-legales");
+  }
+  return paths.map((pathname) => ({
     url: absoluteSiteUrl(pathname),
   }));
 }

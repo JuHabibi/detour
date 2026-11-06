@@ -59,7 +59,8 @@ describe("WeekendPage + SiteFooter HTML", () => {
     expect(footer).toContain('href="/"');
     expect(footer).toContain('href="/explorer"');
     expect(footer).toContain('href="/orleans/ce-week-end"');
-    expect(footer).not.toContain("mentions");
+    expect(footer).toContain('href="/mentions-legales"');
+    expect(footer).toContain('href="/confidentialite"');
     expect(footer).not.toContain("mailto:");
   });
 
