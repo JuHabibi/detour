@@ -11,55 +11,42 @@ import {
 } from "@/features/legal/components/LegalDocumentShell";
 
 /**
- * Mentions légales — n’affiche jamais d’identité éditeur inventée.
- * Tant que `legalPublisher` n’est pas renseigné, la route répond 404
- * (PR en draft jusqu’à configuration).
+ * Mentions légales — régime d’édition à titre non professionnel (LCEN art. 1-1 II).
+ * Pas d’adresse personnelle publique. Contact e-mail pour les demandes.
  */
 export function MentionsLegalesPage() {
   if (!isLegalPublisherReady() || !legalPublisher) {
     notFound();
   }
 
-  const publisher = legalPublisher;
-
   return (
     <LegalDocumentShell
       title="Mentions légales"
       lead={`Informations légales relatives au site ${LEGAL_SITE.name} (${LEGAL_SITE.origin}).`}
     >
-      <LegalSection title="Éditeur">
+      <LegalSection title="Édition">
         <p>
-          Le site <strong>{LEGAL_SITE.name}</strong> est édité par{" "}
-          <strong>{publisher.name}</strong>
-          {publisher.legalStatus ? `, ${publisher.legalStatus}` : null}.
+          Le site <strong>{LEGAL_SITE.name}</strong> est actuellement édité à
+          titre non professionnel. Il est gratuit, sans publicité ni revenus, et
+          n’est pas rattaché à une activité commerciale immatriculée.
         </p>
-        {publisher.registrationNumber ? (
-          <p>
-            Immatriculation : <strong>{publisher.registrationNumber}</strong>.
-          </p>
-        ) : null}
-        {publisher.addressLines && publisher.addressLines.length > 0 ? (
-          <p>
-            Adresse :{" "}
-            {publisher.addressLines.map((line, index) => (
-              <span key={line}>
-                {index > 0 ? ", " : null}
-                {line}
-              </span>
-            ))}
-            .
-          </p>
-        ) : null}
         <p>
-          Contact :{" "}
-          <a href={`mailto:${publisher.email}`}>{publisher.email}</a>.
+          Conformément à l’article 1-1, II, de la loi n° 2004-575 du 21 juin
+          2004 pour la confiance dans l’économie numérique, l’identité et le
+          domicile de l’éditeur ne sont pas publiés sur cette page. Les éléments
+          d’identification personnelle ont été communiqués à l’hébergeur.
         </p>
-        {publisher.publicationDirector ? (
-          <p>
-            Directeur de la publication :{" "}
-            <strong>{publisher.publicationDirector}</strong>.
-          </p>
-        ) : null}
+        <p>
+          Contact (y compris demandes relatives aux données personnelles) :{" "}
+          <a href={`mailto:${legalPublisher.email}`}>
+            {legalPublisher.email}
+          </a>
+          .
+        </p>
+        <p>
+          Si {LEGAL_SITE.name} devient une activité commerciale, ces mentions
+          seront mises à jour en conséquence.
+        </p>
       </LegalSection>
 
       <LegalSection title="Hébergement">
@@ -67,6 +54,7 @@ export function MentionsLegalesPage() {
           Le site est hébergé par <strong>{LEGAL_HOST.name}</strong>.
         </p>
         <p>{LEGAL_HOST.addressLines.join(", ")}.</p>
+        <p>Téléphone : {LEGAL_HOST.phone}.</p>
         <p>
           Site de l’hébergeur :{" "}
           <a

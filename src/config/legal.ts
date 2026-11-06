@@ -9,14 +9,18 @@ import {
 export type { LegalPublisher };
 export { legalPublisher, isLegalPublisherReady };
 
-/** Hébergeur du site — coordonnées publiques Vercel Inc. (privacy notice Vercel). */
+/**
+ * Hébergeur — sources publiques Vercel :
+ * adresse (privacy notice / DMCA), téléphone (politique DMCA Vercel).
+ */
 export const LEGAL_HOST = {
   name: "Vercel Inc.",
   addressLines: [
-    "440 N Barranca Avenue #4133",
+    "440 N Barranca Ave #4133",
     "Covina, CA 91723",
     "États-Unis",
   ],
+  phone: "+1 559-288-7060",
   website: "https://vercel.com",
 } as const;
 

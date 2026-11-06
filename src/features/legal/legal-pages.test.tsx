@@ -6,21 +6,12 @@ import {
   CONFIDENTIALITE_SEO,
   MENTIONS_LEGALES_SEO,
 } from "@/config/legal";
-import type { LegalPublisher } from "@/config/legal-publisher";
 import { ConfidentialitePage } from "@/features/legal/components/ConfidentialitePage";
+import { MentionsLegalesPage } from "@/features/legal/components/MentionsLegalesPage";
 import {
   buildConfidentialiteMetadata,
   buildMentionsLegalesMetadata,
 } from "@/features/legal/legal-seo";
-
-const samplePublisher: LegalPublisher = {
-  name: "Exemple Éditeur",
-  legalStatus: null,
-  registrationNumber: null,
-  addressLines: null,
-  email: "contact@exemple.fr",
-  publicationDirector: null,
-};
 
 vi.mock("next/navigation", () => ({
   notFound: () => {
@@ -72,22 +63,31 @@ describe("pages légales", () => {
     expect(footer).toContain("Mentions légales");
     expect(footer).toContain('href="/confidentialite"');
     expect(footer).toContain("Confidentialité");
-    expect(footer).toContain('href="/"');
-    expect(footer).toContain('href="/explorer"');
-    expect(footer).toContain('href="/orleans/ce-week-end"');
   });
 
-  it("confidentialité décrit comptes, cookies nécessaires et PostHog inactif", () => {
+  it("confidentialité : responsable, contact effectif, PostHog inactif", () => {
     const html = renderToStaticMarkup(createElement(ConfidentialitePage));
-    expect(html).toContain("Confidentialité");
-    expect(html).toContain("Compte");
+    expect(html).toContain("Julien Habibi");
+    expect(html).toContain("detour.orleans@gmail.com");
     expect(html).toContain("Better Auth");
     expect(html).toContain("PostHog n’est plus initialisé");
-    expect(html).toContain("Vercel Inc.");
-    expect(html).toContain("Resend");
+    expect(html).not.toContain("TODO");
   });
 
-  it("mentions légales : 404 si éditeur non configuré", async () => {
+  it("mentions : régime non professionnel, hébergeur, sans adresse personnelle", () => {
+    const html = renderToStaticMarkup(createElement(MentionsLegalesPage));
+    expect(html).toContain("titre non professionnel");
+    expect(html).toContain("Vercel Inc.");
+    expect(html).toContain("440 N Barranca Ave #4133");
+    expect(html).toContain("detour.orleans@gmail.com");
+    expect(html).toContain("article 1-1");
+    // Identité RT dans la privacy, pas d’adresse perso ici.
+    expect(html).not.toContain("Julien Habibi");
+    expect(html).not.toContain("TODO");
+    expect(html).not.toContain("À compléter");
+  });
+
+  it("mentions légales : 404 si configuration absente", async () => {
     vi.doMock("@/config/legal", async () => {
       const actual = await vi.importActual<typeof import("@/config/legal")>(
         "@/config/legal",
@@ -98,34 +98,11 @@ describe("pages légales", () => {
         isLegalPublisherReady: () => false,
       };
     });
-    const { MentionsLegalesPage } = await import(
+    const { MentionsLegalesPage: Page } = await import(
       "@/features/legal/components/MentionsLegalesPage"
     );
-    expect(() =>
-      renderToStaticMarkup(createElement(MentionsLegalesPage)),
-    ).toThrow("NEXT_NOT_FOUND");
-  });
-
-  it("mentions légales : contenu réel si éditeur configuré", async () => {
-    vi.doMock("@/config/legal", async () => {
-      const actual = await vi.importActual<typeof import("@/config/legal")>(
-        "@/config/legal",
-      );
-      return {
-        ...actual,
-        legalPublisher: samplePublisher,
-        isLegalPublisherReady: () => true,
-      };
-    });
-    const { MentionsLegalesPage } = await import(
-      "@/features/legal/components/MentionsLegalesPage"
+    expect(() => renderToStaticMarkup(createElement(Page))).toThrow(
+      "NEXT_NOT_FOUND",
     );
-    const html = renderToStaticMarkup(createElement(MentionsLegalesPage));
-    expect(html).toContain("Mentions légales");
-    expect(html).toContain("Exemple Éditeur");
-    expect(html).toContain("contact@exemple.fr");
-    expect(html).toContain("Vercel Inc.");
-    expect(html).not.toContain("TODO");
-    expect(html).not.toContain("À compléter");
   });
 });

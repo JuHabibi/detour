@@ -1,29 +1,25 @@
 /**
- * Identité de l’éditeur du site Détour (mentions légales / contact privacy).
+ * Éditeur / responsable de traitement — configuration minimale.
  *
- * Ne jamais inventer de valeurs. Tant que `legalPublisher` est `null`,
- * les mentions légales n’affichent pas de rubrique éditeur et la PR
- * de publication doit rester en draft.
+ * Hypothèse actuelle : édition à titre non professionnel (LCEN art. 1-1 II).
+ * Les mentions publiques n’affichent pas le domicile.
+ * La confidentialité publie l’identité du responsable + un contact effectif (RGPD).
  *
- * À renseigner uniquement avec des informations confirmées par l’éditeur :
- * - name : nom ou raison sociale
- * - legalStatus : forme juridique (ex. micro-entreprise, SAS…) si applicable
- * - registrationNumber : SIRET / RCS / équivalent si applicable
- * - addressLines : adresse postale de publication si requise
- * - email : contact légal / exercice des droits
- * - publicationDirector : directeur de la publication si applicable
+ * Point à surveiller : l’art. 1-1 I cite aussi le numéro de téléphone parmi les
+ * éléments à communiquer à l’hébergeur. La facturation Vercel confirme nom,
+ * prénom, adresse et e-mail ; le téléphone chez Vercel n’a pas été confirmé ici.
  */
 export type LegalPublisher = {
+  /** Identité du responsable du traitement (politique de confidentialité). */
   name: string;
-  legalStatus: string | null;
-  registrationNumber: string | null;
-  addressLines: readonly string[] | null;
+  /** Contact effectif (mentions / demandes RGPD). */
   email: string;
-  publicationDirector: string | null;
 };
 
-/** `null` = identité éditeur non confirmée — bloquant pour la publication. */
-export const legalPublisher: LegalPublisher | null = null;
+export const legalPublisher: LegalPublisher = {
+  name: "Julien Habibi",
+  email: "detour.orleans@gmail.com",
+};
 
 export function isLegalPublisherReady(
   publisher: LegalPublisher | null = legalPublisher,

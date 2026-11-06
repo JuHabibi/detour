@@ -4,7 +4,6 @@ import {
   LEGAL_HOST,
   LEGAL_SITE,
   MENTIONS_LEGALES_PATH,
-  isLegalPublisherReady,
   legalPublisher,
 } from "@/config/legal";
 import {
@@ -13,8 +12,7 @@ import {
 } from "@/features/legal/components/LegalDocumentShell";
 
 export function ConfidentialitePage() {
-  const publisherReady = isLegalPublisherReady();
-  const contactEmail = publisherReady ? legalPublisher?.email : null;
+  const contactEmail = legalPublisher.email;
 
   return (
     <LegalDocumentShell
@@ -22,24 +20,17 @@ export function ConfidentialitePage() {
       lead={`Comment ${LEGAL_SITE.name} traite vos données personnelles lorsque vous utilisez le site.`}
     >
       <LegalSection title="Responsable du traitement">
-        {contactEmail ? (
-          <p>
-            Le responsable du traitement des données liées à votre compte et à
-            vos contenus personnels sur {LEGAL_SITE.name} est{" "}
-            <strong>{legalPublisher!.name}</strong>. Contact :{" "}
-            <a href={`mailto:${contactEmail}`}>{contactEmail}</a>. Les mentions
-            légales complètes sont disponibles sur la page{" "}
-            <Link href={MENTIONS_LEGALES_PATH}>Mentions légales</Link>.
-          </p>
-        ) : (
-          <p>
-            Le responsable du traitement est l’éditeur du site{" "}
-            {LEGAL_SITE.name}. Ses coordonnées seront publiées dans les{" "}
-            <Link href={MENTIONS_LEGALES_PATH}>mentions légales</Link> dès
-            confirmation. En attendant, vous pouvez déjà supprimer votre compte
-            depuis les paramètres du compte une fois connecté.
-          </p>
-        )}
+        <p>
+          Le responsable du traitement des données liées à votre compte et à vos
+          contenus personnels sur {LEGAL_SITE.name} est{" "}
+          <strong>{legalPublisher.name}</strong>. Contact :{" "}
+          <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
+        </p>
+        <p>
+          Les mentions relatives à l’édition du site et à l’hébergeur figurent
+          sur la page{" "}
+          <Link href={MENTIONS_LEGALES_PATH}>Mentions légales</Link>.
+        </p>
       </LegalSection>
 
       <LegalSection title="Données que nous traitons">
@@ -81,7 +72,10 @@ export function ConfidentialitePage() {
         <ul>
           <li>Créer et gérer votre compte.</li>
           <li>Vous permettre d’enregistrer des favoris et des carnets.</li>
-          <li>Sécuriser l’accès (sessions, vérification e-mail, limitation d’abus).</li>
+          <li>
+            Sécuriser l’accès (sessions, vérification e-mail, limitation
+            d’abus).
+          </li>
           <li>
             Vous envoyer uniquement les e-mails nécessaires au compte (pas de
             newsletter marketing dans le fonctionnement actuel).
@@ -92,7 +86,8 @@ export function ConfidentialitePage() {
       <LegalSection title="Cookies et stockage du navigateur">
         <p>
           {LEGAL_SITE.name} utilise des cookies et un stockage local{" "}
-          <strong>nécessaires au fonctionnement des comptes</strong>, notamment :
+          <strong>nécessaires au fonctionnement des comptes</strong>,
+          notamment :
         </p>
         <ul>
           <li>
@@ -191,19 +186,8 @@ export function ConfidentialitePage() {
         </p>
         <p>
           La suppression du compte est disponible dans les paramètres du compte
-          (confirmation par e-mail). Pour les autres demandes
-          {contactEmail ? (
-            <>
-              , contactez{" "}
-              <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
-            </>
-          ) : (
-            <>
-              , utilisez les coordonnées de l’éditeur une fois publiées dans les{" "}
-              <Link href={MENTIONS_LEGALES_PATH}>mentions légales</Link>
-            </>
-          )}
-          .
+          (confirmation par e-mail). Pour les autres demandes, contactez{" "}
+          <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
         </p>
         <p>
           Vous pouvez également introduire une réclamation auprès de la CNIL (
@@ -221,8 +205,8 @@ export function ConfidentialitePage() {
       <LegalSection title="Mises à jour">
         <p>
           Cette page décrit le fonctionnement actuel de {LEGAL_SITE.name}. Elle
-          pourra être mise à jour si les traitements évoluent. Version
-          publiée avec l’adresse{" "}
+          pourra être mise à jour si les traitements évoluent. Version publiée
+          avec l’adresse{" "}
           <Link href={CONFIDENTIALITE_PATH}>{CONFIDENTIALITE_PATH}</Link>.
         </p>
       </LegalSection>

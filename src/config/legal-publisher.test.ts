@@ -6,29 +6,22 @@ import {
 } from "@/config/legal-publisher";
 
 describe("legalPublisher", () => {
-  it("reste non configuré tant que l’éditeur n’a pas fourni d’identité", () => {
-    expect(legalPublisher).toBeNull();
-    expect(isLegalPublisherReady()).toBe(false);
+  it("est configuré pour la confidentialité (identité + contact)", () => {
+    expect(legalPublisher.name).toBe("Julien Habibi");
+    expect(legalPublisher.email).toBe("detour.orleans@gmail.com");
+    expect(isLegalPublisherReady()).toBe(true);
   });
 
   it("exige un nom et un e-mail non vides", () => {
     const incomplete: LegalPublisher = {
       name: "  ",
-      legalStatus: null,
-      registrationNumber: null,
-      addressLines: null,
       email: "a@b.fr",
-      publicationDirector: null,
     };
     expect(isLegalPublisherReady(incomplete)).toBe(false);
 
     const ready: LegalPublisher = {
       name: "Éditeur Confirmé",
-      legalStatus: null,
-      registrationNumber: null,
-      addressLines: null,
       email: "hello@detour.website",
-      publicationDirector: null,
     };
     expect(isLegalPublisherReady(ready)).toBe(true);
   });
