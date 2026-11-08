@@ -57,7 +57,7 @@ const catalogParseOptions = {
 };
 
 describe("Mapado portal catalog", () => {
-  it("parse les cartes titre / jour / path", () => {
+  it("parse les cartes titre / jour / path (markup legacy TicketingItem)", () => {
     const catalog = parseMapadoPortalCatalog(
       fixture("portal-checy-sample.html"),
       PORTAL_URL,
@@ -73,11 +73,34 @@ describe("Mapado portal catalog", () => {
     const chameau = catalog.find((e) => e.path.includes("780188"));
     expect(chameau?.day).toBe("2026-12-06");
   });
+
+  it("parse le markup actuel mpd-card sans prendre le badge Complet sur Internet comme titre", () => {
+    const catalog = parseMapadoPortalCatalog(
+      fixture("portal-checy-mpd-card.html"),
+      PORTAL_URL,
+      catalogParseOptions,
+    );
+    expect(catalog.length).toBeGreaterThanOrEqual(3);
+    const bourgeois = catalog.find((e) => e.path.includes("778760"));
+    expect(bourgeois?.title).toBe("LE BOURGEOIS GENTILHOMME");
+    expect(bourgeois?.title).not.toMatch(/Complet/i);
+    expect(bourgeois?.day).toBe("2027-01-20");
+    expect(bourgeois?.eventUrl).toBe(
+      `${PORTAL_URL}event/778760-le-bourgeois-gentilhomme`,
+    );
+    const chameau = catalog.find((e) => e.path.includes("780188"));
+    expect(chameau?.day).toBe("2026-12-06");
+  });
 });
 
 describe("Mapado matching", () => {
   const catalog = parseMapadoPortalCatalog(
     fixture("portal-checy-sample.html"),
+    PORTAL_URL,
+    catalogParseOptions,
+  );
+  const mpdCatalog = parseMapadoPortalCatalog(
+    fixture("portal-checy-mpd-card.html"),
     PORTAL_URL,
     catalogParseOptions,
   );
@@ -89,6 +112,17 @@ describe("Mapado matching", () => {
         startAt: "2027-01-20T19:30:00.000Z",
       },
       catalog,
+    );
+    expect(hit?.path).toBe("/event/778760-le-bourgeois-gentilhomme");
+  });
+
+  it("Bourgeois → match unique (markup mpd-card)", () => {
+    const hit = matchMapadoCatalogEntry(
+      {
+        title: "LE BOURGEOIS GENTILHOMME - SAISON CULTURELLE 26/27",
+        startAt: "2027-01-20T19:30:00.000Z",
+      },
+      mpdCatalog,
     );
     expect(hit?.path).toBe("/event/778760-le-bourgeois-gentilhomme");
   });

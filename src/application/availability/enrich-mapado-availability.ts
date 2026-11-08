@@ -12,12 +12,16 @@ import {
   type MapadoTenantConfig,
 } from "@/infrastructure/ticketing/mapado/mapado-tenant";
 
+/** Plafond de fiches événement fetchées par run (catalogue + URLs connues). */
+export const MAPADO_ENRICHMENT_MAX_EVENT_FETCHES = 50;
+
 export type MapadoEnrichmentResult = {
   tenantId: string;
   provider: MapadoTenantConfig["provider"];
   portalUrl: string;
   examinedCount: number;
   catalogSize: number;
+  knownUrlCount: number;
   matchCount: number;
   availableCount: number;
   soldOutOnlineCount: number;
@@ -30,6 +34,7 @@ export type MapadoEnrichmentResult = {
     title: string;
     eventUrl: string;
     status: EventAvailabilityStatus | null;
+    source: "known_url" | "catalog";
   }>;
   errors: string[];
 };
@@ -42,11 +47,19 @@ export type EnrichMapadoAvailabilityOptions = {
   httpTimeoutMs?: number;
   dryRun?: boolean;
   now?: Date;
+  /**
+   * Deep-links Mapado déjà connus (eventId → URL).
+   * Si omis, chargés depuis `event_availability` pour les candidats.
+   */
+  knownProviderEventUrls?: ReadonlyMap<string, string>;
+  /** Plafond de fetches fiche. Défaut `MAPADO_ENRICHMENT_MAX_EVENT_FETCHES`. */
+  maxEventFetches?: number;
 };
 
 /**
  * Enrichissement best-effort disponibilité pour un tenant Mapado.
  * N’écrit jamais `unknown` ; un échec laisse l’ancienne ligne intacte.
+ * Privilégie les `provider_event_url` déjà connus, avec repli catalogue portail.
  */
 export async function enrichMapadoAvailability(
   options: EnrichMapadoAvailabilityOptions,
@@ -56,6 +69,8 @@ export async function enrichMapadoAvailability(
   const httpTimeoutMs = options.httpTimeoutMs ?? SOURCE_HTTP_TIMEOUT_MS;
   const dryRun = options.dryRun ?? false;
   const now = options.now ?? new Date();
+  const maxEventFetches =
+    options.maxEventFetches ?? MAPADO_ENRICHMENT_MAX_EVENT_FETCHES;
   const candidates = options.events.filter((event) =>
     isMapadoTenantCandidate(tenant, event),
   );
@@ -66,6 +81,7 @@ export async function enrichMapadoAvailability(
     portalUrl: tenant.portalUrl,
     examinedCount: candidates.length,
     catalogSize: 0,
+    knownUrlCount: 0,
     matchCount: 0,
     availableCount: 0,
     soldOutOnlineCount: 0,
@@ -81,7 +97,14 @@ export async function enrichMapadoAvailability(
     return result;
   }
 
-  let portalHtml: string;
+  const knownUrls = await resolveKnownProviderEventUrls({
+    tenant,
+    eventIds: candidates.map((event) => event.id),
+    injected: options.knownProviderEventUrls,
+  });
+  result.knownUrlCount = knownUrls.size;
+
+  let portalHtml: string | null = null;
   try {
     const response = await fetchImpl(
       tenant.portalUrl,
@@ -92,35 +115,59 @@ export async function enrichMapadoAvailability(
     );
     if (!response.ok) {
       result.errors.push(`portal_http_${response.status}`);
-      return result;
+    } else {
+      portalHtml = await response.text();
+      result.portalFetchOk = true;
     }
-    portalHtml = await response.text();
-    result.portalFetchOk = true;
   } catch (error) {
     result.errors.push(
       `portal_fetch:${error instanceof Error ? error.message : "unknown"}`,
     );
+  }
+
+  const catalog =
+    portalHtml !== null
+      ? parseMapadoPortalCatalog(portalHtml, tenant.portalUrl, {
+          ignoredCatalogTitles: tenant.ignoredCatalogTitles,
+        })
+      : [];
+  result.catalogSize = catalog.length;
+  if (portalHtml !== null && catalog.length === 0) {
+    result.errors.push("portal_catalog_empty");
+  }
+
+  if (catalog.length === 0 && knownUrls.size === 0) {
     return result;
   }
 
-  const catalog = parseMapadoPortalCatalog(portalHtml, tenant.portalUrl, {
-    ignoredCatalogTitles: tenant.ignoredCatalogTitles,
-  });
-  result.catalogSize = catalog.length;
-  if (catalog.length === 0) {
-    result.errors.push("portal_catalog_empty");
-    return result;
-  }
+  let eventFetches = 0;
 
   for (const event of candidates) {
-    const match = matchMapadoCatalogEntry(event, catalog);
-    if (!match) {
+    const knownUrl = knownUrls.get(event.id) ?? null;
+    const catalogMatch =
+      !knownUrl && catalog.length > 0
+        ? matchMapadoCatalogEntry(event, catalog)
+        : null;
+    const eventUrl = knownUrl ?? catalogMatch?.eventUrl ?? null;
+    const urlSource: "known_url" | "catalog" | null = knownUrl
+      ? "known_url"
+      : catalogMatch
+        ? "catalog"
+        : null;
+
+    if (!eventUrl || !urlSource) {
+      result.unknownCount += 1;
+      continue;
+    }
+
+    if (eventFetches >= maxEventFetches) {
+      result.errors.push("event_fetch_cap");
       result.unknownCount += 1;
       continue;
     }
 
     result.matchCount += 1;
-    const eventUrl = match.eventUrl;
+    eventFetches += 1;
     let status: EventAvailabilityStatus | null = null;
 
     try {
@@ -139,6 +186,7 @@ export async function enrichMapadoAvailability(
           title: event.title,
           eventUrl,
           status: null,
+          source: urlSource,
         });
         continue;
       }
@@ -154,6 +202,7 @@ export async function enrichMapadoAvailability(
         title: event.title,
         eventUrl,
         status: null,
+        source: urlSource,
       });
       continue;
     }
@@ -163,6 +212,7 @@ export async function enrichMapadoAvailability(
       title: event.title,
       eventUrl,
       status,
+      source: urlSource,
     });
 
     if (!status || status === "unknown") {
@@ -196,4 +246,63 @@ export async function enrichMapadoAvailability(
   }
 
   return result;
+}
+
+async function resolveKnownProviderEventUrls(params: {
+  tenant: MapadoTenantConfig;
+  eventIds: string[];
+  injected?: ReadonlyMap<string, string>;
+}): Promise<Map<string, string>> {
+  if (params.injected) {
+    return filterKnownUrlsForTenant(
+      params.injected,
+      params.tenant,
+      params.eventIds,
+    );
+  }
+
+  try {
+    const { listAvailabilityByEventIds } = await import(
+      "@/infrastructure/db/event-availability.repository"
+    );
+    const records = await listAvailabilityByEventIds(params.eventIds);
+    const raw = new Map<string, string>();
+    for (const eventId of params.eventIds) {
+      const record = records.get(eventId);
+      if (!record?.providerEventUrl) continue;
+      if (record.provider !== params.tenant.provider) continue;
+      raw.set(eventId, record.providerEventUrl);
+    }
+    return filterKnownUrlsForTenant(raw, params.tenant, params.eventIds);
+  } catch (error) {
+    // Best-effort : sans DB on continue sur le catalogue seul.
+    void error;
+    return new Map();
+  }
+}
+
+function filterKnownUrlsForTenant(
+  urls: ReadonlyMap<string, string>,
+  tenant: MapadoTenantConfig,
+  eventIds: readonly string[],
+): Map<string, string> {
+  let portalOrigin: string;
+  try {
+    portalOrigin = new URL(tenant.portalUrl).origin;
+  } catch {
+    return new Map();
+  }
+
+  const allowed = new Set(eventIds);
+  const filtered = new Map<string, string>();
+  for (const [eventId, url] of urls) {
+    if (!allowed.has(eventId)) continue;
+    try {
+      if (new URL(url).origin !== portalOrigin) continue;
+    } catch {
+      continue;
+    }
+    filtered.set(eventId, url);
+  }
+  return filtered;
 }
