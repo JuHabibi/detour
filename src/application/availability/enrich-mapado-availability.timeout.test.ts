@@ -55,6 +55,7 @@ describe("enrichMapadoAvailability HTTP timeout", () => {
       fetchImpl: hangingFetch as unknown as typeof fetch,
       httpTimeoutMs: SHORT_TIMEOUT_MS,
       dryRun: true,
+      knownProviderEventUrls: new Map(),
     });
 
     expect(result.portalFetchOk).toBe(false);
@@ -85,12 +86,14 @@ describe("enrichMapadoAvailability HTTP timeout", () => {
       fetchImpl: fetchImpl as unknown as typeof fetch,
       httpTimeoutMs: SHORT_TIMEOUT_MS,
       dryRun: true,
+      knownProviderEventUrls: new Map(),
     });
 
     expect(result.portalFetchOk).toBe(true);
     expect(result.errors.some((e) => e.startsWith("event_fetch:"))).toBe(true);
     expect(result.upsertedCount).toBe(0);
     expect(result.matched.length).toBeGreaterThan(0);
+    expect(result.matched[0]?.source).toBe("catalog");
   });
 
   it("corps portail bloqué après headers → portal_fetch", async () => {
@@ -100,6 +103,7 @@ describe("enrichMapadoAvailability HTTP timeout", () => {
       fetchImpl: headersThenHangingBody as unknown as typeof fetch,
       httpTimeoutMs: SHORT_TIMEOUT_MS,
       dryRun: true,
+      knownProviderEventUrls: new Map(),
     });
 
     expect(result.portalFetchOk).toBe(false);
