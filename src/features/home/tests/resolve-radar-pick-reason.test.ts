@@ -90,6 +90,16 @@ describe("resolveRadarPickReason", () => {
         }),
       ),
     ).toBeNull();
+
+    expect(
+      resolveRadarPickReason(
+        radarItem({
+          venue: "Maison des Jeunes et de la Culture d'Olivet (MJC)",
+          description: "Atelier parents/enfants (3 à 7 ans)",
+          radarAiReasons: ["Inscription obligatoire auprès de la MJC."],
+        }),
+      ),
+    ).toBeNull();
   });
 
   it("rejette gratuité seule", () => {
@@ -211,6 +221,96 @@ describe("resolveRadarPickReason", () => {
           startAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
           dateLabel: "Demain",
           radarSelectionReasons: ["singular"],
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  describe("cas Radar réels (audit Regard)", () => {
+    it("Michèle Desbordes : publie l’hommage ancré, rejette la phrase vide", () => {
+      // Extrait réel (prod) — contient « événements » / « écrivain » pour l’ancrage.
+      const description =
+        "A l'occasion des 20 ans de la disparition de Michèle Desbordes (1940-2006), écrivain et conservateur général des bibliothèques au Service Commun de la Documentation à l'université d'Orléans (1994-2000), le département des lettres de l'université d'Orléans souhaite honorer sa mémoire. En collaboration avec la Société des Amis de Michèle Desbordes, plusieurs événements (exposition, lectures, conférence et projection) se dérouleront le 18 novembre 2026 à la BU lettres et au Bouillon autour de son oeuvre. Au Bouillon : Projection de Michèle Desbordes, pour mémoire , un film de Jacques Mény (2001). Gratuit pour tous";
+
+      expect(
+        resolveRadarPickReason(
+          radarItem({
+            id: "bouillon:18196",
+            title: "Michèle Desbordes, pour mémoire",
+            category: "Cinéma",
+            venue: "Le Bouillon",
+            city: "Orléans",
+            description,
+            radarAiReasons: [
+              "Événement en hommage à une écrivain locale.",
+              "Projection d'un film en lien avec l'événement.",
+            ],
+          }),
+        ),
+      ).toBe("Événement en hommage à une écrivain locale.");
+    });
+
+    it("Oud Indigo : publie le solo ancré sans exiger le lexique substance", () => {
+      expect(
+        resolveRadarPickReason(
+          radarItem({
+            id: "openagenda:79048363",
+            title: "OUD INDIGO : Solo de oud",
+            category: "Exposition",
+            city: "Olivet",
+            venue: "Maison des Jeunes et de la Culture d'Olivet (MJC)",
+            description:
+              "Après s’être produit dans différents duo et trios, François Rascal ose aujourd’hui le solo et revisite ainsi ses compositions.",
+            radarAiReasons: [
+              "Solo de oud avec des compositions revisitées.",
+              "Gratuit, inscription conseillée.",
+            ],
+          }),
+        ),
+      ).toBe("Solo de oud avec des compositions revisitées.");
+    });
+
+    it("Lectures Partagées : fiche pauvre + paraphrase → Regard masqué", () => {
+      expect(
+        resolveRadarPickReason(
+          radarItem({
+            id: "openagenda:98453373",
+            title: "Les Lectures Partagées",
+            category: "Atelier",
+            city: "Olivet",
+            venue: "Maison des Jeunes et de la Culture d'Olivet (MJC)",
+            description: "Atelier parents/enfants (3 à 7 ans)",
+            radarAiReasons: [
+              "Atelier parents/enfants pour les 3 à 7 ans.",
+              "Inscription obligatoire auprès de la MJC.",
+            ],
+          }),
+        ),
+      ).toBeNull();
+    });
+  });
+
+  it("rejette une affirmation non étayée malgré l’absence de lexique substance", () => {
+    expect(
+      resolveRadarPickReason(
+        radarItem({
+          title: "Concert de saison",
+          description: "Un concert de la saison culturelle à Orléans.",
+          radarAiReasons: [
+            "Hommage inédit à une figure oubliée du jazz régional.",
+          ],
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("rejette une formulation manifestement vide même si partiellement ancrée", () => {
+    expect(
+      resolveRadarPickReason(
+        radarItem({
+          title: "Ciné-rencontre",
+          description: "Projection d'un film documentaire en lien avec l'événement.",
+          radarAiReasons: ["Projection d'un film en lien avec l'événement."],
         }),
       ),
     ).toBeNull();

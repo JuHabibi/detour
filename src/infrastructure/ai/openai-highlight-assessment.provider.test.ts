@@ -28,9 +28,9 @@ function event(id: string, title = "Titre"): DetourEvent {
   };
 }
 
-describe("AI assessment prompt V3.1", () => {
-  it("versionne detour-ai-assess-v3.1", () => {
-    expect(AI_ASSESSMENT_PROMPT_VERSION).toBe("detour-ai-assess-v3.1");
+describe("AI assessment prompt V3.2", () => {
+  it("versionne detour-ai-assess-v3.2", () => {
+    expect(AI_ASSESSMENT_PROMPT_VERSION).toBe("detour-ai-assess-v3.2");
   });
 
   it("schéma JSON inchangé (dimensions + assessments)", () => {
@@ -78,6 +78,14 @@ describe("AI assessment prompt V3.1", () => {
     expect(prompt).toMatch(/participation du public|participation réelle/i);
     expect(prompt).toMatch(/première/i);
     expect(prompt).toMatch(/résidence sociale/i);
+  });
+
+  it("reasons : fait distinctif en tête, fiche pauvre → tableau vide", () => {
+    const prompt = OPENAI_HIGHLIGHT_SYSTEM_PROMPT;
+    expect(prompt).toMatch(/première.*reason|La \*\*première\*\* reason/i);
+    expect(prompt).toMatch(/fait distinctif/i);
+    expect(prompt).toMatch(/reasons vide \[\]/);
+    expect(prompt).toMatch(/en lien avec l['’]événement/i);
   });
 
   it("ne contient aucun nom d’événement de calibration / golden set", () => {
@@ -165,7 +173,7 @@ describe("OpenAiHighlightAssessmentProvider", () => {
     expect(result[0]?.appeal).toBe(4);
     expect(result[0]?.localRarity).toBe(2);
     expect(result[0]?.likelyDemand).toBe(4);
-    expect(provider.cacheContext.promptVersion).toBe("detour-ai-assess-v3.1");
+    expect(provider.cacheContext.promptVersion).toBe("detour-ai-assess-v3.2");
     expect(fetchImpl).toHaveBeenCalledTimes(1);
 
     const body = JSON.parse(
