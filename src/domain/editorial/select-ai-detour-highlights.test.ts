@@ -926,6 +926,79 @@ describe("diversité découverte éditoriale", () => {
     const reglesCount = ids.filter((id) => id.startsWith("regles-")).length;
     expect(reglesCount).toBeLessThanOrEqual(1);
   });
+
+  it("régression #47 : shortlist > 10 entièrement évaluée → vivier hors top-10 accessible", () => {
+    // 12 spectacles en tête (simule deterministic-top saturé) + pépites diversifiées après.
+    const shortlist: EventHighlight[] = [
+      ...Array.from({ length: 12 }, (_, i) => {
+        const c = candidate(`spectacle-${i}`, `Spectacle saison ${i} Alice Moreau`);
+        c.event.category = "Spectacle";
+        c.event.venue = `Salle ${i}`;
+        c.event.city = `Ville ${i}`;
+        return c;
+      }),
+      (() => {
+        const c = candidate("cinema-gem", "Documentaire Michèle Desbordes pour mémoire");
+        c.event.category = "Cinéma / Projection";
+        c.event.venue = "Le Bouillon";
+        c.event.city = "Orléans";
+        return c;
+      })(),
+      (() => {
+        const c = candidate("atelier-gem", "Les Lectures Partagées atelier parents enfants");
+        c.event.category = "Stage - atelier -  jeu";
+        c.event.venue = "MJC Olivet";
+        c.event.city = "Olivet";
+        return c;
+      })(),
+    ];
+
+    const weakSpectacle = (id: string) =>
+      assessment(id, {
+        appeal: 3,
+        missRisk: 2,
+        planningNeed: 2,
+        localRarity: 1,
+        likelyDemand: 2,
+      });
+    const strongDiverse = (id: string) =>
+      assessment(id, {
+        appeal: 5,
+        missRisk: 4,
+        planningNeed: 4,
+        localRarity: 4,
+        likelyDemand: 3,
+      });
+
+    const onlyFirst10 = shortlist
+      .slice(0, 10)
+      .map((h) => weakSpectacle(h.event.id));
+    const cappedRadar = selectAiDetourHighlights(shortlist, onlyFirst10, {
+      limit: 10,
+    });
+    expect(
+      cappedRadar.every((h) => String(h.event.category).startsWith("Spectacle")),
+    ).toBe(true);
+    expect(cappedRadar.some((h) => h.event.id === "cinema-gem")).toBe(false);
+
+    const fullAssessments = [
+      ...shortlist.slice(0, 12).map((h) => weakSpectacle(h.event.id)),
+      strongDiverse("cinema-gem"),
+      strongDiverse("atelier-gem"),
+    ];
+    const fullRadar = selectAiDetourHighlights(shortlist, fullAssessments, {
+      limit: 10,
+    });
+    const cats = new Set(
+      fullRadar.map((h) => String(h.event.category).split(";")[0]),
+    );
+    expect(cats.size).toBeGreaterThan(1);
+    expect(
+      fullRadar.some(
+        (h) => h.event.id === "cinema-gem" || h.event.id === "atelier-gem",
+      ),
+    ).toBe(true);
+  });
 });
 
 function poolItem(

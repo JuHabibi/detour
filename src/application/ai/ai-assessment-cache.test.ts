@@ -238,6 +238,84 @@ describe("assessHighlightsCached per-event", () => {
     expect(assess).toHaveBeenCalledTimes(3);
   });
 
+  it("shortlist > 10 → tous les candidats sont évalués (pas de plafond)", async () => {
+    const store = createMemoryAiAssessmentCacheStore();
+    const assess = vi.fn(async (events: DetourEvent[]) =>
+      events.map((item) => assessment(item.id)),
+    );
+    const events = Array.from({ length: 25 }, (_, index) =>
+      event(`e${index}`),
+    );
+
+    const result = await assessHighlightsCached({
+      events,
+      assess,
+      store,
+      cacheContext: baseContext,
+    });
+
+    expect(assess).toHaveBeenCalledTimes(1);
+    expect((assess.mock.calls[0]?.[0] as DetourEvent[]).length).toBe(25);
+    expect(result.assessments).toHaveLength(25);
+    expect(result.source).toBe("fresh");
+    expect(result.cacheMisses).toBe(25);
+  });
+
+  it("cold start : hits Data Cache au-delà des 10 premiers restent accessibles", async () => {
+    const memory = createMemoryAiAssessmentCacheStore();
+    const dataCache = new Map<string, AiAssessmentCacheEntry>();
+    const assess = vi.fn(async (events: DetourEvent[]) =>
+      events.map((item) => assessment(item.id, 5)),
+    );
+
+    const events = Array.from({ length: 20 }, (_, index) =>
+      event(`cold-${index}`, `Titre distinctif ${index} Alice Moreau`),
+    );
+
+    // Première instance : écrit tout dans le Data Cache (readThrough).
+    const warm = await assessHighlightsCached({
+      events,
+      assess,
+      store: memory,
+      cacheContext: baseContext,
+      readThrough: async (key, compute) => {
+        const existing = dataCache.get(key);
+        if (existing) return existing;
+        const entry = await compute();
+        dataCache.set(key, entry);
+        return entry;
+      },
+    });
+    expect(warm.assessments).toHaveLength(20);
+    expect(assess).toHaveBeenCalledTimes(1);
+    expect(dataCache.size).toBe(20);
+
+    // Cold start : mémoire vide, Data Cache intact — y compris events 11…20.
+    const coldMemory = createMemoryAiAssessmentCacheStore();
+    const cold = await assessHighlightsCached({
+      events,
+      assess,
+      store: coldMemory,
+      cacheContext: baseContext,
+      readThrough: async (key, compute) => {
+        const existing = dataCache.get(key);
+        if (existing) return existing;
+        return compute();
+      },
+    });
+
+    expect(assess).toHaveBeenCalledTimes(1);
+    expect(cold.source).toBe("cache");
+    expect(cold.assessments).toHaveLength(20);
+    expect(cold.assessments.map((item) => item.eventId)).toEqual(
+      events.map((item) => item.id),
+    );
+    // Les events au-delà du 10e (régression #47) sont bien résolus.
+    expect(
+      cold.assessments.slice(10).map((item) => item.eventId),
+    ).toEqual(events.slice(10).map((item) => item.id));
+  });
+
   it("force → bypass + reassessment complet", async () => {
     const store = createMemoryAiAssessmentCacheStore();
     const invalidate = vi.fn();
