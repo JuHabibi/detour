@@ -4,7 +4,10 @@ import type { AiConfig } from "@/config/ai-config";
 import type { DetourEvent } from "@/domain/events/event";
 import type { EventSource } from "@/application/ports/event-source";
 import type { HighlightAssessmentProvider } from "@/application/ports/highlight-assessment";
-import { createMemoryAiAssessmentCacheStore } from "@/application/ai/ai-assessment-cache";
+import {
+  AI_ASSESSMENT_MAX_PROVIDER_MISSES_PER_REQUEST,
+  createMemoryAiAssessmentCacheStore,
+} from "@/application/ai/ai-assessment-cache";
 import { AI_DETOUR_DEFAULT_LIMIT } from "@/domain/editorial/select-ai-detour-highlights";
 import { selectDetourHighlights } from "@/domain/editorial/select-detour-highlights";
 
@@ -421,8 +424,10 @@ describe("EventService Radar — complément d’une sélection IA partielle", (
   });
 
   it("sélection IA complète → aucun complément déterministe", async () => {
-    const events = Array.from({ length: 12 }, (_, i) =>
-      radarEvent(`complet-${i}`, i),
+    // Shortlist ≤ plafond misses/requête pour un assessment `fresh` en un seul passage.
+    const events = Array.from(
+      { length: AI_ASSESSMENT_MAX_PROVIDER_MISSES_PER_REQUEST },
+      (_, i) => radarEvent(`complet-${i}`, i),
     );
     const assessor = mockAssessments();
 
