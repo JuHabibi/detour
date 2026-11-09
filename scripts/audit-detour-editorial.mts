@@ -52,9 +52,9 @@ async function main() {
   to.setDate(to.getDate() + WINDOW_DAYS);
 
   const aiConfig = getAiConfig();
-  if (AI_ASSESSMENT_PROMPT_VERSION !== "detour-ai-assess-v3.2") {
+  if (AI_ASSESSMENT_PROMPT_VERSION !== "detour-ai-assess-v3.1") {
     throw new Error(
-      `Expected promptVersion detour-ai-assess-v3.2, got ${AI_ASSESSMENT_PROMPT_VERSION}`,
+      `Expected promptVersion detour-ai-assess-v3.1, got ${AI_ASSESSMENT_PROMPT_VERSION}`,
     );
   }
   console.error(`promptVersion=${AI_ASSESSMENT_PROMPT_VERSION}`);

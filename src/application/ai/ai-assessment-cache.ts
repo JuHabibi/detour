@@ -11,13 +11,6 @@ export type { AiAssessmentCacheContext };
 export const AI_ASSESSMENT_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const AI_ASSESSMENT_CACHE_TTL_MS = AI_ASSESSMENT_CACHE_TTL_SECONDS * 1000;
 
-/**
- * Plafond de misses réellement envoyés au provider par requête (hors `force`).
- * Évite qu’un bump de `promptVersion` régénère toute la shortlist (~60) sur
- * une visite Home : les misses restants sont réessayés aux requêtes suivantes.
- */
-export const AI_ASSESSMENT_MAX_PROVIDER_MISSES_PER_REQUEST = 10;
-
 /** Une entrée = un assessment pour une clé event. */
 export type AiAssessmentCacheEntry = {
   assessment: AiHighlightAssessment;
@@ -284,17 +277,12 @@ export async function assessHighlightsCached(params: {
 
   if (memoryMisses.length > 0) {
     const assessedAt = now().toISOString();
-    const providerMisses = force
-      ? memoryMisses
-      : memoryMisses.slice(0, AI_ASSESSMENT_MAX_PROVIDER_MISSES_PER_REQUEST);
-    // Misses au-delà du plafond : non résolus, non cachés → retry requête suivante.
-    cacheMisses = memoryMisses.length;
 
     if (readThrough) {
       const batcher = createRequestScopedAssessmentBatcher({
         assess,
         assessedAt,
-        totalLookups: providerMisses.length,
+        totalLookups: memoryMisses.length,
         onProviderCalled: () => {
           providerCalled = true;
         },
@@ -303,15 +291,14 @@ export async function assessHighlightsCached(params: {
         },
         onNextHit: () => {
           cacheHits += 1;
-          cacheMisses -= 1;
         },
         onNextMiss: () => {
-          // déjà compté dans cacheMisses = memoryMisses.length
+          cacheMisses += 1;
         },
       });
 
       await Promise.allSettled(
-        providerMisses.map(async ({ event, key }) => {
+        memoryMisses.map(async ({ event, key }) => {
           let computeStarted = false;
           try {
             const entry = await readThrough(key, () => {
@@ -333,14 +320,15 @@ export async function assessHighlightsCached(params: {
       );
 
       await batcher.whenSettled();
-    } else if (providerMisses.length > 0) {
+    } else {
+      cacheMisses = memoryMisses.length;
       providerCalled = true;
       try {
-        const fresh = await assess(providerMisses.map((item) => item.event));
+        const fresh = await assess(memoryMisses.map((item) => item.event));
         const byId = new Map(
           fresh.map((assessment) => [assessment.eventId, assessment]),
         );
-        for (const { event, key } of providerMisses) {
+        for (const { event, key } of memoryMisses) {
           const assessment = byId.get(event.id);
           if (!assessment) continue;
           const entry: AiAssessmentCacheEntry = {

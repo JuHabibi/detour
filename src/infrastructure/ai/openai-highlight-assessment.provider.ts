@@ -32,7 +32,7 @@ export type OpenAiHighlightAssessmentConfig = {
  * À bumper manuellement si le system prompt ou les dimensions changent.
  * Inclus dans la clé de cache per-event → invalide les assessments d’une version antérieure.
  */
-export const AI_ASSESSMENT_PROMPT_VERSION = "detour-ai-assess-v3.2";
+export const AI_ASSESSMENT_PROMPT_VERSION = "detour-ai-assess-v3.1";
 
 export const AI_ASSESSMENT_DEFAULT_MODEL = "gpt-4o-mini";
 export const AI_ASSESSMENT_DEFAULT_TEMPERATURE = 0.2;
@@ -118,19 +118,12 @@ Calibration conceptuelle (sans scores imposés, sans noms d’événements réel
 
 ## reasons
 
-0 à 4. Strictement factuelles et traçables dans les champs. Aucune conclusion non documentée.
+1 à 4 maximum. Strictement factuelles et traçables dans les champs. Aucune conclusion non documentée.
 SCORES = jugement éditorial. REASONS = faits seulement.
-
-La **première** reason est la plus importante : un seul fait distinctif, concret et vérifiable
-(artiste nommé, œuvre, démarche, format, contexte documenté dans la fiche).
-Si la fiche n’offre aucun fait distinctif → reasons vide [] (ne pas paraphraser le titre ni inventer).
-
 Préférer : « Concerts enregistrés pour la réalisation d’un CD live. »
 à : « Événement rare susceptible d’attirer beaucoup de monde. »
-BON : « Performance qui transforme un loto en proposition chorégraphique. » ; « Spectacle construit à partir de messages SMS. » ; « Première présentée après une résidence dans la commune. » ; « Concert présenté dans une résidence sociale. » ; « Hommage à une autrice locale avec projection d’un film nommé dans la fiche. » ; « Solo instrumental où l’artiste revisite ses compositions. »
+BON : « Performance qui transforme un loto en proposition chorégraphique. » ; « Spectacle construit à partir de messages SMS. » ; « Première présentée après une résidence dans la commune. » ; « Concert présenté dans une résidence sociale. »
 INTERDIT sauf si explicitement écrit dans la fiche : « peu visible », « peu médiatisé », « rare dans la région », « petite capacité », « forte demande », « risque d’être complet », « réservation anticipée nécessaire », « concurrence locale », « faible visibilité ».
-INTERDIT aussi (formulations vides / promo) : « en lien avec l’événement » ; « susceptible d’attirer » ; « format attractif » ; « spectacle drôle et surprenant » sans détail source ; paraphrase du seul intitulé sans fait ajouté.
-Ne pas mettre tarif, gratuité ou inscription dans reasons.
 Éviter : probablement ; susceptible de ; devrait attirer.
 
 ## Interdits absolus
