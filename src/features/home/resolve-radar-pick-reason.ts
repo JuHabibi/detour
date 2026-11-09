@@ -20,14 +20,7 @@ const MACHINE_OR_GENERIC_REASON =
  * Inutiles éditorialement sur une carte qui affiche déjà ces infos.
  */
 const SHALLOW_PRACTICAL_REASON =
-  /^(programm[eé]e?\s+[àa]\s+\w|dans (un |une )?(lieu|salle|commune|ville)|billetterie|inscriptions? (disponible|obligatoire|conseill)|r[eé]servations? (disponible|obligatoire|conseill)|entr[eé]e gratuite|sur inscription|gratuit(\.?)$)/i;
-
-/**
- * Formulations vides / tautologiques — n’apportent aucun fait distinctif.
- * Complète le grounding : une phrase peut être « ancrée » et malgré tout creuse.
- */
-const EMPTY_EDITORIAL_FORMULATION =
-  /en lien avec l['’][eé]v[eé]nement|autour de (cet |l['’])?[eé]v[eé]nement|dans le cadre de (cet |l['’])?[eé]v[eé]nement|un [eé]v[eé]nement (culturel |local )?(à (ne )?pas manquer|incontournable)|format (attractif|int[eé]ressant|original)|susceptible d['’]attirer|th[eè]me universel|message fort/i;
+  /^(programm[eé]e?\s+[àa]\s+\w|dans (un |une )?(lieu|salle|commune|ville)|billetterie|inscription disponible|r[eé]servation disponible|entr[eé]e gratuite|sur inscription|gratuit(\.?)$)/i;
 
 const STOPWORDS = new Set([
   "a",
@@ -71,6 +64,13 @@ const STOPWORDS = new Set([
 ]);
 
 /**
+ * Indices de contenu / format / singularité / échéance réelle.
+ * Sans l’un de ceux-ci, une reason reste trop « méta » pour l’encart.
+ */
+const EDITORIAL_SUBSTANCE =
+  /th[eé][aâ]tre|concert|spectacle|exposition|expo|cin[eé]ma|projection|festival|danse|chor[eé]graph|humour|performance|r[eé]sidence|premi[eè]re|enregistrement|album|live|cd\b|sms|loto|paper|papier|improvis|quiz|atelier|lecture|conf[eé]rence|op[eé]ra|orchestre|jazz|blues|ragtime|participation|dispositif|cr[eé]ation|compagnie|duo|trio|quatuor|film|documentaire|inscription avant|date limite|derni[eè]re (?:repr[eé]sentation|s[eé]ance)|sortie de r[eé]sidence|hors[- ]les[- ]murs|jeune public|th[eé][aâ]tre de papier/i;
+
+/**
  * Phrase courte « LE REGARD DÉTOUR » (modale Radar).
  * Retourne null si aucune justification informative et vérifiable.
  *
@@ -81,7 +81,6 @@ const STOPWORDS = new Set([
  *
  * Ne publie jamais `relevanceReason` (clé machine de classification).
  * Pas de fallback ville / lieu / billetterie / gratuité / badge générique.
- * Pas de lexique de « substance » imposé : l’ancrage source + rejets ciblés suffisent.
  */
 export function resolveRadarPickReason(event: EventItem): string | null {
   const fromAi = pickPublishableAiReason(event);
@@ -95,7 +94,6 @@ function pickPublishableAiReason(event: EventItem): string | null {
   if (!reasons?.length) return null;
 
   const sourceCorpus = buildSourceCorpus(event);
-  const description = event.description?.trim() ?? "";
 
   for (const raw of reasons) {
     const cleaned = sanitizeReasonText(raw);
@@ -103,10 +101,9 @@ function pickPublishableAiReason(event: EventItem): string | null {
     if (MACHINE_OR_GENERIC_REASON.test(cleaned)) continue;
     if (FORBIDDEN_URGENCY.test(cleaned)) continue;
     if (SHALLOW_PRACTICAL_REASON.test(cleaned)) continue;
-    if (EMPTY_EDITORIAL_FORMULATION.test(cleaned)) continue;
     if (cleaned.length < 24) continue;
+    if (!hasEditorialSubstance(cleaned)) continue;
     if (!isGroundedInSource(cleaned, sourceCorpus)) continue;
-    if (isThinSourceParaphrase(cleaned, description)) continue;
     return truncateReason(cleaned);
   }
 
@@ -130,30 +127,8 @@ function buildSourceCorpus(event: EventItem): string {
   );
 }
 
-/**
- * Fiche source très pauvre (peu de tokens significatifs) + reason qui ne fait
- * que la reformuler → pas digne du Regard, on masque.
- * Ne vise pas les descriptions courtes mais déjà distinctives (ex. CD live).
- */
-function isThinSourceParaphrase(reason: string, description: string): boolean {
-  const desc = normalize(description);
-  if (!desc) return false;
-
-  const descTokens = tokenize(desc).filter(
-    (token) => token.length >= 4 && !STOPWORDS.has(token),
-  );
-  // ≤3 ancres lexicales = fiche trop mince pour justifier un encart.
-  if (descTokens.length === 0 || descTokens.length > 3) return false;
-
-  const reasonNorm = normalize(reason);
-  const reasonTokens = tokenize(reasonNorm).filter(
-    (token) => token.length >= 4 && !STOPWORDS.has(token),
-  );
-  if (reasonTokens.length === 0) return false;
-
-  const descSet = new Set(descTokens);
-  const overlap = reasonTokens.filter((token) => descSet.has(token)).length;
-  return overlap / reasonTokens.length >= 0.85;
+function hasEditorialSubstance(reason: string): boolean {
+  return EDITORIAL_SUBSTANCE.test(reason);
 }
 
 /**

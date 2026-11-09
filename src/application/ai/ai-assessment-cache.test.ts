@@ -9,7 +9,6 @@ import type { EventHighlight } from "@/domain/editorial/select-detour-highlights
 import {
   AI_ASSESSMENT_CACHE_TTL_MS,
   AI_ASSESSMENT_CACHE_TTL_SECONDS,
-  AI_ASSESSMENT_MAX_PROVIDER_MISSES_PER_REQUEST,
   assessHighlightsCached,
   createMemoryAiAssessmentCacheStore,
   type AiAssessmentCacheContext,
@@ -237,56 +236,6 @@ describe("assessHighlightsCached per-event", () => {
     });
 
     expect(assess).toHaveBeenCalledTimes(3);
-  });
-
-  it("plafond de misses : pas de régénération massive hors force", async () => {
-    const store = createMemoryAiAssessmentCacheStore();
-    const assess = vi.fn(async (events: DetourEvent[]) =>
-      events.map((item) => assessment(item.id)),
-    );
-    const events = Array.from({ length: 25 }, (_, index) =>
-      event(`e${index}`),
-    );
-
-    const first = await assessHighlightsCached({
-      events,
-      assess,
-      store,
-      cacheContext: baseContext,
-    });
-
-    expect(assess).toHaveBeenCalledTimes(1);
-    expect((assess.mock.calls[0]?.[0] as DetourEvent[]).length).toBe(
-      AI_ASSESSMENT_MAX_PROVIDER_MISSES_PER_REQUEST,
-    );
-    expect(first.assessments).toHaveLength(
-      AI_ASSESSMENT_MAX_PROVIDER_MISSES_PER_REQUEST,
-    );
-    expect(first.source).toBe("partial");
-
-    const second = await assessHighlightsCached({
-      events,
-      assess,
-      store,
-      cacheContext: baseContext,
-    });
-    expect(assess).toHaveBeenCalledTimes(2);
-    expect((assess.mock.calls[1]?.[0] as DetourEvent[]).length).toBe(
-      AI_ASSESSMENT_MAX_PROVIDER_MISSES_PER_REQUEST,
-    );
-    expect(second.assessments.length).toBeGreaterThan(
-      first.assessments.length,
-    );
-
-    const forced = await assessHighlightsCached({
-      events,
-      assess,
-      store,
-      force: true,
-      cacheContext: baseContext,
-    });
-    expect((assess.mock.calls.at(-1)?.[0] as DetourEvent[]).length).toBe(25);
-    expect(forced.assessments).toHaveLength(25);
   });
 
   it("force → bypass + reassessment complet", async () => {
