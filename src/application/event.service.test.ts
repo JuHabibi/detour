@@ -444,6 +444,79 @@ describe("EventService Radar — complément d’une sélection IA partielle", (
     );
   });
 
+  it("shortlist > plafond après invalidation cache → assessments partiels, Radar cohérent", async () => {
+    const cacheStore = createMemoryAiAssessmentCacheStore();
+    const events = Array.from({ length: 20 }, (_, i) =>
+      radarEvent(`partiel-${i}`, i),
+    );
+
+    // Remplit le cache sous une ancienne version de prompt.
+    await new EventService(
+      { fetchUpcomingEvents: async () => events },
+      mockAssessments(),
+      { aiConfig: autoConfig, cacheStore },
+    ).getUpcomingEvents({ from, to });
+
+    // Invalidation type bump v3.1 → v3.2 : toutes les clés missent.
+    const assessor: HighlightAssessmentProvider = {
+      ...mockAssessments(),
+      cacheContext: {
+        model: "gpt-4o-mini",
+        promptVersion: "detour-ai-assess-v3.2",
+        generation: { temperature: 0.2 },
+      },
+      assess: vi.fn().mockImplementation(async (input: DetourEvent[]) =>
+        input.map((item) => ({
+          eventId: item.id,
+          appeal: 4,
+          missRisk: 3,
+          localRarity: 2,
+          planningNeed: 3,
+          likelyDemand: 2,
+          confidence: 0.8,
+          reasons: ["ok"],
+        })),
+      ),
+    };
+
+    const first = await new EventService(
+      { fetchUpcomingEvents: async () => events },
+      assessor,
+      { aiConfig: autoConfig, cacheStore },
+    ).getUpcomingEvents({ from, to });
+
+    expect(first.aiMeta.source).toBe("partial");
+    expect(first.aiAssessments).toHaveLength(
+      AI_ASSESSMENT_MAX_PROVIDER_MISSES_PER_REQUEST,
+    );
+    expect(assessor.assess).toHaveBeenCalledTimes(1);
+    expect((assessor.assess as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toHaveLength(
+      AI_ASSESSMENT_MAX_PROVIDER_MISSES_PER_REQUEST,
+    );
+    expect(first.highlights).toHaveLength(AI_DETOUR_DEFAULT_LIMIT);
+    expect(new Set(first.highlights.map((item) => item.event.id)).size).toBe(
+      AI_DETOUR_DEFAULT_LIMIT,
+    );
+    // 10 assessments suffisent pour remplir la limite Radar sans toucher au ranking.
+    expect(
+      first.highlights.every((item) => item.selectionSource === "ai"),
+    ).toBe(true);
+
+    const second = await new EventService(
+      { fetchUpcomingEvents: async () => events },
+      assessor,
+      { aiConfig: autoConfig, cacheStore },
+    ).getUpcomingEvents({ from, to });
+
+    expect(assessor.assess).toHaveBeenCalledTimes(2);
+    expect(second.aiAssessments.length).toBeGreaterThan(first.aiAssessments.length);
+    expect(second.aiAssessments.length).toBeLessThanOrEqual(events.length);
+    expect(second.highlights).toHaveLength(AI_DETOUR_DEFAULT_LIMIT);
+    expect(new Set(second.highlights.map((item) => item.event.id)).size).toBe(
+      AI_DETOUR_DEFAULT_LIMIT,
+    );
+  });
+
   it("sélection IA vide → sélection déterministe complète inchangée", async () => {
     const events = Array.from({ length: 12 }, (_, i) =>
       radarEvent(`vide-${i}`, i),
