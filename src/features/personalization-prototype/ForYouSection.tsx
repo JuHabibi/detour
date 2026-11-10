@@ -3,8 +3,7 @@
 import { useMemo } from "react";
 import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import type { EventItem } from "@/data/types";
-import { cn } from "@/lib/cn";
-import { RadarEventCard } from "@/features/home/components/cards/RadarEventCard";
+import { FeaturedEventsCarousel } from "@/features/home/components/radar/FeaturedEventsCarousel";
 import { selectForYouEvents } from "./select-for-you-events";
 import type { PersonalizationPreferences } from "./types";
 
@@ -18,9 +17,6 @@ type ForYouSectionProps = {
   onOpenDetail?: OpenEventDetailHandler;
   onEditPreferences: () => void;
 };
-
-const COMPACT_POSTER_WIDTH =
-  "w-[58%] sm:w-[32%] md:w-[24%] lg:w-[19%] 2xl:w-[17%]";
 
 export function ForYouSection({
   pool,
@@ -58,8 +54,8 @@ export function ForYouSection({
               ✦ Pour vous
             </h2>
             <p className="mt-2 max-w-md text-sm leading-6 text-cream-dim">
-              Une piste compacte selon vos préférences — en complément du Radar,
-              sans le remplacer.
+              Une piste selon vos préférences — en complément du Radar, sans le
+              remplacer.
             </p>
           </div>
           <button
@@ -71,38 +67,15 @@ export function ForYouSection({
           </button>
         </div>
 
-        <div
-          className={cn(
-            "flex items-stretch gap-3 overflow-x-auto md:gap-3.5",
-            "snap-x snap-mandatory scroll-smooth motion-reduce:scroll-auto",
-            "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
-          )}
-          tabIndex={0}
-          role="region"
-          aria-roledescription="carousel"
-          aria-label="Pour vous — sélection personnalisée"
-        >
-          {events.map((event, index) => (
-            <div
-              key={event.id}
-              className={cn(
-                "flex h-full shrink-0 snap-start flex-col",
-                COMPACT_POSTER_WIDTH,
-              )}
-            >
-              <RadarEventCard
-                event={event}
-                priority={false}
-                isFavorite={favorites.has(event.id)}
-                onToggleFavorite={onToggleFavorite}
-                carnetCount={carnetCounts?.get(event.id) ?? 0}
-                onOrganizeCarnets={onOrganizeCarnets}
-                rank={index + 1}
-                onOpenDetail={onOpenDetail}
-              />
-            </div>
-          ))}
-        </div>
+        <FeaturedEventsCarousel
+          events={events}
+          favorites={favorites}
+          onToggleFavorite={onToggleFavorite}
+          carnetCounts={carnetCounts}
+          onOrganizeCarnets={onOrganizeCarnets}
+          onOpenDetail={onOpenDetail}
+          ariaLabel="Pour vous — sélection personnalisée"
+        />
       </div>
     </section>
   );
