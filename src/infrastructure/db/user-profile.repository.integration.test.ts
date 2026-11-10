@@ -79,7 +79,7 @@ describe("user-profile.repository (PGlite)", () => {
             result.rowCount ?? result.affectedRows ?? result.rows.length,
         };
       },
-    };
+    } as unknown as DbQueryable;
   });
 
   afterAll(async () => {
