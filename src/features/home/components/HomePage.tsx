@@ -12,6 +12,12 @@ import { useEventPersonalActions } from "@/components/personal/useEventPersonalA
 import { HeroFilters } from "@/features/home/components/HeroFilters";
 import { HomeAccountTable } from "@/features/home/components/HomeAccountTable";
 import { DetourSection } from "@/features/home/components/radar/DetourSection";
+import { DeferredPersonalizationCue } from "@/features/personalization-prototype/DeferredPersonalizationCue";
+import { ForYouSection } from "@/features/personalization-prototype/ForYouSection";
+import { PersonalizationGate } from "@/features/personalization-prototype/PersonalizationGate";
+import { PersonalizationOnboarding } from "@/features/personalization-prototype/PersonalizationOnboarding";
+import { PrototypeDevBar } from "@/features/personalization-prototype/PrototypeDevBar";
+import { usePersonalizationPrototype } from "@/features/personalization-prototype/use-personalization-prototype";
 import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import { authClient } from "@/lib/auth-client";
 import { verifiedAuthUserId } from "@/lib/auth-session";
@@ -75,6 +81,8 @@ export function HomePage({
     rollbackFavoriteAdd: personal.rollbackFavoriteAdd,
     removeFavoriteLocally: personal.removeFavoriteLocally,
   });
+
+  const personalization = usePersonalizationPrototype(userId);
 
   const [overrideHighlights, setOverrideHighlights] = useState<EventItem[] | null>(
     null,
@@ -166,7 +174,34 @@ export function HomePage({
           }
           onOpenDetail={actions.openEventDetail}
         />
-        {!isSessionPending && !userId ? <HomeAccountTable /> : null}
+        {personalization.showForYou ? (
+          <ForYouSection
+            pool={displayedHighlights}
+            preferences={personalization.state.preferences}
+            favorites={personal.favorites as Set<string>}
+            onToggleFavorite={actions.toggleFavorite}
+            carnetCounts={personal.carnetCounts as Map<string, number>}
+            onOrganizeCarnets={
+              actions.isAuthenticated
+                ? actions.handleOrganizeCarnets
+                : undefined
+            }
+            onOpenDetail={actions.openEventDetail}
+            onEditPreferences={personalization.openEditor}
+          />
+        ) : null}
+        {personalization.isPersonaActive &&
+        personalization.showDeferredCue &&
+        !personalization.showForYou ? (
+          <DeferredPersonalizationCue
+            onConfigure={personalization.startOnboarding}
+          />
+        ) : null}
+        {!isSessionPending && !userId && !personalization.state.prototypeSignedIn ? (
+          <HomeAccountTable
+            onTryPrototype={personalization.enablePrototypeSession}
+          />
+        ) : null}
         {liveDebugMeta && debugEvents ? (
           <HomeDebugSection
             events={debugEvents}
@@ -221,6 +256,31 @@ export function HomePage({
           returnPath={actions.returnPath}
           onClose={actions.closeFavoriteAuth}
           returnFocusTo={actions.authFavoriteTrigger}
+        />
+      ) : null}
+      <PersonalizationGate
+        open={personalization.gateOpen}
+        onConfigure={personalization.startOnboarding}
+        onLater={personalization.deferOnboarding}
+      />
+      {personalization.onboardingOpen ? (
+        <PersonalizationOnboarding
+          initialPreferences={personalization.state.preferences}
+          initialNewsletterPreview={
+            personalization.state.newsletterPreviewChecked
+          }
+          onClose={personalization.closeOnboarding}
+          onSkip={personalization.skipOnboarding}
+          onComplete={personalization.completeOnboarding}
+        />
+      ) : null}
+      {personalization.hydrated ? (
+        <PrototypeDevBar
+          prototypeSignedIn={personalization.state.prototypeSignedIn}
+          onEnableSession={personalization.enablePrototypeSession}
+          onDisableSession={personalization.disablePrototypeSession}
+          onReset={personalization.resetPrototype}
+          onOpenOnboarding={personalization.openEditor}
         />
       ) : null}
       {actions.removeConfirmation}
