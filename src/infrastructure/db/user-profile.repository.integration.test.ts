@@ -3,6 +3,7 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
+import type { QueryResult, QueryResultRow } from "pg";
 import {
   getUserProfile,
   upsertUserProfile,
@@ -63,6 +64,24 @@ CREATE TABLE user_profiles (
 );
 `.trim();
 
+function createPgliteClient(pglite: PGlite): DbQueryable {
+  return {
+    async query<T extends QueryResultRow = QueryResultRow>(
+      text: string,
+      values?: unknown[],
+    ): Promise<QueryResult<T>> {
+      const result = await pglite.query<T>(text, values ?? []);
+      return {
+        rows: result.rows,
+        rowCount: result.rowCount ?? result.affectedRows ?? result.rows.length,
+        command: "",
+        oid: 0,
+        fields: [],
+      };
+    },
+  };
+}
+
 describe("user-profile.repository (PGlite)", () => {
   let pglite: PGlite;
   let client: DbQueryable;
@@ -70,16 +89,7 @@ describe("user-profile.repository (PGlite)", () => {
   beforeAll(async () => {
     pglite = new PGlite();
     await pglite.exec(SCHEMA_SQL);
-    client = {
-      query: async (text: string, values?: unknown[]) => {
-        const result = await pglite.query(text, values ?? []);
-        return {
-          rows: result.rows,
-          rowCount:
-            result.rowCount ?? result.affectedRows ?? result.rows.length,
-        };
-      },
-    } as unknown as DbQueryable;
+    client = createPgliteClient(pglite);
   });
 
   afterAll(async () => {
@@ -157,20 +167,19 @@ VALUES
     expect(rows.rows[0]?.count).toBe("1");
   });
 
-  it("refuse une écriture invalide avant SQL", async () => {
+  it("refuse completed sans intérêts avant SQL", async () => {
     await expect(
       upsertUserProfile(
         USER_A,
         {
-          interests: ["Spectacle"],
+          interests: [],
           availabilities: ["flexible"],
           budget: "any",
-          // @ts-expect-error — statut hors contrat V1
-          onboardingStatus: "skipped",
+          onboardingStatus: "completed",
         },
         client,
       ),
-    ).rejects.toThrow(/user_profile_invalid/);
+    ).rejects.toThrow(/user_profile_invalid:completed_requires_interests/);
 
     await expect(getUserProfile(USER_A, client)).resolves.toBeNull();
   });
