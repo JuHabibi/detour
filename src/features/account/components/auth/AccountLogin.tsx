@@ -8,6 +8,7 @@ import { AccountAuthDivider } from "@/features/account/components/auth/AccountAu
 import { AccountAuthLayout } from "@/features/account/components/auth/AccountAuthLayout";
 import { AccountGoogleButton } from "@/features/account/components/auth/AccountGoogleButton";
 import { AccountLoginEmailVerificationPanel } from "@/features/account/components/auth/AccountLoginEmailVerificationPanel";
+import { AccountPasswordField } from "@/features/account/components/auth/AccountPasswordField";
 import {
   EMAIL_VERIFIED_LOGIN_MESSAGE,
   isEmailNotVerifiedError,
@@ -180,36 +181,28 @@ export function AccountLogin({
           />
         </label>
 
-        <div>
-          <div className="flex items-baseline justify-between gap-3">
-            <label
-              htmlFor="account-login-password"
-              className="min-w-0 text-[12px] font-medium uppercase tracking-[0.1em] text-sand"
-            >
-              Mot de passe
-            </label>
-            {showForgotPassword ? (
-              <Link
-                href="/account/forgot-password"
-                className="shrink-0 text-[12px] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-ink"
-              >
-                Mot de passe oublié ?
-              </Link>
-            ) : null}
-          </div>
-          <input
-            id="account-login-password"
-            type="password"
-            name="password"
-            autoComplete="current-password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            className={fieldClassName}
-          />
-        </div>
+        <AccountPasswordField
+          id="account-login-password"
+          name="password"
+          label="Mot de passe"
+          autoComplete="current-password"
+          required
+          minLength={8}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          footer={
+            showForgotPassword ? (
+              <p className="mt-2 text-right">
+                <Link
+                  href="/account/forgot-password"
+                  className="text-[12px] text-sand underline decoration-line underline-offset-4 transition-colors hover:text-ink"
+                >
+                  Mot de passe oublié ?
+                </Link>
+              </p>
+            ) : null
+          }
+        />
 
         {info ? (
           <p className="text-sm text-cream-dim" role="status">

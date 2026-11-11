@@ -5,15 +5,13 @@ import { useSearchParams } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
 import { AccountAuthLayout } from "@/features/account/components/auth/AccountAuthLayout";
+import { AccountPasswordField } from "@/features/account/components/auth/AccountPasswordField";
 import {
   mapResetPasswordClientError,
   RESET_PASSWORD_INVALID_LINK_MESSAGE,
   RESET_PASSWORD_RETRYABLE_MESSAGE,
   RESET_PASSWORD_SUCCESS_MESSAGE,
 } from "@/features/account/components/auth/account-reset-password-feedback";
-
-const fieldClassName =
-  "mt-2 h-11 w-full border border-line bg-foam px-3.5 text-sm text-ink placeholder:text-sand focus:outline-none focus:ring-1 focus:ring-mint";
 
 export function AccountResetPassword() {
   const searchParams = useSearchParams();
@@ -103,41 +101,27 @@ export function AccountResetPassword() {
         </p>
       ) : (
         <form onSubmit={handleSubmit} className="mt-10 space-y-5 md:mt-12">
-          <label className="block">
-            <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand">
-              Nouveau mot de passe
-            </span>
-            <input
-              type="password"
-              name="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              disabled={linkDead || pending}
-              className={fieldClassName}
-            />
-          </label>
+          <AccountPasswordField
+            name="password"
+            label="Nouveau mot de passe"
+            autoComplete="new-password"
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={linkDead || pending}
+          />
 
-          <label className="block">
-            <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand">
-              Confirmer
-            </span>
-            <input
-              type="password"
-              name="passwordConfirm"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              placeholder="••••••••"
-              disabled={linkDead || pending}
-              className={fieldClassName}
-            />
-          </label>
+          <AccountPasswordField
+            name="passwordConfirm"
+            label="Confirmer"
+            autoComplete="new-password"
+            required
+            minLength={8}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            disabled={linkDead || pending}
+          />
 
           {error ? (
             <p className="text-sm text-coral" role="alert">
