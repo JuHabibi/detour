@@ -7,6 +7,7 @@ import { authClient } from "@/lib/auth-client";
 import { AccountAuthDivider } from "@/features/account/components/auth/AccountAuthDivider";
 import { AccountAuthLayout } from "@/features/account/components/auth/AccountAuthLayout";
 import { AccountGoogleButton } from "@/features/account/components/auth/AccountGoogleButton";
+import { AccountPasswordField } from "@/features/account/components/auth/AccountPasswordField";
 import { EMAIL_VERIFICATION_OPS_ERROR } from "@/features/account/components/auth/account-email-verification-feedback";
 import {
   accountVerifyEmailCallbackPath,
@@ -174,39 +175,25 @@ export function AccountSignup({
           />
         </label>
 
-        <label className="block">
-          <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand">
-            Mot de passe
-          </span>
-          <input
-            type="password"
-            name="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            className={fieldClassName}
-          />
-        </label>
+        <AccountPasswordField
+          name="password"
+          label="Mot de passe"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
 
-        <label className="block">
-          <span className="text-[12px] font-medium uppercase tracking-[0.1em] text-sand">
-            Confirmer le mot de passe
-          </span>
-          <input
-            type="password"
-            name="passwordConfirm"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            placeholder="••••••••"
-            className={fieldClassName}
-          />
-        </label>
+        <AccountPasswordField
+          name="passwordConfirm"
+          label="Confirmer le mot de passe"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+        />
 
         {error ? (
           <p className="text-sm text-coral" role="alert">
