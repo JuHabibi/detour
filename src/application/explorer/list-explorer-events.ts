@@ -72,14 +72,26 @@ function resolveFilters(
   };
 }
 
+export type ListExplorerEventsOptions = {
+  client?: DbQueryable;
+  now?: Date;
+  /**
+   * Saute le COUNT des groupes (coûteux) — `totalCount` alors `null`.
+   * Utile pour les lectures bornées (ex. candidats « Pour vous »).
+   * N’altère pas la page ni le curseur.
+   */
+  skipCount?: boolean;
+};
+
 /**
  * Liste Explorer paginée.
  * - Sans curseur : count (groupes dédupliqués) + page en parallèle.
  * - Avec curseur valide : page seule ; `totalCount` est `null`.
+ * - `skipCount: true` : page seule même sans curseur ; `totalCount` est `null`.
  */
 export async function listExplorerEvents(
   query: ListExplorerEventsQuery,
-  options?: { client?: DbQueryable; now?: Date },
+  options?: ListExplorerEventsOptions,
 ): Promise<ListExplorerEventsResult> {
   const now = options?.now ?? new Date();
   const limit = clampLimit(query.limit);
@@ -97,6 +109,26 @@ export async function listExplorerEvents(
     const page = await listExplorerEventsPage({
       filters,
       after,
+      limit,
+      client: options?.client,
+      now,
+    });
+    return {
+      events: page.events,
+      totalCount: null,
+      nextCursor: page.nextAfter
+        ? encodeExplorerCursor({
+            startAt: page.nextAfter.startAt.toISOString(),
+            id: page.nextAfter.id,
+          })
+        : null,
+    };
+  }
+
+  if (options?.skipCount) {
+    const page = await listExplorerEventsPage({
+      filters,
+      after: null,
       limit,
       client: options?.client,
       now,

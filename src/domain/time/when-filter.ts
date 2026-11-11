@@ -280,7 +280,8 @@ function fromParisCivil(
   return base;
 }
 
-function getParisCivil(date: Date): ParisCivil {
+/** Jour / heure civils Europe/Paris — pour créneaux perso (pas le fuseau serveur). */
+export function getParisCivil(date: Date): ParisCivil {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: PARIS_TIME_ZONE,
     weekday: "short",
