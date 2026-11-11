@@ -48,6 +48,19 @@ function rawSaran(uid: string): SaranIcalEvent {
 }
 
 describe("mapOrleansEventToDetourEvent IDs namespacés", () => {
+  it("ajoute le calendrier complet sans modifier l’identité ni la période historique", () => {
+    const raw = rawOrleans("series");
+    raw.timings = JSON.stringify([
+      { begin: "2026-11-12T20:00:00+01:00", end: "2026-11-12T22:00:00+01:00" },
+      { begin: "2026-11-27T20:00:00+01:00", end: "2026-11-27T22:00:00+01:00" },
+    ]);
+    const event = mapOrleansEventToDetourEvent(raw)!;
+    expect(event.id).toBe("openagenda:series");
+    expect(event.startAt).toBe(raw.firstdate_begin);
+    expect(event.endAt).toBe(raw.firstdate_end);
+    expect(event.occurrences).toHaveLength(2);
+  });
+
   it("préfixe l’ID OpenAgenda : openagenda:<externalId>", () => {
     const event = mapOrleansEventToDetourEvent(rawOrleans("7937057"));
     expect(event).not.toBeNull();

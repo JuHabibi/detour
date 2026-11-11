@@ -6,6 +6,8 @@ export type OrleansRawEvent = {
   image: string | null;
   firstdate_begin: string | null;
   firstdate_end: string | null;
+  /** JSON stringifié OpenAgenda : [{ begin, end, id? }, ...]. */
+  timings?: string | null;
   location_name: string | null;
   location_city: string | null;
   location_coordinates: {
