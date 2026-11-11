@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { getMyForYouEvents } from "@/app/actions/for-you-events";
 import type { EventItem } from "@/data/types";
 import type { UserProfile } from "@/domain/personalization/user-profile";
+import { forYouPerfEnd, forYouPerfLog, forYouPerfMark } from "@/lib/perf-for-you";
 
 export type ForYouLoadState =
   | { status: "idle" }
@@ -64,7 +65,18 @@ export function useForYou(
       }
 
       setState({ status: "loading" });
+      forYouPerfLog("client.profileReady→forYou.start", {
+        preferenceKey,
+      });
+      const mark = forYouPerfMark("client.getMyForYouEvents");
       const result = await getMyForYouEvents();
+      forYouPerfEnd(mark, {
+        ok: result.ok,
+        events: result.ok ? result.events.length : null,
+      });
+      if (result.ok && result.events.length > 0) {
+        forYouPerfLog("client.carousel.ready");
+      }
 
       if (cancelled || requestId !== requestIdRef.current) return;
 

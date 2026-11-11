@@ -9,6 +9,7 @@ import {
   getUserProfile,
   upsertUserProfile,
 } from "@/infrastructure/db/user-profile.repository";
+import { forYouPerfEnd, forYouPerfMark } from "@/lib/perf-for-you";
 
 export type GetMyUserProfileResult =
   | { ok: true; profile: UserProfile | null }
@@ -28,16 +29,27 @@ export type UpsertMyUserProfileResult =
  * Aucun userId client — `null` si le profil n’existe pas encore.
  */
 export async function getMyUserProfile(): Promise<GetMyUserProfileResult> {
+  const total = forYouPerfMark("getMyUserProfile.total");
+  const authMark = forYouPerfMark("getMyUserProfile.auth");
   const auth = await getAccountAuthState();
+  forYouPerfEnd(authMark, { status: auth.status });
   if (auth.status !== "authenticated") {
+    forYouPerfEnd(total, { ok: false, reason: "unauthenticated" });
     return { ok: false, reason: "unauthenticated" };
   }
 
   try {
+    const profileMark = forYouPerfMark("getMyUserProfile.db");
     const profile = await getUserProfile(auth.user.id);
+    forYouPerfEnd(profileMark, {
+      hasProfile: profile != null,
+      status: profile?.onboardingStatus ?? null,
+    });
+    forYouPerfEnd(total, { ok: true });
     return { ok: true, profile };
   } catch (error) {
     console.error("[detour:user-profile] getMyUserProfile failed", error);
+    forYouPerfEnd(total, { ok: false, reason: "error" });
     return { ok: false, reason: "error" };
   }
 }

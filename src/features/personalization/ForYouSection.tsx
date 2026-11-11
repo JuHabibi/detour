@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import type { EventItem } from "@/data/types";
 import { FeaturedEventsCarousel } from "@/features/home/components/radar/FeaturedEventsCarousel";
+import { cn } from "@/lib/cn";
 
 type ForYouSectionProps = {
   events: EventItem[];
@@ -122,6 +124,72 @@ export function ForYouErrorState({ onRetry }: ForYouErrorProps) {
   );
 }
 
+const FOR_YOU_PLACEHOLDER_DELAY_MS = 200;
+
+/** Aligné sur `RADAR_POSTER_WIDTH` du carrousel Home (sans toucher au Radar). */
+const PLACEHOLDER_CARD_WIDTH =
+  "w-[64%] shrink-0 sm:w-[36%] md:w-[28%] lg:w-[22%] 2xl:w-[20%] min-[1920px]:w-[18%]";
+
+/**
+ * Placeholder discret — même géométrie avant/après le délai (~200 ms).
+ * La piste aspect-[4/5] est montée dès le départ ; seuls les fonds apparaissent
+ * ensuite (évite un CLS viewport-dépendant). Démontage immédiat dès données prêtes.
+ */
+export function ForYouLoadingPlaceholder() {
+  const [showSkeleton, setShowSkeleton] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setShowSkeleton(true);
+    }, FOR_YOU_PLACEHOLDER_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return (
+    <section
+      id="pour-vous"
+      aria-busy="true"
+      aria-label="Pour vous — chargement"
+      className="scroll-mt-20 border-t border-line bg-paper"
+    >
+      <div className="mx-auto max-w-[var(--detour-shell-max)] px-5 py-7 md:px-10 md:py-9 lg:px-16 2xl:px-20">
+        <div className="mb-6 h-16 max-w-xl md:mb-8 md:h-[4.5rem]" aria-hidden />
+        <div
+          className={cn(
+            "flex gap-3 overflow-hidden md:gap-4",
+            showSkeleton && "motion-safe:animate-pulse",
+          )}
+          aria-hidden
+          data-for-you-placeholder-track
+        >
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className={PLACEHOLDER_CARD_WIDTH}>
+              <div
+                className={cn(
+                  "aspect-[4/5]",
+                  showSkeleton ? "bg-foam/70" : "bg-transparent",
+                )}
+              />
+              <div
+                className={cn(
+                  "mt-3 h-3 w-3/4",
+                  showSkeleton ? "bg-foam/55" : "bg-transparent",
+                )}
+              />
+              <div
+                className={cn(
+                  "mt-2 h-2.5 w-1/2",
+                  showSkeleton ? "bg-foam/40" : "bg-transparent",
+                )}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ForYouHeader({ onEditPreferences }: { onEditPreferences: () => void }) {
   return (
     <div className="mb-6 flex flex-col gap-3 md:mb-8 md:flex-row md:items-end md:justify-between">
@@ -136,7 +204,7 @@ function ForYouHeader({ onEditPreferences }: { onEditPreferences: () => void }) 
           ✦ Pour vous
         </h2>
         <p className="mt-2 max-w-md text-sm leading-6 text-cream-dim">
-          Une piste selon vos préférences — en complément du Radar, sans le
+          Une piste selon vos préférences, en complément du Radar, sans le
           remplacer.
         </p>
       </div>

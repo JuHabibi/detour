@@ -9,6 +9,7 @@ import type {
   UserProfile,
   UserProfileWrite,
 } from "@/domain/personalization/user-profile";
+import { forYouPerfEnd, forYouPerfLog, forYouPerfMark } from "@/lib/perf-for-you";
 
 const EMPTY_DRAFT: Omit<UserProfileWrite, "onboardingStatus"> = {
   interests: [],
@@ -47,7 +48,15 @@ export function usePersonalization(userId: string | null) {
     let cancelled = false;
 
     void (async () => {
+      forYouPerfLog("client.session→profile.start");
+      const mark = forYouPerfMark("client.getMyUserProfile");
       const result = await getMyUserProfile();
+      forYouPerfEnd(mark, {
+        ok: result.ok,
+        status: result.ok
+          ? (result.profile?.onboardingStatus ?? "null")
+          : result.reason,
+      });
       if (cancelled) return;
 
       if (!result.ok) {
