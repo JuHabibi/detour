@@ -259,6 +259,8 @@ export function classifyEventCategory(event: DetourEvent): DetourCategory {
   );
   if (cinemaPrimary) return cinemaPrimary;
 
+  if (isMusicalPerformanceWithExhibitionTags(event)) return "Musique";
+
   if (structured) {
     for (const category of STRUCTURED_PRIORITY) {
       if (findCue(structured, STRUCTURED_SIGNALS[category])) {
@@ -461,6 +463,44 @@ function classifyConcertPrimaryFromSourceTags(
   }
 
   return null;
+}
+
+/**
+ * Paire Exposition + Musique : départager uniquement avec une forme musicale
+ * explicite dans le titre. Une description / un lieu musical ne suffit pas.
+ * Le contexte d’exposition peut rester dans la description (dévernissage).
+ * Les programmes mixtes et les autres combinaisons gardent leur priorité.
+ */
+function isMusicalPerformanceWithExhibitionTags(event: DetourEvent): boolean {
+  const tags = splitSourceTags(
+    [event.category, event.genre].filter(Boolean).join(";"),
+  );
+  if (
+    tags.length !== 2 ||
+    !tags.includes("exposition") ||
+    !tags.includes("musique")
+  ) {
+    return false;
+  }
+
+  const title = normalize(event.title);
+  // Une expo sur des concerts, un programme vernissage + concert, une projection
+  // ou un atelier ne doivent pas être promus sur le seul mot « concert ».
+  if (
+    /\b(expositions?|expos?|vernissages?|devernissages?|photograph[a-z]*|retrospectives?|installations?|projections?|captations?|films?|ateliers?|stages?|conferences?|visites?)\b/.test(title) ||
+    hasSpectacleLivingOrHybridCue(title)
+  ) {
+    return false;
+  }
+
+  // Forme annoncée en tête de titre / sous-titre, pas une mention thématique
+  // telle que « Histoire du concert ». Aucune dépendance à un nom d’artiste.
+  return title.split(/[:(–—]/).some((part) => {
+    const heading = part.trim();
+    if (/^(?:mini[- ]?)?(concerts?|recitals?)\b/.test(heading)) return true;
+    // Instrument explicite : « solo » seul peut aussi décrire danse ou peinture.
+    return /^solo (?:de |d['’]|pour )(?:oud|piano|guitare|violon|violoncelle|flute|clarinette|saxophone|orgue|harpe|percussions?|accordeon|contrebasse|batterie|trompette)\b/.test(heading);
+  });
 }
 
 function splitSourceTags(category: string | null | undefined): string[] {

@@ -27,6 +27,76 @@ function event(
 }
 
 describe("classifyEventCategory", () => {
+  describe("performance musicale dans un contexte d’exposition", () => {
+    it.each(["Exposition;Musique", "Musique;Exposition", " exposition ; MUSIQUE "])(
+      "OUD INDIGO → Musique avec %s",
+      (category) => {
+        expect(classifyEventCategory(event({
+          title: "OUD INDIGO : Solo de oud",
+          description: "Après s’être produit dans différents duo et trios, François Rascal ose aujourd’hui le solo et revisite ainsi ses compositions.",
+          category,
+        }))).toBe("Musique");
+      },
+    );
+
+    it.each([
+      "Mini concert",
+      "Concert d’Orgue à la cathédrale",
+      "Concert pédagogique - Hommage à Boutet de Monvel",
+      "Récital de piano",
+      "Nocturne : solo de violoncelle",
+    ])("%s → Musique malgré le contexte d’exposition", (title) => {
+      expect(classifyEventCategory(event({
+        title,
+        category: "Exposition;Musique",
+        description: "Une performance à l’occasion du dévernissage de l’exposition.",
+        venue: "Galerie du musée",
+      }))).toBe("Musique");
+    });
+
+    it.each([
+      "Exposition Des Jeunes Gens Modernes",
+      "Exposition de photographies de concerts",
+      "Vernissage Sculpteur/Mosaïste + Concert",
+      "Before DEFI : expo Mémoires Plurielles + Concert OMBRAGE",
+      "JazzBox - CÉCILE LÉNA",
+      "Instruments de Nulle-Part",
+      "Solo de peinture",
+      "Concert photographié",
+      "Conférence sur le récital",
+      "Atelier : solo de guitare",
+      "Rétrospective des concerts",
+      "Histoire du concert",
+      "Les affiches des concerts",
+      "Les secrets du solo de piano",
+    ])("%s reste Exposition (mixte ou preuve insuffisante)", (title) => {
+      expect(classifyEventCategory(event({
+        title,
+        category: "Exposition;Musique",
+        description: "Une exposition sur la musique, accompagnée d’un concert.",
+      }))).toBe("Exposition");
+    });
+
+    it("ne déduit pas une performance du lieu ou de la description seuls", () => {
+      expect(classifyEventCategory(event({
+        title: "Des racines et des lunes",
+        category: "Exposition;Musique",
+        description: "Avec un concert lors du dévernissage.",
+        venue: "Salle de concert",
+      }))).toBe("Exposition");
+    });
+
+    it.each([
+      ["Exposition", "Exposition"],
+      ["Exposition;Musique;Spectacle", "Spectacle"],
+      ["Exposition;Musique;Fête - salon - marché", "Fête / salon / marché"],
+    ])("préserve les autres combinaisons : %s", (category, expected) => {
+      expect(classifyEventCategory(event({
+        title: "OUD INDIGO : Solo de oud", category,
+      }))).toBe(expected);
+    });
+  });
+
   it("Lapanty en Fête → Fête / salon / marché (structure > musique)", () => {
     expect(
       classifyEventCategory(
