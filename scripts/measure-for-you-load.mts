@@ -134,12 +134,11 @@ async function main() {
         console.log("  forYou=not_configured");
         return null;
       }
-      const interests = row.interests as string[];
       const result = await getForYouRecommendations(
         {
-          interests,
-          availabilities: row.availabilities,
-          budget: row.budget,
+          interests: row.interests as ForYouPreferences["interests"],
+          availabilities: row.availabilities as ForYouPreferences["availabilities"],
+          budget: row.budget as ForYouPreferences["budget"],
         },
         { client: db, now },
       );

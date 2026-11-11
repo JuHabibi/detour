@@ -25,7 +25,7 @@ const EMPTY_DRAFT: Omit<UserProfileWrite, "onboardingStatus"> = {
  * `getMyUserProfile` reste pour le compte / hors Home.
  */
 export function usePersonalizationHome(userId: string | null) {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfileState] = useState<UserProfile | null>(null);
   const [hydrated, setHydrated] = useState(userId === null);
   const [profileReady, setProfileReady] = useState(userId === null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -36,12 +36,21 @@ export function usePersonalizationHome(userId: string | null) {
     status: "idle",
   });
   const [trackedUserId, setTrackedUserId] = useState(userId);
-  const profileRef = useRef(profile);
+  const profileRef = useRef<UserProfile | null>(null);
   const forYouRequestIdRef = useRef(0);
+
+  /**
+   * State + ref hors render. Le refresh post-save reçoit le profil en argument
+   * pour ne pas dépendre d’un useEffect.
+   */
+  const setProfile = useCallback((next: UserProfile | null) => {
+    profileRef.current = next;
+    setProfileState(next);
+  }, []);
 
   if (trackedUserId !== userId) {
     setTrackedUserId(userId);
-    setProfile(null);
+    setProfileState(null);
     setProfileReady(userId === null);
     setHydrated(userId === null);
     setLoadError(null);
@@ -102,45 +111,49 @@ export function usePersonalizationHome(userId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, setProfile]);
 
-  const refreshForYou = useCallback(async () => {
-    const requestId = ++forYouRequestIdRef.current;
-    const current = profileRef.current;
+  const refreshForYou = useCallback(
+    async (sourceProfile?: UserProfile | null) => {
+      const requestId = ++forYouRequestIdRef.current;
+      const current =
+        sourceProfile !== undefined ? sourceProfile : profileRef.current;
 
-    if (!userId || !current || current.onboardingStatus !== "completed") {
-      setForYouState({ status: "not_configured" });
-      return;
-    }
-    if (current.interests.length === 0) {
-      setForYouState({ status: "empty" });
-      return;
-    }
-
-    setForYouState({ status: "loading" });
-    const mark = forYouPerfMark("client.refreshForYou");
-    const result = await getMyForYouEvents();
-    forYouPerfEnd(mark, {
-      ok: result.ok,
-      events: result.ok ? result.events.length : null,
-    });
-    if (requestId !== forYouRequestIdRef.current) return;
-
-    if (!result.ok) {
-      if (result.reason === "unauthenticated") {
+      if (!userId || !current || current.onboardingStatus !== "completed") {
         setForYouState({ status: "not_configured" });
         return;
       }
-      setForYouState({ status: "error" });
-      return;
-    }
+      if (current.interests.length === 0) {
+        setForYouState({ status: "empty" });
+        return;
+      }
 
-    setForYouState(
-      result.events.length === 0
-        ? { status: "empty" }
-        : { status: "ready", events: result.events },
-    );
-  }, [userId]);
+      setForYouState({ status: "loading" });
+      const mark = forYouPerfMark("client.refreshForYou");
+      const result = await getMyForYouEvents();
+      forYouPerfEnd(mark, {
+        ok: result.ok,
+        events: result.ok ? result.events.length : null,
+      });
+      if (requestId !== forYouRequestIdRef.current) return;
+
+      if (!result.ok) {
+        if (result.reason === "unauthenticated") {
+          setForYouState({ status: "not_configured" });
+          return;
+        }
+        setForYouState({ status: "error" });
+        return;
+      }
+
+      setForYouState(
+        result.events.length === 0
+          ? { status: "empty" }
+          : { status: "ready", events: result.events },
+      );
+    },
+    [userId],
+  );
 
   const refresh = useCallback(async () => {
     if (!userId) {
@@ -177,35 +190,39 @@ export function usePersonalizationHome(userId: string | null) {
     setProfileReady(true);
     setHydrated(true);
     setForYouState(mapBundleForYou(result.forYou));
-  }, [userId]);
+  }, [userId, setProfile]);
 
-  const save = useCallback(async (write: UserProfileWrite) => {
-    setBusy(true);
-    setSaveError(null);
-    const result = await upsertMyUserProfile(write);
-    setBusy(false);
+  const save = useCallback(
+    async (write: UserProfileWrite) => {
+      setBusy(true);
+      setSaveError(null);
+      const result = await upsertMyUserProfile(write);
+      setBusy(false);
 
-    if (!result.ok) {
-      setSaveError(
-        result.reason === "invalid"
-          ? "Vérifiez vos choix puis réessayez."
-          : "Enregistrement impossible. Réessayez.",
-      );
-      return false;
-    }
+      if (!result.ok) {
+        setSaveError(
+          result.reason === "invalid"
+            ? "Vérifiez vos choix puis réessayez."
+            : "Enregistrement impossible. Réessayez.",
+        );
+        return false;
+      }
 
-    setProfile(result.profile);
-    setProfileReady(true);
-    setOnboardingOpen(false);
-    setSaveError(null);
+      // Ref synchronisée avant refresh — pas d’attente d’un useEffect.
+      setProfile(result.profile);
+      setProfileReady(true);
+      setOnboardingOpen(false);
+      setSaveError(null);
 
-    if (result.profile.onboardingStatus === "completed") {
-      await refreshForYou();
-    } else {
-      setForYouState({ status: "not_configured" });
-    }
-    return true;
-  }, [refreshForYou]);
+      if (result.profile.onboardingStatus === "completed") {
+        await refreshForYou(result.profile);
+      } else {
+        setForYouState({ status: "not_configured" });
+      }
+      return true;
+    },
+    [refreshForYou, setProfile],
+  );
 
   const defer = useCallback(async () => {
     if (profile?.onboardingStatus === "completed") {

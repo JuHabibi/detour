@@ -174,7 +174,124 @@ describe("usePersonalizationHome", () => {
     unmount();
   });
 
-  it("modification des préférences → refresh for-you seul", async () => {
+  it("null → completed : carrousel sans rechargement (profil immédiat)", async () => {
+    vi.mocked(getMyPersonalizationHome).mockResolvedValue({
+      ok: true,
+      profile: null,
+      forYou: { status: "not_configured", events: [] },
+    });
+    vi.mocked(upsertMyUserProfile).mockResolvedValue({
+      ok: true,
+      profile: completedProfile,
+    });
+    vi.mocked(getMyForYouEvents).mockResolvedValue({
+      ok: true,
+      events: [
+        {
+          id: "onboard-1",
+          title: "Première",
+          category: "Cinéma",
+          genre: "",
+          venue: "Ciné",
+          city: "Orléans",
+          date: "2026-11-14",
+          dateLabel: "14 nov.",
+        },
+      ],
+    });
+
+    const { result, unmount } = renderHook(() =>
+      usePersonalizationHome(USER_ID),
+    );
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(result.current.showGate).toBe(true);
+    expect(result.current.forYouState.status).toBe("not_configured");
+
+    await act(async () => {
+      await result.current.complete({
+        interests: ["Cinéma"],
+        availabilities: ["weekend-day"],
+        budget: "any",
+        onboardingStatus: "completed",
+      });
+      await flushMicrotasks();
+    });
+
+    expect(getMyForYouEvents).toHaveBeenCalledTimes(1);
+    expect(getMyPersonalizationHome).toHaveBeenCalledTimes(1);
+    expect(result.current.showGate).toBe(false);
+    expect(result.current.forYouState).toEqual({
+      status: "ready",
+      events: [expect.objectContaining({ id: "onboard-1" })],
+    });
+    unmount();
+  });
+
+  it("deferred → completed : carrousel après validation", async () => {
+    vi.mocked(getMyPersonalizationHome).mockResolvedValue({
+      ok: true,
+      profile: {
+        ...completedProfile,
+        onboardingStatus: "deferred",
+        interests: [],
+      },
+      forYou: { status: "not_configured", events: [] },
+    });
+    vi.mocked(upsertMyUserProfile).mockResolvedValue({
+      ok: true,
+      profile: {
+        ...completedProfile,
+        interests: ["Musique"],
+        updatedAt: "2026-11-11T17:00:00.000Z",
+      },
+    });
+    vi.mocked(getMyForYouEvents).mockResolvedValue({
+      ok: true,
+      events: [
+        {
+          id: "def-1",
+          title: "Concert",
+          category: "Musique",
+          genre: "",
+          venue: "Salle",
+          city: "Orléans",
+          date: "2026-11-16",
+          dateLabel: "16 nov.",
+        },
+      ],
+    });
+
+    const { result, unmount } = renderHook(() =>
+      usePersonalizationHome(USER_ID),
+    );
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(result.current.showDeferredCue).toBe(true);
+
+    await act(async () => {
+      await result.current.complete({
+        interests: ["Musique"],
+        availabilities: ["flexible"],
+        budget: "any",
+        onboardingStatus: "completed",
+      });
+      await flushMicrotasks();
+    });
+
+    expect(getMyForYouEvents).toHaveBeenCalledTimes(1);
+    expect(getMyPersonalizationHome).toHaveBeenCalledTimes(1);
+    expect(result.current.showDeferredCue).toBe(false);
+    expect(result.current.forYouState).toEqual({
+      status: "ready",
+      events: [expect.objectContaining({ id: "def-1" })],
+    });
+    unmount();
+  });
+
+  it("modification d’un profil completed → refresh for-you seul", async () => {
     vi.mocked(getMyPersonalizationHome).mockResolvedValue({
       ok: true,
       profile: completedProfile,

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import type { OpenEventDetailHandler } from "@/components/event/EventDetailModal";
 import type { EventItem } from "@/data/types";
 import { FeaturedEventsCarousel } from "@/features/home/components/radar/FeaturedEventsCarousel";
@@ -122,11 +123,26 @@ export function ForYouErrorState({ onRetry }: ForYouErrorProps) {
   );
 }
 
+const FOR_YOU_PLACEHOLDER_DELAY_MS = 200;
+
+const PLACEHOLDER_CARD_WIDTH =
+  "w-[64%] shrink-0 sm:w-[36%] md:w-[28%] lg:w-[22%] 2xl:w-[20%]";
+
 /**
- * Placeholder discret — réserve la hauteur du carrousel pendant le chargement
- * initial, sans fausses cartes.
+ * Placeholder discret — réserve la hauteur du carrousel pendant le chargement.
+ * Le squelette n’apparaît qu’après ~200 ms (évite les flashs sur réseau rapide).
+ * Pas de prolongation artificielle une fois les données prêtes (le parent démonte).
  */
 export function ForYouLoadingPlaceholder() {
+  const [showSkeleton, setShowSkeleton] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setShowSkeleton(true);
+    }, FOR_YOU_PLACEHOLDER_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   return (
     <section
       id="pour-vous"
@@ -135,11 +151,24 @@ export function ForYouLoadingPlaceholder() {
       className="scroll-mt-20 border-t border-line bg-paper"
     >
       <div className="mx-auto max-w-[var(--detour-shell-max)] px-5 py-7 md:px-10 md:py-9 lg:px-16 2xl:px-20">
-        <div className="mb-6 h-16 max-w-xl md:mb-8 md:h-[4.5rem]" />
-        <div
-          className="h-[17.5rem] w-full bg-foam/60 md:h-[19rem]"
-          aria-hidden
-        />
+        <div className="mb-6 h-16 max-w-xl md:mb-8 md:h-[4.5rem]" aria-hidden />
+        {showSkeleton ? (
+          <div
+            className="flex gap-3 overflow-hidden motion-safe:animate-pulse md:gap-4"
+            aria-hidden
+          >
+            {Array.from({ length: 4 }, (_, index) => (
+              <div key={index} className={PLACEHOLDER_CARD_WIDTH}>
+                <div className="aspect-[4/5] bg-foam/70" />
+                <div className="mt-3 h-3 w-3/4 bg-foam/55" />
+                <div className="mt-2 h-2.5 w-1/2 bg-foam/40" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          // Réserve la géométrie carrousel sans peindre le squelette.
+          <div className="h-[17.5rem] w-full md:h-[19rem]" aria-hidden />
+        )}
       </div>
     </section>
   );
