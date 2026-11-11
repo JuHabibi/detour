@@ -44,14 +44,14 @@ export function HomeAccountTable() {
             </p>
             <h2
               id="home-account-table-title"
-              className="mt-3 max-w-[16ch] font-display text-[1.85rem] leading-[1.02] tracking-tight text-ink md:max-w-[15ch] md:text-[2.2rem] lg:text-[2.45rem]"
+              className="mt-3 max-w-[23ch] font-display text-[1.85rem] leading-[1.02] tracking-tight text-ink md:max-w-[22ch] md:text-[2.2rem] lg:text-[2.45rem]"
             >
-              Vos découvertes, à votre façon.
+              Gardez vos découvertes. Cultivez vos envies.
             </h2>
             <p className="mt-5 hidden max-w-[40ch] text-[0.95rem] leading-7 text-cream-dim md:block">
-              Enregistrez vos événements favoris, rassemblez vos idées de
-              sorties dans des carnets et personnalisez vos découvertes selon
-              vos envies, vos disponibilités et votre budget.
+              Enregistrez vos événements favoris, organisez vos idées de
+              sorties dans des carnets et découvrez une sélection adaptée à
+              vos goûts.
             </p>
             <BenefitsList className="mt-5 hidden md:flex" />
             <div className="mt-7 hidden flex-wrap items-center gap-x-5 gap-y-3 md:flex">
@@ -89,9 +89,9 @@ export function HomeAccountTable() {
 
           <div className="relative z-[2] md:hidden">
             <p className="max-w-[40ch] text-sm leading-6 text-cream-dim">
-              Enregistrez vos événements favoris, rassemblez vos idées de
-              sorties dans des carnets et personnalisez vos découvertes selon
-              vos envies, vos disponibilités et votre budget.
+              Enregistrez vos événements favoris, organisez vos idées de
+              sorties dans des carnets et découvrez une sélection adaptée à
+              vos goûts.
             </p>
             <BenefitsList className="mt-4" />
             <div className="mt-6 flex flex-col gap-3">
@@ -136,7 +136,7 @@ function SignupLink({ className }: { className?: string }) {
         className,
       )}
     >
-      Créer mon espace
+      Créer mon compte
     </Link>
   );
 }
@@ -150,7 +150,7 @@ function LoginLink({ className }: { className?: string }) {
         className,
       )}
     >
-      Déjà inscrit ? Se connecter
+      Se connecter
     </Link>
   );
 }
