@@ -81,6 +81,26 @@ describe("user-profile actions", () => {
     it("signature publique sans userId client", () => {
       expect(getMyUserProfile.length).toBe(0);
     });
+
+    it("rejet repository → error", async () => {
+      vi.mocked(getAccountAuthState).mockResolvedValue({
+        status: "authenticated",
+        user: { id: USER_ID, email: "a@exemple.fr", name: "A" },
+      });
+      vi.mocked(userProfileRepository.getUserProfile).mockRejectedValue(
+        new Error("db down"),
+      );
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+
+      await expect(getMyUserProfile()).resolves.toEqual({
+        ok: false,
+        reason: "error",
+      });
+      expect(userProfileRepository.getUserProfile).toHaveBeenCalledWith(USER_ID);
+      consoleError.mockRestore();
+    });
   });
 
   describe("upsertMyUserProfile", () => {
@@ -233,5 +253,38 @@ describe("user-profile actions", () => {
         expect.anything(),
       );
     });
+
+    it("rejet repository → error", async () => {
+      vi.mocked(getAccountAuthState).mockResolvedValue({
+        status: "authenticated",
+        user: { id: USER_ID, email: "a@exemple.fr", name: "A" },
+      });
+      vi.mocked(userProfileRepository.upsertUserProfile).mockRejectedValue(
+        new Error("db down"),
+      );
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+
+      await expect(
+        upsertMyUserProfile({
+          interests: ["Cinéma"],
+          availabilities: ["flexible"],
+          budget: "any",
+          onboardingStatus: "completed",
+        }),
+      ).resolves.toEqual({ ok: false, reason: "error" });
+      expect(userProfileRepository.upsertUserProfile).toHaveBeenCalledWith(
+        USER_ID,
+        {
+          interests: ["Cinéma"],
+          availabilities: ["flexible"],
+          budget: "any",
+          onboardingStatus: "completed",
+        },
+      );
+      consoleError.mockRestore();
+    });
   });
 });
+
