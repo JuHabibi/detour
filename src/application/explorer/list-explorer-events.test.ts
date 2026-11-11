@@ -334,6 +334,24 @@ describe("listExplorerEvents — pagination", () => {
     expect(limitCall[1].at(-1)).toBe(EXPLORER_MAX_PAGE_SIZE + 1);
   });
 
+  it("skipCount : page seule, totalCount null (contrat public inchangé sinon)", async () => {
+    const { query, client } = mockClient(() => ({
+      rows: [dbRow("a", "2026-11-01T18:00:00.000Z")],
+    }));
+
+    const result = await listExplorerEvents(
+      { when: "upcoming", category: "Musique", limit: 24 },
+      { client, now, skipCount: true },
+    );
+
+    expect(result.totalCount).toBeNull();
+    expect(result.events).toHaveLength(1);
+    expect(query.mock.calls.every((call) => !String(call[0]).includes("count(*)"))).toBe(
+      true,
+    );
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
   it("availability attachée", async () => {
     const checkedAt = new Date("2026-09-07T11:00:00.000Z");
     const { client } = mockClient((sql) => {

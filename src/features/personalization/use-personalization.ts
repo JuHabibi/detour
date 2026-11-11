@@ -180,6 +180,8 @@ export function usePersonalization(userId: string | null) {
 
   return {
     hydrated,
+    /** Lecture profil aboutie (`ok: true`) — false après erreur serveur. */
+    profileReady,
     profile,
     draft,
     loadError,

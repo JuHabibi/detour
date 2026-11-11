@@ -168,7 +168,20 @@ export function HomePage({
           onOpenDetail={actions.openEventDetail}
         />
         {!isSessionPending && userId ? (
-          <PersonalizationHost key={userId} userId={userId} showHomeCue />
+          <PersonalizationHost
+            key={userId}
+            userId={userId}
+            showHomeCue
+            favorites={personal.favorites as Set<string>}
+            onToggleFavorite={actions.toggleFavorite}
+            carnetCounts={personal.carnetCounts as Map<string, number>}
+            onOrganizeCarnets={
+              actions.isAuthenticated
+                ? actions.handleOrganizeCarnets
+                : undefined
+            }
+            onOpenDetail={actions.openEventDetail}
+          />
         ) : null}
         {!isSessionPending && !userId ? <HomeAccountTable /> : null}
         {liveDebugMeta && debugEvents ? (
