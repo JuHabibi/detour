@@ -188,7 +188,7 @@ function ForYouHeader({ onEditPreferences }: { onEditPreferences: () => void }) 
           ✦ Pour vous
         </h2>
         <p className="mt-2 max-w-md text-sm leading-6 text-cream-dim">
-          Une piste selon vos préférences — en complément du Radar, sans le
+          Une piste selon vos préférences, en complément du Radar, sans le
           remplacer.
         </p>
       </div>
