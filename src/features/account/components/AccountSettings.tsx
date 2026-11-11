@@ -1,5 +1,4 @@
 import { AccountDangerZone } from "@/features/account/components/AccountDangerZone";
-import { AccountPreferencesSection } from "@/features/personalization/AccountPreferencesSection";
 
 type AccountSettingsProps = {
   userId: string;
@@ -9,10 +8,9 @@ type AccountSettingsProps = {
 };
 
 /**
- * Identité en lecture seule + préférences culturelles + zone sensible.
+ * Identité en lecture seule + zone sensible.
  */
 export function AccountSettings({
-  userId,
   name,
   email,
   requiresPasswordForDelete,
@@ -45,8 +43,6 @@ export function AccountSettings({
           <dd className="mt-2 break-all text-sm leading-6 text-ink">{email}</dd>
         </div>
       </dl>
-
-      <AccountPreferencesSection key={userId} userId={userId} />
 
       <AccountDangerZone requiresPassword={requiresPasswordForDelete} />
     </div>
