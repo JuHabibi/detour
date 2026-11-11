@@ -287,6 +287,65 @@ describe("selectForYouEvents", () => {
     expect(selected[0]?.id).toBe("free");
   });
 
+  it("collapse les quasi-doublons typographiques même lieu + même début", () => {
+    const pool = [
+      event({
+        id: "openagenda:59795171",
+        title: "Goria de Vivaldi",
+        category: "Musique",
+        venue: "église Saint Marceau",
+        startAt: "2026-11-22T16:00:00.000Z",
+        conditions: "20 € - Gratuit moins de 14 ans",
+      }),
+      event({
+        id: "openagenda:90001314",
+        title: "Gloria de Vivaldi",
+        category: "Musique",
+        venue: "église Saint Marceau",
+        startAt: "2026-11-22T16:00:00.000Z",
+        conditions: "20 € et gratuit moins de 14 ans.",
+      }),
+      event({
+        id: "other-day",
+        title: "Gloria de Vivaldi",
+        category: "Musique",
+        venue: "Collégiale Saint-Aignan",
+        startAt: "2026-12-24T17:30:00.000Z",
+        conditions: "entrée libre",
+      }),
+      event({
+        id: "jazz",
+        title: "Session jazz",
+        category: "Musique",
+        venue: "Astrolabe",
+        startAt: "2026-11-14T20:00:00+01:00",
+      }),
+    ];
+    const selected = selectForYouEvents(
+      pool,
+      {
+        interests: ["Musique"],
+        availabilities: ["flexible"],
+        budget: "any",
+      },
+      8,
+      NOW,
+    );
+    const vivaldiSameSlot = selected.filter(
+      (item) =>
+        item.venue === "église Saint Marceau" &&
+        item.startAt === "2026-11-22T16:00:00.000Z",
+    );
+    expect(vivaldiSameSlot).toHaveLength(1);
+    // Titre le plus long conservé (forme non tronquée).
+    expect(vivaldiSameSlot[0]?.title).toBe("Gloria de Vivaldi");
+    // Même titre exact : toujours un seul (diversité titre existante).
+    expect(selected.filter((item) => /vivaldi/i.test(item.title))).toHaveLength(
+      1,
+    );
+    expect(selected.some((item) => item.id === "jazz")).toBe(true);
+  });
+
   it("déduplique les ids et limite les séances / lieux", () => {
     const pool = [
       event({

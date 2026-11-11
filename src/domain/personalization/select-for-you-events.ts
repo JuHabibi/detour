@@ -180,10 +180,33 @@ function pickDiverse<T extends ScoredCandidate>(
   for (const item of scored) {
     if (selected.length >= limit) break;
 
-    const { candidate, venueKey, titleKey } = item;
+    const { candidate, venueKey, titleKey, startMs } = item;
     if (seenIds.has(candidate.id)) continue;
     if (seenTitles.has(titleKey)) continue;
     if ((venueCounts.get(venueKey) ?? 0) >= MAX_PER_VENUE) continue;
+
+    // Quasi-doublon typographique (ex. Goria/Gloria) : même lieu + même début.
+    // Ciblé « Pour vous » — ne touche pas la dédup Explorer/Radar.
+    const nearDupIndex = selected.findIndex(
+      (other) =>
+        other.venueKey === venueKey &&
+        other.startMs != null &&
+        startMs != null &&
+        other.startMs === startMs &&
+        areNearDuplicateTitles(other.titleKey, titleKey),
+    );
+    if (nearDupIndex >= 0) {
+      const existing = selected[nearDupIndex]!;
+      // Préférer le titre le plus long (souvent la forme non tronquée / corrigée).
+      if (titleKey.length > existing.titleKey.length) {
+        seenIds.delete(existing.candidate.id);
+        seenTitles.delete(existing.titleKey);
+        seenIds.add(candidate.id);
+        seenTitles.add(titleKey);
+        selected[nearDupIndex] = item;
+      }
+      continue;
+    }
 
     selected.push(item);
     seenIds.add(candidate.id);
@@ -192,6 +215,56 @@ function pickDiverse<T extends ScoredCandidate>(
   }
 
   return selected;
+}
+
+/**
+ * Titres normalisés quasi identiques (faute de frappe / lettre manquante).
+ * Conservateur : longueur ≥ 8 et distance de Levenshtein ≤ 1.
+ * Évite les faux positifs sur titres trop courts (« a » / « b »).
+ */
+export function areNearDuplicateTitles(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (Math.min(a.length, b.length) < 8) return false;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  return levenshteinDistanceAtMost(a, b, 1);
+}
+
+function levenshteinDistanceAtMost(
+  a: string,
+  b: string,
+  maxDistance: number,
+): boolean {
+  if (a === b) return true;
+  const la = a.length;
+  const lb = b.length;
+  if (Math.abs(la - lb) > maxDistance) return false;
+
+  // Banded DP — early exit si distance > max.
+  let prev = new Array<number>(lb + 1);
+  let curr = new Array<number>(lb + 1);
+  for (let j = 0; j <= lb; j += 1) prev[j] = j;
+
+  for (let i = 1; i <= la; i += 1) {
+    curr[0] = i;
+    let rowMin = curr[0]!;
+    const ca = a.charCodeAt(i - 1);
+    for (let j = 1; j <= lb; j += 1) {
+      const cost = ca === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(
+        prev[j]! + 1,
+        curr[j - 1]! + 1,
+        prev[j - 1]! + cost,
+      );
+      if (curr[j]! < rowMin) rowMin = curr[j]!;
+    }
+    if (rowMin > maxDistance) return false;
+    const swap = prev;
+    prev = curr;
+    curr = swap;
+  }
+
+  return prev[lb]! <= maxDistance;
 }
 
 function compareScored(a: ScoredCandidate, b: ScoredCandidate): number {
