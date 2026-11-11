@@ -6,7 +6,6 @@ vi.mock("@/lib/auth-client", () => ({
   authClient: { deleteUser: vi.fn() },
 }));
 
-
 import { AccountSettings } from "@/features/account/components/AccountSettings";
 
 describe("AccountSettings", () => {
