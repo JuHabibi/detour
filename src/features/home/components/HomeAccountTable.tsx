@@ -1,11 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Bookmark, Heart, Sparkles } from "lucide-react";
+import { EVENT_META_ICON_STROKE } from "@/components/event/event-lucide-icons";
 import { cn } from "@/lib/cn";
 import {
   accountLoginHref,
   accountSignupHref,
 } from "@/lib/safe-account-next-path";
-
 
 const CABINET_AFFICHE = {
   src: "/images/editorial/detour-account-cabinet-affiche.webp",
@@ -13,10 +14,15 @@ const CABINET_AFFICHE = {
   height: 1100,
 } as const;
 
-
 const AFFICHE_SPACER_PB =
   "calc((1100 / 864) * 100% - clamp(9rem, 14vw, 12rem))";
 const AFFICHE_BLEED_TRANSLATE = "md:-translate-y-[clamp(9rem,14vw,12rem)]";
+
+const SPACE_BENEFITS = [
+  { label: "Favoris", Icon: Heart },
+  { label: "Carnets", Icon: Bookmark },
+  { label: "Pour vous", Icon: Sparkles },
+] as const;
 
 export function HomeAccountTable() {
   return (
@@ -27,21 +33,27 @@ export function HomeAccountTable() {
     >
       <div className="mx-auto max-w-[var(--detour-shell-max)] px-5 py-7 md:px-8 md:pb-8 md:pt-0 lg:px-12 lg:pb-9 2xl:px-14">
         <div className="flex flex-col gap-5 md:flex-row md:items-start md:gap-6 lg:gap-8">
-          <div className="relative z-[2] min-w-0 md:max-w-[26rem] md:shrink-0 md:pt-6 lg:max-w-[28rem] lg:pt-12">
-            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-sand">
-              Et si on gardait une trace ?
+          <div className="relative z-[2] min-w-0 md:max-w-[28rem] md:shrink-0 md:pt-6 lg:max-w-[30rem] lg:pt-12">
+            <p className="inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-sand">
+              <Sparkles
+                aria-hidden
+                className="size-3.5 shrink-0 text-coral"
+                strokeWidth={EVENT_META_ICON_STROKE}
+              />
+              Votre espace Détour
             </p>
             <h2
               id="home-account-table-title"
-              className="mt-3 max-w-[14ch] font-display text-[1.85rem] leading-[1.02] tracking-tight text-ink md:max-w-[13ch] md:text-[2.2rem] lg:text-[2.45rem]"
+              className="mt-3 max-w-[16ch] font-display text-[1.85rem] leading-[1.02] tracking-tight text-ink md:max-w-[15ch] md:text-[2.2rem] lg:text-[2.45rem]"
             >
-              Les belles découvertes ne devraient pas se perdre.
+              Vos découvertes, à votre façon.
             </h2>
-            <p className="mt-5 hidden max-w-[34ch] text-[0.95rem] leading-7 text-cream-dim md:block">
-              Un événement à garder, une envie pour plus tard ? Conservez vos
-              découvertes, organisez-les dans vos carnets et laissez votre
-              parcours prendre forme.
+            <p className="mt-5 hidden max-w-[40ch] text-[0.95rem] leading-7 text-cream-dim md:block">
+              Enregistrez vos événements favoris, rassemblez vos idées de
+              sorties dans des carnets et personnalisez vos découvertes selon
+              vos envies, vos disponibilités et votre budget.
             </p>
+            <BenefitsList className="mt-5 hidden md:flex" />
             <div className="mt-7 hidden flex-wrap items-center gap-x-5 gap-y-3 md:flex">
               <SignupLink />
               <LoginLink />
@@ -76,11 +88,12 @@ export function HomeAccountTable() {
           </figure>
 
           <div className="relative z-[2] md:hidden">
-            <p className="max-w-[36ch] text-sm leading-6 text-cream-dim">
-              Un événement à garder, une envie pour plus tard ? Conservez vos
-              découvertes, organisez-les dans vos carnets et laissez votre
-              parcours prendre forme.
+            <p className="max-w-[40ch] text-sm leading-6 text-cream-dim">
+              Enregistrez vos événements favoris, rassemblez vos idées de
+              sorties dans des carnets et personnalisez vos découvertes selon
+              vos envies, vos disponibilités et votre budget.
             </p>
+            <BenefitsList className="mt-4" />
             <div className="mt-6 flex flex-col gap-3">
               <SignupLink className="w-full justify-center" />
               <LoginLink className="w-full justify-center" />
@@ -89,6 +102,28 @@ export function HomeAccountTable() {
         </div>
       </div>
     </section>
+  );
+}
+
+function BenefitsList({ className }: { className?: string }) {
+  return (
+    <ul
+      className={cn(
+        "flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-ink",
+        className,
+      )}
+    >
+      {SPACE_BENEFITS.map(({ label, Icon }) => (
+        <li key={label} className="inline-flex items-center gap-1.5">
+          <Icon
+            aria-hidden
+            className="size-3.5 shrink-0 text-coral"
+            strokeWidth={EVENT_META_ICON_STROKE}
+          />
+          <span>{label}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -101,7 +136,7 @@ function SignupLink({ className }: { className?: string }) {
         className,
       )}
     >
-      Créer mon compte
+      Créer mon espace
     </Link>
   );
 }
@@ -115,7 +150,7 @@ function LoginLink({ className }: { className?: string }) {
         className,
       )}
     >
-      Se connecter
+      Déjà inscrit ? Se connecter
     </Link>
   );
 }

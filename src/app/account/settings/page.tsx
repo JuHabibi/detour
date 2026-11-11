@@ -25,6 +25,7 @@ export default async function AccountSettingsPage() {
       favoriteCount={favoriteCount}
     >
       <AccountSettings
+        userId={auth.user.id}
         name={auth.user.name}
         email={auth.user.email}
         requiresPasswordForDelete={requiresPasswordForDelete}
