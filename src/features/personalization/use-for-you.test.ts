@@ -80,6 +80,7 @@ describe("useForYou", () => {
     if (result.current.state.status === "ready") {
       expect(result.current.state.events[0]?.id).toBe("e1");
     }
+    expect(getMyForYouEvents).toHaveBeenCalledWith();
     unmount();
   });
 
@@ -139,6 +140,7 @@ describe("useForYou", () => {
       expect(result.current.state.events[0]?.id).toBe("e2");
     }
     expect(getMyForYouEvents).toHaveBeenCalledTimes(2);
+    expect(getMyForYouEvents).toHaveBeenCalledWith();
     unmount();
   });
 

@@ -14,8 +14,9 @@ export type ForYouLoadState =
   | { status: "error" };
 
 /**
- * Charge la sélection privée « Pour vous » lorsque le profil est `completed`.
- * Réutilise le profil déjà hydraté — pas de second getMyUserProfile.
+ * Charge la sélection privée « Pour vous » lorsque le profil client est `completed`.
+ * Les préférences effectives sont lues côté serveur (profil persisté).
+ * `preferenceKey` ne sert qu’à rafraîchir après une modification locale du profil.
  */
 export function useForYou(
   userId: string | null,
@@ -63,11 +64,7 @@ export function useForYou(
       }
 
       setState({ status: "loading" });
-      const result = await getMyForYouEvents({
-        interests: current.interests,
-        availabilities: current.availabilities,
-        budget: current.budget,
-      });
+      const result = await getMyForYouEvents();
 
       if (cancelled || requestId !== requestIdRef.current) return;
 
@@ -115,11 +112,7 @@ export function useForYou(
       }
 
       setState({ status: "loading" });
-      const result = await getMyForYouEvents({
-        interests: current.interests,
-        availabilities: current.availabilities,
-        budget: current.budget,
-      });
+      const result = await getMyForYouEvents();
       if (requestId !== requestIdRef.current) return;
 
       if (!result.ok) {

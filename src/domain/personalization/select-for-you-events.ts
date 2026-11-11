@@ -43,6 +43,11 @@ type ScoredCandidate = {
   titleKey: string;
 };
 
+export type ForYouScoreBreakdown = {
+  score: number;
+  reasons: string[];
+};
+
 /**
  * Sélection déterministe « Pour vous » V1.
  * Priorité 1 (intérêts) = filtre dur — jamais de remplissage hors catégorie.
@@ -53,22 +58,36 @@ export function selectForYouEvents<T extends ForYouCandidate>(
   limit = FOR_YOU_MAX_RESULTS,
   now: Date = new Date(),
 ): T[] {
+  return rankForYouEvents(pool, preferences, limit, now).map(
+    (item) => item.candidate,
+  );
+}
+
+/** Ranking + raisons (éval / debug) — même ordre que `selectForYouEvents`. */
+export function rankForYouEvents<T extends ForYouCandidate>(
+  pool: readonly T[],
+  preferences: ForYouPreferences,
+  limit = FOR_YOU_MAX_RESULTS,
+  now: Date = new Date(),
+): Array<{ candidate: T; score: number; reasons: string[] }> {
   if (pool.length === 0 || preferences.interests.length === 0) return [];
 
   const interestSet = new Set<string>(preferences.interests);
   const nowMs = now.getTime();
-  const scored: ScoredCandidate[] = [];
+  const scored: Array<ScoredCandidate & { reasons: string[]; typed: T }> = [];
 
   for (const candidate of pool) {
     if (!interestSet.has(candidate.category)) continue;
 
     const startMs = parseStartMs(candidate.startAt);
-    const score = scoreCandidate(candidate, preferences, nowMs, startMs);
-    if (score <= 0) continue;
+    const breakdown = scoreCandidate(candidate, preferences, nowMs, startMs);
+    if (breakdown.score <= 0) continue;
 
     scored.push({
       candidate,
-      score,
+      typed: candidate,
+      score: breakdown.score,
+      reasons: breakdown.reasons,
       startMs,
       venueKey: normalizeKey(candidate.venue) || `id:${candidate.id}`,
       titleKey: normalizeKey(candidate.title) || `id:${candidate.id}`,
@@ -77,7 +96,11 @@ export function selectForYouEvents<T extends ForYouCandidate>(
 
   scored.sort(compareScored);
 
-  return pickDiverse(scored, limit).map((item) => item.candidate as T);
+  return pickDiverse(scored, limit).map((item) => ({
+    candidate: item.typed,
+    score: item.score,
+    reasons: item.reasons,
+  }));
 }
 
 function scoreCandidate(
@@ -85,21 +108,28 @@ function scoreCandidate(
   preferences: ForYouPreferences,
   nowMs: number,
   startMs: number | null,
-): number {
+): ForYouScoreBreakdown {
   let score = INTEREST_BASE;
+  const reasons = [`intérêt:${candidate.category}`];
 
   if (matchesAvailability(candidate, preferences.availabilities, startMs)) {
     score += AVAILABILITY_BOOST;
+    reasons.push("disponibilité");
   }
 
   const priceSignal = resolveEventPriceSignal(candidate);
   if (preferences.budget === "free_preferred" && priceSignal === "free") {
     score += FREE_PREFERRED_BOOST;
+    reasons.push("gratuit");
   }
 
-  score += recencyBoost(nowMs, startMs);
+  const recency = recencyBoost(nowMs, startMs);
+  if (recency > 0) {
+    score += recency;
+    reasons.push(`proximité:${recency}`);
+  }
 
-  return score;
+  return { score, reasons };
 }
 
 function matchesAvailability(
@@ -138,11 +168,11 @@ function recencyBoost(nowMs: number, startMs: number | null): number {
   ) / 1000;
 }
 
-function pickDiverse(
-  scored: readonly ScoredCandidate[],
+function pickDiverse<T extends ScoredCandidate>(
+  scored: readonly T[],
   limit: number,
-): ScoredCandidate[] {
-  const selected: ScoredCandidate[] = [];
+): T[] {
+  const selected: T[] = [];
   const seenIds = new Set<string>();
   const seenTitles = new Set<string>();
   const venueCounts = new Map<string, number>();

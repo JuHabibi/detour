@@ -3,7 +3,7 @@
 import { getAccountAuthState } from "@/app/_server/get-account-auth-state";
 import { getForYouRecommendations } from "@/application/personalization/get-for-you-recommendations";
 import type { EventItem } from "@/data/types";
-import { parseForYouPreferences } from "@/domain/personalization/parse-for-you-preferences";
+import { getUserProfile } from "@/infrastructure/db/user-profile.repository";
 
 export type GetMyForYouEventsResult =
   | {
@@ -12,30 +12,35 @@ export type GetMyForYouEventsResult =
     }
   | {
       ok: false;
-      reason: "unauthenticated" | "invalid" | "error";
+      reason: "unauthenticated" | "error";
     };
 
 /**
  * Sélection « Pour vous » pour la session authentifiée.
- * Aucun `userId` client — la session borne l’accès ; les préférences
- * (déjà chargées via `getMyUserProfile`) sont revalidées ici.
+ * Source de vérité = profil PostgreSQL de la session — aucun userId / prefs client.
  * Hors cache public Home / ISR.
  */
-export async function getMyForYouEvents(
-  preferences: unknown,
-): Promise<GetMyForYouEventsResult> {
+export async function getMyForYouEvents(): Promise<GetMyForYouEventsResult> {
   const auth = await getAccountAuthState();
   if (auth.status !== "authenticated") {
     return { ok: false, reason: "unauthenticated" };
   }
 
-  const parsed = parseForYouPreferences(preferences);
-  if (!parsed.ok) {
-    return { ok: false, reason: "invalid" };
-  }
-
   try {
-    const result = await getForYouRecommendations(parsed.value);
+    const profile = await getUserProfile(auth.user.id);
+    if (
+      !profile ||
+      profile.onboardingStatus !== "completed" ||
+      profile.interests.length === 0
+    ) {
+      return { ok: true, events: [] };
+    }
+
+    const result = await getForYouRecommendations({
+      interests: profile.interests,
+      availabilities: profile.availabilities,
+      budget: profile.budget,
+    });
     return { ok: true, events: result.events };
   } catch (error) {
     console.error("[detour:for-you] getMyForYouEvents failed", error);
