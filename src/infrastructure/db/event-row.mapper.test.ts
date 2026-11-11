@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DetourEvent } from "@/domain/events/event";
+import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
 import {
   UPSERT_EVENT_PARAM_COUNT,
   buildUpsertEventsChunkSql,
@@ -62,6 +63,26 @@ function sampleRow(overrides: Partial<EventRow> = {}): EventRow {
 }
 
 describe("event-row.mapper", () => {
+  it("re-sync OUD INDIGO : filtre persisté et catégorie UI deviennent Musique", () => {
+    const rawCategory = "Exposition;Musique";
+    const stored = sampleRow({
+      id: "openagenda:79048363",
+      title: "OUD INDIGO : Solo de oud",
+      description: "Après s’être produit dans différents duo et trios, François Rascal ose aujourd’hui le solo et revisite ainsi ses compositions.",
+      category: rawCategory,
+      genre: null,
+      product_category: "Exposition",
+    });
+    const mapped = mapEventRowToDetourEvent(stored);
+    const values = detourEventToUpsertValues("orleans", mapped, new Date());
+    expect(values[15]).toBe(rawCategory);
+    expect(values[21]).toBe("Musique");
+    expect(mapDetourEventToEventItem(mapped).category).toBe("Musique");
+    expect(buildUpsertEventsChunkSql(1)).toContain(
+      "product_category = EXCLUDED.product_category",
+    );
+  });
+
   it("row → DetourEvent (snake → camel, timestamptz → ISO)", () => {
     const event = mapEventRowToDetourEvent(sampleRow());
     expect(event).toEqual(
