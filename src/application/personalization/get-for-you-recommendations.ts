@@ -9,6 +9,7 @@ import {
 } from "@/domain/personalization/select-for-you-events";
 import type { UserProfileInterest } from "@/domain/personalization/user-profile";
 import type { DbQueryable } from "@/infrastructure/db/postgres";
+import { forYouPerfEnd, forYouPerfMark } from "@/lib/perf-for-you";
 
 /**
  * Par catégorie d’intérêt : au plus N représentants Explorer à venir.
@@ -49,16 +50,19 @@ export async function getForYouRecommendations(
   const mapEvent = deps.mapEvent ?? mapDetourEventToEventItem;
 
   const pages = await Promise.all(
-    interests.map((category) =>
-      listEvents(
+    interests.map(async (category) => {
+      const mark = forYouPerfMark(`explorer.${category}`);
+      const page = await listEvents(
         {
           when: "upcoming",
           category,
           limit: FOR_YOU_CANDIDATES_PER_CATEGORY,
         },
         { client: deps.client, now, skipCount: true },
-      ),
-    ),
+      );
+      forYouPerfEnd(mark, { events: page.events.length });
+      return page;
+    }),
   );
 
   const byId = new Map<string, EventItem>();
