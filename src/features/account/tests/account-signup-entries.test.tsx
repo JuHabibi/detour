@@ -70,8 +70,12 @@ describe("entrées création de compte", () => {
     expect(homeHtml).toContain(`href="${accountSignupHref("/account")}"`);
     expect(homeHtml).toContain(`href="${accountLoginHref("/account")}"`);
     expect(homeHtml).toContain(
-      "Enregistrez vos événements favoris, organisez vos idées de",
+      "Enregistrez vos événements favoris et organisez vos idées de",
     );
+    expect(homeHtml).toContain("Favoris");
+    expect(homeHtml).toContain("Carnets");
+    expect(homeHtml).not.toContain("Pour vous");
+    expect(homeHtml).not.toContain("sélection adaptée");
 
     const favoriteNext = pathWithPendingFavorite("openagenda:42", "/");
     const favoriteHtml = renderToStaticMarkup(
