@@ -122,6 +122,29 @@ export function ForYouErrorState({ onRetry }: ForYouErrorProps) {
   );
 }
 
+/**
+ * Placeholder discret — réserve la hauteur du carrousel pendant le chargement
+ * initial, sans fausses cartes.
+ */
+export function ForYouLoadingPlaceholder() {
+  return (
+    <section
+      id="pour-vous"
+      aria-busy="true"
+      aria-label="Pour vous — chargement"
+      className="scroll-mt-20 border-t border-line bg-paper"
+    >
+      <div className="mx-auto max-w-[var(--detour-shell-max)] px-5 py-7 md:px-10 md:py-9 lg:px-16 2xl:px-20">
+        <div className="mb-6 h-16 max-w-xl md:mb-8 md:h-[4.5rem]" />
+        <div
+          className="h-[17.5rem] w-full bg-foam/60 md:h-[19rem]"
+          aria-hidden
+        />
+      </div>
+    </section>
+  );
+}
+
 function ForYouHeader({ onEditPreferences }: { onEditPreferences: () => void }) {
   return (
     <div className="mb-6 flex flex-col gap-3 md:mb-8 md:flex-row md:items-end md:justify-between">

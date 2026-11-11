@@ -7,12 +7,12 @@ import { DeferredPersonalizationCue } from "./DeferredPersonalizationCue";
 import {
   ForYouEmptyState,
   ForYouErrorState,
+  ForYouLoadingPlaceholder,
   ForYouSection,
 } from "./ForYouSection";
 import { PersonalizationGate } from "./PersonalizationGate";
 import { PersonalizationOnboarding } from "./PersonalizationOnboarding";
-import { useForYou } from "./use-for-you";
-import { usePersonalization } from "./use-personalization";
+import { usePersonalizationHome } from "./use-personalization-home";
 
 type PersonalizationHostProps = {
   userId: string | null;
@@ -35,17 +35,21 @@ export function PersonalizationHost({
   onOrganizeCarnets,
   onOpenDetail,
 }: PersonalizationHostProps) {
-  const perso = usePersonalization(userId);
-  const forYou = useForYou(userId, perso.profile, perso.profileReady);
+  const perso = usePersonalizationHome(userId);
 
   const canRenderCarousel =
     Boolean(favorites) && typeof onToggleFavorite === "function";
 
   let forYouBlock: ReactNode = null;
-  if (canRenderCarousel) {
-    const state = forYou.state;
-    if (state.status === "error") {
-      forYouBlock = <ForYouErrorState onRetry={() => void forYou.refresh()} />;
+  if (canRenderCarousel && userId) {
+    const state = perso.forYouState;
+    if (state.status === "loading" || state.status === "idle") {
+      // Réserve l’espace tant que le bundle Home n’a pas tranché.
+      forYouBlock = <ForYouLoadingPlaceholder />;
+    } else if (state.status === "error") {
+      forYouBlock = (
+        <ForYouErrorState onRetry={() => void perso.refreshForYou()} />
+      );
     } else if (state.status === "empty") {
       forYouBlock = <ForYouEmptyState onEditPreferences={perso.openEditor} />;
     } else if (state.status === "ready") {
@@ -61,6 +65,7 @@ export function PersonalizationHost({
         />
       );
     }
+    // not_configured → rien (gate / deferred cue gèrent le reste)
   }
 
   return (
@@ -110,4 +115,4 @@ export function PersonalizationHost({
   );
 }
 
-export { usePersonalization };
+export { usePersonalization } from "./use-personalization";

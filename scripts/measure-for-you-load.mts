@@ -5,7 +5,8 @@
  *   node --conditions=react-server --import tsx --env-file=.env.local scripts/measure-for-you-load.mts
  *
  * Mesure : lecture profil (si USER_ID), requêtes Explorer par catégorie (parallèle),
- * EXPLAIN (ANALYZE, BUFFERS) sur une page Musique.
+ * EXPLAIN (ANALYZE, BUFFERS) sur une page Musique,
+ * comparaison modèle waterfall (2 auth + 2 profil) vs bundle unifié (1 auth + 1 profil).
  */
 import { Client } from "pg";
 import { listExplorerEvents } from "../src/application/explorer/list-explorer-events";
@@ -99,7 +100,7 @@ async function main() {
     budget: "any",
   };
   console.log("\n--- getForYouRecommendations (3 intérêts) ---");
-  await timeMs("getForYouRecommendations", async () => {
+  const recResult = await timeMs("getForYouRecommendations", async () => {
     const result = await getForYouRecommendations(prefs, {
       client: db,
       now,
@@ -109,6 +110,62 @@ async function main() {
     );
     return result;
   });
+
+  console.log("\n--- Modèle Home : waterfall vs bundle unifié (SQL seul) ---");
+  console.log(
+    "  Avant (waterfall client) : 2× auth session + 2× getUserProfile + 1× recommandations",
+  );
+  console.log(
+    "  Après (getMyPersonalizationHome) : 1× auth session + 1× getUserProfile + 1× recommandations",
+  );
+  console.log(
+    "  (auth Better Auth non mesurée ici — le gain principal est 1 RTT client + 1 auth + 1 lecture profil)",
+  );
+
+  if (userId) {
+    await timeMs("bundle SQL simulé (1 profil + recommandations)", async () => {
+      const profile = await client.query(
+        `SELECT user_id, interests, availabilities, budget, onboarding_status
+         FROM user_profiles WHERE user_id = $1`,
+        [userId],
+      );
+      const row = profile.rows[0];
+      if (!row || row.onboarding_status !== "completed") {
+        console.log("  forYou=not_configured");
+        return null;
+      }
+      const interests = row.interests as string[];
+      const result = await getForYouRecommendations(
+        {
+          interests,
+          availabilities: row.availabilities,
+          budget: row.budget,
+        },
+        { client: db, now },
+      );
+      console.log(
+        `  selected=${result.events.length} (ref parallel=${recResult.events.length})`,
+      );
+      return result;
+    });
+
+    await timeMs(
+      "waterfall SQL simulé (2× profil + recommandations)",
+      async () => {
+        await client.query(
+          `SELECT user_id FROM user_profiles WHERE user_id = $1`,
+          [userId],
+        );
+        await client.query(
+          `SELECT user_id, interests, availabilities, budget, onboarding_status
+           FROM user_profiles WHERE user_id = $1`,
+          [userId],
+        );
+        await getForYouRecommendations(prefs, { client: db, now });
+        return null;
+      },
+    );
+  }
 
   console.log("\n--- EXPLAIN ANALYZE page Musique ---");
   const filters: ExplorerResolvedFilters = {
