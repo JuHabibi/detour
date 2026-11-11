@@ -21,7 +21,6 @@ const AFFICHE_BLEED_TRANSLATE = "md:-translate-y-[clamp(9rem,14vw,12rem)]";
 const SPACE_BENEFITS = [
   { label: "Favoris", Icon: Heart },
   { label: "Carnets", Icon: Bookmark },
-  { label: "Pour vous", Icon: Sparkles },
 ] as const;
 
 export function HomeAccountTable() {
@@ -49,9 +48,8 @@ export function HomeAccountTable() {
               Gardez vos découvertes. Cultivez vos envies.
             </h2>
             <p className="mt-5 hidden max-w-[40ch] text-[0.95rem] leading-7 text-cream-dim md:block">
-              Enregistrez vos événements favoris, organisez vos idées de
-              sorties dans des carnets et découvrez une sélection adaptée à
-              vos goûts.
+              Enregistrez vos événements favoris et organisez vos idées de
+              sorties dans des carnets pour les retrouver facilement.
             </p>
             <BenefitsList className="mt-5 hidden md:flex" />
             <div className="mt-7 hidden flex-wrap items-center gap-x-5 gap-y-3 md:flex">
@@ -89,9 +87,8 @@ export function HomeAccountTable() {
 
           <div className="relative z-[2] md:hidden">
             <p className="max-w-[40ch] text-sm leading-6 text-cream-dim">
-              Enregistrez vos événements favoris, organisez vos idées de
-              sorties dans des carnets et découvrez une sélection adaptée à
-              vos goûts.
+              Enregistrez vos événements favoris et organisez vos idées de
+              sorties dans des carnets pour les retrouver facilement.
             </p>
             <BenefitsList className="mt-4" />
             <div className="mt-6 flex flex-col gap-3">

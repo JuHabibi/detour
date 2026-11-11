@@ -12,7 +12,6 @@ import { useEventPersonalActions } from "@/components/personal/useEventPersonalA
 import { HeroFilters } from "@/features/home/components/HeroFilters";
 import { HomeAccountTable } from "@/features/home/components/HomeAccountTable";
 import { DetourSection } from "@/features/home/components/radar/DetourSection";
-import { PersonalizationHost } from "@/features/personalization/PersonalizationHost";
 import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import { authClient } from "@/lib/auth-client";
 import { verifiedAuthUserId } from "@/lib/auth-session";
@@ -167,22 +166,6 @@ export function HomePage({
           }
           onOpenDetail={actions.openEventDetail}
         />
-        {!isSessionPending && userId ? (
-          <PersonalizationHost
-            key={userId}
-            userId={userId}
-            showHomeCue
-            favorites={personal.favorites as Set<string>}
-            onToggleFavorite={actions.toggleFavorite}
-            carnetCounts={personal.carnetCounts as Map<string, number>}
-            onOrganizeCarnets={
-              actions.isAuthenticated
-                ? actions.handleOrganizeCarnets
-                : undefined
-            }
-            onOpenDetail={actions.openEventDetail}
-          />
-        ) : null}
         {!isSessionPending && !userId ? <HomeAccountTable /> : null}
         {liveDebugMeta && debugEvents ? (
           <HomeDebugSection
