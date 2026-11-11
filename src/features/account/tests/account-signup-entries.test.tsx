@@ -62,13 +62,16 @@ describe("entrées création de compte", () => {
 
     const homeHtml = renderToStaticMarkup(createElement(HomeAccountTable));
     expect(homeHtml).toContain(
-      "Les belles découvertes ne devraient pas se perdre.",
+      "Gardez vos découvertes. Cultivez vos envies.",
     );
     expect(homeHtml).toContain("Créer mon compte");
+    expect(homeHtml).toContain("Se connecter");
     expect(homeHtml).not.toContain("gratuitement");
     expect(homeHtml).toContain(`href="${accountSignupHref("/account")}"`);
     expect(homeHtml).toContain(`href="${accountLoginHref("/account")}"`);
-    expect(homeHtml).toContain("Conservez vos découvertes, organisez-les");
+    expect(homeHtml).toContain(
+      "Enregistrez vos événements favoris, organisez vos idées de",
+    );
 
     const favoriteNext = pathWithPendingFavorite("openagenda:42", "/");
     const favoriteHtml = renderToStaticMarkup(

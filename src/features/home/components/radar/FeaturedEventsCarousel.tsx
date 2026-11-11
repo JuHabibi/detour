@@ -13,6 +13,8 @@ type FeaturedEventsCarouselProps = {
   carnetCounts?: Map<string, number>;
   onOrganizeCarnets?: (event: EventItem) => void;
   onOpenDetail?: OpenEventDetailHandler;
+  /** Libellé accessibilité du carrousel — défaut Radar. */
+  ariaLabel?: string;
 };
 
 /** Largeur unique pour toutes les affiches Radar (légèrement plus compactes). */
@@ -27,6 +29,7 @@ export function FeaturedEventsCarousel({
   carnetCounts,
   onOrganizeCarnets,
   onOpenDetail,
+  ariaLabel = "Sur le radar — sélection éditoriale",
 }: FeaturedEventsCarouselProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
@@ -89,7 +92,7 @@ export function FeaturedEventsCarousel({
         tabIndex={0}
         role="region"
         aria-roledescription="carousel"
-        aria-label="Sur le radar — sélection éditoriale"
+        aria-label={ariaLabel}
         onKeyDown={(event) => {
           if (event.key === "ArrowRight") {
             event.preventDefault();
