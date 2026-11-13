@@ -30,6 +30,8 @@ SELECT
   e.image_source_url,
   s.start_at,
   s.end_at,
+  e.start_at AS source_start_at,
+  e.end_at AS source_end_at,
   s.all_day,
   ${eventOccurrencesJsonSql(`s.start_at < $2 AND ${scheduleEndAfterSql("$1")}`)} AS occurrences,
   e.venue,

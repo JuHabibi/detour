@@ -200,10 +200,12 @@ function createRequestScopedAssessmentBatcher(params: {
 /**
  * Évalue la shortlist avec cache **per-event**.
  *
- * - Lookup mémoire par clé event
- * - Misses mémoire : `readThrough` (Next) ; seuls les compute exécutés
- *   sont batchés vers le provider
- * - Provider throw + cached (memory/Next) → partial
+ * - Avec `readThrough`, le cache partagé fait autorité à chaque lecture.
+ *   Une copie mémoire 7j masquerait ses renouvellements / invalidations
+ *   selon l’instance serveur qui traite la requête.
+ * - Sans `readThrough`, cache mémoire par clé event (scripts / tests).
+ * - Seuls les compute exécutés sont batchés vers le provider.
+ * - Provider throw + cached → partial
  * - 0 assessment → fallback
  * - Id omis → pas de cache pour cette key
  */
@@ -257,17 +259,17 @@ export async function assessHighlightsCached(params: {
   }
 
   const resolved = new Map<string, AiAssessmentCacheEntry>();
-  const memoryMisses: Array<{ event: DetourEvent; key: string }> = [];
+  const pendingLookups: Array<{ event: DetourEvent; key: string }> = [];
 
   for (const item of keyed) {
-    if (!force) {
+    if (!force && !readThrough) {
       const hit = store.get(item.key);
       if (hit) {
         resolved.set(item.event.id, hit);
         continue;
       }
     }
-    memoryMisses.push(item);
+    pendingLookups.push(item);
   }
 
   let cacheHits = resolved.size;
@@ -275,14 +277,14 @@ export async function assessHighlightsCached(params: {
   let providerCalled = false;
   let providerFailed = false;
 
-  if (memoryMisses.length > 0) {
+  if (pendingLookups.length > 0) {
     const assessedAt = now().toISOString();
 
     if (readThrough) {
       const batcher = createRequestScopedAssessmentBatcher({
         assess,
         assessedAt,
-        totalLookups: memoryMisses.length,
+        totalLookups: pendingLookups.length,
         onProviderCalled: () => {
           providerCalled = true;
         },
@@ -298,7 +300,7 @@ export async function assessHighlightsCached(params: {
       });
 
       await Promise.allSettled(
-        memoryMisses.map(async ({ event, key }) => {
+        pendingLookups.map(async ({ event, key }) => {
           let computeStarted = false;
           try {
             const entry = await readThrough(key, () => {
@@ -308,7 +310,6 @@ export async function assessHighlightsCached(params: {
             if (!computeStarted) {
               batcher.declareHit();
             }
-            store.set(key, entry, ttlMs);
             resolved.set(event.id, entry);
           } catch (error) {
             if (!computeStarted) {
@@ -321,14 +322,14 @@ export async function assessHighlightsCached(params: {
 
       await batcher.whenSettled();
     } else {
-      cacheMisses = memoryMisses.length;
+      cacheMisses = pendingLookups.length;
       providerCalled = true;
       try {
-        const fresh = await assess(memoryMisses.map((item) => item.event));
+        const fresh = await assess(pendingLookups.map((item) => item.event));
         const byId = new Map(
           fresh.map((assessment) => [assessment.eventId, assessment]),
         );
-        for (const { event, key } of memoryMisses) {
+        for (const { event, key } of pendingLookups) {
           const assessment = byId.get(event.id);
           if (!assessment) continue;
           const entry: AiAssessmentCacheEntry = {

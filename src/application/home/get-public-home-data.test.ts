@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { EventService } from "@/application/event.service";
 import {
+  projectPublicHomeSnapshot,
   measurePublicHomeSnapshotBytes,
   reviveUpcomingPipelineFromSlim,
   toPublicHomeSnapshotSlim,
@@ -252,7 +253,7 @@ describe("next-public-home-cache — frontière nest IA", () => {
     );
     expect(source).toContain("getPublicHomeSnapshot");
     expect(source).toContain("materializePublicHomeData");
-    expect(source).toContain("pre-ai-snapshot-occurrences-v3");
+    expect(source).toContain("pre-ai-snapshot-source-dates-v4");
     expect(source).not.toMatch(/return getPublicHomeData\(/);
     const callbackStart = source.indexOf("async () => {");
     const callbackBody = source.slice(
@@ -276,5 +277,109 @@ describe("loadHomePage — frontière public / user", () => {
     expect(source).not.toContain("listFavoriteEventIdsForUser");
     expect(source).not.toContain("getUpcomingEvents");
     expect(source).not.toContain("listExplorerEvents");
+  });
+});
+
+
+describe("Radar — évaluation stable et séances courantes", () => {
+  afterEach(() => vi.useRealTimers());
+  const firstNow = new Date("2026-11-13T12:00:00Z");
+  const nextNow = new Date("2026-11-14T12:00:00Z");
+  const sessions = [
+    { startAt: "2026-11-13T19:00:00.000Z", endAt: "2026-11-13T21:00:00.000Z", allDay: false },
+    { startAt: "2026-11-15T19:00:00.000Z", endAt: "2026-11-15T21:00:00.000Z", allDay: false },
+  ];
+  const recurring = () => event("recurring", {
+    startAt: sessions[0].startAt, endAt: sessions[1].endAt, occurrences: sessions,
+  });
+  function setup(events: DetourEvent[], enabled = true) {
+    const assessor = mockAssessor();
+    const service = new EventService({ fetchUpcomingEvents: async () => events }, assessor, {
+      aiConfig: { ...autoConfig, enabled }, cacheStore: createMemoryAiAssessmentCacheStore(),
+    });
+    async function snapshot(now = firstNow) {
+      const pipeline = await service.buildUpcomingPipeline({ from: now, to: new Date("2027-05-01") });
+      return toPublicHomeSnapshotSlim({ ...pipeline, exposeDebug: false });
+    }
+    async function render(snap: Awaited<ReturnType<typeof snapshot>>, now: Date) {
+      return service.finalizeUpcomingWithAutoAi(reviveUpcomingPipelineFromSlim(projectPublicHomeSnapshot(snap, now), now), now);
+    }
+    return { assessor, snapshot, render };
+  }
+
+  it("séance suivante et reconstruction du snapshot : même assessment, aucun nouvel appel", async () => {
+    const original = recurring();
+    const { assessor, snapshot, render } = setup([original]);
+    const snap = await snapshot();
+    const frozen = JSON.stringify(snap);
+    const first = await render(snap, firstNow);
+    const next = await render(snap, nextNow);
+    const rebuilt = await render(await snapshot(nextNow), nextNow);
+    expect(first.highlights[0].event.startAt).toBe(sessions[0].startAt);
+    expect(next.highlights[0].event.startAt).toBe(sessions[1].startAt);
+    expect(rebuilt.highlights[0].event.startAt).toBe(sessions[1].startAt);
+    expect(next.aiAssessments).toEqual(first.aiAssessments);
+    expect(rebuilt.aiAssessments).toEqual(first.aiAssessments);
+    expect(assessor.assess).toHaveBeenCalledTimes(1);
+    expect(next.aiMeta).toMatchObject({ cacheHits: 1, cacheMisses: 0 });
+    expect(JSON.stringify(snap)).toBe(frozen);
+  });
+
+  it("contenu modifié après sync : nouvel assessment, même id et même séance", async () => {
+    const events = [recurring()];
+    const { assessor, snapshot, render } = setup(events);
+    const before = await snapshot();
+    await render(before, firstNow);
+    events[0] = { ...events[0], description: "Une nouvelle création avec un orchestre." };
+    const after = await snapshot();
+    await render(after, firstNow);
+    expect(assessor.assess).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(assessor.assess).mock.calls[1][0][0].description).toBe(events[0].description);
+    // Une ancienne réponse reste associée à son ancienne entrée, pas au nouvel id seul.
+    await render(before, nextNow);
+    expect(assessor.assess).toHaveBeenCalledTimes(2);
+  });
+
+  it("expiration finale / calendrier vide retirés ; legacy conservé ; sold-out hors Radar", async () => {
+    const { assessor, snapshot, render } = setup([
+      recurring(),
+      event("legacy", { startAt: "2026-11-20T19:00:00Z" }),
+      event("empty", { startAt: "2026-11-20T19:00:00Z", occurrences: [] }),
+      event("sold", { startAt: "2026-11-20T19:00:00Z", availabilityStatus: "sold_out" }),
+      event("sold-online", { startAt: "2026-11-20T19:00:00Z", availabilityStatus: "sold_out_online" }),
+    ]);
+    const result = await render(await snapshot(), new Date("2026-11-16T12:00:00Z"));
+    expect(result.highlights.map((item) => item.event.id)).toEqual(["legacy"]);
+    expect(vi.mocked(assessor.assess).mock.calls[0][0].map((item) => item.id)).toEqual(["legacy"]);
+  });
+
+  it("fin exclusive des séances all-day, sans prolongation artificielle", async () => {
+    const day = { startAt: "2026-11-13T00:00:00.000Z", endAt: "2026-11-14T00:00:00.000Z", allDay: true };
+    const { snapshot, render, assessor } = setup([event("day", { ...day, occurrences: [day] })]);
+    const result = await render(await snapshot(), new Date(day.endAt));
+    expect(result.events).toEqual([]);
+    expect(result.highlights).toEqual([]);
+    expect(assessor.assess).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])("instant métier indépendant de l'horloge système, IA=%s, Planning préservé", async (enabled) => {
+    const events = Array.from({ length: 24 }, (_, i) => event(`future-${i}`, {
+      title: `Concert artiste ${i}`, venue: `Salle ${i}`, registrationUrl: `https://example.com/book/${i}`, startAt: "2026-12-15T19:00:00Z",
+    }));
+    const { snapshot, render } = setup(events, enabled);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01"));
+    const snap = await snapshot();
+    const first = await render(snap, firstNow);
+    vi.setSystemTime(new Date("2030-01-01"));
+    const second = await render(await snapshot(), firstNow);
+    expect(second.highlights).toEqual(first.highlights);
+    expect(second.planningEvents).toEqual(first.planningEvents);
+    expect(second.planningEvents.length).toBeGreaterThan(0);
+    const closer = await render(snap, new Date("2026-11-16T12:00:00Z"));
+    expect(closer.planningEvents).toEqual([]); // Toutes les séances sont à moins de 30 jours.
+    for (const item of second.planningEvents) {
+      expect(second.highlights.some((highlight) => highlight.event.id === item.event.id)).toBe(false);
+    }
   });
 });

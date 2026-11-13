@@ -8,6 +8,7 @@ import {
   mapDetourEventToEventItem,
   mapDetourHighlightToEventItem,
 } from "@/application/map-detour-event-to-ui";
+import { logRadarDiagnostics } from "@/application/home/radar-diagnostics";
 import { getAiConfig } from "@/config/ai-config";
 import { shouldExposeHomeDebug } from "@/config/home-debug";
 import type { EventItem } from "@/data/types";
@@ -107,34 +108,31 @@ export function toPublicHomeSnapshotSlim(params: {
 
 /**
  * Reconstitue le pipeline pour `finalizeUpcomingWithAutoAi`.
- * Ranking déterministe recalculé ; shortlist via ids + métadonnées.
+ * Ranking recalculé au même instant métier ; shortlist via ids, dans son ordre.
  */
 export function reviveUpcomingPipelineFromSlim(
   snapshot: PublicHomeSnapshot,
+  now: Date = new Date(),
 ): UpcomingEventsPipeline {
   const eventsById = new Map(
     snapshot.events.map((event) => [event.id, event] as const),
   );
 
-  const aiShortlist: EventHighlight[] = snapshot.aiShortlist.map((ref) => {
-    const event = eventsById.get(ref.eventId);
-    if (!event) {
-      throw new Error(
-        `PublicHomeSnapshot shortlist ref missing event ${ref.eventId}`,
-      );
-    }
-    return {
-      event,
-      score: ref.score,
-      planningScore: ref.planningScore,
-      reasons: ref.reasons,
-    };
-  });
-
   const radarEligibleEvents = snapshot.events.filter((event) =>
     isRadarEligibleAvailability(event.availabilityStatus),
   );
-  const rankedCandidates = rankDetourHighlightCandidates(radarEligibleEvents);
+  const rankedCandidates = rankDetourHighlightCandidates(radarEligibleEvents, { now });
+  const rankedById = new Map(rankedCandidates.map((item) => [item.event.id, item]));
+  // Même membership/ordre de shortlist ; scores temporels cohérents avec la
+  // séance courante, et jamais les métadonnées d'une ancienne séance.
+  const aiShortlist = snapshot.aiShortlist.flatMap((ref) => {
+    if (!eventsById.has(ref.eventId)) {
+      throw new Error(`PublicHomeSnapshot shortlist ref missing event ${ref.eventId}`);
+    }
+    const candidate = rankedById.get(ref.eventId);
+    return candidate ? [candidate] : [];
+  });
+
   const highlightCandidates = rankedCandidates.slice(0, 20);
 
   return {
@@ -197,20 +195,36 @@ export async function materializePublicHomeData(
   snapshot: PublicHomeSnapshot,
   now: Date = new Date(),
 ): Promise<PublicHomeData> {
+  const projected = projectPublicHomeSnapshot(snapshot, now);
+  const result = await eventService.finalizeUpcomingWithAutoAi(
+    reviveUpcomingPipelineFromSlim(projected, now),
+    now,
+  );
+  logRadarDiagnostics(snapshot, result, now);
+  return toPublicHomeData(result, snapshot.exposeDebug);
+}
+
+/** Projection pure : conserve les faits évalués, ne modifie jamais le snapshot. */
+export function projectPublicHomeSnapshot(
+  snapshot: PublicHomeSnapshot,
+  now: Date,
+): PublicHomeSnapshot {
   const window = publicHomeUpcomingWindow(now);
   const events = snapshot.events.flatMap((event) => {
-    const selected = selectEventInWindow(event, { ...window, now });
+    const selected = selectEventInWindow({
+      ...event,
+      sourceDates: event.sourceDates ?? {
+        startAt: event.startAt, endAt: event.endAt,
+      },
+    }, { ...window, now });
     return selected ? [selected] : [];
   });
   const ids = new Set(events.map((event) => event.id));
-  const result = await eventService.finalizeUpcomingWithAutoAi(
-    reviveUpcomingPipelineFromSlim({
-      ...snapshot,
-      events,
-      aiShortlist: snapshot.aiShortlist.filter((ref) => ids.has(ref.eventId)),
-    }),
-  );
-  return toPublicHomeData(result, snapshot.exposeDebug);
+  return {
+    ...snapshot,
+    events,
+    aiShortlist: snapshot.aiShortlist.filter((ref) => ids.has(ref.eventId)),
+  };
 }
 
 /**
@@ -220,7 +234,7 @@ export async function materializePublicHomeData(
 export async function getPublicHomeData(
   params: GetPublicHomeDataParams,
 ): Promise<PublicHomeData> {
-  return materializePublicHomeData(await getPublicHomeSnapshot(params));
+  return materializePublicHomeData(await getPublicHomeSnapshot(params), params.from);
 }
 
 /** Fenêtre calendaire alignée sur loadHomePage historique. */

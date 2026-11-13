@@ -30,6 +30,8 @@ export type DetourEvent = {
 
   startAt: string;
   endAt: string | null;
+  /** Dates source conservées quand startAt/endAt projettent une séance en lecture. */
+  sourceDates?: { startAt: string; endAt: string | null };
   /**
    * Événement date-only / journée entière.
    * Quand true, `endAt` est une borne exclusive (convention RFC 5545 / sources all-day).

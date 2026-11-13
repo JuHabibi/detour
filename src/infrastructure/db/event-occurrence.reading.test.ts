@@ -137,6 +137,18 @@ describe("séances — contrat de lecture bout en bout PostgreSQL", () => {
     );
   });
 
+  it("Home garde les dates source quand SQL passe à la séance suivante", async () => {
+    const read = (from: Date) => listUpcomingActive({ from, to: new Date("2026-12-01"), now: from, client });
+    const first = (await read(NOW)).find((item) => item.id === "series")!;
+    const next = (await read(new Date("2026-11-15T12:00:00Z"))).find((item) => item.id === "series")!;
+    expect(first.startAt).toBe(saturday.startAt);
+    expect(next.startAt).toBe(sunday.startAt);
+    expect(first.sourceDates).toEqual({ startAt: october.startAt, endAt: october.endAt });
+    expect(next.sourceDates).toEqual(first.sourceDates);
+    // Aucun ancien créneau artificiellement réinjecté pour garder la clé IA.
+    expect(next.occurrences).toEqual([sunday, later]);
+  });
+
   it("filtre les séances avant COUNT/LIMIT : une carte par événement, aucun trou rempli", async () => {
     const page = await listExplorerEvents(
       { when: "weekend", limit: 1 },

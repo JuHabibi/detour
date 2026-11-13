@@ -100,7 +100,7 @@ GET /
   → ISR / Full Route Cache (revalidate 6h)     # HTML public CDN
   → loadHomePage()                             # pas de headers()/session
        → getCachedPublicHomeData()             # Data Cache tag public-home:orleans (6h)
-            → unstable_cache(getPublicHomeSnapshot)   # SQL + pipeline Radar (clé slim-v2)
+            → unstable_cache(getPublicHomeSnapshot)   # SQL + pipeline Radar (clé source-dates-v4)
             → materializePublicHomeData(snapshot)     # IA hors nest (cache IA 7j)
   → <HomePage /> : hero, Radar (+ lien /explorer), compte guest, debug
   → client : useSession
@@ -239,6 +239,31 @@ Dette connue, non bloquante à ce stade : debug Saran encore composé dans `comp
 Composition home : `createHighlightAssessmentProvider()` + cache Next
 (`next-ai-assessment-cache`, TTL 7j, clés per-event) dans `get-public-home-data`
 (materialize hors nest Home) / actions. Sans clé → noop → fallback déterministe.
+
+Avec le read-through Next, les assessments sont lus dans le cache partagé à
+chaque matérialisation. Pas de copie mémoire locale supplémentaire : elle
+masquerait un renouvellement / une invalidation selon l’instance serveur pendant
+7 jours. Le cache mémoire reste utilisé uniquement sans read-through (scripts,
+tests). Le cache public Home / ISR 6h et le batching des seuls misses sont conservés.
+
+La Home conserve deux représentations temporelles dans le même événement :
+`sourceDates` (dates de la fiche source, issues de `events.start_at/end_at`) et
+`startAt/endAt` (séance actuellement affichée). `toAiHighlightEventInput` utilise
+les dates source **à la fois** pour le payload fournisseur et pour sa clé de cache.
+Un changement de séance ne change donc pas l'évaluation, même après reconstruction
+SQL du snapshot. Un changement de contenu éditorial ou de dates source change la clé.
+Aucune nouvelle colonne ni migration ; les séances ne sont ni étendues ni inventées.
+
+La matérialisation projette les séances au même `now` explicite, retire les événements
+expirés, recalcule les métadonnées déterministes des candidats et réutilise les IDs et
+l'ordre de shortlist du snapshot. Le complément Radar et Planning utilisent ce même
+instant. Les règles et poids éditoriaux sont inchangés. Pas de commitment éditorial :
+un nouveau corpus ou de nouveaux assessments peuvent légitimement changer la sélection.
+
+Diagnostic temporaire serveur, désactivé par défaut : voir
+[`radar-diagnostics.md`](radar-diagnostics.md). Les TTL, tags et invalidations Next
+restent identiques ; seule la version de clé du snapshot Home passe à v4 pour éviter
+la réutilisation d'un ancien snapshot sans dates source.
 
 ## 7. Base de données
 

@@ -1,3 +1,11 @@
+import {
+  assessHighlightsCached,
+  createMemoryAiAssessmentCacheStore,
+} from "@/application/ai/ai-assessment-cache";
+import { selectEventInWindow } from "@/domain/events/event-schedule";
+import { selectPlanningEvents } from "@/domain/editorial/select-planning-events";
+import type { AiHighlightAssessment } from "@/domain/editorial/highlight-assessment";
+import { toAiHighlightEventInput } from "@/application/ai/highlight-assessment-input";
 import { describe, expect, it, vi } from "vitest";
 import {
   AI_ASSESSMENT_PROMPT_VERSION,
@@ -160,7 +168,11 @@ describe("OpenAiHighlightAssessmentProvider", () => {
       batchSize: 10,
     });
 
-    const result = await provider.assess([event("a")]);
+    const displayed = {
+      ...event("a"),
+      sourceDates: { startAt: "2026-09-01T18:00:00.000Z", endAt: null },
+    };
+    const result = await provider.assess([displayed]);
     expect(result).toHaveLength(1);
     expect(result[0]?.appeal).toBe(4);
     expect(result[0]?.localRarity).toBe(2);
@@ -171,10 +183,113 @@ describe("OpenAiHighlightAssessmentProvider", () => {
     const body = JSON.parse(
       (fetchImpl.mock.calls[0]?.[1] as RequestInit).body as string,
     );
+    expect(JSON.parse(body.messages[1].content).events[0]).toEqual(toAiHighlightEventInput(displayed));
+    expect(JSON.parse(body.messages[1].content).events[0].startAt).not.toBe(displayed.startAt);
     expect(body.messages[0].content).toBe(OPENAI_HIGHLIGHT_SYSTEM_PROMPT);
     expect(body.messages[0].content).toContain("localRarity");
     expect(body.messages[0].content).toContain("missRisk");
     expect(body.messages[0].content).toContain("JUGEMENT ÉDITORIAL");
     expect(body.messages[0].content).not.toContain("discoveryValue");
+  });
+});
+
+
+describe("récurrence — première séance passée et valeur d'anticipation", () => {
+  it("garde les faits IA stables et applique le délai Planning à la séance future", async () => {
+    const past = {
+      startAt: "2026-10-03T18:00:00.000Z",
+      endAt: "2026-10-03T20:00:00.000Z",
+      allDay: false,
+    };
+    const upcoming = {
+      startAt: "2026-11-14T18:00:00.000Z",
+      endAt: "2026-11-14T20:00:00.000Z",
+      allDay: false,
+    };
+    const following = {
+      startAt: "2026-12-20T18:00:00.000Z",
+      endAt: "2026-12-20T20:00:00.000Z",
+      allDay: false,
+    };
+    const recurring: DetourEvent = {
+      ...event("recurring", "Ateliers de création sonore"),
+      description: "Ateliers indépendants proposés à plusieurs dates. Chaque participant prépare un enregistrement sonore avant la séance choisie.",
+      conditions: "Inscription obligatoire pour chaque atelier.",
+      ...past,
+      sourceDates: { startAt: past.startAt, endAt: past.endAt },
+      occurrences: [past, upcoming, following],
+    };
+    // Réponse de contrat simulée, pas une mesure du comportement du modèle réel.
+    // La préparation concerne chaque atelier, pas uniquement la première séance.
+    const assessment: AiHighlightAssessment = {
+      eventId: recurring.id, appeal: 4, missRisk: 3, planningNeed: 4,
+      localRarity: 1, likelyDemand: 1, confidence: 0.8,
+      reasons: ["Préparation d'un enregistrement avant chaque atelier et inscription obligatoire."],
+    };
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: {
+        content: JSON.stringify({ assessments: [assessment] }),
+      } }] }),
+    });
+    const provider = new OpenAiHighlightAssessmentProvider({
+      apiKey: "test-key", fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    let cacheNow = new Date("2026-11-13T12:00:00Z");
+    const store = createMemoryAiAssessmentCacheStore(() => cacheNow.getTime());
+    const evaluate = (displayed: DetourEvent) => assessHighlightsCached({
+      events: [displayed], store, cacheContext: provider.cacheContext, now: () => cacheNow,
+      assess: (batch) => provider.assess(batch),
+    });
+    const project = (now: Date) => {
+      const selected = selectEventInWindow(recurring, { from: now, now });
+      expect(selected).not.toBeNull();
+      return selected!;
+    };
+
+    const now = new Date("2026-11-13T12:00:00Z");
+    const displayed = project(now);
+    const first = await evaluate(displayed);
+    expect(Date.parse(recurring.sourceDates!.endAt!)).toBeLessThan(now.getTime());
+    expect(displayed.startAt).toBe(upcoming.startAt);
+
+    const body = JSON.parse(fetchImpl.mock.calls[0][1].body as string);
+    expect(body.messages[0].content).toBe(OPENAI_HIGHLIGHT_SYSTEM_PROMPT);
+    expect(JSON.parse(body.messages[1].content)).toEqual({
+      events: [toAiHighlightEventInput(recurring)],
+    });
+    expect(provider.cacheContext.promptVersion).toBe("detour-ai-assess-v3.1");
+    // La séance de demain n'appartient pas au bloc À prévoir (> 30 jours),
+    // même si la valeur éditoriale d'anticipation vaut 4.
+    expect(selectPlanningEvents({
+      events: [displayed], aiAssessments: first.assessments, now,
+    })).toEqual([]);
+
+    // Deux jours plus tard, la prochaine séance est celle de décembre (> 30j).
+    // Le cache n'a pas expiré (TTL 7j) et la fiche évaluée n'a pas changé.
+    const later = new Date("2026-11-15T12:00:00Z");
+    cacheNow = later;
+    const nextEvent = project(later);
+    const next = await evaluate(nextEvent);
+    expect(next.assessments).toEqual(first.assessments);
+    expect(next).toMatchObject({ cacheHits: 1, cacheMisses: 0 });
+    const plan = selectPlanningEvents({
+      events: [nextEvent], aiAssessments: next.assessments, now: later,
+    });
+    expect(plan).toHaveLength(1);
+    expect(plan[0]).toMatchObject({
+      event: { id: recurring.id, startAt: following.startAt },
+      planningValue: 4, selectionSource: "ai",
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    // Le seuil temporel reste indépendant de cette même évaluation.
+    const closer = new Date("2026-11-21T12:00:00Z");
+    expect(selectPlanningEvents({
+      events: [project(closer)], aiAssessments: next.assessments, now: closer,
+    })).toEqual([]);
+    expect(selectEventInWindow(recurring, {
+      from: new Date(following.endAt), now: new Date(following.endAt),
+    })).toBeNull();
   });
 });
