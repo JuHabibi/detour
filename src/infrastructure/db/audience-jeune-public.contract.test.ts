@@ -242,11 +242,11 @@ describe("audience jeune_public — contrat SQL", () => {
     expect(whereSql).toContain("e.audience_jeune_public = true");
 
     const countResult = await engine.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM events e WHERE ${whereSql}`,
+      `SELECT count(*)::int AS n FROM events e CROSS JOIN LATERAL (SELECT e.start_at, e.end_at) s WHERE ${whereSql}`,
       params,
     );
     const idsResult = await engine.query<{ id: string }>(
-      `SELECT id FROM events e WHERE ${whereSql} ORDER BY id`,
+      `SELECT id FROM events e CROSS JOIN LATERAL (SELECT e.start_at, e.end_at) s WHERE ${whereSql} ORDER BY id`,
       params,
     );
 
@@ -272,11 +272,11 @@ describe("audience jeune_public — contrat SQL", () => {
     expect(whereSql).not.toMatch(/e\.category ILIKE '%Spectacle%'/i);
 
     const countResult = await engine.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM events e WHERE ${whereSql}`,
+      `SELECT count(*)::int AS n FROM events e CROSS JOIN LATERAL (SELECT e.start_at, e.end_at) s WHERE ${whereSql}`,
       params,
     );
     const idsResult = await engine.query<{ id: string }>(
-      `SELECT id FROM events e WHERE ${whereSql} ORDER BY id`,
+      `SELECT id FROM events e CROSS JOIN LATERAL (SELECT e.start_at, e.end_at) s WHERE ${whereSql} ORDER BY id`,
       params,
     );
 

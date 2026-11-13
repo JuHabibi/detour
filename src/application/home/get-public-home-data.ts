@@ -12,6 +12,7 @@ import { getAiConfig } from "@/config/ai-config";
 import { shouldExposeHomeDebug } from "@/config/home-debug";
 import type { EventItem } from "@/data/types";
 import type { DetourEvent } from "@/domain/events/event";
+import { selectEventInWindow } from "@/domain/events/event-schedule";
 import { isRadarEligibleAvailability } from "@/domain/events/event-availability";
 import {
   rankDetourHighlightCandidates,
@@ -194,9 +195,20 @@ export async function getPublicHomeSnapshot(
  */
 export async function materializePublicHomeData(
   snapshot: PublicHomeSnapshot,
+  now: Date = new Date(),
 ): Promise<PublicHomeData> {
+  const window = publicHomeUpcomingWindow(now);
+  const events = snapshot.events.flatMap((event) => {
+    const selected = selectEventInWindow(event, { ...window, now });
+    return selected ? [selected] : [];
+  });
+  const ids = new Set(events.map((event) => event.id));
   const result = await eventService.finalizeUpcomingWithAutoAi(
-    reviveUpcomingPipelineFromSlim(snapshot),
+    reviveUpcomingPipelineFromSlim({
+      ...snapshot,
+      events,
+      aiShortlist: snapshot.aiShortlist.filter((ref) => ids.has(ref.eventId)),
+    }),
   );
   return toPublicHomeData(result, snapshot.exposeDebug);
 }

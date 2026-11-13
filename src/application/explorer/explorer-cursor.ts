@@ -1,6 +1,7 @@
 export type ExplorerCursorPayload = {
   startAt: string;
   id: string;
+  asOf?: string;
 };
 
 export class InvalidExplorerCursorError extends Error {
@@ -39,7 +40,15 @@ export function decodeExplorerCursor(cursor: string): ExplorerCursorPayload {
     throw new InvalidExplorerCursorError("invalid explorer cursor startAt");
   }
 
+  const asOf = (raw as ExplorerCursorPayload).asOf;
+  if (
+    asOf !== undefined &&
+    (typeof asOf !== "string" || !Number.isFinite(Date.parse(asOf)))
+  ) {
+    throw new InvalidExplorerCursorError("invalid explorer cursor asOf");
+  }
   return {
+    ...(asOf ? { asOf } : {}),
     startAt,
     id: (raw as ExplorerCursorPayload).id,
   };

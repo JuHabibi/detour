@@ -60,7 +60,7 @@ function resolveFilters(
     temporal =
       range.to == null
         ? ({ mode: "upcoming", now } as const)
-        : ({ mode: "bounded", from: range.from, to: range.to } as const);
+        : ({ mode: "bounded", from: range.from, to: range.to, now } as const);
   }
 
   return {
@@ -93,16 +93,16 @@ export async function listExplorerEvents(
   query: ListExplorerEventsQuery,
   options?: ListExplorerEventsOptions,
 ): Promise<ListExplorerEventsResult> {
-  const now = options?.now ?? new Date();
+  // Fixe l’horloge pendant la pagination : une séance qui se termine entre deux
+  // pages ne doit pas déplacer son événement derrière le curseur.
+  const decoded = query.cursor ? decodeExplorerCursor(query.cursor) : null;
+  const now = decoded?.asOf
+    ? new Date(decoded.asOf)
+    : (options?.now ?? new Date());
   const limit = clampLimit(query.limit);
   const filters = resolveFilters(query, now);
-
-  // Décoder / valider le curseur avant toute requête SQL.
-  const after = query.cursor
-    ? (() => {
-        const decoded = decodeExplorerCursor(query.cursor);
-        return { startAt: new Date(decoded.startAt), id: decoded.id };
-      })()
+  const after = decoded
+    ? { startAt: new Date(decoded.startAt), id: decoded.id }
     : null;
 
   if (after) {
@@ -120,6 +120,7 @@ export async function listExplorerEvents(
         ? encodeExplorerCursor({
             startAt: page.nextAfter.startAt.toISOString(),
             id: page.nextAfter.id,
+            asOf: now.toISOString(),
           })
         : null,
     };
@@ -140,6 +141,7 @@ export async function listExplorerEvents(
         ? encodeExplorerCursor({
             startAt: page.nextAfter.startAt.toISOString(),
             id: page.nextAfter.id,
+            asOf: now.toISOString(),
           })
         : null,
     };
@@ -166,6 +168,7 @@ export async function listExplorerEvents(
       ? encodeExplorerCursor({
           startAt: page.nextAfter.startAt.toISOString(),
           id: page.nextAfter.id,
+          asOf: now.toISOString(),
         })
       : null,
   };

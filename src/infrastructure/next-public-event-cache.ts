@@ -28,7 +28,7 @@ export async function getCachedPublicEventPage(
 ): Promise<GetPublicEventPageResult> {
   const cachedSnapshot = unstable_cache(
     async () => getPublicEventSnapshot(eventId),
-    ["detour-public-event", eventId],
+    ["detour-public-event-v2", eventId],
     {
       tags: [PUBLIC_EVENTS_CACHE_TAG, publicEventCacheTag(eventId)],
       revalidate: PUBLIC_EVENT_CACHE_REVALIDATE_SECONDS,
@@ -48,7 +48,7 @@ export async function getCachedActiveEventSitemapRows(): Promise<
 > {
   const cached = unstable_cache(
     async () => listActiveEventsForSitemap(),
-    ["detour-public-event-sitemap-v1"],
+    ["detour-public-event-sitemap-v2"],
     {
       tags: [PUBLIC_EVENTS_CACHE_TAG],
       revalidate: PUBLIC_EVENT_CACHE_REVALIDATE_SECONDS,

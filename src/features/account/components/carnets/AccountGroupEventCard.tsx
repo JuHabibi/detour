@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
 import type { EventItem } from "@/data/types";
-import { eventCalendarPath } from "@/domain/calendar/build-event-calendar";
+import { eventCalendarPath, hasCalendarDates } from "@/domain/calendar/build-event-calendar";
 import { resolveCategoryBadgeTone } from "@/components/event/category-badge-style";
 import { cn } from "@/lib/cn";
 
@@ -145,14 +145,14 @@ export function AccountGroupEventCard({
                   role="menu"
                   className="absolute right-0 z-20 mt-1 min-w-[12.5rem] border border-line bg-foam py-1 shadow-sm"
                 >
-                  <a
+                  {hasCalendarDates(event) ? <a
                     role="menuitem"
                     href={eventCalendarPath(event.id)}
                     className="block w-full px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.1em] text-ink transition-colors hover:bg-paper"
                     onClick={() => setMenuOpen(false)}
                   >
                     Ajouter à mon agenda
-                  </a>
+                  </a> : null}
                   {onRemove ? (
                     <button
                       type="button"

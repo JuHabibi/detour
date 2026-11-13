@@ -51,7 +51,7 @@ export function buildEventPageMetadata(
     alternates: {
       canonical: canonicalPath,
     },
-    robots: data.isEnded ? NOINDEX_FOLLOW_ROBOTS : INDEX_ROBOTS,
+    robots: data.isEnded || data.item.occurrences?.length === 0 ? NOINDEX_FOLLOW_ROBOTS : INDEX_ROBOTS,
     openGraph: {
       ...SITE_OPEN_GRAPH,
       type: "website",

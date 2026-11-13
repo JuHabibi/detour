@@ -48,6 +48,7 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
     startAt: event.startAt,
     endAt: event.endAt,
     ...(event.allDay ? { allDay: true as const } : {}),
+    ...(event.occurrences !== undefined ? { occurrences: event.occurrences } : {}),
     time: presentation.time,
     distanceKm: computeDistanceKm(event),
     image: safeImage.image,
@@ -67,7 +68,17 @@ export function mapDetourEventToEventItem(event: DetourEvent): EventItem {
     weekend: isWeekendDay(start),
     availabilityStatus,
     availabilityBadge: availabilityBadge ?? undefined,
+    ...(event.occurrences?.length === 0 ? {
+      date: "", dateLabel: "Dates à confirmer", startAt: undefined, endAt: null, time: undefined,
+    } : {}),
   };
+}
+
+/** Réutilise le formatage des dates sans recalculer les autres données de la carte. */
+export function withEventItemDates(item: EventItem, dates: Pick<DetourEvent, "startAt" | "endAt" | "allDay">): EventItem {
+  const start = new Date(dates.startAt);
+  const presentation = resolveDatePresentation(dates, start);
+  return { ...item, ...dates, date: toDateKey(start), ...presentation, weekend: isWeekendDay(start) };
 }
 
 /**
@@ -115,7 +126,7 @@ export function resolveCategoryBadgeLabel(
 }
 
 function resolveDatePresentation(
-  event: DetourEvent,
+  event: Pick<DetourEvent, "endAt" | "allDay">,
   start: Date,
 ): { dateLabel: string; time: string | undefined } {
   const singleDay = {

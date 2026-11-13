@@ -1,5 +1,6 @@
 import {
   buildEventCalendar,
+  hasCalendarDates,
   eventCalendarFilename,
   type BuildEventCalendarOptions,
 } from "@/domain/calendar/build-event-calendar";
@@ -20,6 +21,7 @@ export async function getEventCalendarForId(
 ): Promise<EventCalendarPayload | null> {
   const event = await getEventById(eventId);
   if (!event) return null;
+  if (!hasCalendarDates(event, options?.now)) return null;
   return {
     ics: buildEventCalendar(event, options),
     filename: eventCalendarFilename(event.title),

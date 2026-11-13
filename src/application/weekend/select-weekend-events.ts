@@ -2,6 +2,8 @@ import { rankDetourHighlightCandidates } from "@/domain/editorial/select-detour-
 import { classifyEventRelevance } from "@/domain/events/classify-event-relevance";
 import type { DetourEvent } from "@/domain/events/event";
 import { filterStillActiveEvents } from "@/domain/events/is-event-still-active";
+import { selectEventInWindow } from "@/domain/events/event-schedule";
+import { getDateRangeForWhenFilter } from "@/domain/time/when-filter";
 
 const CULTURAL_RELEVANCE = new Set(["culture", "culture_leisure"]);
 
@@ -26,7 +28,11 @@ export function listCulturalActiveWeekendEvents(
     (event) =>
       event.relevance != null && CULTURAL_RELEVANCE.has(event.relevance),
   );
-  return filterStillActiveEvents(cultural, now);
+  const range = getDateRangeForWhenFilter("weekend", now);
+  return filterStillActiveEvents(cultural, now).flatMap((event) => {
+    const selected = selectEventInWindow(event, { ...range, now });
+    return selected ? [selected] : [];
+  });
 }
 
 /**

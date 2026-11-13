@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 import { resolveCategoryBadgeLabel } from "@/application/map-detour-event-to-ui";
 import type { EventItem } from "@/data/types";
-import { eventCalendarPath } from "@/domain/calendar/build-event-calendar";
+import { eventCalendarPath, hasCalendarDates } from "@/domain/calendar/build-event-calendar";
 import { resolveCategoryBadgeTone } from "@/components/event/category-badge-style";
 import type { CarnetBadge } from "@/features/account/groups/membership-index";
 import { carnetCoverTone } from "@/components/carnets/carnet-cover-tone";
@@ -172,7 +172,7 @@ export function AccountFavoriteCard({
 
         {!selectionMode ? (
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-            {showAgendaLink ? (
+            {showAgendaLink && hasCalendarDates(event) ? (
               <a
                 href={eventCalendarPath(event.id)}
                 className="text-[12px] font-medium uppercase tracking-[0.1em] text-ink underline decoration-mint/70 decoration-2 underline-offset-4 transition-colors hover:decoration-coral"

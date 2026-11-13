@@ -1,4 +1,5 @@
 "use client";
+import { EventSchedule } from "./EventSchedule";
 
 import Image from "next/image";
 import { useId, useRef } from "react";
@@ -172,6 +173,7 @@ export function EventDetailModal({
             ) : null}
           </div>
 
+          <EventSchedule event={event} />
           {/* Infos déjà disponibles uniquement — pas d’invention */}
           {hasPracticalInfo ? (
             <div
@@ -280,11 +282,14 @@ export type OfficialSourceLink = {
 export function resolveOfficialSourceLink(
   event: Pick<
     EventItem,
-    "sourceUrl" | "registrationUrl" | "availabilityStatus"
+    "sourceUrl" | "registrationUrl" | "availabilityStatus" | "occurrences"
   >,
 ): OfficialSourceLink | null {
   const registrationUrl = event.registrationUrl?.trim() || null;
   const sourceUrl = event.sourceUrl?.trim() || null;
+  if (event.occurrences?.length === 0) {
+    return sourceUrl ? { href: sourceUrl, label: "Vérifier les dates sur la fiche officielle", kind: "official" } : null;
+  }
   const soldOut =
     event.availabilityStatus === "sold_out" ||
     event.availabilityStatus === "sold_out_online";

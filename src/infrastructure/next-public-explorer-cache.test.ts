@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getDateRangeForWhenFilter, toParisDateKey } from "@/domain/time/when-filter";
 
 const revalidateTag = vi.fn();
 const unstable_cache = vi.fn(
@@ -59,12 +60,23 @@ describe("next-public-explorer-cache", () => {
     expect(keyParts).toEqual([
       "detour-public-explorer",
       "orleans",
-      "initial-weekend-12-v1",
+      "initial-weekend-12-occurrences-v2",
+      toParisDateKey(getDateRangeForWhenFilter("weekend", new Date()).from),
     ]);
     expect(options).toMatchObject({
       tags: [PUBLIC_EXPLORER_CACHE_TAG],
     });
     expect(getPublicExplorerInitialPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("relit toute la page si une séance du snapshot est terminée, pour préserver count et curseur", async () => {
+    const fresh = { events: [], totalCount: 0, nextCursor: null };
+    getPublicExplorerInitialPage
+      .mockResolvedValueOnce({ events: [{ startAt: "2000-01-01T18:00:00Z", endAt: "2000-01-01T20:00:00Z" }], totalCount: 1, nextCursor: "old" })
+      .mockResolvedValueOnce(fresh);
+    const { getCachedPublicExplorerInitialPage } = await import("@/infrastructure/next-public-explorer-cache");
+    expect(await getCachedPublicExplorerInitialPage()).toEqual(fresh);
+    expect(getPublicExplorerInitialPage).toHaveBeenCalledTimes(2);
   });
 
   it("callback cache n’appelle que getPublicExplorerInitialPage (pas Radar / IA)", async () => {

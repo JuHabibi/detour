@@ -1,4 +1,8 @@
-import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
+import {
+  mapDetourEventToEventItem,
+  withEventItemDates,
+} from "@/application/map-detour-event-to-ui";
+import { eventForDisplay } from "@/domain/events/event-schedule";
 import type { EventItem } from "@/data/types";
 import { isEventStillActive } from "@/domain/events/is-event-still-active";
 import {
@@ -20,12 +24,10 @@ export type PublicEventPageData = PublicEventPageSnapshot & {
 };
 
 export type GetPublicEventSnapshotResult =
-  | { status: "ok"; data: PublicEventPageSnapshot }
-  | { status: "not_found" };
+  { status: "ok"; data: PublicEventPageSnapshot } | { status: "not_found" };
 
 export type GetPublicEventPageResult =
-  | { status: "ok"; data: PublicEventPageData }
-  | { status: "not_found" };
+  { status: "ok"; data: PublicEventPageData } | { status: "not_found" };
 
 export type GetPublicEventPageOptions = {
   now?: Date;
@@ -70,13 +72,27 @@ export function applyPublicEventEndedStatus(
 ): GetPublicEventPageResult {
   if (result.status !== "ok") return result;
 
-  const { startAt, endAt } = result.data;
-  const isEnded = !isEventStillActive({ startAt, endAt }, now);
+  const dates = eventForDisplay(
+    {
+      startAt: result.data.startAt,
+      endAt: result.data.endAt,
+      allDay: result.data.item.allDay,
+      occurrences: result.data.item.occurrences,
+    },
+    now,
+  );
+  const unavailable = dates.occurrences?.length === 0;
+  const isEnded = !unavailable && !isEventStillActive(dates, now);
 
   return {
     status: "ok",
     data: {
       ...result.data,
+      startAt: dates.startAt,
+      endAt: dates.endAt,
+      item: unavailable
+        ? result.data.item
+        : withEventItemDates(result.data.item, dates),
       isEnded,
     },
   };

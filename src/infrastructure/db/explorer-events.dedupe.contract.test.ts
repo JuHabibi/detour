@@ -49,8 +49,12 @@ CREATE TABLE events (
   updated_at timestamptz NOT NULL DEFAULT now(),
   last_seen_at timestamptz NOT NULL,
   product_category text NULL,
+  occurrences_synced_at timestamptz NULL,
+  audience_jeune_public boolean NOT NULL DEFAULT false,
   city_key text NULL
 );
+
+CREATE TABLE event_occurrences (event_id text REFERENCES events(id) ON DELETE CASCADE, start_at timestamptz NOT NULL, end_at timestamptz NOT NULL, all_day boolean NOT NULL DEFAULT false);
 
 CREATE TABLE event_availability (
   event_id text PRIMARY KEY REFERENCES events (id) ON DELETE CASCADE,

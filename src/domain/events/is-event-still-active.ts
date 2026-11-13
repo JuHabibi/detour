@@ -6,11 +6,14 @@ import type { DetourEvent } from "@/domain/events/event";
  * - sans endAt : uniquement si startAt > now
  */
 export function isEventStillActive(
-  event: Pick<DetourEvent, "startAt" | "endAt">,
+  event: Pick<DetourEvent, "startAt" | "endAt" | "occurrences">,
   now: Date,
 ): boolean {
   const nowMs = now.getTime();
   if (!Number.isFinite(nowMs)) return false;
+  if (event.occurrences !== undefined) {
+    return event.occurrences.some((occurrence) => isEventStillActive(occurrence, now));
+  }
 
   if (event.endAt) {
     const endMs = Date.parse(event.endAt);
