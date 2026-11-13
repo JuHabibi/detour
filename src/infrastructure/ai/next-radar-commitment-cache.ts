@@ -44,12 +44,24 @@ export const RADAR_COMMITMENT_CACHE_KEY_PREFIX = [
 ] as const;
 
 /**
- * Canal d’écriture request-local : le compute ne reçoit le payload qu’au miss
- * d’un `write`. Ce n’est pas un cache de vérité — le Data Cache Next l’est.
- * Obligatoire car `unstable_cache` inclut les args dans la clé : on ne peut pas
- * passer le commitment en argument sans diverger de la clé de `read`.
+ * Canal d’écriture module-global — **non sûr sous concurrence** (voir tests
+ * `next-radar-commitment-cache.concurrency.test.ts`).
+ *
+ * `unstable_cache` impose la même fonction + les mêmes args pour partager une
+ * entrée ; le payload de `write` ne peut donc pas voyager par les arguments
+ * sans diverger de la clé de `read`. Ce Map est un contournement, pas un
+ * isolat par requête : un `read` concurrent peut observer un payload non
+ * encore persisté ; deux `write` peuvent s’écraser / se faire supprimer le
+ * payload dans `finally`.
+ *
+ * Ne pas étendre ce canal. Alternative : get-or-compute (voir revue PR #59).
  */
 const writePayloadByHash = new Map<string, RadarCommitment>();
+
+/** Hooks de test uniquement — imposer des interleavings read/write. */
+export const radarCommitmentConcurrencyHooks = {
+  beforeReadPayload: null as null | (() => Promise<void>),
+};
 
 /**
  * Callback unique read/write — `toString()` stable, args = `(snapshotHash)`.
@@ -57,6 +69,7 @@ const writePayloadByHash = new Map<string, RadarCommitment>();
 export async function loadRadarCommitmentCached(
   snapshotHash: string,
 ): Promise<RadarCommitment> {
+  await radarCommitmentConcurrencyHooks.beforeReadPayload?.();
   const pending = writePayloadByHash.get(snapshotHash);
   if (pending) return pending;
   throw new RadarCommitmentCacheMissError();

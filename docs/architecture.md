@@ -158,12 +158,12 @@ Le cache IA per-event **n’est pas** invalidé au sync : clés content-addresse
 (input IA + model + promptVersion). Event inchangé → hit ; event modifié → nouvelle clé.
 
 **Radar commitment** (`detour-radar-commitment`, même tag `public-home:…`) :
-fige identité + ordre après la première sélection IA *committable*
-(`source` cache|fresh et assessments = shortlist). Une **seule** fonction
-nommée `loadRadarCommitmentCached` pour read/write (Next inclut `cb.toString()`
-dans la clé). Miss + IA partielle → pas d’écriture (throw non persisté). HIT →
-skip assess ; Planning rejoué avec les `aiAssessments` figés au commit. Invalidé
-avec le snapshot au sync.
+intention = figer identité + ordre après la première sélection IA *committable*.
+**P1 ouvert (PR #59)** : le canal `writePayloadByHash` (Map module) n’est pas
+sûr sous concurrence (read peut voir un payload non persisté ; deux write
+interfèrent). `unstable_cache` ne fournit pas d’API get/set séparée — redésign
+requis (get-or-compute, ou abandon du skip-IA sur HIT). Ne pas merger tant que
+non résolu. Voir `next-radar-commitment-cache.concurrency.test.ts`.
 
 `app/page.tsx` et `app/explorer/page.tsx` restent des points d’entrée minimaux.
 L’orchestration métier vit dans `get-public-home-data` (snapshot + materialize)
