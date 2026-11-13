@@ -8,12 +8,20 @@ import {
   mapDetourEventToEventItem,
   mapDetourHighlightToEventItem,
 } from "@/application/map-detour-event-to-ui";
+import {
+  createMemoryRadarCommitmentStore,
+  hashPublicHomeSnapshot,
+  isRadarAssessmentCommittable,
+  projectRadarCommitment,
+  toRadarCommitment,
+  type RadarCommitmentStore,
+} from "@/application/home/radar-commitment";
 import { getAiConfig } from "@/config/ai-config";
 import { shouldExposeHomeDebug } from "@/config/home-debug";
 import type { EventItem } from "@/data/types";
 import type { DetourEvent } from "@/domain/events/event";
-import { selectEventInWindow } from "@/domain/events/event-schedule";
 import { isRadarEligibleAvailability } from "@/domain/events/event-availability";
+import { selectPlanningEvents } from "@/domain/editorial/select-planning-events";
 import {
   rankDetourHighlightCandidates,
   type EventHighlight,
@@ -151,21 +159,24 @@ export function reviveUpcomingPipelineFromSlim(
   };
 }
 
-function toPublicHomeData(
-  result: Awaited<ReturnType<EventService["finalizeUpcomingWithAutoAi"]>>,
-  exposeDebug: boolean,
-): PublicHomeData {
+function toPublicHomeData(params: {
+  highlights: EventHighlight[];
+  planningEvents: Array<{ event: DetourEvent }>;
+  events: DetourEvent[];
+  debugMeta?: EventsDebugMeta;
+  exposeDebug: boolean;
+}): PublicHomeData {
   return {
-    highlights: result.highlights.map((highlight) =>
+    highlights: params.highlights.map((highlight) =>
       mapDetourHighlightToEventItem(highlight),
     ),
-    planningEvents: result.planningEvents.map((item) =>
+    planningEvents: params.planningEvents.map((item) =>
       mapDetourEventToEventItem(item.event),
     ),
-    debugEvents: exposeDebug
-      ? result.events.map((event) => mapDetourEventToEventItem(event))
+    debugEvents: params.exposeDebug
+      ? params.events.map((event) => mapDetourEventToEventItem(event))
       : undefined,
-    debugMeta: exposeDebug ? buildEventsDebugMeta(result) : undefined,
+    debugMeta: params.exposeDebug ? params.debugMeta : undefined,
   };
 }
 
@@ -190,27 +201,96 @@ export async function getPublicHomeSnapshot(
   });
 }
 
+export type MaterializePublicHomeDataOptions = {
+  now?: Date;
+  /**
+   * Persistance identité/ordre Radar (Data Cache Next en prod).
+   * Défaut mémoire process — les loaders cache injectent le store Next.
+   */
+  commitmentStore?: RadarCommitmentStore;
+  /** Injection tests — défaut : EventService module. */
+  finalizeUpcomingWithAutoAi?: (
+    pipeline: UpcomingEventsPipeline,
+  ) => ReturnType<EventService["finalizeUpcomingWithAutoAi"]>;
+};
+
 /**
- * Assessment IA + mapping UI — **hors** scope `unstable_cache` Home.
+ * Assessment IA + mapping UI — **hors** scope `unstable_cache` Home snapshot.
+ *
+ * Radar commitment-first :
+ * 1. Lire un commitment existant (skip IA si HIT)
+ * 2. Sinon finalize IA ; écrire seulement si assessments committables
+ * 3. Projeter les séances (`now`) : drop sans refill, dates à jour
+ *
+ * Planning : hors commitment — recalculé à chaque materialize (inchangé).
  */
 export async function materializePublicHomeData(
   snapshot: PublicHomeSnapshot,
-  now: Date = new Date(),
+  options: MaterializePublicHomeDataOptions = {},
 ): Promise<PublicHomeData> {
-  const window = publicHomeUpcomingWindow(now);
-  const events = snapshot.events.flatMap((event) => {
-    const selected = selectEventInWindow(event, { ...window, now });
-    return selected ? [selected] : [];
+  const now = options.now ?? new Date();
+  const commitmentStore =
+    options.commitmentStore ?? createMemoryRadarCommitmentStore();
+  const finalize =
+    options.finalizeUpcomingWithAutoAi ??
+    ((pipeline: UpcomingEventsPipeline) =>
+      eventService.finalizeUpcomingWithAutoAi(pipeline));
+  const snapshotHash = hashPublicHomeSnapshot(snapshot);
+
+  const existing = await commitmentStore.read(snapshotHash);
+  if (existing) {
+    const highlights = projectRadarCommitment({
+      commitment: existing,
+      events: snapshot.events,
+      now,
+    });
+    const pipeline = reviveUpcomingPipelineFromSlim(snapshot);
+    const planningEvents = selectPlanningEvents({
+      events: snapshot.events,
+      excludedEventIds: highlights.map((item) => item.event.id),
+      deterministicCandidates: pipeline.rankedCandidates,
+      now,
+    });
+    return toPublicHomeData({
+      highlights,
+      planningEvents,
+      events: snapshot.events,
+      exposeDebug: snapshot.exposeDebug,
+    });
+  }
+
+  // Miss : sélection éditoriale sur le snapshot figé (pas de re-filtre temporel
+  // du corpus — la projection post-sélection gère les séances expirées).
+  const result = await finalize(reviveUpcomingPipelineFromSlim(snapshot));
+
+  const commitment = toRadarCommitment(result.highlights);
+  if (
+    isRadarAssessmentCommittable({
+      source: result.aiMeta.source,
+      assessmentCount: result.aiAssessments.length,
+      shortlistSize: snapshot.aiShortlist.length,
+    })
+  ) {
+    try {
+      await commitmentStore.write(snapshotHash, commitment);
+    } catch (error) {
+      console.error("[detour] radar commitment write failed", error);
+    }
+  }
+
+  const highlights = projectRadarCommitment({
+    commitment,
+    events: snapshot.events,
+    now,
   });
-  const ids = new Set(events.map((event) => event.id));
-  const result = await eventService.finalizeUpcomingWithAutoAi(
-    reviveUpcomingPipelineFromSlim({
-      ...snapshot,
-      events,
-      aiShortlist: snapshot.aiShortlist.filter((ref) => ids.has(ref.eventId)),
-    }),
-  );
-  return toPublicHomeData(result, snapshot.exposeDebug);
+
+  return toPublicHomeData({
+    highlights,
+    planningEvents: result.planningEvents,
+    events: result.events,
+    debugMeta: snapshot.exposeDebug ? buildEventsDebugMeta(result) : undefined,
+    exposeDebug: snapshot.exposeDebug,
+  });
 }
 
 /**

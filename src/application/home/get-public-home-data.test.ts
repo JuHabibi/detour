@@ -89,6 +89,8 @@ describe("getPublicHomeData — invariants public", () => {
     expect(source).not.toMatch(/favorite/);
     expect(source).toContain("buildUpcomingPipeline");
     expect(source).toContain("finalizeUpcomingWithAutoAi");
+    expect(source).toContain("hashPublicHomeSnapshot");
+    expect(source).toContain("projectRadarCommitment");
     expect(source).not.toContain("listExplorerEvents");
     expect(source).toContain("toPublicHomeSnapshotSlim");
   });
@@ -253,6 +255,8 @@ describe("next-public-home-cache — frontière nest IA", () => {
     expect(source).toContain("getPublicHomeSnapshot");
     expect(source).toContain("materializePublicHomeData");
     expect(source).toContain("pre-ai-snapshot-occurrences-v3");
+    expect(source).toContain("commitmentStore");
+    expect(source).toContain("createNextRadarCommitmentStore");
     expect(source).not.toMatch(/return getPublicHomeData\(/);
     const callbackStart = source.indexOf("async () => {");
     const callbackBody = source.slice(

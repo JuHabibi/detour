@@ -100,8 +100,11 @@ GET /
   → ISR / Full Route Cache (revalidate 6h)     # HTML public CDN
   → loadHomePage()                             # pas de headers()/session
        → getCachedPublicHomeData()             # Data Cache tag public-home:orleans (6h)
-            → unstable_cache(getPublicHomeSnapshot)   # SQL + pipeline Radar (clé slim-v2)
-            → materializePublicHomeData(snapshot)     # IA hors nest (cache IA 7j)
+            → unstable_cache(getPublicHomeSnapshot)   # SQL + pipeline pré-IA (clé v3)
+            → materializePublicHomeData(snapshot)     # hors nest
+                 → read radar-commitment (même tag)   # HIT → skip IA
+                 → sinon finalize IA (cache IA 7j) + write si complete
+                 → project séances (drop sans refill)
   → <HomePage /> : hero, Radar (+ lien /explorer), compte guest, debug
   → client : useSession
        → usePersonalData + useEventPersonalActions(returnPath: "/")
@@ -153,6 +156,12 @@ invalidatePublicExplorerCache()
 
 Le cache IA per-event **n’est pas** invalidé au sync : clés content-addressed
 (input IA + model + promptVersion). Event inchangé → hit ; event modifié → nouvelle clé.
+
+**Radar commitment** (`detour-radar-commitment`, même tag `public-home:…`) :
+fige identité + ordre après la première sélection IA *committable*
+(`source` cache|fresh et assessments = shortlist). Miss + IA partielle → pas
+d’écriture (probe throw non persisté par Next). HIT → skip assess. Planning
+hors commitment. Invalidé avec le snapshot au sync.
 
 `app/page.tsx` et `app/explorer/page.tsx` restent des points d’entrée minimaux.
 L’orchestration métier vit dans `get-public-home-data` (snapshot + materialize)

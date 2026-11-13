@@ -7,6 +7,9 @@ import {
 } from "@/application/home/get-public-home-data";
 import { shouldExposeHomeDebug } from "@/config/home-debug";
 import { PUBLIC_TERRITORY_SLUG } from "@/config/public-territory";
+import { createNextRadarCommitmentStore } from "@/infrastructure/ai/next-radar-commitment-cache";
+
+const radarCommitmentStore = createNextRadarCommitmentStore();
 
 /**
  * Scope cache Home publique — slug territoire futur-proof
@@ -24,9 +27,9 @@ export const PUBLIC_HOME_CACHE_REVALIDATE_SECONDS = 60 * 60 * 6;
  * Read model public Home via Data Cache Next (`unstable_cache` + tag).
  * Ne doit jamais recevoir de userId / session / favoris.
  *
- * Snapshot (SQL / pipeline Radar) dans `unstable_cache`.
- * Assessment IA matérialisé **après**, hors nest — sinon Next bypass
- * les reads du cache IA per-event (unstable_cache imbriqué).
+ * Snapshot (SQL / pipeline pré-IA) dans `unstable_cache`.
+ * Materialize hors nest : commitment Radar (sibling, même tag) puis IA
+ * seulement si miss commitment — sinon bypass nest IA per-event.
  * Explorer initial : cache distinct (`next-public-explorer-cache`).
  */
 export async function getCachedPublicHomeData(): Promise<PublicHomeData> {
@@ -48,8 +51,10 @@ export async function getCachedPublicHomeData(): Promise<PublicHomeData> {
 
   const snapshot = await cachedSnapshot();
 
-  // Hors callback unstable_cache parent → reads Data Cache IA effectives.
-  return materializePublicHomeData(snapshot);
+  // Hors callback unstable_cache parent → commitment + reads Data Cache IA OK.
+  return materializePublicHomeData(snapshot, {
+    commitmentStore: radarCommitmentStore,
+  });
 }
 
 /**
