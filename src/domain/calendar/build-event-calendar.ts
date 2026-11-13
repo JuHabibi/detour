@@ -10,6 +10,11 @@ export type BuildEventCalendarOptions = {
 
 type CalendarYmd = { year: number; month: number; day: number };
 
+/** Une source sans calendrier conserve l’export historique. */
+export function hasCalendarDates(event: Pick<DetourEvent, "occurrences">, now = new Date()): boolean {
+  return event.occurrences === undefined || event.occurrences.some((o) => Date.parse(o.endAt) > now.getTime());
+}
+
 /** Chemin public de téléchargement ICS (eventId encodé). */
 export function eventCalendarPath(eventId: string): string {
   return `/api/events/${encodeURIComponent(eventId)}/calendar`;
@@ -88,7 +93,15 @@ export function buildEventsCalendar(
   ];
 
   for (const event of events) {
-    lines.push(...buildVEventLines(event, now));
+    if (event.occurrences === undefined) {
+      lines.push(...buildVEventLines(event, now));
+    } else {
+      for (const occurrence of event.occurrences) {
+        if (Date.parse(occurrence.endAt) <= now.getTime()) continue;
+        lines.push(...buildVEventLines({ ...event, ...occurrence,
+          id: `${event.id}:${occurrence.startAt}` }, now));
+      }
+    }
   }
 
   lines.push("END:VCALENDAR");

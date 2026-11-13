@@ -37,10 +37,11 @@ export type DetourEvent = {
   allDay?: boolean;
 
   /**
-   * Snapshot complet des séances fourni à l’ingestion.
+   * Séances explicites : snapshot complet à l’ingestion, limité à la fenêtre
+   * pour les lectures de listes.
    * Absent : calendrier inconnu, préserver le dernier snapshot stocké.
    * [] : calendrier explicitement vide, remplacer les anciennes séances.
-   * Les lectures historiques ne chargent pas encore cette relation.
+   * Un snapshot devenu obsolète est exposé comme [] en lecture.
    */
   occurrences?: EventOccurrence[];
 

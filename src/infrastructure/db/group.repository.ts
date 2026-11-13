@@ -1,3 +1,5 @@
+import { EVENT_OCCURRENCES_JSON_SQL } from "./event-schedule.sql";
+import { eventForDisplay } from "@/domain/events/event-schedule";
 import "server-only";
 
 import type { DetourEvent } from "@/domain/events/event";
@@ -260,8 +262,20 @@ SELECT
   g.created_at,
   g.updated_at,
   COUNT(ge.event_id)::int AS event_count,
-  MIN(e.start_at) AS earliest_start_at,
-  MAX(e.start_at) AS latest_start_at
+  MIN(CASE WHEN e.occurrences_synced_at IS NULL THEN e.start_at ELSE (
+    SELECT o.start_at FROM event_occurrences o
+    WHERE o.event_id = e.id AND e.occurrences_synced_at >= e.last_seen_at
+    ORDER BY (o.end_at > $2::timestamptz) DESC,
+      CASE WHEN o.end_at > $2::timestamptz THEN o.start_at END ASC,
+      o.end_at DESC, o.start_at DESC LIMIT 1
+  ) END) AS earliest_start_at,
+  MAX(CASE WHEN e.occurrences_synced_at IS NULL THEN e.start_at ELSE (
+    SELECT o.start_at FROM event_occurrences o
+    WHERE o.event_id = e.id AND e.occurrences_synced_at >= e.last_seen_at
+    ORDER BY (o.end_at > $2::timestamptz) DESC,
+      CASE WHEN o.end_at > $2::timestamptz THEN o.start_at END ASC,
+      o.end_at DESC, o.start_at DESC LIMIT 1
+  ) END) AS latest_start_at
 FROM groups g
 LEFT JOIN group_events ge ON ge.group_id = g.id
 LEFT JOIN events e ON e.id = ge.event_id
@@ -269,7 +283,7 @@ WHERE g.user_id = $1
 GROUP BY g.id
 ORDER BY g.created_at DESC, g.id ASC
 `.trim(),
-    [userId],
+    [userId, new Date().toISOString()],
   );
 
   return result.rows.map((row) => ({
@@ -318,6 +332,7 @@ SELECT
   e.start_at,
   e.end_at,
   e.all_day,
+  ${EVENT_OCCURRENCES_JSON_SQL} AS occurrences,
   e.venue,
   e.city,
   e.latitude,
@@ -342,7 +357,7 @@ ORDER BY ge.created_at DESC, e.id ASC
 
   return {
     ...mapGroupRow(group),
-    events: eventsResult.rows.map(mapEventRowToDetourEvent),
+    events: eventsResult.rows.map((row) => eventForDisplay(mapEventRowToDetourEvent(row), new Date())),
   };
 }
 

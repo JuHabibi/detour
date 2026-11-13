@@ -14,6 +14,7 @@ export type EventRow = {
   start_at: Date;
   end_at: Date | null;
   all_day?: boolean;
+  occurrences?: DetourEvent["occurrences"] | null;
   venue: string | null;
   city: string | null;
   latitude: number | null;
@@ -65,6 +66,15 @@ export function mapEventRowToDetourEvent(row: EventRow): DetourEvent {
     startAt: toIso(row.start_at),
     endAt: toIsoOrNull(row.end_at),
     ...(row.all_day ? { allDay: true as const } : {}),
+    ...(row.occurrences != null
+      ? {
+          occurrences: row.occurrences.map((o) => ({
+            ...o,
+            startAt: new Date(o.startAt).toISOString(),
+            endAt: new Date(o.endAt).toISOString(),
+          })),
+        }
+      : {}),
     venue: row.venue,
     city: row.city,
     latitude: row.latitude,

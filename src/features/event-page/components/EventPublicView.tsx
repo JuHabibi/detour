@@ -15,6 +15,7 @@ import {
 import type { EventItem } from "@/data/types";
 import { plainEventText } from "@/features/event-page/event-page-seo";
 import { cn } from "@/lib/cn";
+import { EventSchedule } from "@/components/event/EventSchedule";
 
 type EventPublicViewProps = {
   item: EventItem;
@@ -110,6 +111,8 @@ export function EventPublicView({
           </p>
         ) : null}
       </div>
+
+      <EventSchedule event={item} />
 
       {hasPracticalInfo ? (
         <div

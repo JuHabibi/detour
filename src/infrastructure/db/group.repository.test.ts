@@ -160,7 +160,7 @@ describe("group.repository — ownership / IDOR", () => {
     const [sql, params] = query.mock.calls[0] as [string, unknown[]];
     expect(sql).toContain("COUNT(ge.event_id)");
     expect(sql).toContain("WHERE g.user_id = $1");
-    expect(params).toEqual([USER_A]);
+    expect(params).toEqual([USER_A, expect.any(String)]);
   });
 
   it("listEventGroupMembershipsForUser JOIN scoppé user_id", async () => {

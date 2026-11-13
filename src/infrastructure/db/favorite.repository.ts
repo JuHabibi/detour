@@ -1,3 +1,5 @@
+import { EVENT_OCCURRENCES_JSON_SQL } from "./event-schedule.sql";
+import { eventForDisplay } from "@/domain/events/event-schedule";
 import "server-only";
 
 import type { DetourEvent } from "@/domain/events/event";
@@ -28,6 +30,7 @@ SELECT
   e.start_at,
   e.end_at,
   e.all_day,
+  ${EVENT_OCCURRENCES_JSON_SQL} AS occurrences,
   e.venue,
   e.city,
   e.latitude,
@@ -73,7 +76,7 @@ export async function listFavoriteEventsForUser(
   const result = await db(client).query<EventRow>(FAVORITE_EVENT_SELECT, [
     userId,
   ]);
-  return result.rows.map(mapEventRowToDetourEvent);
+  return result.rows.map((row) => eventForDisplay(mapEventRowToDetourEvent(row), new Date()));
 }
 
 /** Insert idempotent — double clic / retry sans doublon. */

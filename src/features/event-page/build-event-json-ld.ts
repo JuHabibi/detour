@@ -35,7 +35,7 @@ export type EventJsonLd = {
 export function buildEventJsonLd(
   data: PublicEventPageData,
 ): EventJsonLd | null {
-  if (data.isEnded) return null;
+  if (data.isEnded || data.item.occurrences?.length === 0) return null;
 
   const name = data.item.title?.trim() || "";
   if (!name) return null;

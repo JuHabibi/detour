@@ -67,7 +67,7 @@ describe("next-public-weekend-cache", () => {
       "detour-public-weekend",
       "orleans",
       "2026-11-07",
-      "select-v1",
+      "select-occurrences-v2",
     ]);
     expect(options).toMatchObject({
       tags: [PUBLIC_WEEKEND_CACHE_TAG],
@@ -91,13 +91,13 @@ describe("next-public-weekend-cache", () => {
       "detour-public-weekend",
       "orleans",
       "2026-11-07",
-      "select-v1",
+      "select-occurrences-v2",
     ]);
     expect(mondayKeyParts).toEqual([
       "detour-public-weekend",
       "orleans",
       "2026-11-14",
-      "select-v1",
+      "select-occurrences-v2",
     ]);
   });
 });

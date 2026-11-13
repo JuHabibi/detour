@@ -30,7 +30,7 @@ export async function getCachedPublicWeekendPage(): Promise<PublicWeekendPage> {
       "detour-public-weekend",
       PUBLIC_TERRITORY_SLUG,
       saturdayKey,
-      "select-v1",
+      "select-occurrences-v2",
     ],
     {
       tags: [PUBLIC_WEEKEND_CACHE_TAG],

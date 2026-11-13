@@ -1,3 +1,5 @@
+import { selectedEventDatesCteSql, eventOccurrencesJsonSql, scheduleEndAfterSql } from "./event-schedule.sql";
+
 /**
  * Construction SQL Explorer (filter → normalize → rank → representatives).
  * Alias local `e` réutilisé dans chaque CTE — pas de replaceAll d’alias.
@@ -40,9 +42,11 @@ const EXPLORER_BASE_COLUMNS = `
   e.image_credit,
   e.image_license,
   e.image_source_url,
-  e.start_at,
-  e.end_at,
-  e.all_day,
+  s.start_at,
+  s.end_at,
+  s.all_day,
+  e.occurrences_synced_at,
+  e.audience_jeune_public,
   e.venue,
   e.city,
   e.latitude,
@@ -94,7 +98,7 @@ export type ExplorerKeysetAfter = {
 
 /** Bornes temporelles déjà résolues (application/domain) — pas de calendrier en SQL. */
 export type ExplorerTemporalFilter =
-  | { mode: "bounded"; from: Date; to: Date }
+  | { mode: "bounded"; from: Date; to: Date; now?: Date }
   | { mode: "upcoming"; now: Date }
   /**
    * Frise / `upcoming` + from/to : début dans [from, to], encore actif à `now`.
@@ -133,8 +137,12 @@ export function buildExplorerFilterSql(filters: ExplorerResolvedFilters): {
     const fromIdx = params.length;
     params.push(filters.temporal.to.toISOString());
     const toIdx = params.length;
-    parts.push(`e.start_at <= $${toIdx}`);
-    parts.push(`COALESCE(e.end_at, e.start_at) >= $${fromIdx}`);
+    parts.push(`s.start_at <= $${toIdx}`);
+    parts.push(scheduleEndAfterSql(`$${fromIdx}`));
+    if (filters.temporal.now) {
+      params.push(filters.temporal.now.toISOString());
+      parts.push(`COALESCE(s.end_at, s.start_at) > $${params.length}`);
+    }
   } else if (filters.temporal.mode === "startInWindowUpcoming") {
     params.push(filters.temporal.from.toISOString());
     const fromIdx = params.length;
@@ -142,13 +150,13 @@ export function buildExplorerFilterSql(filters: ExplorerResolvedFilters): {
     const toIdx = params.length;
     params.push(filters.temporal.now.toISOString());
     const nowIdx = params.length;
-    parts.push(`e.start_at >= $${fromIdx}`);
-    parts.push(`e.start_at <= $${toIdx}`);
-    parts.push(`COALESCE(e.end_at, e.start_at) >= $${nowIdx}`);
+    parts.push(`s.start_at >= $${fromIdx}`);
+    parts.push(`s.start_at <= $${toIdx}`);
+    parts.push(`COALESCE(s.end_at, s.start_at) > $${nowIdx}`);
   } else {
     params.push(filters.temporal.now.toISOString());
     const nowIdx = params.length;
-    parts.push(`COALESCE(e.end_at, e.start_at) >= $${nowIdx}`);
+    parts.push(`COALESCE(s.end_at, s.start_at) > $${nowIdx}`);
   }
 
   if (filters.searchPattern) {
@@ -188,10 +196,12 @@ export function buildExplorerFilterSql(filters: ExplorerResolvedFilters): {
  */
 export function buildExplorerRepresentativesCte(whereSql: string): string {
   return `
-WITH filtered AS (
+WITH ${selectedEventDatesCteSql(whereSql)},
+filtered AS (
   SELECT
     ${EXPLORER_BASE_COLUMNS}
   FROM events e
+  JOIN selected_event_dates s ON s.event_id = e.id
   LEFT JOIN event_availability a ON a.event_id = e.id
   WHERE ${whereSql}
 ),
@@ -282,11 +292,15 @@ export function buildExplorerPageSql(params: {
   return `
 ${buildExplorerRepresentativesCte(params.whereSql)}
 SELECT
-  ${EXPLORER_PAGE_COLUMNS}
-FROM representatives
-${params.keysetSql}
+  ${EXPLORER_PAGE_COLUMNS},
+  ${eventOccurrencesJsonSql(params.whereSql)} AS occurrences
+FROM (
+  SELECT * FROM representatives
+  ${params.keysetSql}
+  ORDER BY start_at ASC, id ASC
+  LIMIT $${params.limitIdx}
+) e
 ORDER BY start_at ASC, id ASC
-LIMIT $${params.limitIdx}
 `.trim();
 }
 

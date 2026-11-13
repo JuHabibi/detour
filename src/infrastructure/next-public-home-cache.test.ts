@@ -74,7 +74,7 @@ describe("next-public-home-cache", () => {
     expect(keyParts).toEqual([
       "detour-public-home",
       "orleans",
-      "pre-ai-snapshot-slim-v2",
+      "pre-ai-snapshot-occurrences-v3",
     ]);
     expect(options).toMatchObject({
       tags: [PUBLIC_HOME_CACHE_TAG],

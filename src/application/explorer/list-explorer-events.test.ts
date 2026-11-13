@@ -95,10 +95,10 @@ describe("buildExplorerFilterSql", () => {
       }),
     );
     expect(whereSql).toContain("e.is_active = true");
-    expect(whereSql).toContain("e.start_at <= $2");
-    expect(whereSql).toContain("COALESCE(e.end_at, e.start_at) >= $1");
+    expect(whereSql).toContain("s.start_at <= $2");
+    expect(whereSql).toContain("COALESCE(s.end_at, s.start_at) > $1");
     expect(whereSql).not.toContain("start_at BETWEEN");
-    expect(whereSql).not.toMatch(/e\.start_at\s*<\s*\$/);
+    expect(whereSql).not.toMatch(/s\.start_at\s*<\s*\$/);
     expect(params).toEqual([range.from.toISOString(), range.to!.toISOString()]);
   });
 
@@ -110,8 +110,8 @@ describe("buildExplorerFilterSql", () => {
         temporal: { mode: "bounded", from: range.from, to: range.to! },
       }),
     );
-    expect(whereSql).toContain("e.start_at <= $2");
-    expect(whereSql).toContain("COALESCE(e.end_at, e.start_at) >= $1");
+    expect(whereSql).toContain("s.start_at <= $2");
+    expect(whereSql).toContain("COALESCE(s.end_at, s.start_at) > $1");
     expect(params[0]).toBe(range.from.toISOString());
     expect(params[1]).toBe(range.to!.toISOString());
   });
@@ -121,8 +121,8 @@ describe("buildExplorerFilterSql", () => {
     const { whereSql, params } = buildExplorerFilterSql(
       filters({ temporal: { mode: "upcoming", now } }),
     );
-    expect(whereSql).toContain("COALESCE(e.end_at, e.start_at) >= $1");
-    expect(whereSql).not.toContain("e.start_at <=");
+    expect(whereSql).toContain("COALESCE(s.end_at, s.start_at) > $1");
+    expect(whereSql).not.toContain("s.start_at <=");
     expect(params).toEqual([now.toISOString()]);
   });
 
@@ -203,12 +203,13 @@ describe("listExplorerEvents — pagination", () => {
     expect(result.events.map((e) => e.id)).toEqual(["a", "b"]);
     expect(result.totalCount).toBe(4);
     expect(decodeExplorerCursor(result.nextCursor!)).toEqual({
+      asOf: now.toISOString(),
       startAt: "2026-11-01T18:00:00.000Z",
       id: "b",
     });
 
     const pageCall = query.mock.calls.find((call) =>
-      String(call[0]).includes("LIMIT"),
+      String(call[0]).includes("LIMIT $"),
     ) as [string, unknown[]] | undefined;
     expect(pageCall![0]).toContain("ORDER BY start_at ASC, id ASC");
     expect(pageCall![0]).toContain("ROW_NUMBER()");
@@ -259,7 +260,7 @@ describe("listExplorerEvents — pagination", () => {
     );
     expect(result).toEqual({ events: [], totalCount: 0, nextCursor: null });
     expect(query.mock.calls.filter((c) => String(c[0]).includes("count(*)"))).toHaveLength(1);
-    expect(query.mock.calls.filter((c) => String(c[0]).includes("LIMIT"))).toHaveLength(1);
+    expect(query.mock.calls.filter((c) => String(c[0]).includes("LIMIT $"))).toHaveLength(1);
   });
 
   it("curseur invalide : aucune requête exécutée", async () => {
@@ -292,6 +293,7 @@ describe("listExplorerEvents — pagination", () => {
     expect(result.events.map((e) => e.id)).toEqual(["c", "d"]);
     expect(result.totalCount).toBeNull();
     expect(decodeExplorerCursor(result.nextCursor!)).toEqual({
+      asOf: now.toISOString(),
       startAt: "2026-11-02T10:00:00.000Z",
       id: "d",
     });
@@ -322,14 +324,14 @@ describe("listExplorerEvents — pagination", () => {
 
     await listExplorerEvents({ when: "upcoming" }, { client, now });
     let limitCall = query.mock.calls.find((c) =>
-      String(c[0]).includes("LIMIT"),
+      String(c[0]).includes("LIMIT $"),
     ) as [string, unknown[]];
     expect(limitCall[1].at(-1)).toBe(EXPLORER_DEFAULT_PAGE_SIZE + 1);
 
     query.mockClear();
     await listExplorerEvents({ when: "upcoming", limit: 999 }, { client, now });
     limitCall = query.mock.calls.find((c) =>
-      String(c[0]).includes("LIMIT"),
+      String(c[0]).includes("LIMIT $"),
     ) as [string, unknown[]];
     expect(limitCall[1].at(-1)).toBe(EXPLORER_MAX_PAGE_SIZE + 1);
   });
@@ -386,11 +388,12 @@ describe("listExplorerEvents — WHEN", () => {
     const range = getDateRangeForWhenFilter("today", now);
     const { query, client } = mockClient((sql, params) => {
       if (sql.includes("count(*)")) {
-        expect(sql).toContain("e.start_at <= $2");
-        expect(sql).toContain("COALESCE(e.end_at, e.start_at) >= $1");
+        expect(sql).toContain("s.start_at <= $2");
+        expect(sql).toContain("COALESCE(s.end_at, s.start_at) > $1");
         expect(params).toEqual([
           range.from.toISOString(),
           range.to!.toISOString(),
+          now.toISOString(),
         ]);
         return { rows: [{ count: "1" }] };
       }
@@ -417,6 +420,7 @@ describe("listExplorerEvents — WHEN", () => {
         expect(params).toEqual([
           range.from.toISOString(),
           range.to!.toISOString(),
+          now.toISOString(),
         ]);
         return { rows: [{ count: "0" }] };
       }
@@ -439,7 +443,7 @@ describe("listExplorerEvents — WHEN", () => {
     const pageSql = query.mock.calls.find((c) =>
       String(c[0]).includes("ORDER BY"),
     )?.[0] as string;
-    expect(pageSql).toContain("e.start_at <= $2");
+    expect(pageSql).toContain("s.start_at <= $2");
     expect(result.events[0]?.id).toBe("edge");
   });
 
@@ -447,8 +451,8 @@ describe("listExplorerEvents — WHEN", () => {
     const now = new Date("2026-09-10T12:00:00+02:00");
     const { query, client } = mockClient((sql, params) => {
       if (sql.includes("count(*)")) {
-        expect(sql).toContain("COALESCE(e.end_at, e.start_at) >= $1");
-        expect(sql).not.toContain("e.start_at <=");
+        expect(sql).toContain("COALESCE(s.end_at, s.start_at) > $1");
+        expect(sql).not.toContain("s.start_at <=");
         expect(params).toEqual([now.toISOString()]);
         return { rows: [{ count: "1" }] };
       }
@@ -489,12 +493,12 @@ describe("listExplorerEvents — WHEN", () => {
     const countCall = query.mock.calls.find((c) =>
       String(c[0]).includes("count(*)"),
     ) as [string, unknown[]];
-    expect(countCall[0]).toContain("e.start_at >= $1");
-    expect(countCall[0]).toContain("e.start_at <= $2");
-    expect(countCall[0]).toContain("COALESCE(e.end_at, e.start_at) >= $3");
+    expect(countCall[0]).toContain("s.start_at >= $1");
+    expect(countCall[0]).toContain("s.start_at <= $2");
+    expect(countCall[0]).toContain("COALESCE(s.end_at, s.start_at) > $3");
     // Pas le prédicat d’intersection Explorer (`end >= from` sans borne start).
     expect(countCall[0]).not.toMatch(
-      /COALESCE\(e\.end_at, e\.start_at\) >= \$1/,
+      /COALESCE\(s\.end_at, s\.start_at\) > \$1/,
     );
     expect(countCall[1][0]).toBe(window.from.toISOString());
     expect(countCall[1][1]).toBe(window.to!.toISOString());
@@ -505,7 +509,7 @@ describe("listExplorerEvents — WHEN", () => {
     const now = new Date("2026-09-15T12:00:00+02:00");
     const { query, client } = mockClient((sql) => {
       if (sql.includes("count(*)")) {
-        expect(sql).toContain("e.start_at >= $1");
+        expect(sql).toContain("s.start_at >= $1");
         return { rows: [{ count: "1" }] };
       }
       // Seule une sortie dont le début est dans la fenêtre doit être renvoyée.
@@ -529,8 +533,8 @@ describe("listExplorerEvents — WHEN", () => {
       String(c[0]).includes("count(*)"),
     )?.[0] as string;
     // Une expo start=août / end=octobre ne satisfait pas start_at >= from.
-    expect(countSql).toContain("e.start_at >= $1");
-    expect(countSql).toContain("e.start_at <= $2");
+    expect(countSql).toContain("s.start_at >= $1");
+    expect(countSql).toContain("s.start_at <= $2");
   });
 
   it("when=range : overlap bounded (≠ start-in-window Frise)", async () => {
@@ -560,9 +564,9 @@ describe("listExplorerEvents — WHEN", () => {
     const countCall = query.mock.calls.find((c) =>
       String(c[0]).includes("count(*)"),
     ) as [string, unknown[]];
-    expect(countCall[0]).toContain("e.start_at <= $2");
-    expect(countCall[0]).toContain("COALESCE(e.end_at, e.start_at) >= $1");
-    expect(countCall[0]).not.toContain("e.start_at >= $1");
+    expect(countCall[0]).toContain("s.start_at <= $2");
+    expect(countCall[0]).toContain("COALESCE(s.end_at, s.start_at) > $1");
+    expect(countCall[0]).not.toContain("\n  AND s.start_at >= $1");
     expect(countCall[1][0]).toBe(window.from.toISOString());
     expect(countCall[1][1]).toBe(window.to!.toISOString());
   });
@@ -679,10 +683,11 @@ describe("listExplorerEvents — combinaison when + search + pagination", () => 
       pageSql = sql;
       expect(params[0]).toBe(range.from.toISOString());
       expect(params[1]).toBe(range.to!.toISOString());
-      expect(params[2]).toBe("%jazz%");
-      expect(params[3]).toBe("2026-09-12T18:00:00.000Z");
-      expect(params[4]).toBe("jazz-1");
-      expect(params[5]).toBe(3);
+      expect(params[2]).toBe(now.toISOString());
+      expect(params[3]).toBe("%jazz%");
+      expect(params[4]).toBe("2026-09-12T18:00:00.000Z");
+      expect(params[5]).toBe("jazz-1");
+      expect(params[6]).toBe(3);
       return {
         rows: [
           dbRow("jazz-2", "2026-09-13T10:00:00.000Z", { title: "Jazz brunch" }),
@@ -749,11 +754,12 @@ describe("listExplorerEvents — CATEGORY", () => {
     const range = getDateRangeForWhenFilter("today", now);
     const { client } = mockClient((sql, params) => {
       if (sql.includes("count(*)")) {
-        expect(sql).toContain("e.start_at <=");
-        expect(sql).toContain("e.product_category = $3");
+        expect(sql).toContain("s.start_at <=");
+        expect(sql).toContain("e.product_category = $4");
         expect(params).toEqual([
           range.from.toISOString(),
           range.to!.toISOString(),
+          now.toISOString(),
           "Spectacle",
         ]);
         return { rows: [{ count: "1" }] };
@@ -835,6 +841,7 @@ describe("listExplorerEvents — CITY", () => {
         expect(params).toEqual([
           range.from.toISOString(),
           range.to!.toISOString(),
+          now.toISOString(),
           "Saran",
         ]);
         return { rows: [{ count: "2" }] };
@@ -882,6 +889,7 @@ describe("listExplorerEvents — combinaison complète", () => {
       expect(params).toEqual([
         range.from.toISOString(),
         range.to!.toISOString(),
+          now.toISOString(),
         "%jazz%",
         "Musique",
         "Orléans",
@@ -919,6 +927,7 @@ describe("listExplorerEvents — combinaison complète", () => {
     expect(result.events.map((e) => e.id)).toEqual(["b", "c"]);
     expect(result.events.map((e) => e.id)).not.toContain("a");
     expect(decodeExplorerCursor(result.nextCursor!)).toEqual({
+      asOf: now.toISOString(),
       startAt: "2026-09-13T12:00:00.000Z",
       id: "c",
     });
@@ -963,7 +972,7 @@ describe("listExplorerEvents — dedupe V1 (read model)", () => {
     );
     expect(result.events).toHaveLength(12);
     const pageCall = query.mock.calls.find((c) =>
-      String(c[0]).includes("LIMIT"),
+      String(c[0]).includes("LIMIT $"),
     ) as [string, unknown[]];
     expect(pageCall[0]).toContain("FROM representatives");
     expect(pageCall[1].at(-1)).toBe(13);
@@ -999,7 +1008,7 @@ describe("listExplorerEvents — dedupe V1 (read model)", () => {
   it("13. search dans le WHERE filtered (avant grouping)", async () => {
     const { query, client } = mockClient((sql) => {
       if (sql.includes("count(*)")) {
-        expect(sql).toMatch(/WITH filtered AS[\s\S]*ILIKE/);
+        expect(sql).toMatch(/filtered AS[\s\S]*ILIKE/);
         expect(sql.indexOf("ILIKE")).toBeLessThan(sql.indexOf("ROW_NUMBER()"));
         return { rows: [{ count: "1" }] };
       }

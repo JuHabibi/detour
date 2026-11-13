@@ -1,3 +1,4 @@
+import { selectedEventDatesCteSql, eventOccurrencesJsonSql, EVENT_OCCURRENCES_JSON_SQL, scheduleEndAfterSql } from "./event-schedule.sql";
 import type { PoolClient } from "pg";
 import type { DetourEvent } from "@/domain/events/event";
 import { attachAvailabilityToEvent } from "@/domain/events/attach-availability";
@@ -17,6 +18,7 @@ import { replaceEventOccurrences } from "@/infrastructure/db/event-occurrence.re
 export const EVENT_UPSERT_CHUNK_SIZE = 150;
 
 const LIST_UPCOMING_SQL = `
+WITH ${selectedEventDatesCteSql(`e.is_active = true AND s.start_at < $2 AND ${scheduleEndAfterSql("$1")}`)}
 SELECT
   e.id,
   e.adapter_id,
@@ -26,9 +28,10 @@ SELECT
   e.image_credit,
   e.image_license,
   e.image_source_url,
-  e.start_at,
-  e.end_at,
-  e.all_day,
+  s.start_at,
+  s.end_at,
+  s.all_day,
+  ${eventOccurrencesJsonSql(`s.start_at < $2 AND ${scheduleEndAfterSql("$1")}`)} AS occurrences,
   e.venue,
   e.city,
   e.latitude,
@@ -48,11 +51,10 @@ SELECT
   a.provider_event_url AS availability_provider_event_url,
   a.checked_at AS availability_checked_at
 FROM events e
+JOIN selected_event_dates s ON s.event_id = e.id
 LEFT JOIN event_availability a ON a.event_id = e.id
 WHERE e.is_active = true
-  AND e.start_at < $2
-  AND COALESCE(e.end_at, e.start_at) >= $1
-ORDER BY e.start_at ASC, e.id ASC
+ORDER BY s.start_at ASC, e.id ASC
 `.trim();
 
 type EventRowWithAvailability = EventRow & {
@@ -126,6 +128,7 @@ SELECT
   e.start_at,
   e.end_at,
   e.all_day,
+  ${EVENT_OCCURRENCES_JSON_SQL} AS occurrences,
   e.venue,
   e.city,
   e.latitude,
@@ -184,10 +187,11 @@ export type EventSitemapRow = {
   id: string;
   startAt: string;
   endAt: string | null;
+  occurrences?: DetourEvent["occurrences"];
 };
 
 const LIST_ACTIVE_SITEMAP_SQL = `
-SELECT e.id, e.start_at, e.end_at
+SELECT e.id, e.start_at, e.end_at, ${EVENT_OCCURRENCES_JSON_SQL} AS occurrences
 FROM events e
 WHERE e.is_active = true
 ORDER BY e.id ASC
@@ -204,12 +208,14 @@ export async function listActiveEventsForSitemap(
     id: string;
     start_at: Date;
     end_at: Date | null;
+    occurrences?: DetourEvent["occurrences"] | null;
   }>(LIST_ACTIVE_SITEMAP_SQL);
 
   return result.rows.map((row) => ({
     id: row.id,
     startAt: row.start_at.toISOString(),
     endAt: row.end_at ? row.end_at.toISOString() : null,
+    ...(row.occurrences != null ? { occurrences: row.occurrences } : {}),
   }));
 }
 

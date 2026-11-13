@@ -1,5 +1,6 @@
 import {
   buildEventsCalendar,
+  hasCalendarDates,
   groupCalendarFilename,
   type BuildEventCalendarOptions,
 } from "@/domain/calendar/build-event-calendar";
@@ -48,6 +49,7 @@ export async function exportGroupCalendarForUser(params: {
     events = group.events.filter((event) => wanted.has(event.id));
   }
 
+  events = events.filter((event) => hasCalendarDates(event, params.options?.now));
   if (events.length === 0) return { status: "empty" };
 
   return {

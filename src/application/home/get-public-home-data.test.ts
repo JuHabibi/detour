@@ -252,7 +252,7 @@ describe("next-public-home-cache — frontière nest IA", () => {
     );
     expect(source).toContain("getPublicHomeSnapshot");
     expect(source).toContain("materializePublicHomeData");
-    expect(source).toContain("pre-ai-snapshot-slim-v2");
+    expect(source).toContain("pre-ai-snapshot-occurrences-v3");
     expect(source).not.toMatch(/return getPublicHomeData\(/);
     const callbackStart = source.indexOf("async () => {");
     const callbackBody = source.slice(

@@ -7,6 +7,7 @@ import type { DetourEvent } from "@/domain/events/event";
 import type { AiHighlightAssessment } from "@/domain/editorial/highlight-assessment";
 import { buildAiHighlightShortlist } from "@/application/ai/build-ai-highlight-shortlist";
 import { filterStillActiveEvents } from "@/domain/events/is-event-still-active";
+import { selectEventInWindow } from "@/domain/events/event-schedule";
 import { isRadarEligibleAvailability } from "@/domain/events/event-availability";
 import {
   AI_DETOUR_DEFAULT_LIMIT,
@@ -198,7 +199,11 @@ export class EventService {
   private async buildPipeline(params: { from: Date; to: Date }) {
     const ingestion = await this.ingestRaw(params);
     // Fraîcheur explicite : hors relevance / dedup — bornes Date (params.from = now home).
-    const rawEvents = filterStillActiveEvents(ingestion.events, params.from);
+    const rawEvents = filterStillActiveEvents(ingestion.events, params.from)
+      .flatMap((event) => {
+        const selected = selectEventInWindow(event, { from: params.from, to: params.to, now: params.from });
+        return selected ? [selected] : [];
+      });
 
     const classifiedEvents = rawEvents.map((event) => {
       const classification = classifyEventRelevance(event);

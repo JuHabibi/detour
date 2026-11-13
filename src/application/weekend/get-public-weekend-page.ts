@@ -1,4 +1,8 @@
-import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
+import {
+  mapDetourEventToEventItem,
+  withEventItemDates,
+} from "@/application/map-detour-event-to-ui";
+import { selectEventInWindow } from "@/domain/events/event-schedule";
 import { formatWeekendRangeLabel } from "@/application/weekend/format-weekend-range-label";
 import {
   listCulturalActiveWeekendEvents,
@@ -54,7 +58,10 @@ export async function getPublicWeekendPage(options?: {
   const sundayKey = toParisDateKey(range.to);
   const corpus = await listWeekendExplorerCorpus(now, options?.client);
   const selected = selectWeekendPageEvents(corpus, { now, limit });
-  const culturalActiveCount = listCulturalActiveWeekendEvents(corpus, now).length;
+  const culturalActiveCount = listCulturalActiveWeekendEvents(
+    corpus,
+    now,
+  ).length;
 
   return {
     saturdayKey,
@@ -78,12 +85,19 @@ export function applyWeekendPageEndedFilter(
 ): PublicWeekendPage {
   return {
     ...page,
-    events: page.events.filter((item) => {
-      if (!item.startAt) return false;
-      return isEventStillActive(
-        { startAt: item.startAt, endAt: item.endAt ?? null },
-        now,
+    events: page.events.flatMap((item) => {
+      if (!item.startAt) return [];
+      const selected = selectEventInWindow(
+        { ...item, startAt: item.startAt, endAt: item.endAt ?? null },
+        {
+          from: new Date(page.weekendFromIso),
+          to: new Date(page.weekendToIso),
+          now,
+        },
       );
+      return selected && isEventStillActive(selected, now)
+        ? [withEventItemDates(item, selected)]
+        : [];
     }),
   };
 }
@@ -95,7 +109,11 @@ async function listWeekendExplorerCorpus(
   const events: DetourEvent[] = [];
   let cursor: string | null = null;
 
-  for (let pageIndex = 0; pageIndex < WEEKEND_CORPUS_MAX_PAGES; pageIndex += 1) {
+  for (
+    let pageIndex = 0;
+    pageIndex < WEEKEND_CORPUS_MAX_PAGES;
+    pageIndex += 1
+  ) {
     const page = await listExplorerEvents(
       {
         when: "weekend",

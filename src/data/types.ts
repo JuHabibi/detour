@@ -1,4 +1,4 @@
-import type { EventRelevance } from "@/domain/events/event";
+import type { EventRelevance, EventOccurrence } from "@/domain/events/event";
 import type { DetourCategory } from "@/domain/events/classify-event-category";
 import type { EditorialBadge } from "@/domain/editorial/resolve-editorial-badge";
 import type {
@@ -35,6 +35,8 @@ export type EventItem = {
    * Journée entière / date-only — `endAt` exclusif pour le calcul du label civil.
    */
   allDay?: boolean;
+  /** Séances explicites ; [] = calendrier indisponible, absent = période historique. */
+  occurrences?: EventOccurrence[];
   time?: string;
   /** Absent tant que la distance n’est pas calculée. */
   distanceKm?: number;

@@ -39,7 +39,7 @@ export async function getCachedPublicHomeData(): Promise<PublicHomeData> {
         exposeDebug: shouldExposeHomeDebug(),
       });
     },
-    ["detour-public-home", PUBLIC_HOME_TERRITORY_SLUG, "pre-ai-snapshot-slim-v2"],
+    ["detour-public-home", PUBLIC_HOME_TERRITORY_SLUG, "pre-ai-snapshot-occurrences-v3"],
     {
       tags: [PUBLIC_HOME_CACHE_TAG],
       revalidate: PUBLIC_HOME_CACHE_REVALIDATE_SECONDS,
