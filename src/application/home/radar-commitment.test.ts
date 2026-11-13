@@ -290,6 +290,11 @@ describe("materializePublicHomeData — commitment-first (pipeline réel)", () =
     expect(second.highlights.map((item) => item.id)).toEqual(idsFirst);
     expect(finalizeCalls).toBe(1);
 
+    // Planning MISS→HIT : mêmes IDs (assessments figés au commit)
+    expect(second.planningEvents.map((item) => item.id)).toEqual(
+      first.planningEvents.map((item) => item.id),
+    );
+
     // Partial path : simulate finalize that would reshuffle — must not run
     const third = await materializePublicHomeData(snapshot, {
       now: new Date("2026-11-13T15:00:00.000Z"),
@@ -299,6 +304,39 @@ describe("materializePublicHomeData — commitment-first (pipeline réel)", () =
       },
     });
     expect(third.highlights.map((item) => item.id)).toEqual(idsFirst);
+  });
+
+  it("Planning : HIT commitment rejoue selectPlanningEvents avec assessments figés", async () => {
+    const { service, snapshot } = await buildSnapshot(corpus);
+    const store = createMemoryRadarCommitmentStore();
+    const now = new Date("2026-11-13T12:00:00.000Z");
+
+    const miss = await materializePublicHomeData(snapshot, {
+      now,
+      commitmentStore: store,
+      finalizeUpcomingWithAutoAi: (pipeline) =>
+        service.finalizeUpcomingWithAutoAi(pipeline),
+    });
+
+    const stored = await store.read(hashPublicHomeSnapshot(snapshot));
+    expect(stored?.aiAssessments.length).toBe(snapshot.aiShortlist.length);
+    expect(stored?.aiAssessments.length).toBeGreaterThan(0);
+
+    const hit = await materializePublicHomeData(snapshot, {
+      now,
+      commitmentStore: store,
+      finalizeUpcomingWithAutoAi: async () => {
+        throw new Error("finalize must not run on HIT");
+      },
+    });
+
+    expect(hit.planningEvents.map((item) => item.id)).toEqual(
+      miss.planningEvents.map((item) => item.id),
+    );
+    // Pas de régression « À prévoir » vide alors que le MISS avait des cartes
+    if (miss.planningEvents.length > 0) {
+      expect(hit.planningEvents.length).toBe(miss.planningEvents.length);
+    }
   });
 
   it("IA indisponible au premier chargement → Home OK, pas de commitment persistant", async () => {

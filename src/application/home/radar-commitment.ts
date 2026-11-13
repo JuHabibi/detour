@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { AiAssessmentCacheSource } from "@/application/ai/ai-assessment-cache";
+import type { AiHighlightAssessment } from "@/domain/editorial/highlight-assessment";
 import type {
   AiHighlightSelectionMeta,
   EventHighlight,
@@ -23,8 +24,14 @@ export type RadarCommitmentItem = {
   aiSelection?: AiHighlightSelectionMeta;
 };
 
+/**
+ * Commitment Radar + assessments figés au commit.
+ * Les assessments permettent de rejouer `selectPlanningEvents` au HIT
+ * sans nouvel appel provider (Planning équivalent MISS→HIT).
+ */
 export type RadarCommitment = {
   items: RadarCommitmentItem[];
+  aiAssessments: AiHighlightAssessment[];
 };
 
 /** Slice snapshot nécessaire au hash / à la projection (évite import circulaire). */
@@ -95,6 +102,7 @@ export function isRadarAssessmentCommittable(params: {
 
 export function toRadarCommitment(
   highlights: EventHighlight[],
+  aiAssessments: AiHighlightAssessment[] = [],
 ): RadarCommitment {
   return {
     items: highlights.map((highlight) => ({
@@ -110,6 +118,7 @@ export function toRadarCommitment(
         ? { aiSelection: highlight.aiSelection }
         : {}),
     })),
+    aiAssessments,
   };
 }
 

@@ -222,7 +222,8 @@ export type MaterializePublicHomeDataOptions = {
  * 2. Sinon finalize IA ; écrire seulement si assessments committables
  * 3. Projeter les séances (`now`) : drop sans refill, dates à jour
  *
- * Planning : hors commitment — recalculé à chaque materialize (inchangé).
+ * Planning : rejoué au HIT avec les `aiAssessments` figés au commit
+ * (pas de nouvel appel provider ; règles `selectPlanningEvents` inchangées).
  */
 export async function materializePublicHomeData(
   snapshot: PublicHomeSnapshot,
@@ -247,6 +248,7 @@ export async function materializePublicHomeData(
     const pipeline = reviveUpcomingPipelineFromSlim(snapshot);
     const planningEvents = selectPlanningEvents({
       events: snapshot.events,
+      aiAssessments: existing.aiAssessments,
       excludedEventIds: highlights.map((item) => item.event.id),
       deterministicCandidates: pipeline.rankedCandidates,
       now,
@@ -261,9 +263,13 @@ export async function materializePublicHomeData(
 
   // Miss : sélection éditoriale sur le snapshot figé (pas de re-filtre temporel
   // du corpus — la projection post-sélection gère les séances expirées).
-  const result = await finalize(reviveUpcomingPipelineFromSlim(snapshot));
+  const pipeline = reviveUpcomingPipelineFromSlim(snapshot);
+  const result = await finalize(pipeline);
 
-  const commitment = toRadarCommitment(result.highlights);
+  const commitment = toRadarCommitment(
+    result.highlights,
+    result.aiAssessments,
+  );
   if (
     isRadarAssessmentCommittable({
       source: result.aiMeta.source,
@@ -283,10 +289,19 @@ export async function materializePublicHomeData(
     events: snapshot.events,
     now,
   });
+  // Même formule que le HIT : assessments du commit + now explicite
+  // (évite l’écart avec `result.planningEvents` qui utilise `Date.now()` interne).
+  const planningEvents = selectPlanningEvents({
+    events: snapshot.events,
+    aiAssessments: commitment.aiAssessments,
+    excludedEventIds: highlights.map((item) => item.event.id),
+    deterministicCandidates: pipeline.rankedCandidates,
+    now,
+  });
 
   return toPublicHomeData({
     highlights,
-    planningEvents: result.planningEvents,
+    planningEvents,
     events: result.events,
     debugMeta: snapshot.exposeDebug ? buildEventsDebugMeta(result) : undefined,
     exposeDebug: snapshot.exposeDebug,

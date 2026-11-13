@@ -8,8 +8,16 @@ import {
 import { shouldExposeHomeDebug } from "@/config/home-debug";
 import { PUBLIC_TERRITORY_SLUG } from "@/config/public-territory";
 import { createNextRadarCommitmentStore } from "@/infrastructure/ai/next-radar-commitment-cache";
+import type { RadarCommitmentStore } from "@/application/home/radar-commitment";
 
-const radarCommitmentStore = createNextRadarCommitmentStore();
+/** Lazy : éviter `unstable_cache` au simple import (tests sync / routes). */
+let radarCommitmentStore: RadarCommitmentStore | null = null;
+function getRadarCommitmentStore(): RadarCommitmentStore {
+  if (!radarCommitmentStore) {
+    radarCommitmentStore = createNextRadarCommitmentStore();
+  }
+  return radarCommitmentStore;
+}
 
 /**
  * Scope cache Home publique — slug territoire futur-proof
@@ -53,7 +61,7 @@ export async function getCachedPublicHomeData(): Promise<PublicHomeData> {
 
   // Hors callback unstable_cache parent → commitment + reads Data Cache IA OK.
   return materializePublicHomeData(snapshot, {
-    commitmentStore: radarCommitmentStore,
+    commitmentStore: getRadarCommitmentStore(),
   });
 }
 

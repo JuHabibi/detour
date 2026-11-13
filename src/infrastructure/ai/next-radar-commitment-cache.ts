@@ -31,49 +31,86 @@ export function isRadarCommitmentCacheMiss(error: unknown): boolean {
   );
 }
 
-function commitmentCacheKeyParts(snapshotHash: string): string[] {
-  return ["detour-radar-commitment", "v1", snapshotHash];
+/**
+ * Next compose la clé ainsi :
+ *   fixedKey = `${cb.toString()}-${keyParts.join(",")}`
+ *   invocationKey = `${fixedKey}-${JSON.stringify(args)}`
+ * Deux lambdas différentes ⇒ deux entrées, même si keyParts sont identiques.
+ * Une seule fonction nommée + les mêmes args ⇒ la même entrée.
+ */
+export const RADAR_COMMITMENT_CACHE_KEY_PREFIX = [
+  "detour-radar-commitment",
+  "v1",
+] as const;
+
+/**
+ * Canal d’écriture request-local : le compute ne reçoit le payload qu’au miss
+ * d’un `write`. Ce n’est pas un cache de vérité — le Data Cache Next l’est.
+ * Obligatoire car `unstable_cache` inclut les args dans la clé : on ne peut pas
+ * passer le commitment en argument sans diverger de la clé de `read`.
+ */
+const writePayloadByHash = new Map<string, RadarCommitment>();
+
+/**
+ * Callback unique read/write — `toString()` stable, args = `(snapshotHash)`.
+ */
+export async function loadRadarCommitmentCached(
+  snapshotHash: string,
+): Promise<RadarCommitment> {
+  const pending = writePayloadByHash.get(snapshotHash);
+  if (pending) return pending;
+  throw new RadarCommitmentCacheMissError();
+}
+
+/** Exposé pour tests : formule d’invocation Next 16. */
+export function buildRadarCommitmentInvocationKey(
+  cb: (...args: never[]) => unknown,
+  keyParts: readonly string[],
+  args: unknown[],
+): string {
+  const fixedKey = `${cb.toString()}-${keyParts.join(",")}`;
+  return `${fixedKey}-${JSON.stringify(args)}`;
+}
+
+function cachedCommitment(snapshotHash: string): Promise<RadarCommitment> {
+  return unstable_cache(
+    loadRadarCommitmentCached,
+    [...RADAR_COMMITMENT_CACHE_KEY_PREFIX],
+    {
+      tags: [RADAR_COMMITMENT_CACHE_TAG],
+      revalidate: RADAR_COMMITMENT_REVALIDATE_SECONDS,
+    },
+  )(snapshotHash);
 }
 
 /**
  * Data Cache sibling du snapshot Home (même tag → invalidation sync cohérente).
  *
- * Limite Next documentée : `unstable_cache` ne distingue pas HIT/MISS.
- * - `read` : callback qui throw sur miss → HIT renvoie le commitment, MISS → null
- *   (throw non persisté). Permet de **skip l’IA** si un commitment existe.
- * - `write` : n’appeler qu’avec une sélection IA committable.
+ * - Même fonction nommée + mêmes keyParts + même arg `snapshotHash` pour read/write.
+ * - `read` miss → throw non persisté → null (pas de baseline écrite).
+ * - `write` dépose le payload dans le canal, puis miss cache → compute renvoie
+ *   le commitment et Next le persiste.
+ * - `unstable_cache` n’est appelé qu’au read/write (pas au import module).
  */
 export function createNextRadarCommitmentStore(): RadarCommitmentStore {
   return {
     async read(snapshotHash) {
       try {
-        return await unstable_cache(
-          async (): Promise<RadarCommitment> => {
-            throw new RadarCommitmentCacheMissError();
-          },
-          commitmentCacheKeyParts(snapshotHash),
-          {
-            tags: [RADAR_COMMITMENT_CACHE_TAG],
-            revalidate: RADAR_COMMITMENT_REVALIDATE_SECONDS,
-          },
-        )();
+        return await cachedCommitment(snapshotHash);
       } catch (error) {
         if (isRadarCommitmentCacheMiss(error)) return null;
-        // Home ne doit pas tomber : traiter comme miss.
         console.error("[detour] radar commitment read failed", error);
         return null;
       }
     },
 
     async write(snapshotHash, commitment) {
-      return unstable_cache(
-        async () => commitment,
-        commitmentCacheKeyParts(snapshotHash),
-        {
-          tags: [RADAR_COMMITMENT_CACHE_TAG],
-          revalidate: RADAR_COMMITMENT_REVALIDATE_SECONDS,
-        },
-      )();
+      writePayloadByHash.set(snapshotHash, commitment);
+      try {
+        return await cachedCommitment(snapshotHash);
+      } finally {
+        writePayloadByHash.delete(snapshotHash);
+      }
     },
   };
 }
