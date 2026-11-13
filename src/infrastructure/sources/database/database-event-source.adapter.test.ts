@@ -44,7 +44,7 @@ describe("DatabaseEventSourceAdapter", () => {
 
     const ingestion = await adapter.ingestUpcomingEvents({ from, to });
 
-    expect(list).toHaveBeenCalledWith({ from, to });
+    expect(list).toHaveBeenCalledWith({ from, to, now: from });
     expect(ingestion.events.map((e) => e.id)).toEqual([
       "openagenda:1",
       "saran:1",

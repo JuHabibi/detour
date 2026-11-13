@@ -81,6 +81,82 @@ function candidate(e: DetourEvent): EventHighlight {
 }
 
 describe("assessHighlightsCached per-event", () => {
+  it("deux instances suivent la même sélection après renouvellement du cache partagé", async () => {
+    const events = [event("oud"), event("lopez")];
+    const instanceA = createMemoryAiAssessmentCacheStore();
+    const instanceB = createMemoryAiAssessmentCacheStore();
+    const dataCache = new Map<string, AiAssessmentCacheEntry>();
+    let preferred = "oud";
+    const assess = vi.fn(async (batch: DetourEvent[]) =>
+      batch.map((item) => assessment(item.id, item.id === preferred ? 5 : 3)),
+    );
+    const readThrough = async (
+      key: string,
+      compute: () => Promise<AiAssessmentCacheEntry>,
+    ) => {
+      const hit = dataCache.get(key);
+      if (hit) return hit;
+      const entry = await compute();
+      dataCache.set(key, entry);
+      return entry;
+    };
+    const read = (store: typeof instanceA, force = false) =>
+      assessHighlightsCached({
+        events, assess, store, readThrough, force,
+        cacheContext: baseContext,
+        onForceInvalidate: (key) => { dataCache.delete(key); },
+      });
+    const selection = (result: Awaited<ReturnType<typeof read>>) =>
+      selectAiDetourHighlights(events.map(candidate), result.assessments, {
+        limit: 1,
+      }).map((item) => item.event.id);
+
+    expect(selection(await read(instanceA))).toEqual(["oud"]);
+    expect(selection(await read(instanceB))).toEqual(["oud"]);
+
+    // Une autre instance renouvelle les notes pour les mêmes clés.
+    preferred = "lopez";
+    const renewed = await read(instanceB, true);
+    expect(selection(renewed)).toEqual(["lopez"]);
+    const nextA = await read(instanceA);
+    const nextB = await read(instanceB);
+
+    expect(selection(nextA)).toEqual(selection(nextB));
+    expect(nextA.assessments).toEqual(renewed.assessments);
+    expect(assess).toHaveBeenCalledTimes(2);
+    expect(nextA.cacheMisses).toBe(0);
+  });
+
+  it("une valeur stale renvoyée par Next ne reste pas figée 7j dans l’instance", async () => {
+    const store = createMemoryAiAssessmentCacheStore();
+    const stale = {
+      assessment: assessment("a", 3),
+      assessedAt: "2026-11-01T00:00:00.000Z",
+    };
+    const refreshed = {
+      assessment: assessment("a", 5),
+      assessedAt: "2026-11-08T00:00:00.000Z",
+    };
+    // Next peut servir l’ancienne entrée pendant sa revalidation en arrière-plan.
+    const readThrough = vi.fn()
+      .mockResolvedValueOnce(stale)
+      .mockResolvedValue(refreshed);
+    const assess = vi.fn();
+    const params = {
+      events: [event("a")], assess, store, readThrough,
+      cacheContext: baseContext,
+    };
+
+    expect((await assessHighlightsCached(params)).assessments).toEqual([
+      stale.assessment,
+    ]);
+    expect((await assessHighlightsCached(params)).assessments).toEqual([
+      refreshed.assessment,
+    ]);
+    expect(readThrough).toHaveBeenCalledTimes(2);
+    expect(assess).not.toHaveBeenCalled();
+  });
+
   it("total hit → 0 nouvel appel provider", async () => {
     const store = createMemoryAiAssessmentCacheStore();
     const assess = vi.fn(async (events: DetourEvent[]) =>

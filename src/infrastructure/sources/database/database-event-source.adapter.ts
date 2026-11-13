@@ -34,6 +34,7 @@ const ADAPTER_ORDER_PREFERRED = [
 ] as const;
 
 export type ListUpcomingActiveWithAdapter = (params: {
+  now?: Date;
   from: Date;
   to: Date;
 }) => Promise<EventWithAdapter[]>;
@@ -61,7 +62,7 @@ export class DatabaseEventSourceAdapter
     from: Date;
     to: Date;
   }): Promise<EventIngestionResult> {
-    const rows = await this.listUpcoming(params);
+    const rows = await this.listUpcoming({ ...params, now: params.from });
     return buildIngestionFromDbRows(rows);
   }
 }

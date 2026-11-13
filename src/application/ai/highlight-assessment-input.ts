@@ -27,8 +27,10 @@ export function toAiHighlightEventInput(event: DetourEvent): AiHighlightEventInp
     city: event.city,
     source: event.source,
     conditions: event.conditions,
-    startAt: event.startAt,
-    endAt: event.endAt,
+    // Même entrée pour le fournisseur et sa clé de cache. La séance courante
+    // appartient à la projection temporelle, pas à l'évaluation éditoriale.
+    startAt: (event.sourceDates ?? event).startAt,
+    endAt: (event.sourceDates ?? event).endAt,
     hasRegistrationUrl: Boolean(event.registrationUrl),
   };
 }

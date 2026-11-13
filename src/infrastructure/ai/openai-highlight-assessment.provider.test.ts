@@ -1,3 +1,4 @@
+import { toAiHighlightEventInput } from "@/application/ai/highlight-assessment-input";
 import { describe, expect, it, vi } from "vitest";
 import {
   AI_ASSESSMENT_PROMPT_VERSION,
@@ -160,7 +161,11 @@ describe("OpenAiHighlightAssessmentProvider", () => {
       batchSize: 10,
     });
 
-    const result = await provider.assess([event("a")]);
+    const displayed = {
+      ...event("a"),
+      sourceDates: { startAt: "2026-09-01T18:00:00.000Z", endAt: null },
+    };
+    const result = await provider.assess([displayed]);
     expect(result).toHaveLength(1);
     expect(result[0]?.appeal).toBe(4);
     expect(result[0]?.localRarity).toBe(2);
@@ -171,6 +176,8 @@ describe("OpenAiHighlightAssessmentProvider", () => {
     const body = JSON.parse(
       (fetchImpl.mock.calls[0]?.[1] as RequestInit).body as string,
     );
+    expect(JSON.parse(body.messages[1].content).events[0]).toEqual(toAiHighlightEventInput(displayed));
+    expect(JSON.parse(body.messages[1].content).events[0].startAt).not.toBe(displayed.startAt);
     expect(body.messages[0].content).toBe(OPENAI_HIGHLIGHT_SYSTEM_PROMPT);
     expect(body.messages[0].content).toContain("localRarity");
     expect(body.messages[0].content).toContain("missRisk");

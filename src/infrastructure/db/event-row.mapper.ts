@@ -13,6 +13,8 @@ export type EventRow = {
   image_source_url?: string | null;
   start_at: Date;
   end_at: Date | null;
+  source_start_at?: Date;
+  source_end_at?: Date | null;
   all_day?: boolean;
   occurrences?: DetourEvent["occurrences"] | null;
   venue: string | null;
@@ -65,6 +67,14 @@ export function mapEventRowToDetourEvent(row: EventRow): DetourEvent {
     imageSourceUrl: emptyToNull(row.image_source_url),
     startAt: toIso(row.start_at),
     endAt: toIsoOrNull(row.end_at),
+    ...(row.source_start_at
+      ? {
+          sourceDates: {
+            startAt: toIso(row.source_start_at),
+            endAt: toIsoOrNull(row.source_end_at ?? null),
+          },
+        }
+      : {}),
     ...(row.all_day ? { allDay: true as const } : {}),
     ...(row.occurrences != null
       ? {

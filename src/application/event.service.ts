@@ -149,13 +149,14 @@ export class EventService {
    */
   async finalizeUpcomingWithAutoAi(
     pipeline: UpcomingEventsPipeline,
+    now: Date = new Date(),
   ): Promise<UpcomingEventsResult> {
     const autoAi =
       this.aiConfig.enabled && this.aiConfig.mode === "auto"
         ? await this.assessShortlist(pipeline.aiShortlist, { force: false })
         : null;
 
-    return this.composeResult(pipeline, autoAi);
+    return this.composeResult(pipeline, autoAi, now);
   }
 
   async getUpcomingEvents(params: {
@@ -163,7 +164,7 @@ export class EventService {
     to: Date;
   }): Promise<UpcomingEventsResult> {
     const pipeline = await this.buildUpcomingPipeline(params);
-    return this.finalizeUpcomingWithAutoAi(pipeline);
+    return this.finalizeUpcomingWithAutoAi(pipeline, params.from);
   }
 
   async runManualAiAssessment(params: {
@@ -182,7 +183,7 @@ export class EventService {
     const assessed = await this.assessShortlist(pipeline.aiShortlist, {
       force: params.force ?? false,
     });
-    return this.composeResult(pipeline, assessed);
+    return this.composeResult(pipeline, assessed, params.from);
   }
 
   private async ingestRaw(params: {
@@ -201,7 +202,12 @@ export class EventService {
     // Fraîcheur explicite : hors relevance / dedup — bornes Date (params.from = now home).
     const rawEvents = filterStillActiveEvents(ingestion.events, params.from)
       .flatMap((event) => {
-        const selected = selectEventInWindow(event, { from: params.from, to: params.to, now: params.from });
+        const selected = selectEventInWindow({
+          ...event,
+          sourceDates: event.sourceDates ?? {
+            startAt: event.startAt, endAt: event.endAt,
+          },
+        }, { from: params.from, to: params.to, now: params.from });
         return selected ? [selected] : [];
       });
 
@@ -219,7 +225,9 @@ export class EventService {
     const radarEligibleEvents = events.filter((event) =>
       isRadarEligibleAvailability(event.availabilityStatus),
     );
-    const rankedCandidates = rankDetourHighlightCandidates(radarEligibleEvents);
+    const rankedCandidates = rankDetourHighlightCandidates(radarEligibleEvents, {
+      now: params.from,
+    });
     const highlightCandidates = rankedCandidates.slice(0, 20);
     const builtShortlist = buildAiHighlightShortlist(rankedCandidates);
     const aiShortlist = builtShortlist.shortlist;
@@ -245,6 +253,7 @@ export class EventService {
   private composeResult(
     pipeline: UpcomingEventsPipeline,
     assessed: AssessHighlightsCachedResult | null,
+    now: Date,
   ): UpcomingEventsResult {
     const aiAssessments = assessed?.assessments ?? [];
     const aiHighlights = selectAiDetourHighlights(
@@ -256,13 +265,14 @@ export class EventService {
     const radarFallbackPool = pipeline.events.filter((event) =>
       isRadarEligibleAvailability(event.availabilityStatus),
     );
-    const highlights = completeRadarHighlights(aiHighlights, radarFallbackPool);
+    const highlights = completeRadarHighlights(aiHighlights, radarFallbackPool, now);
 
     const planningEvents = selectPlanningEvents({
       events: pipeline.events,
       aiAssessments,
       excludedEventIds: highlights.map((item) => item.event.id),
       deterministicCandidates: pipeline.rankedCandidates,
+      now,
     });
 
     const sourceIngestion = buildSourceIngestionStats({
@@ -349,6 +359,7 @@ export class EventService {
 function completeRadarHighlights(
   aiHighlights: EventHighlight[],
   radarEligibleEvents: DetourEvent[],
+  now: Date,
 ): EventHighlight[] {
   const missing = AI_DETOUR_DEFAULT_LIMIT - aiHighlights.length;
   if (missing <= 0) return aiHighlights;
@@ -363,7 +374,7 @@ function completeRadarHighlights(
         !aiSelectedIds.has(event.id) &&
         !aiDiscoveryKeys.has(buildRadarDiscoveryKey(event)),
     ),
-    { limit: missing },
+    { limit: missing, now },
   ).map((highlight) => ({
     ...highlight,
     selectionSource: "deterministic" as const,

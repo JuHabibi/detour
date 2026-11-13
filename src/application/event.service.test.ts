@@ -461,6 +461,7 @@ describe("EventService Radar — complément d’une sélection IA partielle", (
       result.highlights,
     ).toEqual(
       selectDetourHighlights(result.events, {
+        now: from,
         limit: AI_DETOUR_DEFAULT_LIMIT,
       }).map((highlight) => ({
         ...highlight,
