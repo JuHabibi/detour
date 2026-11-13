@@ -11,6 +11,7 @@ import {
   type EventWithAdapter,
 } from "@/infrastructure/db/event-row.mapper";
 import { getPool, type DbQueryable } from "@/infrastructure/db/postgres";
+import { replaceEventOccurrences } from "@/infrastructure/db/event-occurrence.repository";
 
 /** Taille de chunk upsert — même client pour tous les chunks. */
 export const EVENT_UPSERT_CHUNK_SIZE = 150;
@@ -248,6 +249,7 @@ export async function upsertMany(
       values.push(...detourEventToUpsertValues(adapterId, event, syncMarker));
     }
     await client.query(sql, values);
+    await replaceEventOccurrences(chunk, syncMarker, client);
   }
 }
 

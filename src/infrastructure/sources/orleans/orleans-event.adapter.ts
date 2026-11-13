@@ -18,6 +18,7 @@ const SELECT_FIELDS = [
   "image",
   "firstdate_begin",
   "firstdate_end",
+  "timings",
   "location_name",
   "location_city",
   "location_coordinates",
@@ -170,18 +171,21 @@ function buildOrleansUrl(from: Date, to: Date, offset: number): string {
   return `${BASE_URL}?${searchParams.toString()}`;
 }
 
-/** ODS window intersection: start <= to AND ifnull(end, start) >= from. */
+/** Enveloppe du calendrier : inclut les séries déjà commencées.
+ * Les trous entre séances ne sont jamais convertis en occurrences.
+ */
 export function buildOrleansWhereClause(
   fromLiteral: string,
   toLiteral: string,
 ): string {
   return [
     `firstdate_begin <= date'${toLiteral}'`,
-    `ifnull(firstdate_end, firstdate_begin) >= date'${fromLiteral}'`,
-    `statut_evenement = 'à venir'`,
+    `ifnull(lastdate_end, ifnull(firstdate_end, firstdate_begin)) >= date'${fromLiteral}'`,
+    `(statut_evenement = 'à venir' OR statut_evenement = 'en cours')`,
   ].join(" AND ");
 }
 
 function toOdsDateLiteral(date: Date): string {
-  return date.toISOString().replace(/\.\d{3}Z$/, "");
+  // Conserver le fuseau : timezone=Europe/Paris ne doit pas déplacer les bornes UTC.
+  return date.toISOString();
 }

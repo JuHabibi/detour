@@ -6,6 +6,14 @@ export type EventRelevance =
   | "out_of_scope"
   | "uncertain";
 
+/** Séance explicitement datée par la source ; aucune récurrence déduite. */
+export type EventOccurrence = {
+  startAt: string;
+  endAt: string;
+  /** Si true, endAt est exclusif, comme pour DetourEvent.allDay. */
+  allDay: boolean;
+};
+
 export type DetourEvent = {
   id: string;
   title: string;
@@ -27,6 +35,14 @@ export type DetourEvent = {
    * Quand true, `endAt` est une borne exclusive (convention RFC 5545 / sources all-day).
    */
   allDay?: boolean;
+
+  /**
+   * Snapshot complet des séances fourni à l’ingestion.
+   * Absent : calendrier inconnu, préserver le dernier snapshot stocké.
+   * [] : calendrier explicitement vide, remplacer les anciennes séances.
+   * Les lectures historiques ne chargent pas encore cette relation.
+   */
+  occurrences?: EventOccurrence[];
 
   venue: string | null;
   city: string | null;

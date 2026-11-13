@@ -244,6 +244,13 @@ Composition home : `createHighlightAssessmentProvider()` + cache Next
 
 Migrations : `db/migrations/` (dbmate). Client : `pg` standard (`infrastructure/db/postgres.ts`) — **pas** de SDK Neon dans le métier ; `DATABASE_URL` (souvent pooled Neon en prod). SSL : `sslmode=verify-full` dans l’URL (pas de override dans le Pool ; pas de `uselibpqcompat`).
 
+**Séances explicites (ingestion)** : `event_occurrences` dépend de l’identité stable
+`events.id`. L’adapter Orléans fournit le calendrier `timings` complet, remplacé
+dans la transaction de sync existante. `events.occurrences_synced_at` distingue
+inconnu et calendrier connu vide. Les lectures restent pour l’instant sur la
+période historique ; contrat et déploiement dans
+[`event-occurrences-rollout.md`](event-occurrences-rollout.md).
+
 **`events`** : id, adapter_id, champs DetourEvent, `is_active`, `last_seen_at`, timestamps.
 
 **`source_syncs`** : une ligne par adapter — `last_attempt_at`, `last_success_at`, status, `fetched_count`, erreurs safe, `sync_lock_token` / `sync_locked_until`.

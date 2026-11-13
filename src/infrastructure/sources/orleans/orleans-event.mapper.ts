@@ -1,5 +1,6 @@
 import type { DetourEvent } from "@/domain/events/event";
 import type { OrleansRawEvent } from "./orleans-event.types";
+import { parseOrleansOccurrences } from "./orleans-occurrences";
 
 export function mapOrleansEventToDetourEvent(
   rawEvent: OrleansRawEvent,
@@ -15,6 +16,7 @@ export function mapOrleansEventToDetourEvent(
     imageUrl: emptyToNull(rawEvent.image),
     startAt: rawEvent.firstdate_begin,
     endAt: emptyToNull(rawEvent.firstdate_end),
+    occurrences: parseOrleansOccurrences(rawEvent.timings),
     venue: emptyToNull(rawEvent.location_name),
     city: emptyToNull(rawEvent.location_city),
     latitude: rawEvent.location_coordinates?.lat ?? null,

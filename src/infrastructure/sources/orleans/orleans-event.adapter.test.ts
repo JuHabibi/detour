@@ -52,6 +52,24 @@ function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }) {
 }
 
 describe("OrleansEventAdapter pagination fail-closed", () => {
+  it("transmet les séances d’une série en cours et rejette un calendrier partiellement invalide", async () => {
+    const ongoing = {
+      ...rawEvent("ongoing"),
+      statut_evenement: "en cours",
+      timings: JSON.stringify([
+        { begin: "2026-10-01T20:00:00+02:00", end: "2026-10-01T22:00:00+02:00" },
+        { begin: "2026-11-27T20:00:00+01:00", end: "2026-11-27T22:00:00+01:00" },
+      ]),
+    };
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ total_count: 1, results: [ongoing] }));
+    const adapter = new OrleansEventAdapter({ fetchImpl: fetchImpl as unknown as typeof fetch });
+    const events = await adapter.fetchUpcomingEvents({ from, to });
+    expect(events).toHaveLength(1);
+    expect(events[0].occurrences).toHaveLength(2);
+    fetchImpl.mockResolvedValue(jsonResponse({ total_count: 2, results: [ongoing, { ...rawEvent("bad"), timings: "[{}]" }] }));
+    await expect(adapter.fetchUpcomingEvents({ from, to })).rejects.toThrow("Orleans timings:");
+  });
+
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
@@ -226,7 +244,7 @@ describe("OrleansEventAdapter window intersection WHERE", () => {
     globalThis.fetch = originalFetch;
   });
 
-  it("envoie un WHERE d'intersection ODS avec ifnull(end, begin)", async () => {
+  it("intersecte l’enveloppe complète et conserve les bornes UTC", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       jsonResponse({ total_count: 0, results: [] }),
     );
@@ -240,11 +258,12 @@ describe("OrleansEventAdapter window intersection WHERE", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const calledUrl = new URL(String(fetchMock.mock.calls[0][0]));
     expect(calledUrl.searchParams.get("where")).toBe(
-      buildOrleansWhereClause("2026-09-08T00:00:00", "2026-09-15T00:00:00"),
+      buildOrleansWhereClause("2026-09-08T00:00:00.000Z", "2026-09-15T00:00:00.000Z"),
     );
     expect(calledUrl.searchParams.get("where")).toBe(
-      "firstdate_begin <= date'2026-09-15T00:00:00' AND ifnull(firstdate_end, firstdate_begin) >= date'2026-09-08T00:00:00' AND statut_evenement = 'à venir'",
+      "firstdate_begin <= date'2026-09-15T00:00:00.000Z' AND ifnull(lastdate_end, ifnull(firstdate_end, firstdate_begin)) >= date'2026-09-08T00:00:00.000Z' AND (statut_evenement = 'à venir' OR statut_evenement = 'en cours')",
     );
+    expect(calledUrl.searchParams.get("select")?.split(",")).toContain("timings");
   });
 
   it("1. begin < from < end → inclus", () => {
