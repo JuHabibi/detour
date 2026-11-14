@@ -20,7 +20,7 @@ export function publicEventCacheTag(eventId: string): string {
 
 /**
  * Snapshot PG via Data Cache (6h / invalidation sync).
- * `isEnded` est calculé **après** lecture du cache, à l’horloge de la requête.
+ * Séances, `isEnded` et fraîcheur de disponibilité sont calculés **après** lecture du cache.
  */
 export async function getCachedPublicEventPage(
   eventId: string,
@@ -28,7 +28,7 @@ export async function getCachedPublicEventPage(
 ): Promise<GetPublicEventPageResult> {
   const cachedSnapshot = unstable_cache(
     async () => getPublicEventSnapshot(eventId),
-    ["detour-public-event-v2", eventId],
+    ["detour-public-event-v3-availability", eventId],
     {
       tags: [PUBLIC_EVENTS_CACHE_TAG, publicEventCacheTag(eventId)],
       revalidate: PUBLIC_EVENT_CACHE_REVALIDATE_SECONDS,

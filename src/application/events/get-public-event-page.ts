@@ -3,6 +3,11 @@ import {
   withEventItemDates,
 } from "@/application/map-detour-event-to-ui";
 import { eventForDisplay } from "@/domain/events/event-schedule";
+import {
+  resolveAvailabilityBadge,
+  resolveFreshAvailabilityStatus,
+  type EventAvailabilityStatus,
+} from "@/domain/events/event-availability";
 import type { EventItem } from "@/data/types";
 import { isEventStillActive } from "@/domain/events/is-event-still-active";
 import {
@@ -16,6 +21,12 @@ export type PublicEventPageSnapshot = {
   item: EventItem;
   startAt: string;
   endAt: string | null;
+  /** Observation sérialisable, sans figer sa fraîcheur dans le Data Cache. */
+  availability?: {
+    status: EventAvailabilityStatus;
+    checkedAt: string;
+    providerEventUrl: string | null;
+  } | null;
 };
 
 export type PublicEventPageData = PublicEventPageSnapshot & {
@@ -61,11 +72,16 @@ export async function getPublicEventSnapshot(
       item,
       startAt: record.event.startAt,
       endAt: record.event.endAt,
+      availability: record.availability ? {
+        status: record.availability.status,
+        checkedAt: record.availability.checkedAt.toISOString(),
+        providerEventUrl: record.availability.providerEventUrl,
+      } : null,
     },
   };
 }
 
-/** Applique `isEventStillActive` à l’horloge de la requête (hors cache). */
+/** Projette séances, fin et fraîcheur de disponibilité au même instant (hors cache). */
 export function applyPublicEventEndedStatus(
   result: GetPublicEventSnapshotResult,
   now: Date = new Date(),
@@ -83,6 +99,15 @@ export function applyPublicEventEndedStatus(
   );
   const unavailable = dates.occurrences?.length === 0;
   const isEnded = !unavailable && !isEventStillActive(dates, now);
+  const availability = result.data.availability;
+  const availabilityStatus = resolveFreshAvailabilityStatus({
+    status: availability?.status,
+    checkedAt: availability?.checkedAt,
+    now,
+  });
+  const item = unavailable
+    ? result.data.item
+    : withEventItemDates(result.data.item, dates);
 
   return {
     status: "ok",
@@ -90,9 +115,14 @@ export function applyPublicEventEndedStatus(
       ...result.data,
       startAt: dates.startAt,
       endAt: dates.endAt,
-      item: unavailable
-        ? result.data.item
-        : withEventItemDates(result.data.item, dates),
+      item: {
+        ...item,
+        availabilityStatus,
+        availabilityBadge: resolveAvailabilityBadge(availabilityStatus) ?? undefined,
+        registrationUrl: availabilityStatus !== "unknown" && availability?.providerEventUrl
+          ? availability.providerEventUrl
+          : item.registrationUrl,
+      },
       isEnded,
     },
   };

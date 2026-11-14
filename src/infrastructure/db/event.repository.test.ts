@@ -116,7 +116,7 @@ describe("event.repository", () => {
 
     expect(query).toHaveBeenCalledTimes(2);
     const [sql1, values1] = query.mock.calls[0] as [string, unknown[]];
-    const [sql2, values2] = query.mock.calls[1] as [string, unknown[]];
+    const [, values2] = query.mock.calls[1] as [string, unknown[]];
     expect(sql1).toContain("ON CONFLICT (id) DO UPDATE");
     expect(sql1).not.toMatch(/openagenda:0|orleans/);
     expect(values1[0]).toBe("openagenda:0");
@@ -252,6 +252,7 @@ describe("event.repository", () => {
     await expect(getEventRecordById("openagenda:2", client)).resolves.toEqual({
       event: expect.objectContaining({ id: "openagenda:2", title: "Passé" }),
       isActive: false,
+      availability: null,
     });
   });
 });

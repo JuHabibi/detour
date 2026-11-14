@@ -36,6 +36,7 @@ import {
 import { buildEventJsonLd } from "@/features/event-page/build-event-json-ld";
 import { buildEventCalendar } from "@/domain/calendar/build-event-calendar";
 import { selectEventInWindow } from "@/domain/events/event-schedule";
+import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
 import type { DetourEvent, EventOccurrence } from "@/domain/events/event";
 
 const NOW = new Date("2026-11-13T12:00:00Z");
@@ -136,6 +137,43 @@ describe("séances — contrat de lecture bout en bout PostgreSQL", () => {
       "UPDATE events SET last_seen_at = '2026-11-13T12:01:00Z' WHERE id = 'stale'; UPDATE events SET is_active = false WHERE id = 'inactive'",
     );
   });
+
+  it.each(["sold_out_online", "sold_out", "available"])(
+    "conserve la disponibilité %s entre Explorer et la fiche publique, même après un changement de séance",
+    async (status) => {
+      await db.query(`INSERT INTO event_availability
+        (event_id, status, provider, provider_event_url, checked_at)
+        VALUES ('series', $1, 'test-provider', 'https://example.com/tickets/series', $2)`,
+        [status, NOW.toISOString()]);
+      const loadRecord = vi.fn((id: string) => getEventRecordById(id, client));
+      // Aller-retour JSON : même représentation que le snapshot Data Cache.
+      const snapshot = JSON.parse(JSON.stringify(
+        await getPublicEventSnapshot("series", { loadRecord }),
+      ));
+      const fields = (item: ReturnType<typeof mapDetourEventToEventItem>) => ({
+        availabilityStatus: item.availabilityStatus,
+        availabilityBadge: item.availabilityBadge,
+        registrationUrl: item.registrationUrl,
+      });
+      for (const now of [NOW, new Date("2026-11-15T12:00:00Z")]) {
+        const explorer = await listExplorerEvents({ when: "weekend" }, { now, client });
+        const card = mapDetourEventToEventItem(explorer.events.find((e) => e.id === "series")!);
+        const page = applyPublicEventEndedStatus(snapshot, now);
+        expect(page.status).toBe("ok");
+        if (page.status !== "ok") throw new Error("Expected public event");
+        expect(page.data.item.availabilityStatus).toBe(status);
+        expect(fields(page.data.item)).toEqual(fields(card));
+        expect(page.data.startAt).toBe(now === NOW ? saturday.startAt : sunday.startAt);
+      }
+      // Une milliseconde après les 48h, le même snapshot ne prolonge pas le statut.
+      const expired = applyPublicEventEndedStatus(snapshot, new Date("2026-11-15T12:00:00.001Z"));
+      expect(expired).toMatchObject({ status: "ok", data: { item: {
+        availabilityStatus: "unknown", availabilityBadge: undefined,
+        registrationUrl: undefined,
+      } } });
+      expect(loadRecord).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("Home garde les dates source quand SQL passe à la séance suivante", async () => {
     const read = (from: Date) => listUpcomingActive({ from, to: new Date("2026-12-01"), now: from, client });

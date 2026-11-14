@@ -35,6 +35,20 @@ function item(overrides: Partial<EventItem> = {}): EventItem {
 }
 
 describe("EventPublicView", () => {
+  it.each([
+    ["sold_out_online", "Complet en ligne"],
+    ["sold_out", "Complet"],
+  ] as const)("affiche %s sans proposer de réserver", (availabilityStatus, availabilityBadge) => {
+    const html = renderToStaticMarkup(createElement(EventPublicView, {
+      item: item({ availabilityStatus, availabilityBadge }), isEnded: false,
+    }));
+    expect(html).toContain(availabilityBadge);
+    expect(html).toContain('data-cta="official"');
+    expect(html).toContain("Voir la fiche officielle");
+    expect(html).not.toContain('data-cta="booking"');
+    expect(html).not.toContain("réserver");
+  });
+
   it("affiche le contenu en texte sans HTML brut", () => {
     const html = renderToStaticMarkup(
       createElement(EventPublicView, { item: item(), isEnded: false }),
