@@ -1,5 +1,10 @@
-import type { DetourEvent, EventOccurrence } from "@/domain/events/event";
-import { wallTimeToIso } from "@/infrastructure/sources/saran/saran-ical.mapper";
+import type { DetourEvent } from "@/domain/events/event";
+import {
+  FRENCH_WEEKDAYS as WEEKDAY,
+  frenchMonthNumber as monthNumber,
+  resolveExplicitFrenchDateList,
+} from "@/infrastructure/sources/shared/french-dates";
+import { wallTimeToIso } from "@/infrastructure/sources/shared/wall-time";
 import type {
   IngreAgendaDetail,
   IngreAgendaExclusion,
@@ -8,27 +13,6 @@ import type {
 export const INGRE_AGENDA_SOURCE_NAME = "Ville d'Ingré";
 export const INGRE_AGENDA_CITY = "Ingré";
 export const INGRE_AGENDA_TIMEZONE = "Europe/Paris";
-
-const MONTHS: Record<string, number> = {
-  janvier: 1,
-  fevrier: 2,
-  février: 2,
-  mars: 3,
-  avril: 4,
-  mai: 5,
-  juin: 6,
-  juillet: 7,
-  aout: 8,
-  août: 8,
-  septembre: 9,
-  octobre: 10,
-  novembre: 11,
-  decembre: 12,
-  décembre: 12,
-};
-
-const WEEKDAY =
-  "Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche";
 
 /** Date murale française optionnellement horodatée. */
 const FR_DATE_RE = new RegExp(
@@ -39,14 +23,6 @@ const FR_DATE_RE = new RegExp(
 /** Mentions de rendez-vous datés dans le corps (année optionnelle). */
 const BODY_DATE_RE = new RegExp(
   `(?:(?:${WEEKDAY})\\s+|(?:le\\s+)?)(1er|\\d{1,2})\\s+(janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)(?:\\s+(\\d{4}))?`,
-  "gi",
-);
-
-/** Liste fermée de jours d'un même mois, jamais une récurrence calculée. */
-const EXPLICIT_DAY_LIST_RE = new RegExp(
-  `\\bles?\\s+(?:(?:${WEEKDAY})s?\\s+)?` +
-    `((?:1er|\\d{1,2})(?:\\s*(?:,|et)\\s*(?:1er|\\d{1,2}))+` +
-    `)\\s+(${Object.keys(MONTHS).join("|")})\\b(?:\\s+(\\d{4}))?`,
   "gi",
 );
 
@@ -173,8 +149,17 @@ export function mapIngreAgendaDetailToDetourEvent(
   }
 
   const allDay = detail.allDay || pseudoAllDayCultural;
-  const explicitDates = resolveExplicitAllDayDates(detail, effectiveBounds);
-  if (explicitDates === null) {
+  // La décision d'interpréter la prose appartient à cet adaptateur : une expo
+  // peut citer des ateliers ponctuels sans cesser d'être une période continue.
+  const explicitDates = detail.allDay && !hasContinuousCulturalSignal(detail)
+    ? resolveExplicitFrenchDateList({
+      texts: [detail.teaser, detail.bodyText],
+      sourceStart: effectiveBounds.startParts,
+      sourceEnd: addCivilDays(effectiveBounds.endParts, -1),
+      timeZone: INGRE_AGENDA_TIMEZONE,
+    })
+    : { kind: "absent" as const };
+  if (explicitDates.kind === "inconsistent") {
     return {
       ok: false,
       exclusion: {
@@ -197,7 +182,7 @@ export function mapIngreAgendaDetailToDetourEvent(
       startAt: effectiveBounds.startAt,
       endAt: effectiveBounds.endAt,
       ...(allDay ? { allDay: true as const } : {}),
-      occurrences: explicitDates ?? [
+      occurrences: explicitDates.kind === "resolved" ? explicitDates.occurrences : [
         {
           startAt: effectiveBounds.startAt,
           endAt: effectiveBounds.endAt ?? effectiveBounds.startAt,
@@ -232,68 +217,6 @@ export function ingreAgendaEventIntersectsWindow(
 
     return start < to.getTime() && exclusiveEnd > from.getTime();
   });
-}
-
-/**
- * undefined : pas de liste explicite ; null : liste incohérente, ne pas publier
- * la plage à sa place. Année omise : celle des bornes, uniquement si non ambiguë.
- * Les heures en prose ne sont pas interprétées. Les bornes source doivent
- * exactement encadrer la liste complète ; aucun jour intermédiaire n'est déduit.
- */
-function resolveExplicitAllDayDates(
-  detail: IngreAgendaDetail,
-  bounds: {
-    startAt: string;
-    endAt: string | null;
-    startParts: WallParts;
-    endParts: WallParts;
-  },
-): EventOccurrence[] | null | undefined {
-  // Une expo peut citer des ateliers ponctuels sans cesser d'être continue.
-  if (!detail.allDay || hasContinuousCulturalSignal(detail)) return undefined;
-  const text = `${detail.teaser ?? ""}\n${detail.bodyText ?? ""}`;
-  const groups = [...text.matchAll(EXPLICIT_DAY_LIST_RE)];
-  if (groups.length === 0) return undefined;
-
-  let result: EventOccurrence[] | undefined;
-  for (const match of groups) {
-    const month = monthNumber(match[2]!);
-    const year = match[3] ? Number(match[3]) : bounds.startParts.year;
-    // endParts est exclusif : le 1er janvier clôt aussi une plage de décembre.
-    const lastSourceDay = addCivilDays(bounds.endParts, -1);
-    if (!month || (!match[3] && year !== lastSourceDay.year)) return null;
-    const days = [...new Set(
-      match[1]!.match(/1er|\d{1,2}/g)!.map((day) => parseInt(day, 10)),
-    )].sort((a, b) => a - b);
-    if (days.length < 2) return null;
-    const occurrences: EventOccurrence[] = [];
-    for (const day of days) {
-      const date = new Date(Date.UTC(year, month - 1, day));
-      if (
-        date.getUTCFullYear() !== year ||
-        date.getUTCMonth() !== month - 1 ||
-        date.getUTCDate() !== day
-      ) return null;
-      const parts: WallParts = {
-        year, month, day, hour: 0, minute: 0, second: 0,
-        timeZone: INGRE_AGENDA_TIMEZONE,
-      };
-      const dayBounds = toAllDayBounds(parts, parts);
-      if (!dayBounds) return null;
-      occurrences.push({
-        startAt: dayBounds.startAt,
-        endAt: dayBounds.endAt,
-        allDay: true,
-      });
-    }
-    if (
-      Date.parse(occurrences[0]!.startAt) !== Date.parse(bounds.startAt) ||
-      Date.parse(occurrences.at(-1)!.endAt) !== Date.parse(bounds.endAt ?? "") ||
-      (result && JSON.stringify(result) !== JSON.stringify(occurrences))
-    ) return null;
-    result = occurrences;
-  }
-  return result;
 }
 
 /**
@@ -509,14 +432,6 @@ function parseHm(value: string): [number | null, number | null] {
   const minute = Number.parseInt(match[2]!, 10);
   if (hour > 23 || minute > 59) return [null, null];
   return [hour, minute];
-}
-
-function monthNumber(raw: string): number | null {
-  const key = raw
-    .normalize("NFC")
-    .toLowerCase()
-    .replace(/û/g, "û");
-  return MONTHS[key] ?? MONTHS[key.normalize("NFD").replace(/\p{M}/gu, "")] ?? null;
 }
 
 function isSameCivilDay(a: WallParts, b: WallParts): boolean {

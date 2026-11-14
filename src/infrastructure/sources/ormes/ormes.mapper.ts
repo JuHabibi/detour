@@ -1,5 +1,5 @@
 import type { DetourEvent } from "@/domain/events/event";
-import { wallTimeToIso } from "@/infrastructure/sources/saran/saran-ical.mapper";
+import { wallTimeToIso } from "@/infrastructure/sources/shared/wall-time";
 import type { OrmesDetail, OrmesExclusion } from "./ormes.types";
 
 export const ORMES_SOURCE_NAME = "Ville d'Ormes";
