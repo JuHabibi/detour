@@ -38,6 +38,8 @@ import { buildEventCalendar } from "@/domain/calendar/build-event-calendar";
 import { selectEventInWindow } from "@/domain/events/event-schedule";
 import { mapDetourEventToEventItem } from "@/application/map-detour-event-to-ui";
 import type { DetourEvent, EventOccurrence } from "@/domain/events/event";
+import { parseIngreAgendaDetail } from "@/infrastructure/sources/ingre-agenda/ingre-agenda.detail-parser";
+import { mapIngreAgendaDetailToDetourEvent } from "@/infrastructure/sources/ingre-agenda/ingre-agenda.mapper";
 
 const NOW = new Date("2026-11-13T12:00:00Z");
 const saturday = {
@@ -136,6 +138,54 @@ describe("séances — contrat de lecture bout en bout PostgreSQL", () => {
     await db.exec(
       "UPDATE events SET last_seen_at = '2026-11-13T12:01:00Z' WHERE id = 'stale'; UPDATE events SET is_active = false WHERE id = 'inactive'",
     );
+  });
+
+  it("corrige la plage historique Ingré à la sync, puis filtre et affiche les séances réelles", async () => {
+    const html = readFileSync(new URL(
+      "../sources/ingre-agenda/fixtures/detail-yoga-distinct-dates.html", import.meta.url,
+    ), "utf8");
+    const mapped = mapIngreAgendaDetailToDetourEvent(parseIngreAgendaDetail(html));
+    if (!mapped.ok) throw new Error("Expected mapped source event");
+    await db.exec("TRUNCATE events CASCADE");
+    const queryDay = (day: string) => listExplorerEvents(
+      { when: "range", from: day, to: day },
+      { now: new Date("2026-11-07T12:00:00Z"), client },
+    );
+
+    // État historique : pas de séances, l'enveloppe remplit les jours sans atelier.
+    await upsertMany("ingre-agenda", [{ ...mapped.event, occurrences: undefined }], NOW, client);
+    expect((await queryDay("2026-11-12")).totalCount).toBe(1);
+    // La sync habituelle remplace cet état sans migration ni nouvel ID.
+    await upsertMany("ingre-agenda", [mapped.event], NOW, client);
+    expect((await queryDay("2026-11-12")).totalCount).toBe(0);
+    for (const day of ["2026-11-08", "2026-11-15"]) {
+      const page = await queryDay(day);
+      expect(page.totalCount).toBe(1);
+      expect(page.events[0].id).toBe(mapped.event.id);
+      expect(mapDetourEventToEventItem(page.events[0]).dateLabel).not.toContain("Du 8 au 15");
+    }
+    const snapshot = await getPublicEventSnapshot(mapped.event.id, {
+      loadRecord: (id) => getEventRecordById(id, client),
+    });
+    const detail = applyPublicEventEndedStatus(snapshot, NOW);
+    expect(detail).toMatchObject({ status: "ok", data: {
+      startAt: "2026-11-14T23:00:00.000Z",
+      endAt: "2026-11-15T23:00:00.000Z",
+    } });
+    if (detail.status !== "ok") throw new Error("Expected public detail");
+    expect(detail.data.item.occurrences).toHaveLength(2);
+    expect(detail.data.item.dateLabel).not.toContain("Du 8 au 15");
+    expect(buildEventJsonLd(detail.data)?.startDate).toBe("2026-11-15");
+
+    // Une correction source vers un seul jour doit aussi remplacer les anciennes séances.
+    const single = mapIngreAgendaDetailToDetourEvent(parseIngreAgendaDetail(html
+      .replaceAll("le 8 et 15 novembre", "le 15 novembre")
+      .replaceAll("les Dimanches 8 et 15 novembre 2026", "le Dimanche 15 novembre 2026")
+      .replaceAll("Dimanche 08 novembre", "Dimanche 15 novembre")));
+    if (!single.ok) throw new Error("Expected corrected source event");
+    await upsertMany("ingre-agenda", [single.event], new Date(NOW.getTime() + 1000), client);
+    expect((await queryDay("2026-11-08")).totalCount).toBe(0);
+    expect((await queryDay("2026-11-15")).totalCount).toBe(1);
   });
 
   it.each(["sold_out_online", "sold_out", "available"])(

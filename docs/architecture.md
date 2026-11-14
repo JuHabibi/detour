@@ -338,6 +338,21 @@ Exemple Ingré :
 
 Les nouvelles sources **alimentent la DB**. La home ne doit pas appeler leur API directement (mode `database`).
 
+### Dates et séances : format source, fonctions partagées, modèle commun
+
+- L'adaptateur lit son format (JSON, iCal, HTML) et produit `DetourEvent.occurrences`.
+  Un calendrier structuré exploitable reste prioritaire ; ne pas le réinterpréter via sa description.
+- Les fonctions de lecture réutilisables vivent dans `infrastructure/sources/shared/` :
+  `wall-time.ts` convertit les heures locales avec le fuseau fourni ; `french-dates.ts`
+  lit les listes explicites de jours français, vérifie leurs bornes et produit les séances date-only.
+  Ces fonctions n'importent aucun adaptateur, ville ou configuration territoriale.
+- L'adaptateur décide quand la lecture textuelle est pertinente. Son résultat distingue
+  absence de liste, incohérence et séances résolues. Aucune récurrence ni heure n'est inventée.
+  Une nouvelle source peut appeler la même fonction, sans copier la logique d'Ingré.
+- Le stockage et les règles de sélection/affichage restent communs dans le modèle existant.
+  Respecter le contrat `occurrences` : absent = inconnu ; `[]` = calendrier explicitement vide.
+  Tester pour chaque source le changement de séance, les jours sans séance et le remplacement à la sync.
+
 ## 10. Où modifier quoi ?
 
 | Besoin | Emplacement |

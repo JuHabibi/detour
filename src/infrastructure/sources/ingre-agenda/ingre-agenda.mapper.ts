@@ -1,5 +1,10 @@
 import type { DetourEvent } from "@/domain/events/event";
-import { wallTimeToIso } from "@/infrastructure/sources/saran/saran-ical.mapper";
+import {
+  FRENCH_WEEKDAYS as WEEKDAY,
+  frenchMonthNumber as monthNumber,
+  resolveExplicitFrenchDateList,
+} from "@/infrastructure/sources/shared/french-dates";
+import { wallTimeToIso } from "@/infrastructure/sources/shared/wall-time";
 import type {
   IngreAgendaDetail,
   IngreAgendaExclusion,
@@ -8,27 +13,6 @@ import type {
 export const INGRE_AGENDA_SOURCE_NAME = "Ville d'Ingré";
 export const INGRE_AGENDA_CITY = "Ingré";
 export const INGRE_AGENDA_TIMEZONE = "Europe/Paris";
-
-const MONTHS: Record<string, number> = {
-  janvier: 1,
-  fevrier: 2,
-  février: 2,
-  mars: 3,
-  avril: 4,
-  mai: 5,
-  juin: 6,
-  juillet: 7,
-  aout: 8,
-  août: 8,
-  septembre: 9,
-  octobre: 10,
-  novembre: 11,
-  decembre: 12,
-  décembre: 12,
-};
-
-const WEEKDAY =
-  "Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche";
 
 /** Date murale française optionnellement horodatée. */
 const FR_DATE_RE = new RegExp(
@@ -165,6 +149,28 @@ export function mapIngreAgendaDetailToDetourEvent(
   }
 
   const allDay = detail.allDay || pseudoAllDayCultural;
+  // La décision d'interpréter la prose appartient à cet adaptateur : une expo
+  // peut citer des ateliers ponctuels sans cesser d'être une période continue.
+  const explicitDates = detail.allDay && !hasContinuousCulturalSignal(detail)
+    ? resolveExplicitFrenchDateList({
+      texts: [detail.teaser, detail.bodyText],
+      sourceStart: effectiveBounds.startParts,
+      sourceEnd: addCivilDays(effectiveBounds.endParts, -1),
+      timeZone: INGRE_AGENDA_TIMEZONE,
+    })
+    : { kind: "absent" as const };
+  if (explicitDates.kind === "inconsistent") {
+    return {
+      ok: false,
+      exclusion: {
+        nid: detail.nid,
+        path: detail.path,
+        title: detail.title,
+        reason: "ambiguous_program",
+        detail: "explicit_dates_conflict_with_source_range",
+      },
+    };
+  }
 
   return {
     ok: true,
@@ -176,6 +182,13 @@ export function mapIngreAgendaDetailToDetourEvent(
       startAt: effectiveBounds.startAt,
       endAt: effectiveBounds.endAt,
       ...(allDay ? { allDay: true as const } : {}),
+      occurrences: explicitDates.kind === "resolved" ? explicitDates.occurrences : [
+        {
+          startAt: effectiveBounds.startAt,
+          endAt: effectiveBounds.endAt ?? effectiveBounds.startAt,
+          allDay,
+        },
+      ],
       venue: null,
       city: INGRE_AGENDA_CITY,
       latitude: null,
@@ -195,13 +208,15 @@ export function ingreAgendaEventIntersectsWindow(
   from: Date,
   to: Date,
 ): boolean {
-  const start = Date.parse(event.startAt);
-  if (Number.isNaN(start)) return false;
+  return (event.occurrences ?? [event]).some((dates) => {
+    const start = Date.parse(dates.startAt);
+    if (Number.isNaN(start)) return false;
 
-  const end = event.endAt ? Date.parse(event.endAt) : Number.NaN;
-  const exclusiveEnd = Number.isNaN(end) ? start + 1 : end;
+    const end = dates.endAt ? Date.parse(dates.endAt) : Number.NaN;
+    const exclusiveEnd = Number.isNaN(end) || end === start ? start + 1 : end;
 
-  return start < to.getTime() && exclusiveEnd > from.getTime();
+    return start < to.getTime() && exclusiveEnd > from.getTime();
+  });
 }
 
 /**
@@ -417,14 +432,6 @@ function parseHm(value: string): [number | null, number | null] {
   const minute = Number.parseInt(match[2]!, 10);
   if (hour > 23 || minute > 59) return [null, null];
   return [hour, minute];
-}
-
-function monthNumber(raw: string): number | null {
-  const key = raw
-    .normalize("NFC")
-    .toLowerCase()
-    .replace(/û/g, "û");
-  return MONTHS[key] ?? MONTHS[key.normalize("NFD").replace(/\p{M}/gu, "")] ?? null;
 }
 
 function isSameCivilDay(a: WallParts, b: WallParts): boolean {

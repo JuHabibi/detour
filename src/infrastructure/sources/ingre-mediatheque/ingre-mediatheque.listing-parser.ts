@@ -1,4 +1,4 @@
-import { wallTimeToIso } from "@/infrastructure/sources/saran/saran-ical.mapper";
+import { wallTimeToIso } from "@/infrastructure/sources/shared/wall-time";
 import type { IngreMediathequeListingSession } from "./ingre-mediatheque.types";
 
 export const INGRE_MEDIATHEQUE_ORIGIN =
