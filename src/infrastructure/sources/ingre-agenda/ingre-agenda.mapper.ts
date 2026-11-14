@@ -1,4 +1,4 @@
-import type { DetourEvent } from "@/domain/events/event";
+import type { DetourEvent, EventOccurrence } from "@/domain/events/event";
 import { wallTimeToIso } from "@/infrastructure/sources/saran/saran-ical.mapper";
 import type {
   IngreAgendaDetail,
@@ -39,6 +39,14 @@ const FR_DATE_RE = new RegExp(
 /** Mentions de rendez-vous datés dans le corps (année optionnelle). */
 const BODY_DATE_RE = new RegExp(
   `(?:(?:${WEEKDAY})\\s+|(?:le\\s+)?)(1er|\\d{1,2})\\s+(janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)(?:\\s+(\\d{4}))?`,
+  "gi",
+);
+
+/** Liste fermée de jours d'un même mois, jamais une récurrence calculée. */
+const EXPLICIT_DAY_LIST_RE = new RegExp(
+  `\\bles?\\s+(?:(?:${WEEKDAY})s?\\s+)?` +
+    `((?:1er|\\d{1,2})(?:\\s*(?:,|et)\\s*(?:1er|\\d{1,2}))+` +
+    `)\\s+(${Object.keys(MONTHS).join("|")})\\b(?:\\s+(\\d{4}))?`,
   "gi",
 );
 
@@ -165,6 +173,19 @@ export function mapIngreAgendaDetailToDetourEvent(
   }
 
   const allDay = detail.allDay || pseudoAllDayCultural;
+  const explicitDates = resolveExplicitAllDayDates(detail, effectiveBounds);
+  if (explicitDates === null) {
+    return {
+      ok: false,
+      exclusion: {
+        nid: detail.nid,
+        path: detail.path,
+        title: detail.title,
+        reason: "ambiguous_program",
+        detail: "explicit_dates_conflict_with_source_range",
+      },
+    };
+  }
 
   return {
     ok: true,
@@ -176,6 +197,13 @@ export function mapIngreAgendaDetailToDetourEvent(
       startAt: effectiveBounds.startAt,
       endAt: effectiveBounds.endAt,
       ...(allDay ? { allDay: true as const } : {}),
+      occurrences: explicitDates ?? [
+        {
+          startAt: effectiveBounds.startAt,
+          endAt: effectiveBounds.endAt ?? effectiveBounds.startAt,
+          allDay,
+        },
+      ],
       venue: null,
       city: INGRE_AGENDA_CITY,
       latitude: null,
@@ -195,13 +223,77 @@ export function ingreAgendaEventIntersectsWindow(
   from: Date,
   to: Date,
 ): boolean {
-  const start = Date.parse(event.startAt);
-  if (Number.isNaN(start)) return false;
+  return (event.occurrences ?? [event]).some((dates) => {
+    const start = Date.parse(dates.startAt);
+    if (Number.isNaN(start)) return false;
 
-  const end = event.endAt ? Date.parse(event.endAt) : Number.NaN;
-  const exclusiveEnd = Number.isNaN(end) ? start + 1 : end;
+    const end = dates.endAt ? Date.parse(dates.endAt) : Number.NaN;
+    const exclusiveEnd = Number.isNaN(end) || end === start ? start + 1 : end;
 
-  return start < to.getTime() && exclusiveEnd > from.getTime();
+    return start < to.getTime() && exclusiveEnd > from.getTime();
+  });
+}
+
+/**
+ * undefined : pas de liste explicite ; null : liste incohérente, ne pas publier
+ * la plage à sa place. Année omise : celle des bornes, uniquement si non ambiguë.
+ * Les heures en prose ne sont pas interprétées. Les bornes source doivent
+ * exactement encadrer la liste complète ; aucun jour intermédiaire n'est déduit.
+ */
+function resolveExplicitAllDayDates(
+  detail: IngreAgendaDetail,
+  bounds: {
+    startAt: string;
+    endAt: string | null;
+    startParts: WallParts;
+    endParts: WallParts;
+  },
+): EventOccurrence[] | null | undefined {
+  // Une expo peut citer des ateliers ponctuels sans cesser d'être continue.
+  if (!detail.allDay || hasContinuousCulturalSignal(detail)) return undefined;
+  const text = `${detail.teaser ?? ""}\n${detail.bodyText ?? ""}`;
+  const groups = [...text.matchAll(EXPLICIT_DAY_LIST_RE)];
+  if (groups.length === 0) return undefined;
+
+  let result: EventOccurrence[] | undefined;
+  for (const match of groups) {
+    const month = monthNumber(match[2]!);
+    const year = match[3] ? Number(match[3]) : bounds.startParts.year;
+    // endParts est exclusif : le 1er janvier clôt aussi une plage de décembre.
+    const lastSourceDay = addCivilDays(bounds.endParts, -1);
+    if (!month || (!match[3] && year !== lastSourceDay.year)) return null;
+    const days = [...new Set(
+      match[1]!.match(/1er|\d{1,2}/g)!.map((day) => parseInt(day, 10)),
+    )].sort((a, b) => a - b);
+    if (days.length < 2) return null;
+    const occurrences: EventOccurrence[] = [];
+    for (const day of days) {
+      const date = new Date(Date.UTC(year, month - 1, day));
+      if (
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() !== month - 1 ||
+        date.getUTCDate() !== day
+      ) return null;
+      const parts: WallParts = {
+        year, month, day, hour: 0, minute: 0, second: 0,
+        timeZone: INGRE_AGENDA_TIMEZONE,
+      };
+      const dayBounds = toAllDayBounds(parts, parts);
+      if (!dayBounds) return null;
+      occurrences.push({
+        startAt: dayBounds.startAt,
+        endAt: dayBounds.endAt,
+        allDay: true,
+      });
+    }
+    if (
+      Date.parse(occurrences[0]!.startAt) !== Date.parse(bounds.startAt) ||
+      Date.parse(occurrences.at(-1)!.endAt) !== Date.parse(bounds.endAt ?? "") ||
+      (result && JSON.stringify(result) !== JSON.stringify(occurrences))
+    ) return null;
+    result = occurrences;
+  }
+  return result;
 }
 
 /**

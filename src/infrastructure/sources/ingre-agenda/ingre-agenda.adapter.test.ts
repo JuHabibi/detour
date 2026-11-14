@@ -7,6 +7,7 @@ import { parseIngreAgendaDetail } from "./ingre-agenda.detail-parser";
 import { parseIngreAgendaListPage } from "./ingre-agenda.list-parser";
 import {
   detectAmbiguousProgram,
+  ingreAgendaEventIntersectsWindow,
   mapIngreAgendaDetailToDetourEvent,
 } from "./ingre-agenda.mapper";
 
@@ -116,6 +117,28 @@ describe("ingre-agenda list parser", () => {
 });
 
 describe("ingre-agenda detail parser + mapper", () => {
+  it("conserve les deux dates explicites du yoga, sans inventer les horaires du texte libre", () => {
+    const mapped = mapIngreAgendaDetailToDetourEvent(
+      parseIngreAgendaDetail(fixture("detail-yoga-distinct-dates.html")),
+    );
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) throw new Error("Expected mapped yoga event");
+    expect(mapped.event.occurrences).toEqual([
+      { startAt: "2026-11-08T00:00:00+01:00", endAt: "2026-11-09T00:00:00+01:00", allDay: true },
+      { startAt: "2026-11-15T00:00:00+01:00", endAt: "2026-11-16T00:00:00+01:00", allDay: true },
+    ]);
+    // Les bornes source restent stables ; les lectures projettent les séances.
+    expect(mapped.event.startAt).toBe("2026-11-08T00:00:00+01:00");
+    expect(mapped.event.endAt).toBe("2026-11-16T00:00:00+01:00");
+    for (const day of [8, 12, 15, 16]) {
+      expect(ingreAgendaEventIntersectsWindow(
+        mapped.event,
+        new Date(`2026-11-${String(day).padStart(2, "0")}T00:00:00+01:00`),
+        new Date(`2026-11-${String(day + 1).padStart(2, "0")}T00:00:00+01:00`),
+      )).toBe(day === 8 || day === 15);
+    }
+  });
+
   it("fiche simple horodatée", () => {
     const detail = parseIngreAgendaDetail(fixture("detail-simple.html"));
     expect(detail.nid).toBe("3825");
@@ -134,6 +157,75 @@ describe("ingre-agenda detail parser + mapper", () => {
     expect(mapped.event.longitude).toBeNull();
     expect(mapped.event.venue).toBeNull();
     expect(mapped.event.imageUrl).toBeNull();
+    expect(mapped.event.occurrences).toEqual([{
+      startAt: mapped.event.startAt, endAt: mapped.event.endAt, allDay: false,
+    }]);
+  });
+
+  it.each([
+    ["Les 8, 22 et 15 novembre 2026", "8 novembre 2026", "22 novembre 2026", [8, 15, 22]],
+    ["Les dimanches 8 et 15 novembre", "8 novembre 2026", "15 novembre 2026", [8, 15]],
+    ["Les 8, 8 et 15 novembre 2026", "8 novembre 2026", "15 novembre 2026", [8, 15]],
+  ])("normalise une liste explicite : %s", (body, start, end, days) => {
+    const mapped = mapIngreAgendaDetailToDetourEvent(parseIngreAgendaDetail(detailShell({
+      nid: "9500", title: "Atelier découverte", body,
+      dateHtml: `<ul class="field-ads-agenda-date"><li>
+        <span class="date-display-start">${start} (Jour entier)</span>
+        <span class="date-display-end">${end} (Jour entier)</span>
+      </li></ul>`,
+    })));
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) throw new Error("Expected explicit dates");
+    expect(mapped.event.occurrences?.map((o) => Number(o.startAt.slice(8, 10)))).toEqual(days);
+  });
+
+  it.each([
+    ["Les 8 et 15 novembre 2025", "8 novembre 2026", "15 novembre 2026"],
+    ["Les 8 et 12 novembre 2026", "8 novembre 2026", "15 novembre 2026"],
+    ["Les 1, 30 et 31 février 2026", "1 février 2026", "31 février 2026"],
+    ["Les 8 et 15 novembre 2026 ; les 8, 12 et 15 novembre 2026", "8 novembre 2026", "15 novembre 2026"],
+  ])("ne publie pas une plage à la place d'une liste incohérente : %s", (body, start, end) => {
+    const mapped = mapIngreAgendaDetailToDetourEvent(parseIngreAgendaDetail(detailShell({
+      nid: "9501", body,
+      dateHtml: `<ul class="field-ads-agenda-date"><li>
+        <span class="date-display-start">${start} (Jour entier)</span>
+        <span class="date-display-end">${end} (Jour entier)</span>
+      </li></ul>`,
+    })));
+    expect(mapped.ok).toBe(false);
+  });
+
+  it("conserve la fin exclusive locale à travers le changement d'heure", () => {
+    const mapped = mapIngreAgendaDetailToDetourEvent(parseIngreAgendaDetail(detailShell({
+      nid: "9502", body: "Les dimanches 18 et 25 octobre 2026",
+      dateHtml: `<ul class="field-ads-agenda-date"><li>
+        <span class="date-display-start">18 octobre 2026 (Jour entier)</span>
+        <span class="date-display-end">25 octobre 2026 (Jour entier)</span>
+      </li></ul>`,
+    })));
+    if (!mapped.ok) throw new Error("Expected explicit dates");
+    expect(mapped.event.occurrences).toEqual([
+      { startAt: "2026-10-18T00:00:00+02:00", endAt: "2026-10-19T00:00:00+02:00", allDay: true },
+      { startAt: "2026-10-25T00:00:00+02:00", endAt: "2026-10-26T00:00:00+01:00", allDay: true },
+    ]);
+  });
+
+  it.each([
+    ["Exposition", "Exposition du 8 au 15 novembre 2026. Ateliers les 8 et 15 novembre 2026."],
+    ["Rencontre", "Du 8 au 15 novembre 2026"],
+  ])("préserve une période continue : %s", (title, body) => {
+    const mapped = mapIngreAgendaDetailToDetourEvent(parseIngreAgendaDetail(detailShell({
+      nid: "9503", title, body,
+      dateHtml: `<ul class="field-ads-agenda-date"><li>
+        <span class="date-display-start">8 novembre 2026 (Jour entier)</span>
+        <span class="date-display-end">15 novembre 2026 (Jour entier)</span>
+      </li></ul>`,
+    })));
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) throw new Error("Expected continuous period");
+    expect(mapped.event.occurrences).toEqual([{
+      startAt: "2026-11-08T00:00:00+01:00", endAt: "2026-11-16T00:00:00+01:00", allDay: true,
+    }]);
   });
 
   it("extrait une illustration événement (URL absolue)", () => {
@@ -360,7 +452,7 @@ describe("ingre-agenda detail parser + mapper", () => {
 });
 
 describe("IngreAgendaEventAdapter pagination", () => {
-  function fullPage(nids: string[], pageIndex: number): string {
+  function fullPage(nids: string[]): string {
     const items = nids
       .map((nid) => teaser(nid, `e-${nid}`, `Event ${nid}`))
       .join("\n");
@@ -369,9 +461,9 @@ describe("IngreAgendaEventAdapter pagination", () => {
 
   it("pagination normale + dernière page courte", async () => {
     const pages: Record<number, string> = {
-      0: fullPage(["1001", "1002", "1003", "1004", "1005", "1006"], 0),
-      1: fullPage(["1007", "1008", "1009", "1010", "1011", "1012"], 1),
-      2: fullPage(["1013", "1014", "1015", "1016", "1017", "1018"], 2),
+      0: fullPage(["1001", "1002", "1003", "1004", "1005", "1006"]),
+      1: fullPage(["1007", "1008", "1009", "1010", "1011", "1012"]),
+      2: fullPage(["1013", "1014", "1015", "1016", "1017", "1018"]),
       3: listShell(teaser("1019", "e-1019", "Event 1019"), PAGER_TO_3),
     };
 
@@ -411,7 +503,7 @@ describe("IngreAgendaEventAdapter pagination", () => {
       const url = String(input);
       if (url.endsWith("/agenda")) {
         return new Response(
-          fullPage(["1", "2", "3", "4", "5", "6"], 0),
+          fullPage(["1", "2", "3", "4", "5", "6"]),
           { status: 200 },
         );
       }
