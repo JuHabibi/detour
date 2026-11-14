@@ -92,6 +92,39 @@ describe("resolveRadarPickReason", () => {
     ).toBeNull();
   });
 
+  it.each([
+    "Tarif dégressif à partir de 3 ateliers.",
+    "Tarif réduit pour les ateliers d’écriture.",
+    "Prix de 70 euros pour le cycle d'ateliers.",
+  ])("rejette une justification purement tarifaire : %s", (pricing) => {
+    expect(
+      resolveRadarPickReason(
+        radarItem({
+          title: "Une ville de mots",
+          description: "Cycle d'écriture hebdomadaire sur six semaines.",
+          conditions: "70 euros le cycle, tarif dégressif à partir de 3 ateliers.",
+          radarAiReasons: [pricing],
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("privilégie une justification culturelle après une raison tarifaire", () => {
+    expect(
+      resolveRadarPickReason(
+        radarItem({
+          title: "Une ville de mots",
+          description: "Atelier d'écriture sur le thème de la ville et de ses récits.",
+          conditions: "Tarif dégressif à partir de 3 ateliers.",
+          radarAiReasons: [
+            "Tarif dégressif à partir de 3 ateliers.",
+            "Atelier d'écriture sur le thème de la ville et de ses récits.",
+          ],
+        }),
+      ),
+    ).toBe("Atelier d'écriture sur le thème de la ville et de ses récits.");
+  });
+
   it("rejette gratuité seule", () => {
     expect(
       resolveRadarPickReason(

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { Info } from "lucide-react";
 import { formatWhen } from "@/components/event/format-when";
 import type { EventItem } from "@/data/types";
 import {
@@ -236,14 +237,31 @@ function RadarCardCta({ event }: { event: EventItem }) {
 
   return (
     <div
-      aria-hidden
       data-testid="radar-card-cta"
       data-cta={hasPickReason ? "why-pick" : "discover"}
-      className="mt-3 flex h-7 shrink-0 items-center"
+      className="relative mt-3 flex h-7 shrink-0 items-center gap-1"
     >
-      <span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-sand underline decoration-coral/70 decoration-1 underline-offset-4">
+      <span aria-hidden="true" className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-sand underline decoration-coral/70 decoration-1 underline-offset-4">
         {label}
       </span>
+      {hasPickReason ? (
+        <details className="group/help relative z-[3] shrink-0">
+          <summary
+            aria-label="Comprendre « Pourquoi le repérer ? »"
+            className="flex size-7 cursor-pointer list-none items-center justify-center text-sand hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink [&::-webkit-details-marker]:hidden"
+          >
+            <Info aria-hidden="true" className="size-4" />
+          </summary>
+          <div
+            role="note"
+            className="absolute bottom-full right-0 z-10 mb-2 w-[min(16rem,72vw)] border border-line bg-paper p-3 text-xs leading-5 text-ink shadow-lg"
+          >
+            Comme « Découvrir l’événement », ce lien ouvre la fiche.
+            Le regard Détour y explique ce qui a retenu notre attention,
+            sans noter l’événement ni prédire sa popularité.
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

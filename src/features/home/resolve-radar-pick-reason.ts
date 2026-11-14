@@ -16,9 +16,12 @@ const MACHINE_OR_GENERIC_REASON =
   /^(singular|local-discovery|local discovery|high-appeal|headline-appeal|booking-available|billetterie|booking|reservation|ok|test)$/i;
 
 /**
- * Raisons qui ne font que répéter lieu / commune / billetterie / gratuité.
- * Inutiles éditorialement sur une carte qui affiche déjà ces infos.
+ * Une modalité tarifaire n’est pas un argument culturel, même si elle cite un atelier.
  */
+const PRICING_ONLY_REASON =
+  /^(?:tarifs?\b|prix\b|co[uû]t\b|r[eé]duction\b|remise\b|adh[eé]sion\b|forfait\b|abonnement\b|paiement\b)|\b(?:tarif d[eé]gressif|tarifs? r[eé]duits?|\d+\s?(?:€|euros?)|\d+\s?%)/i;
+
+/** Informations logistiques déjà exposées dans la fiche. */
 const SHALLOW_PRACTICAL_REASON =
   /^(programm[eé]e?\s+[àa]\s+\w|dans (un |une )?(lieu|salle|commune|ville)|billetterie|inscription disponible|r[eé]servation disponible|entr[eé]e gratuite|sur inscription|gratuit(\.?)$)/i;
 
@@ -101,6 +104,7 @@ function pickPublishableAiReason(event: EventItem): string | null {
     if (MACHINE_OR_GENERIC_REASON.test(cleaned)) continue;
     if (FORBIDDEN_URGENCY.test(cleaned)) continue;
     if (SHALLOW_PRACTICAL_REASON.test(cleaned)) continue;
+    if (PRICING_ONLY_REASON.test(cleaned)) continue;
     if (cleaned.length < 24) continue;
     if (!hasEditorialSubstance(cleaned)) continue;
     if (!isGroundedInSource(cleaned, sourceCorpus)) continue;

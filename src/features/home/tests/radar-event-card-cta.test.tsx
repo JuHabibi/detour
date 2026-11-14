@@ -52,6 +52,10 @@ describe("RadarEventCard — CTA Radar (indicateur, pas de bouton)", () => {
     expect(html).toContain('data-testid="radar-card-cta"');
     expect(html).toContain('data-cta="why-pick"');
     expect(html).toContain("Pourquoi le repérer ?");
+    expect(html).toContain("Comprendre « Pourquoi le repérer ? »");
+    expect(html).toContain("<details");
+    expect(html).toContain("<summary");
+    expect(html).toContain("Comme « Découvrir l’événement »");
     expect(html).toContain("h-7");
     expect(html).toContain("h-[2.75rem]");
     expect(html).toContain("lucide-map-pin");
@@ -77,6 +81,7 @@ describe("RadarEventCard — CTA Radar (indicateur, pas de bouton)", () => {
 
     expect(html).toContain('data-cta="discover"');
     expect(html).toContain("Découvrir l’événement");
+    expect(html).not.toContain("<details");
     expect(html).toContain("h-7");
   });
 
