@@ -6,6 +6,7 @@ import {
   type GetPublicEventSnapshotResult,
 } from "@/application/events/get-public-event-page";
 import type { DetourEvent } from "@/domain/events/event";
+import type { EventAvailabilityRecord } from "@/domain/events/event-availability";
 import type { EventRecord } from "@/infrastructure/db/event.repository";
 
 function event(overrides: Partial<DetourEvent> = {}): DetourEvent {
@@ -37,12 +38,60 @@ function record(
   return {
     event: overrides.event ?? event(),
     isActive: overrides.isActive ?? true,
+    availability: overrides.availability ?? null,
   };
 }
 
 describe("getPublicEventSnapshot / applyPublicEventEndedStatus", () => {
   const beforeEnd = new Date("2026-11-10T20:00:00.000Z");
   const afterEnd = new Date("2026-11-10T21:00:01.000Z");
+
+  it.each([
+    ["absente", null],
+    ["périmée", "2026-11-08T19:59:59.999Z"],
+    ["future", "2026-11-10T20:00:00.001Z"],
+  ])("garde le lien source sans badge pour une observation %s", async (_, checkedAt) => {
+    const availability: EventAvailabilityRecord | null = checkedAt ? {
+      eventId: "openagenda:1",
+      status: "sold_out_online",
+      provider: "test-provider",
+      providerEventUrl: "https://example.com/tickets/1",
+      checkedAt: new Date(checkedAt),
+    } : null;
+    const snapshot = await getPublicEventSnapshot("openagenda:1", {
+      loadRecord: vi.fn().mockResolvedValue(record({ availability })),
+    });
+    expect(applyPublicEventEndedStatus(snapshot, beforeEnd)).toMatchObject({
+      status: "ok", data: { item: {
+        availabilityStatus: "unknown", availabilityBadge: undefined,
+        registrationUrl: "https://example.com/book",
+      } },
+    });
+  });
+
+  it("expire la disponibilité sans muter le snapshot ni perdre le lien de réservation source", async () => {
+    const loadRecord = vi.fn().mockResolvedValue(record({ availability: {
+      eventId: "openagenda:1", status: "sold_out_online", provider: "test-provider",
+      providerEventUrl: "https://example.com/tickets/1",
+      checkedAt: new Date("2026-11-08T20:00:00Z"),
+    } }));
+    const snapshot = await getPublicEventSnapshot("openagenda:1", { loadRecord });
+    const original = JSON.stringify(snapshot);
+    expect(applyPublicEventEndedStatus(snapshot, beforeEnd)).toMatchObject({
+      status: "ok", data: { item: {
+        availabilityStatus: "sold_out_online", availabilityBadge: "Complet en ligne",
+        registrationUrl: "https://example.com/tickets/1",
+      } },
+    });
+    expect(applyPublicEventEndedStatus(snapshot, new Date(beforeEnd.getTime() + 1))).toMatchObject({
+      status: "ok", data: { item: {
+        availabilityStatus: "unknown", availabilityBadge: undefined,
+        registrationUrl: "https://example.com/book",
+      } },
+    });
+    expect(JSON.stringify(snapshot)).toBe(original);
+    expect(loadRecord).toHaveBeenCalledTimes(1);
+  });
 
   it("indexe un événement actif à venir (isEnded frais)", async () => {
     const loadRecord = vi.fn().mockResolvedValue(record());

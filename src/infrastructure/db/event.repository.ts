@@ -144,14 +144,21 @@ SELECT
   e.is_active,
   e.created_at,
   e.updated_at,
-  e.last_seen_at
+  e.last_seen_at,
+  a.status AS availability_status,
+  a.provider AS availability_provider,
+  a.provider_event_url AS availability_provider_event_url,
+  a.checked_at AS availability_checked_at
 FROM events e
+LEFT JOIN event_availability a ON a.event_id = e.id
 WHERE e.id = $1
 `.trim();
 
 export type EventRecord = {
   event: DetourEvent;
   isActive: boolean;
+  /** Observation brute : sa fraîcheur est résolue après lecture du cache. */
+  availability?: EventAvailabilityRecord | null;
 };
 
 /**
@@ -165,7 +172,7 @@ export async function getEventRecordById(
   const trimmed = eventId.trim();
   if (!trimmed) return null;
 
-  const result = await db(client).query<EventRow>(GET_EVENT_BY_ID_SQL, [
+  const result = await db(client).query<EventRowWithAvailability>(GET_EVENT_BY_ID_SQL, [
     trimmed,
   ]);
   const row = result.rows[0];
@@ -173,6 +180,7 @@ export async function getEventRecordById(
   return {
     event: mapEventRowToDetourEvent(row),
     isActive: row.is_active,
+    availability: toAvailabilityRecord(row),
   };
 }
 

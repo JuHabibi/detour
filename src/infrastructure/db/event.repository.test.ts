@@ -252,6 +252,7 @@ describe("event.repository", () => {
     await expect(getEventRecordById("openagenda:2", client)).resolves.toEqual({
       event: expect.objectContaining({ id: "openagenda:2", title: "Passé" }),
       isActive: false,
+      availability: null,
     });
   });
 });
