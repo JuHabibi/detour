@@ -264,6 +264,7 @@ describe("OrleansEventAdapter window intersection WHERE", () => {
       "firstdate_begin <= date'2026-09-15T00:00:00.000Z' AND ifnull(lastdate_end, ifnull(firstdate_end, firstdate_begin)) >= date'2026-09-08T00:00:00.000Z' AND (statut_evenement = 'à venir' OR statut_evenement = 'en cours')",
     );
     expect(calledUrl.searchParams.get("select")?.split(",")).toContain("timings");
+    expect(calledUrl.searchParams.get("select")?.split(",")).toContain("longdescription_fr");
   });
 
   it("1. begin < from < end → inclus", () => {

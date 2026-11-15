@@ -4,6 +4,13 @@ import { mapOrleansEventToDetourEvent } from "@/infrastructure/sources/orleans/o
 import type { OrleansRawEvent } from "@/infrastructure/sources/orleans/orleans-event.types";
 import { mapSaranIcalEventToDetourEvent } from "@/infrastructure/sources/saran/saran-ical.mapper";
 import type { SaranIcalEvent } from "@/infrastructure/sources/saran/saran-ical.types";
+import { toAiHighlightEventInput } from "@/application/ai/highlight-assessment-input";
+import { buildAiAssessmentEventCacheKey } from "@/application/ai/ai-assessment-cache-key";
+import {
+  AI_ASSESSMENT_DEFAULT_MODEL,
+  AI_ASSESSMENT_DEFAULT_TEMPERATURE,
+  AI_ASSESSMENT_PROMPT_VERSION,
+} from "@/infrastructure/ai/openai-highlight-assessment.provider";
 
 function rawOrleans(uid: string): OrleansRawEvent {
   return {
@@ -48,6 +55,47 @@ function rawSaran(uid: string): SaranIcalEvent {
 }
 
 describe("mapOrleansEventToDetourEvent IDs namespacés", () => {
+  it("importe le texte complet et lie l'évaluation à ce texte, indépendamment de la séance", () => {
+    const raw = {
+      ...rawOrleans("55237041"),
+      title_fr: "Une ville de mots",
+      description_fr: "cycle d'écriture hebdomadaire sur 6 semaines",
+      conditions_fr: "70€ le cycle de 6 semaines, dégressif à partir de 3 ateliers",
+    };
+    const short = mapOrleansEventToDetourEvent(raw)!;
+    const full = mapOrleansEventToDetourEvent({
+      ...raw,
+      longdescription_fr: "<p>Bertrand Runtz propose un atelier d’écriture en forme de déambulation autour du thème de la ville.</p>",
+    })!;
+    const description = "cycle d'écriture hebdomadaire sur 6 semaines. Bertrand Runtz propose un atelier d’écriture en forme de déambulation autour du thème de la ville.";
+    expect(full.description).toBe(description);
+    expect(full.conditions).toBe(raw.conditions_fr);
+    const key = (event: typeof full) => buildAiAssessmentEventCacheKey({
+      event,
+      model: AI_ASSESSMENT_DEFAULT_MODEL,
+      promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
+      generation: { temperature: AI_ASSESSMENT_DEFAULT_TEMPERATURE },
+    });
+    expect(toAiHighlightEventInput(full).description).toBe(description);
+    expect(key(full)).not.toBe(key(short));
+    const nextSession = {
+      ...full,
+      sourceDates: { startAt: full.startAt, endAt: full.endAt },
+      startAt: "2027-05-13T12:00:00Z",
+      endAt: "2027-05-13T14:00:00Z",
+    };
+    expect(toAiHighlightEventInput(nextSession)).toEqual(toAiHighlightEventInput(full));
+    expect(key(nextSession)).toBe(key(full));
+  });
+
+  it.each([undefined, null, "", "<p>&nbsp;</p>"])("conserve le résumé si le texte complet est vide : %s", (longdescription_fr) => {
+    expect(mapOrleansEventToDetourEvent({
+      ...rawOrleans("fallback"),
+      description_fr: "<p>Atelier d’écriture &amp; lecture.</p>",
+      longdescription_fr,
+    })?.description).toBe("Atelier d’écriture & lecture.");
+  });
+
   it("ajoute le calendrier complet sans modifier l’identité ni la période historique", () => {
     const raw = rawOrleans("series");
     raw.timings = JSON.stringify([

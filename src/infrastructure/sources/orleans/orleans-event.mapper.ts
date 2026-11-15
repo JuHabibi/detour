@@ -1,6 +1,7 @@
 import type { DetourEvent } from "@/domain/events/event";
 import type { OrleansRawEvent } from "./orleans-event.types";
 import { parseOrleansOccurrences } from "./orleans-occurrences";
+import { resolveSourceDescription } from "../shared/source-description";
 
 export function mapOrleansEventToDetourEvent(
   rawEvent: OrleansRawEvent,
@@ -12,7 +13,7 @@ export function mapOrleansEventToDetourEvent(
   return {
     id: `openagenda:${rawEvent.uid}`,
     title: rawEvent.title_fr.trim(),
-    description: emptyToNull(rawEvent.description_fr),
+    description: resolveSourceDescription(rawEvent.description_fr, rawEvent.longdescription_fr),
     imageUrl: emptyToNull(rawEvent.image),
     startAt: rawEvent.firstdate_begin,
     endAt: emptyToNull(rawEvent.firstdate_end),

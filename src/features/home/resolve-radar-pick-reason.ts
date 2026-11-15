@@ -16,10 +16,11 @@ const MACHINE_OR_GENERIC_REASON =
   /^(singular|local-discovery|local discovery|high-appeal|headline-appeal|booking-available|billetterie|booking|reservation|ok|test)$/i;
 
 /**
- * Une modalité tarifaire n’est pas un argument culturel, même si elle cite un atelier.
+ * Les modalités tarifaires restent dans les informations pratiques. Ne pas
+ * confondre prix artistique / pourcentage descriptif avec un prix d'entrée.
  */
 const PRICING_ONLY_REASON =
-  /^(?:tarifs?\b|prix\b|co[uû]t\b|r[eé]duction\b|remise\b|adh[eé]sion\b|forfait\b|abonnement\b|paiement\b)|\b(?:tarif d[eé]gressif|tarifs? r[eé]duits?|\d+\s?(?:€|euros?)|\d+\s?%)/i;
+  /^(?:(?:le|les|un|une)\s+)?(?:tarifs?|co[uû]t|paiement|adh[eé]sion|abonnement|forfait)\b|\b(?:tarifs?|prix)\s+(?:d[eé]gressifs?|r[eé]duits?|libres?)\b|\bprix\s+(?:de\s+)?\d|\b\d+(?:[.,]\d+)?\s*(?:€|euros?\b)|\b(?:r[eé]duction|remise)\s+(?:de\s+)?\d|\b\d+\s*%\s*(?:de\s+)?(?:r[eé]duction|remise)/i;
 
 /** Informations logistiques déjà exposées dans la fiche. */
 const SHALLOW_PRACTICAL_REASON =
@@ -119,9 +120,6 @@ function buildSourceCorpus(event: EventItem): string {
     [
       event.title,
       event.description,
-      event.conditions,
-      event.venue,
-      event.city,
       event.genre,
       event.sourceCategory,
       event.category === "tout" ? "" : event.category,
@@ -137,7 +135,8 @@ function hasEditorialSubstance(reason: string): boolean {
 
 /**
  * La reason doit être traçable dans la fiche : assez de tokens significatifs
- * présents dans titre / description / conditions / lieu / catégorie.
+ * présents dans titre / description / genre / catégorie. Les conditions,
+ * la ville et le lieu ne suffisent pas à étayer une proposition culturelle.
  */
 function isGroundedInSource(reason: string, sourceCorpus: string): boolean {
   if (!sourceCorpus) return false;

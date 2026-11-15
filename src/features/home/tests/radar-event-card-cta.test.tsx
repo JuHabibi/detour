@@ -14,7 +14,6 @@ vi.mock("next/image", () => ({
 }));
 
 import {
-  resolveRadarCardCtaLabel,
   RadarEventCard,
 } from "@/features/home/components/cards/RadarEventCard";
 import { ExplorerEventCard } from "@/features/explorer/components/ExplorerEventCard";
@@ -40,7 +39,7 @@ function baseEvent(overrides: Partial<EventItem> = {}): EventItem {
 }
 
 describe("RadarEventCard — CTA Radar (indicateur, pas de bouton)", () => {
-  it("affiche « Pourquoi le repérer ? » quand une justification existe", () => {
+  it("affiche « Découvrir l’événement » même avec une justification", () => {
     const html = renderToStaticMarkup(
       createElement(RadarEventCard, {
         event: baseEvent(),
@@ -50,12 +49,10 @@ describe("RadarEventCard — CTA Radar (indicateur, pas de bouton)", () => {
     );
 
     expect(html).toContain('data-testid="radar-card-cta"');
-    expect(html).toContain('data-cta="why-pick"');
-    expect(html).toContain("Pourquoi le repérer ?");
-    expect(html).toContain("Comprendre « Pourquoi le repérer ? »");
-    expect(html).toContain("<details");
-    expect(html).toContain("<summary");
-    expect(html).toContain("Comme « Découvrir l’événement »");
+    expect(html).toContain('data-cta="discover"');
+    expect(html).toContain("Découvrir l’événement");
+    expect(html).not.toContain("Pourquoi le repérer ?");
+    expect(html).not.toContain("<details");
     expect(html).toContain("h-7");
     expect(html).toContain("h-[2.75rem]");
     expect(html).toContain("lucide-map-pin");
@@ -94,16 +91,5 @@ describe("RadarEventCard — CTA Radar (indicateur, pas de bouton)", () => {
     );
 
     expect(html).not.toContain('data-testid="radar-card-cta"');
-  });
-});
-
-describe("resolveRadarCardCtaLabel", () => {
-  it("bascule selon resolveRadarPickReason", () => {
-    expect(resolveRadarCardCtaLabel(baseEvent())).toBe("Pourquoi le repérer ?");
-    expect(
-      resolveRadarCardCtaLabel(
-        baseEvent({ id: "openagenda:77305621", radarAiReasons: undefined }),
-      ),
-    ).toBe("Découvrir l’événement");
   });
 });

@@ -1,9 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Info } from "lucide-react";
 import { formatWhen } from "@/components/event/format-when";
-import type { EventItem } from "@/data/types";
 import {
   canOpenEventDetail,
   CardFavoriteActions,
@@ -21,7 +19,6 @@ import {
   resolveNoImageCardTone,
   resolveSignal,
 } from "@/components/event/EventCardPresentation";
-import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import { cn } from "@/lib/cn";
 
 type RadarEventCardProps = HomeEventCardProps & {
@@ -126,7 +123,7 @@ function RadarImageEventCard({
           />
         </div>
 
-        <RadarCardCta event={event} />
+        <RadarCardCta />
       </div>
     </article>
   );
@@ -218,50 +215,23 @@ function RadarTextEventCard({
           {priceLabel ? (
             <p className="font-medium text-ink">{priceLabel}</p>
           ) : null}
-          <RadarCardCta event={event} />
+          <RadarCardCta />
         </div>
       </div>
     </article>
   );
 }
 
-export function resolveRadarCardCtaLabel(event: EventItem): string {
-  return resolveRadarPickReason(event)
-    ? "Pourquoi le repérer ?"
-    : "Découvrir l’événement";
-}
-
-function RadarCardCta({ event }: { event: EventItem }) {
-  const hasPickReason = Boolean(resolveRadarPickReason(event));
-  const label = resolveRadarCardCtaLabel(event);
-
+function RadarCardCta() {
   return (
     <div
       data-testid="radar-card-cta"
-      data-cta={hasPickReason ? "why-pick" : "discover"}
-      className="relative mt-3 flex h-7 shrink-0 items-center gap-1"
+      data-cta="discover"
+      className="relative mt-3 flex h-7 shrink-0 items-center"
     >
       <span aria-hidden="true" className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-sand underline decoration-coral/70 decoration-1 underline-offset-4">
-        {label}
+        Découvrir l’événement
       </span>
-      {hasPickReason ? (
-        <details className="group/help relative z-[3] shrink-0">
-          <summary
-            aria-label="Comprendre « Pourquoi le repérer ? »"
-            className="flex size-7 cursor-pointer list-none items-center justify-center text-sand hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink [&::-webkit-details-marker]:hidden"
-          >
-            <Info aria-hidden="true" className="size-4" />
-          </summary>
-          <div
-            role="note"
-            className="absolute bottom-full right-0 z-10 mb-2 w-[min(16rem,72vw)] border border-line bg-paper p-3 text-xs leading-5 text-ink shadow-lg"
-          >
-            Comme « Découvrir l’événement », ce lien ouvre la fiche.
-            Le regard Détour y explique ce qui a retenu notre attention,
-            sans noter l’événement ni prédire sa popularité.
-          </div>
-        </details>
-      ) : null}
     </div>
   );
 }

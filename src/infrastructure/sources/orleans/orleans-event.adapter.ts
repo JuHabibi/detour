@@ -15,6 +15,7 @@ const SELECT_FIELDS = [
   "uid",
   "title_fr",
   "description_fr",
+  "longdescription_fr",
   "image",
   "firstdate_begin",
   "firstdate_end",

@@ -96,6 +96,8 @@ describe("resolveRadarPickReason", () => {
     "Tarif dégressif à partir de 3 ateliers.",
     "Tarif réduit pour les ateliers d’écriture.",
     "Prix de 70 euros pour le cycle d'ateliers.",
+    "Le cycle d'ateliers coûte 70 €.",
+    "Une remise de 20% pour les ateliers d’écriture.",
   ])("rejette une justification purement tarifaire : %s", (pricing) => {
     expect(
       resolveRadarPickReason(
@@ -123,6 +125,28 @@ describe("resolveRadarPickReason", () => {
         }),
       ),
     ).toBe("Atelier d'écriture sur le thème de la ville et de ses récits.");
+  });
+
+  it.each([
+    "Un concert 100% acoustique mêlant guitare, voix et improvisation.",
+    "Un spectacle documentaire sur le coût de la vie et le travail.",
+    "Prix du public pour ce documentaire sur la création musicale.",
+    "Grand prix du jury pour ce film documentaire sur la danse.",
+    "Un atelier qui aborde l’écriture comme une déambulation autour de la ville, proposé par Bertrand Runtz.",
+  ])("préserve un angle culturel documenté : %s", (reason) => {
+    expect(resolveRadarPickReason(radarItem({
+      description: reason,
+      radarAiReasons: [reason],
+    }))).toBe(reason);
+  });
+
+  it("ne prend pas les conditions pratiques pour une preuve de contenu culturel", () => {
+    expect(resolveRadarPickReason(radarItem({
+      title: "Une ville de mots",
+      description: "Cycle hebdomadaire sur six semaines.",
+      conditions: "Ateliers et adhésion annuelle pour participer au cycle.",
+      radarAiReasons: ["Ateliers hebdomadaires pour participer au cycle."],
+    }))).toBeNull();
   });
 
   it("rejette gratuité seule", () => {
