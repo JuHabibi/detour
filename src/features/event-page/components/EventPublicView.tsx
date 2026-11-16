@@ -16,6 +16,7 @@ import type { EventItem } from "@/data/types";
 import { plainEventText } from "@/features/event-page/event-page-seo";
 import { cn } from "@/lib/cn";
 import { EventSchedule } from "@/components/event/EventSchedule";
+import { EventPracticalInfo } from "@/components/event/EventPracticalInfo";
 
 type EventPublicViewProps = {
   item: EventItem;
@@ -33,14 +34,11 @@ export function EventPublicView({
   const venue = item.venue?.trim() || null;
   const city = item.city?.trim() || null;
   const conditions = item.conditions?.trim() || null;
-  const availabilityLabel = item.availabilityBadge?.trim() || null;
+  const availabilityLabel = isEnded ? null : item.availabilityBadge?.trim() || null;
   const source = item.source?.trim() || null;
   const official = isEnded ? null : resolveOfficialSourceLink(item);
   const endedOfficial = isEnded ? resolveEndedSourceLink(item) : null;
   const cta = official ?? endedOfficial;
-  const hasPracticalInfo = Boolean(
-    priceLabel || availabilityLabel || conditions,
-  );
 
   return (
     <article className="mx-auto w-full max-w-2xl px-5 pb-16 pt-8 md:px-8">
@@ -114,34 +112,11 @@ export function EventPublicView({
 
       <EventSchedule event={item} />
 
-      {hasPracticalInfo ? (
-        <div
-          data-testid="event-practical"
-          className="mt-5 space-y-1.5 border-t border-line/70 pt-4 text-sm"
-        >
-          {priceLabel ? (
-            <p data-testid="event-price" className="font-medium text-ink">
-              {priceLabel}
-            </p>
-          ) : null}
-          {availabilityLabel && !isEnded ? (
-            <p
-              data-testid="event-availability"
-              className="font-semibold uppercase tracking-[0.06em] text-coral"
-            >
-              {availabilityLabel}
-            </p>
-          ) : null}
-          {conditions ? (
-            <p
-              data-testid="event-conditions"
-              className="leading-6 text-cream-dim"
-            >
-              {conditions}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+      <EventPracticalInfo
+        priceLabel={priceLabel}
+        availabilityLabel={availabilityLabel}
+        conditions={conditions}
+      />
 
       {description ? (
         <div

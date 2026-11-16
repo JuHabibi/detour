@@ -5,6 +5,7 @@ import {
   resolveExplicitFrenchDateList,
 } from "@/infrastructure/sources/shared/french-dates";
 import { wallTimeToIso } from "@/infrastructure/sources/shared/wall-time";
+import { resolveSourceDescription } from "@/infrastructure/sources/shared/source-description";
 import type {
   IngreAgendaDetail,
   IngreAgendaExclusion,
@@ -177,7 +178,7 @@ export function mapIngreAgendaDetailToDetourEvent(
     event: {
       id: `ingre-agenda:${detail.nid}`,
       title: detail.title.trim(),
-      description: detail.teaser ?? detail.bodyText,
+      description: resolveSourceDescription(detail.teaser, detail.bodyText),
       imageUrl: detail.imageUrl,
       startAt: effectiveBounds.startAt,
       endAt: effectiveBounds.endAt,
@@ -513,8 +514,10 @@ function buildConditions(detail: IngreAgendaDetail): string | null {
   if (detail.gratuit) {
     const g = detail.gratuit.trim().toLowerCase();
     if (g === "oui" || g === "yes") parts.push("Gratuit");
-    else if (g === "non" || g === "no") parts.push("Payant");
-    else parts.push(detail.gratuit.trim());
+    // Ce champ négatif est parfois contredit par « Entrée gratuite » dans le
+    // corps source. Ne pas en déduire « Payant » ; conserver les précisions
+    // tarifaires dans la description complète, sans les réinterpréter.
+    else if (g !== "non" && g !== "no") parts.push(detail.gratuit.trim());
   }
   if (detail.publicLabel) parts.push(detail.publicLabel.trim());
   return parts.length > 0 ? parts.join(" · ") : null;

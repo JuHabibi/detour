@@ -1,5 +1,6 @@
 "use client";
 import { EventSchedule } from "./EventSchedule";
+import { EventPracticalInfo } from "./EventPracticalInfo";
 
 import Image from "next/image";
 import { useId, useRef } from "react";
@@ -174,35 +175,12 @@ export function EventDetailModal({
           </div>
 
           <EventSchedule event={event} />
-          {/* Infos déjà disponibles uniquement — pas d’invention */}
-          {hasPracticalInfo ? (
-            <div
-              data-testid="event-practical"
-              className="mt-4 space-y-1.5 border-t border-line/70 pt-3 text-sm"
-            >
-              {priceLabel ? (
-                <p data-testid="event-price" className="font-medium text-ink">
-                  {priceLabel}
-                </p>
-              ) : null}
-              {availabilityLabel ? (
-                <p
-                  data-testid="event-availability"
-                  className="font-semibold uppercase tracking-[0.06em] text-coral"
-                >
-                  {availabilityLabel}
-                </p>
-              ) : null}
-              {conditions ? (
-                <p
-                  data-testid="event-conditions"
-                  className="leading-6 text-cream-dim"
-                >
-                  {conditions}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
+          <EventPracticalInfo
+            priceLabel={priceLabel}
+            availabilityLabel={availabilityLabel}
+            conditions={conditions}
+            className="mt-4 pt-3"
+          />
 
           {pickReason ? (
             <div
