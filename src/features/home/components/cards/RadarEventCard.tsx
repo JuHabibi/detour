@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { formatWhen } from "@/components/event/format-when";
 import type { EventItem } from "@/data/types";
+import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
+import { formatWhen } from "@/components/event/format-when";
 import {
   canOpenEventDetail,
   CardFavoriteActions,
@@ -20,7 +21,6 @@ import {
   resolveNoImageCardTone,
   resolveSignal,
 } from "@/components/event/EventCardPresentation";
-import { resolveRadarPickReason } from "@/features/home/resolve-radar-pick-reason";
 import { cn } from "@/lib/cn";
 
 type RadarEventCardProps = HomeEventCardProps & {
@@ -224,25 +224,18 @@ function RadarTextEventCard({
   );
 }
 
-export function resolveRadarCardCtaLabel(event: EventItem): string {
-  return resolveRadarPickReason(event)
-    ? "Pourquoi le repérer ?"
-    : "Découvrir l’événement";
-}
-
 function RadarCardCta({ event }: { event: EventItem }) {
+  // Même justification que celle affichée dans la modale : le libellé
+  // éditorial n'est proposé que si le regard passe les contrôles de qualité.
   const hasPickReason = Boolean(resolveRadarPickReason(event));
-  const label = resolveRadarCardCtaLabel(event);
-
   return (
     <div
-      aria-hidden
       data-testid="radar-card-cta"
       data-cta={hasPickReason ? "why-pick" : "discover"}
-      className="mt-3 flex h-7 shrink-0 items-center"
+      className="relative mt-3 flex h-7 shrink-0 items-center"
     >
-      <span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-sand underline decoration-coral/70 decoration-1 underline-offset-4">
-        {label}
+      <span aria-hidden="true" className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-sand underline decoration-coral/70 decoration-1 underline-offset-4">
+        {hasPickReason ? "Pourquoi le repérer ?" : "Découvrir l’événement"}
       </span>
     </div>
   );

@@ -14,7 +14,6 @@ vi.mock("next/image", () => ({
 }));
 
 import {
-  resolveRadarCardCtaLabel,
   RadarEventCard,
 } from "@/features/home/components/cards/RadarEventCard";
 import { ExplorerEventCard } from "@/features/explorer/components/ExplorerEventCard";
@@ -40,7 +39,7 @@ function baseEvent(overrides: Partial<EventItem> = {}): EventItem {
 }
 
 describe("RadarEventCard — CTA Radar (indicateur, pas de bouton)", () => {
-  it("affiche « Pourquoi le repérer ? » quand une justification existe", () => {
+  it("affiche « Pourquoi le repérer ? » avec une justification", () => {
     const html = renderToStaticMarkup(
       createElement(RadarEventCard, {
         event: baseEvent(),
@@ -52,6 +51,8 @@ describe("RadarEventCard — CTA Radar (indicateur, pas de bouton)", () => {
     expect(html).toContain('data-testid="radar-card-cta"');
     expect(html).toContain('data-cta="why-pick"');
     expect(html).toContain("Pourquoi le repérer ?");
+    expect(html).not.toContain("Découvrir l’événement");
+    expect(html).not.toContain("<details");
     expect(html).toContain("h-7");
     expect(html).toContain("h-[2.75rem]");
     expect(html).toContain("lucide-map-pin");
@@ -77,8 +78,44 @@ describe("RadarEventCard — CTA Radar (indicateur, pas de bouton)", () => {
 
     expect(html).toContain('data-cta="discover"');
     expect(html).toContain("Découvrir l’événement");
+    expect(html).not.toContain("<details");
     expect(html).toContain("h-7");
   });
+
+  it.each(["https://example.com/poster.jpg", undefined])(
+    "lie le libellé à une raison publiable, avec ou sans image : %s",
+    (image) => {
+      const event = baseEvent({
+        id: "openagenda:55237041",
+        image,
+        title: "Une ville de mots",
+        description: "Atelier d’écriture en forme de déambulation autour de la ville.",
+        conditions: "Tarif dégressif à partir de 3 ateliers.",
+      });
+      const render = (radarAiReasons: string[]) => renderToStaticMarkup(
+        createElement(RadarEventCard, {
+          event: { ...event, radarAiReasons },
+          onOpenDetail: () => undefined,
+        }),
+      );
+
+      const pricing = render(["Tarif dégressif à partir de 3 ateliers."]);
+      expect(pricing).toContain('data-cta="discover"');
+      expect(pricing).not.toContain("Pourquoi le repérer ?");
+
+      const cultural = render([
+        "Tarif dégressif à partir de 3 ateliers.",
+        "Atelier d’écriture en forme de déambulation autour de la ville.",
+      ]);
+      expect(cultural).toContain('data-cta="why-pick"');
+      expect(cultural).toContain("Pourquoi le repérer ?");
+      expect(cultural).not.toContain("<details");
+
+      const unsupported = render(["Concert enregistré pour un album live."]);
+      expect(unsupported).toContain('data-cta="discover"');
+      expect(unsupported).not.toContain("Pourquoi le repérer ?");
+    },
+  );
 
   it("n’affiche pas le CTA Radar dans Explorer", () => {
     const html = renderToStaticMarkup(
@@ -89,16 +126,5 @@ describe("RadarEventCard — CTA Radar (indicateur, pas de bouton)", () => {
     );
 
     expect(html).not.toContain('data-testid="radar-card-cta"');
-  });
-});
-
-describe("resolveRadarCardCtaLabel", () => {
-  it("bascule selon resolveRadarPickReason", () => {
-    expect(resolveRadarCardCtaLabel(baseEvent())).toBe("Pourquoi le repérer ?");
-    expect(
-      resolveRadarCardCtaLabel(
-        baseEvent({ id: "openagenda:77305621", radarAiReasons: undefined }),
-      ),
-    ).toBe("Découvrir l’événement");
   });
 });

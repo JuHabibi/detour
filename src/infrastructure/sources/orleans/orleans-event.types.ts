@@ -3,6 +3,8 @@ export type OrleansRawEvent = {
   uid: string;
   title_fr: string | null;
   description_fr: string | null;
+  /** Description éditoriale complète OpenAgenda, au format HTML. */
+  longdescription_fr?: string | null;
   image: string | null;
   firstdate_begin: string | null;
   firstdate_end: string | null;
