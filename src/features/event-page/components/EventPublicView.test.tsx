@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { EventItem } from "@/data/types";
 import { EventPublicView } from "@/features/event-page/components/EventPublicView";
+import { EventDetailModal } from "@/components/event/EventDetailModal";
 
 vi.mock("next/image", () => ({
   default: function MockImage(props: {
@@ -35,6 +36,46 @@ function item(overrides: Partial<EventItem> = {}): EventItem {
 }
 
 describe("EventPublicView", () => {
+  it.each([
+    "70€ le cycle de 6 semaines (dégressif à partir de 3 ateliers) + adhésion 15€",
+    "2 euros par personne — gratuit pour les étudiants. Sans réservation ni inscription préalable.",
+    "18 mois à 5 ans.\nGratuit sur réservation.",
+  ])("fiche et modale conservent intégralement les conditions : %s", (conditions) => {
+    const event = item({ conditions });
+    const views = [
+      renderToStaticMarkup(createElement(EventPublicView, { item: event, isEnded: false })),
+      renderToStaticMarkup(createElement(EventDetailModal, {
+        event, surface: "explorer", onClose: () => undefined,
+      })),
+    ];
+    for (const html of views) {
+      expect(html).toContain("Informations pratiques");
+      expect(html).toContain(conditions);
+      expect(html).not.toContain('data-testid="event-price"');
+      expect(html.indexOf('data-testid="event-practical"')).toBeLessThan(html.indexOf('data-testid="event-about"'));
+    }
+  });
+
+  it("ne laisse pas de rubrique pratique vide après expiration d’un badge de disponibilité", () => {
+    const html = renderToStaticMarkup(createElement(EventPublicView, {
+      item: item({ availabilityBadge: "Complet", availabilityStatus: "sold_out" }),
+      isEnded: true,
+    }));
+    expect(html).not.toContain('data-testid="event-practical"');
+    expect(html).not.toContain("Informations pratiques");
+    expect(html).not.toContain("Complet");
+  });
+
+  it("conserve les conditions d’un événement terminé, sans son ancien badge", () => {
+    const html = renderToStaticMarkup(createElement(EventPublicView, {
+      item: item({ conditions: "Sur réservation", availabilityBadge: "Complet" }),
+      isEnded: true,
+    }));
+    expect(html).toContain("Informations pratiques");
+    expect(html).toContain("Sur réservation");
+    expect(html).not.toContain("Complet");
+  });
+
   it.each([
     ["sold_out_online", "Complet en ligne"],
     ["sold_out", "Complet"],

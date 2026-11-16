@@ -117,6 +117,65 @@ describe("ingre-agenda list parser", () => {
 });
 
 describe("ingre-agenda detail parser + mapper", () => {
+  it("conserve les précisions du corps même en présence d’une accroche", () => {
+    const mapped = mapIngreAgendaDetailToDetourEvent(parseIngreAgendaDetail(detailShell({
+      nid: "9001",
+      title: "Zumba solidaire",
+      extra: '<div class="field-ads-accroche">Zumba au profit du Téléthon</div>',
+      body: "10h – 10h45 : Zumba en famille, dès 5 ans avec un parent. 11h – 12h : Zumba classique. Inscription obligatoire.",
+    })));
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) throw new Error("Expected mapped event");
+    expect(mapped.event.description).toBe("Zumba au profit du Téléthon. 10h – 10h45 : Zumba en famille, dès 5 ans avec un parent. 11h – 12h : Zumba classique. Inscription obligatoire.");
+  });
+
+  it.each([
+    ["Atelier familial", "", "Atelier familial"],
+    ["", "Dès 5 ans, accompagné d’un adulte.", "Dès 5 ans, accompagné d’un adulte."],
+    ["Atelier familial", "Atelier familial. Sur inscription.", "Atelier familial. Sur inscription."],
+    ["", "", null],
+  ])("description : accroche %j et corps %j", (teaser, body, expected) => {
+    const mapped = mapIngreAgendaDetailToDetourEvent(parseIngreAgendaDetail(detailShell({
+      nid: "9002", body,
+      extra: `<div class="field-ads-accroche">${teaser}</div>`,
+    })));
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) throw new Error("Expected mapped event");
+    expect(mapped.event.description).toBe(expected);
+  });
+
+  it.each(["non", "no", " Non "])("ne déduit pas Payant d’un champ gratuit=%j contredit par le texte", (gratuit) => {
+    const mapped = mapIngreAgendaDetailToDetourEvent(parseIngreAgendaDetail(detailShell({
+      nid: "9003",
+      body: "Projection suivie d’un débat. Tarif : Entrée gratuite.",
+      extra: `<div class="field-ads-accroche">Soirée alimentation</div>
+        <ul class="field-ads-agenda-gratuit"><li>${gratuit}</li></ul>
+        <ul class="field-ads-agenda-public"><li>Tous publics</li></ul>`,
+    })));
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) throw new Error("Expected mapped event");
+    expect(mapped.event.description).toContain("Tarif : Entrée gratuite.");
+    expect(mapped.event.conditions).toBe("Tous publics");
+  });
+
+  it.each([
+    ["non", "", null],
+    ["non", "Tarif : 12 €. Gratuit pour les étudiants.", null],
+    ["oui", "Sur réservation.", "Gratuit"],
+    ["yes", "Sur réservation.", "Gratuit"],
+    ["Gratuit pour les étudiants", "", "Gratuit pour les étudiants"],
+    ["Tarif : 12 €", "", "Tarif : 12 €"],
+  ])("préserve les mentions explicites sans inventer de tarif (%j)", (gratuit, body, conditions) => {
+    const mapped = mapIngreAgendaDetailToDetourEvent(parseIngreAgendaDetail(detailShell({
+      nid: "9004", body,
+      extra: `<ul class="field-ads-agenda-gratuit"><li>${gratuit}</li></ul>`,
+    })));
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) throw new Error("Expected mapped event");
+    expect(mapped.event.conditions).toBe(conditions);
+    expect(mapped.event.description).toBe(body || null);
+  });
+
   it("conserve les deux dates explicites du yoga, sans inventer les horaires du texte libre", () => {
     const mapped = mapIngreAgendaDetailToDetourEvent(
       parseIngreAgendaDetail(fixture("detail-yoga-distinct-dates.html")),
